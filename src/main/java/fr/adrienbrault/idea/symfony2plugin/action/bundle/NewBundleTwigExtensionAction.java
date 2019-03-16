@@ -1,17 +1,18 @@
 package fr.adrienbrault.idea.symfony2plugin.action.bundle;
 
+import java.util.HashMap;
+
+import javax.swing.JOptionPane;
+
+import org.jetbrains.annotations.NotNull;
 import com.intellij.openapi.application.Result;
 import com.intellij.openapi.command.WriteCommandAction;
 import com.intellij.openapi.fileEditor.OpenFileDescriptor;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiElement;
-import com.jetbrains.php.lang.psi.elements.PhpClass;
+import consulo.php.lang.psi.PhpClass;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
 import fr.adrienbrault.idea.symfony2plugin.util.psi.PhpBundleFileFactory;
-import org.jetbrains.annotations.NotNull;
-
-import javax.swing.*;
-import java.util.HashMap;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>

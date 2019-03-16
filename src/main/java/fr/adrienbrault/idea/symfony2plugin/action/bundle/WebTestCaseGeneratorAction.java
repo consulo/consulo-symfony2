@@ -1,5 +1,10 @@
 package fr.adrienbrault.idea.symfony2plugin.action.bundle;
 
+import java.util.HashMap;
+
+import javax.swing.JOptionPane;
+
+import org.jetbrains.annotations.NotNull;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.CommonDataKeys;
 import com.intellij.openapi.application.Result;
@@ -11,17 +16,13 @@ import com.intellij.openapi.vfs.VfsUtil;
 import com.intellij.psi.PsiDirectory;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
-import com.jetbrains.php.lang.psi.PhpFile;
 import com.jetbrains.php.lang.psi.PhpPsiUtil;
-import com.jetbrains.php.lang.psi.elements.PhpClass;
+import consulo.php.lang.psi.PhpClass;
+import consulo.php.lang.psi.PhpFile;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.action.AbstractProjectDumbAwareAction;
 import fr.adrienbrault.idea.symfony2plugin.util.psi.PhpBundleFileFactory;
-import org.jetbrains.annotations.NotNull;
-
-import javax.swing.*;
-import java.util.HashMap;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>

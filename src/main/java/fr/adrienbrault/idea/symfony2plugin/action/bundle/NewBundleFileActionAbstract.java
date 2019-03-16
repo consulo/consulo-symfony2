@@ -1,18 +1,19 @@
 package fr.adrienbrault.idea.symfony2plugin.action.bundle;
 
+import javax.swing.Icon;
+import javax.swing.JOptionPane;
+
+import org.apache.commons.lang.StringUtils;
+import org.jetbrains.annotations.NotNull;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.psi.PsiDirectory;
-import com.jetbrains.php.lang.psi.elements.PhpClass;
 import com.jetbrains.php.refactoring.PhpNameUtil;
+import consulo.php.lang.psi.PhpClass;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.action.AbstractProjectDumbAwareAction;
-import org.apache.commons.lang.StringUtils;
-import org.jetbrains.annotations.NotNull;
-
-import javax.swing.*;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>

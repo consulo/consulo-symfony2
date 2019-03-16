@@ -1,5 +1,14 @@
 package fr.adrienbrault.idea.symfony2plugin.util.psi;
 
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Map;
+
+import javax.swing.JOptionPane;
+
+import org.apache.commons.lang.StringUtils;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import com.intellij.codeInsight.hint.HintManager;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.project.Project;
@@ -21,16 +30,9 @@ import com.jetbrains.php.lang.psi.PhpPsiUtil;
 import com.jetbrains.php.lang.psi.elements.*;
 import com.jetbrains.php.refactoring.PhpAliasImporter;
 import com.jetbrains.php.refactoring.PhpNameUtil;
+import consulo.php.lang.psi.PhpClass;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
-import org.apache.commons.lang.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
-import javax.swing.*;
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.Map;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
