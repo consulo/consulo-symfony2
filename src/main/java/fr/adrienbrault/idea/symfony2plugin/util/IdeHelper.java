@@ -8,6 +8,7 @@ import com.intellij.openapi.application.ex.ApplicationManagerEx;
 import com.intellij.openapi.fileEditor.OpenFileDescriptor;
 import com.intellij.openapi.fileTypes.FileType;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vfs.VfsUtil;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.wm.ex.WindowManagerEx;
@@ -17,7 +18,6 @@ import com.intellij.psi.codeStyle.CodeStyleManager;
 import com.intellij.util.ui.UIUtil;
 import fr.adrienbrault.idea.symfony2plugin.Settings;
 import fr.adrienbrault.idea.symfony2plugin.SettingsForm;
-import org.apache.commons.lang.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -57,7 +57,7 @@ public class IdeHelper {
         }
 
         String[] filenameSplit = fileNameWithPath.split("/");
-        String pathString = StringUtils.join(Arrays.copyOf(filenameSplit, filenameSplit.length - 1), "/");
+        String pathString = StringUtil.join(Arrays.copyOf(filenameSplit, filenameSplit.length - 1), "/");
 
         VirtualFile twigDirectory = VfsUtil.findRelativeFile(root, filenameSplit);
         if(twigDirectory != null) {
