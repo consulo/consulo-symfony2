@@ -19,7 +19,7 @@ import fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.type.util.DoctrineM
 import fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.util.DoctrineMetadataUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.yaml.psi.YAMLKeyValue;
@@ -61,7 +61,11 @@ public class DoctrineTypeGotoCompletionRegistrar implements GotoCompletionRegist
 
         // <field name="id" />
         registrar.register(
-            XmlPatterns.psiElement().withParent(XmlPatterns.or(DoctrineMetadataPattern.getFieldName(), DoctrineMetadataPattern.getFieldNameRelation())), psiElement -> new MyFieldNameGotoCompletionProvider(psiElement) {
+            XmlPatterns.psiElement().withParent(XmlPatterns.or(
+                DoctrineMetadataPattern.getFieldName(),
+                DoctrineMetadataPattern.getFieldNameRelation(),
+                DoctrineMetadataPattern.getEmbeddedPropertyName()
+            )), psiElement -> new MyFieldNameGotoCompletionProvider(psiElement) {
                 @Nullable
                 @Override
                 protected String getElementText(@NotNull PsiElement element) {

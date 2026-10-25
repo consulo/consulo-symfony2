@@ -37,11 +37,9 @@ public class MethodParameterReferenceContributor extends PsiReferenceContributor
         psiReferenceRegistrar.registerReferenceProvider(
             PlatformPatterns.psiElement(StringLiteralExpression.class),
             new PsiReferenceProvider() {
-
                 @NotNull
                 @Override
-                public PsiReference[] getReferencesByElement(@NotNull PsiElement psiElement, @NotNull ProcessingContext processingContext) {
-
+                public PsiReference @NotNull [] getReferencesByElement(@NotNull PsiElement psiElement, @NotNull ProcessingContext processingContext) {
                     if (!Symfony2ProjectComponent.isEnabled(psiElement)) {
                         return new PsiReference[0];
                     }
@@ -57,11 +55,9 @@ public class MethodParameterReferenceContributor extends PsiReferenceContributor
                         return new PsiReference[0];
                     }
 
-                    if(!(parameterList.getContext() instanceof MethodReference)) {
+                    if(!(parameterList.getContext() instanceof MethodReference method)) {
                         return new PsiReference[0];
                     }
-
-                    MethodReference method = (MethodReference) parameterList.getContext();
 
                     List<PsiReference> psiReferences = new ArrayList<>();
 
@@ -87,9 +83,13 @@ public class MethodParameterReferenceContributor extends PsiReferenceContributor
 
                     }
 
-                    return psiReferences.toArray(new PsiReference[psiReferences.size()]);
+                    return psiReferences.toArray(new PsiReference[0]);
                 }
 
+                @Override
+                public boolean acceptsTarget(@NotNull PsiElement target) {
+                    return Symfony2ProjectComponent.isEnabled(target);
+                }
 
                 private Collection<MethodParameterSetting> getInternalMethodParameterSetting() {
                     Collection<MethodParameterSetting> methodParameterSettings = new ArrayList<>();

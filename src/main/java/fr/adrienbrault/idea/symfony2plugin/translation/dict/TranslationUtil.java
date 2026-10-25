@@ -6,38 +6,39 @@ import com.intellij.openapi.util.Pair;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiManager;
 import com.intellij.psi.search.GlobalSearchScope;
-import com.intellij.psi.util.PsiTreeUtil;
 import com.intellij.psi.xml.XmlFile;
 import com.intellij.psi.xml.XmlTag;
 import com.intellij.util.Consumer;
 import com.intellij.util.indexing.FileBasedIndex;
-import com.jetbrains.php.PhpIndex;
-import fr.adrienbrault.idea.symfony2plugin.stubs.SymfonyProcessors;
+import com.jetbrains.php.lang.psi.PhpFile;
+import com.jetbrains.php.lang.psi.elements.*;
+import fr.adrienbrault.idea.symfony2plugin.extension.TranslatorProvider;
+import fr.adrienbrault.idea.symfony2plugin.extension.TranslatorProviderDict;
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.TranslationStubIndex;
-import fr.adrienbrault.idea.symfony2plugin.translation.TranslationIndex;
+import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.visitor.TranslationArrayReturnVisitor;
+import fr.adrienbrault.idea.symfony2plugin.translation.TranslationKeyTargetFakePsiNavigationItem;
 import fr.adrienbrault.idea.symfony2plugin.translation.TranslatorLookupElement;
-import fr.adrienbrault.idea.symfony2plugin.translation.collector.YamlTranslationCollector;
 import fr.adrienbrault.idea.symfony2plugin.translation.collector.YamlTranslationVisitor;
 import fr.adrienbrault.idea.symfony2plugin.translation.parser.DomainMappings;
-import fr.adrienbrault.idea.symfony2plugin.translation.parser.TranslationStringMap;
+import fr.adrienbrault.idea.symfony2plugin.translation.provider.CompiledContainerTranslatorProvider;
+import fr.adrienbrault.idea.symfony2plugin.translation.provider.CompiledTranslatorProvider;
+import fr.adrienbrault.idea.symfony2plugin.translation.provider.IndexTranslatorProvider;
 import fr.adrienbrault.idea.symfony2plugin.util.MethodMatcher;
+import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
+import fr.adrienbrault.idea.symfony2plugin.util.ProjectUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
 import fr.adrienbrault.idea.symfony2plugin.util.service.ServiceXmlParserFactory;
-import org.apache.commons.lang.StringUtils;
+import fr.adrienbrault.idea.symfony2plugin.util.xml.SecureXmlUtil;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.yaml.YAMLFileType;
-import org.jetbrains.yaml.YAMLUtil;
-import org.jetbrains.yaml.psi.YAMLDocument;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.yaml.psi.YAMLFile;
-import org.jetbrains.yaml.psi.YAMLKeyValue;
 import org.jetbrains.yaml.psi.YAMLScalar;
 import org.w3c.dom.*;
 import org.xml.sax.SAXException;
 
 import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathExpression;
@@ -46,6 +47,7 @@ import javax.xml.xpath.XPathFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -54,12 +56,22 @@ import java.util.stream.Collectors;
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class TranslationUtil {
-    public static MethodMatcher.CallToSignature[] PHP_TRANSLATION_SIGNATURES = new MethodMatcher.CallToSignature[] {
+    private static final TranslatorProvider[] INTERNAL_TRANSLATOR_PROVIDERS = new TranslatorProvider[]{
+        new CompiledContainerTranslatorProvider(),
+        new CompiledTranslatorProvider(),
+        new IndexTranslatorProvider(),
+    };
+
+    public static final MethodMatcher.CallToSignature[] PHP_TRANSLATION_SIGNATURES = new MethodMatcher.CallToSignature[] {
         new MethodMatcher.CallToSignature("\\Symfony\\Component\\Translation\\TranslatorInterface", "trans"),
         new MethodMatcher.CallToSignature("\\Symfony\\Component\\Translation\\TranslatorInterface", "transChoice"),
         new MethodMatcher.CallToSignature("\\Symfony\\Contracts\\Translation\\TranslatorInterface", "trans"),
-        new MethodMatcher.CallToSignature("\\Symfony\\Contracts\\Translation\\TranslatorInterface", "transChoice")
+        new MethodMatcher.CallToSignature("\\Symfony\\Contracts\\Translation\\TranslatorInterface", "transChoice"),
+        new MethodMatcher.CallToSignature("\\Symfony\\Bundle\\FrameworkBundle\\Templating\\Helper\\TranslatorHelper", "trans"),
+        new MethodMatcher.CallToSignature("\\Symfony\\Bundle\\FrameworkBundle\\Templating\\Helper\\TranslatorHelper", "transChoice")
     };
+
+    public static final String PHP_TRANSLATION_TRANSLATABLE_MESSAGE = "\\Symfony\\Component\\Translation\\TranslatableMessage";
 
     private static final String[] XLIFF_XPATH = {
         "//xliff/file/body/trans-unit/source",
@@ -67,93 +79,108 @@ public class TranslationUtil {
         "//xliff/file/unit/segment/source"
     };
 
-    static public VirtualFile[] getDomainFilePsiElements(Project project, String domainName) {
-
+    public static Collection<VirtualFile> getDomainFilesFromCompiledContainer(@NotNull Project project, @NotNull String domainName) {
         DomainMappings domainMappings = ServiceXmlParserFactory.getInstance(project, DomainMappings.class);
-        List<VirtualFile> virtualFiles = new ArrayList<>();
+        Collection<VirtualFile> virtualFiles = new ArrayList<>();
 
-        for(DomainFileMap domain: domainMappings.getDomainFileMaps()) {
-            if(domain.getDomain().equals(domainName)) {
-                VirtualFile virtualFile = domain.getFile();
-                if(virtualFile != null) {
-                    virtualFiles.add(virtualFile);
-                }
+        for(DomainFileMap domain: domainMappings.getDomainFileMaps(domainName)) {
+            VirtualFile virtualFile = domain.getFile();
+            if(virtualFile != null) {
+                virtualFiles.add(virtualFile);
             }
         }
 
-        return virtualFiles.toArray(new VirtualFile[virtualFiles.size()]);
+        return virtualFiles;
     }
 
-    public static PsiElement[] getTranslationPsiElements(final Project project, final String translationKey, final String domain) {
-        List<PsiElement> psiFoundElements = new ArrayList<>();
-        List<VirtualFile> virtualFilesFound = new ArrayList<>();
+    /**
+     * Get targets for translation based on the domain path inside the compiled container
+     *
+     * TODO: completely remove this? support translation paths from service compiler
+     */
+    public static Collection<PsiElement> getTranslationKeyFromCompiledContainerDomain(@NotNull Project project, @NotNull String domain, @NotNull String translationKey) {
+        Collection<PsiElement> psiFoundElements = new ArrayList<>();
 
-        // @TODO: completely remove this? support translation paths from service compiler
         // search for available domain files
-        for(VirtualFile translationVirtualFile : getDomainFilePsiElements(project, domain)) {
-            if(translationVirtualFile.getFileType() != YAMLFileType.YML) {
-                continue;
-            }
-
-            PsiFile psiFile = PsiElementUtils.virtualFileToPsiFile(project, translationVirtualFile);
-            if(psiFile instanceof YAMLFile) {
-                PsiElement yamlDocu = PsiTreeUtil.findChildOfType(psiFile, YAMLDocument.class);
-                if(yamlDocu != null) {
-                    YAMLKeyValue goToPsi = YAMLUtil.getQualifiedKeyInFile((YAMLFile) psiFile, translationKey.split("\\."));
-                    if(goToPsi != null) {
-                        // multiline are line values are not resolve properly on psiElements use key as fallback target
-                        PsiElement valuePsiElement = goToPsi.getValue();
-                        psiFoundElements.add(valuePsiElement != null ? valuePsiElement : goToPsi);
-                        virtualFilesFound.add(translationVirtualFile);
-                    }
-                }
-            }
+        for(PsiFile psiFile : PsiElementUtils.convertVirtualFilesToPsiFiles(project, TranslationUtil.getDomainFilesFromCompiledContainer(project, domain))) {
+            psiFoundElements.addAll(getTranslationKeyTargetInsideFile(psiFile, domain, translationKey));
         }
 
-        // collect on index
-        final YamlTranslationCollector translationCollector = (keyName, yamlKeyValue) -> {
-            if (keyName.equals(translationKey)) {
+        return psiFoundElements;
+    }
 
-                // multiline "line values" are not resolve properly on psiElements use key as fallback target
-                PsiElement valuePsiElement = yamlKeyValue.getValue();
-                psiFoundElements.add(valuePsiElement != null ? valuePsiElement : yamlKeyValue);
+    public static boolean hasDomainInsideCompiledContainer(@NotNull Project project, @NotNull String domainName) {
+        DomainMappings domainMappings = ServiceXmlParserFactory.getInstance(project, DomainMappings.class);
+        return domainMappings.hasDomain(domainName);
+    }
 
-                return false;
-            }
+    static public Collection<String> getDomainsFromContainer(@NotNull Project project) {
+        DomainMappings domainMappings = ServiceXmlParserFactory.getInstance(project, DomainMappings.class);
 
-            return true;
-        };
+        return domainMappings.getDomains();
+    }
 
-        FileBasedIndex.getInstance().getFilesWithKey(TranslationStubIndex.KEY, new HashSet<>(Collections.singletonList(domain)), virtualFile -> {
-            // prevent duplicate targets and dont walk same file twice
-            if(virtualFilesFound.contains(virtualFile)) {
+    /**
+     * Find a target translation key based on all supported formats
+     */
+    public static Collection<PsiElement> getTranslationKeyTargetInsideFile(@NotNull PsiFile psiFile, @NotNull String domain, @NotNull String translationKey) {
+        Set<PsiElement> elements = new HashSet<>();
+
+        if(psiFile instanceof YAMLFile) {
+            // collect on yaml keys
+            YamlTranslationVisitor.collectFileTranslations((YAMLFile) psiFile, (keyName, yamlKeyValue) -> {
+                if (keyName.equals(translationKey)) {
+                    // multiline "line values" are not resolve properly on psiElements use key as fallback target
+                    PsiElement valuePsiElement = yamlKeyValue.getValue();
+                    elements.add(valuePsiElement != null ? valuePsiElement : yamlKeyValue);
+
+                    return false;
+                }
+
                 return true;
-            }
+            });
+        } else if(psiFile instanceof PhpFile) {
+            TranslationArrayReturnVisitor.visitPhpReturn((PhpFile) psiFile, pair -> {
+                if (translationKey.equals(pair.getFirst())) {
+                    elements.add(pair.getSecond());
+                }
+            });
+        } else if(TranslationUtil.isSupportedXlfFile(psiFile)) {
+            // fine: xlf registered as XML file. try to find source value
+            elements.addAll(TranslationUtil.getTargetForXlfAsXmlFile((XmlFile) psiFile, translationKey));
+        } else if(("xlf".equalsIgnoreCase(psiFile.getVirtualFile().getExtension()) || "xliff".equalsIgnoreCase(psiFile.getVirtualFile().getExtension()))) {
+            // xlf are plain text because not supported by jetbrains
+            // for now we can only set file target
+            Project project = psiFile.getProject();
+            elements.addAll(FileBasedIndex.getInstance()
+                .getValues(TranslationStubIndex.KEY, domain, GlobalSearchScope.filesScope(project, Collections.singletonList(psiFile.getVirtualFile()))).stream()
+                .filter(string -> string.contains(translationKey)).map(string -> psiFile)
+                .toList()
+            );
+        }
 
-            PsiFile psiFile = PsiManager.getInstance(project).findFile(virtualFile);
-            if(psiFile == null) {
-                return true;
-            }
+        return elements;
+    }
 
-            if(psiFile instanceof YAMLFile) {
-                YamlTranslationVisitor.collectFileTranslations((YAMLFile) psiFile, translationCollector);
-            } else if(isSupportedXlfFile(psiFile)) {
-                // fine: xlf registered as XML file. try to find source value
-                psiFoundElements.addAll(getTargetForXlfAsXmlFile((XmlFile) psiFile, translationKey));
-            } else if(("xlf".equalsIgnoreCase(virtualFile.getExtension()) || "xliff".equalsIgnoreCase(virtualFile.getExtension()))) {
-                // xlf are plain text because not supported by jetbrains
-                // for now we can only set file target
-                psiFoundElements.addAll(FileBasedIndex.getInstance()
-                    .getValues(TranslationStubIndex.KEY, domain, GlobalSearchScope.filesScope(project, Collections.singletonList(virtualFile))).stream()
-                    .filter(string -> string.contains(translationKey)).map(string -> psiFile)
-                    .collect(Collectors.toList())
-                );
-            }
+    public static PsiElement[] getTranslationPsiElementsOriginPsiElement(@NotNull Project project, @NotNull String translationKey, @NotNull String domain) {
+        Collection<PsiElement> targets = new HashSet<>();
 
-            return true;
-        }, GlobalSearchScope.allScope(project));
+        Arrays.stream(getTranslationProviders())
+            .map(translationProvider -> translationProvider.getTranslationTargets(project, translationKey, domain))
+            .forEach(targets::addAll);
 
-        return psiFoundElements.toArray(new PsiElement[psiFoundElements.size()]);
+        return targets.toArray(new PsiElement[0]);
+    }
+
+    public static PsiElement[] getTranslationPsiElements(@NotNull Project project, @NotNull String translationKey, @NotNull String domain) {
+        return Arrays.stream(getTranslationProviders())
+            .map(translationProvider -> translationProvider.getTranslationTargets(project, translationKey, domain))
+            .flatMap(Collection::stream)
+            .collect(Collectors.toSet())
+            .stream()
+            .map(element -> new TranslationKeyTargetFakePsiNavigationItem(ProjectUtil.getProjectDir(project), element))
+            .sorted(Comparator.comparingInt(TranslationKeyTargetFakePsiNavigationItem::getWeight))
+            .toArray(PsiElement[]::new);
     }
 
     /**
@@ -191,7 +218,7 @@ public class TranslationUtil {
 
                     // <trans-unit id="1" resname="title.test">
                     String resname = transUnit.getAttributeValue("resname");
-                    if(resname != null && key.equals(resname)) {
+                    if(key.equals(resname)) {
                         psiElements.add(transUnit);
                     }
                 }
@@ -217,125 +244,76 @@ public class TranslationUtil {
         return psiElements;
     }
 
-    public static boolean hasDomain(Project project, String domainName) {
-        return TranslationIndex.getInstance(project).getTranslationMap().getDomainList().contains(domainName) ||
-            FileBasedIndex.getInstance().getValues(
-                TranslationStubIndex.KEY,
-                domainName,
-                GlobalSearchScope.allScope(project)
-            ).size() > 0;
+    public static boolean hasDomain(@NotNull Project project, @NotNull String domainName) {
+        return Arrays.stream(getTranslationProviders())
+            .anyMatch(translatorProvider -> translatorProvider.hasDomain(project, domainName));
     }
 
     public static boolean hasTranslationKey(@NotNull Project project, String keyName, String domainName) {
-
-        if(!hasDomain(project, domainName)) {
-            return false;
-        }
-
-        Set<String> domainMap = TranslationIndex.getInstance(project).getTranslationMap().getDomainMap(domainName);
-        if(domainMap != null && domainMap.contains(keyName)) {
-            return true;
-        }
-
-        for(Set<String> keys: FileBasedIndex.getInstance().getValues(TranslationStubIndex.KEY, domainName, GlobalSearchScope.allScope(project))){
-            if(keys.contains(keyName)) {
-                return true;
-            }
-        }
-
-        return false;
+        return Arrays.stream(getTranslationProviders())
+            .anyMatch(translatorProvider -> translatorProvider.hasTranslationKey(project, keyName, domainName));
     }
 
     @NotNull
     public static List<LookupElement> getTranslationLookupElementsOnDomain(@NotNull Project project, @NotNull String domainName) {
-
-        Set<String> keySet = new HashSet<>();
-        List<Set<String>> test = FileBasedIndex.getInstance().getValues(TranslationStubIndex.KEY, domainName, GlobalSearchScope.allScope(project));
-        for(Set<String> keys: test ){
-            keySet.addAll(keys);
-        }
-
         List<LookupElement> lookupElements = new ArrayList<>();
 
-        TranslationStringMap map = TranslationIndex.getInstance(project).getTranslationMap();
-        Collection<String> domainMap = map.getDomainMap(domainName);
+        Map<String, Boolean> keys = new HashMap<>();
 
-        if(domainMap != null) {
-
-            // php translation parser; are not weak and valid keys
-            for(String stringId : domainMap) {
-                lookupElements.add(new TranslatorLookupElement(stringId, domainName));
-            }
-
-            // attach weak translations keys on file index
-            for(String stringId : keySet) {
-                if(!domainMap.contains(stringId)) {
-                    lookupElements.add(new TranslatorLookupElement(stringId, domainName, true));
+        for (TranslatorProvider translationProvider : getTranslationProviders()) {
+            for (TranslatorProviderDict.TranslationKey translationKey : translationProvider.getTranslationsForDomain(project, domainName)) {
+                String domain = translationKey.getDomain();
+                if (keys.containsKey(domain)) {
+                    // weak to full
+                    if(!keys.get(domain) && !translationKey.isWeak()) {
+                        keys.put(domain, translationKey.isWeak());
+                    }
+                } else {
+                    keys.put(domain, translationKey.isWeak());
                 }
             }
-
-            return lookupElements;
         }
 
         // fallback on index
-        for(String stringId : keySet) {
-            lookupElements.add(new TranslatorLookupElement(stringId, domainName, true));
+        for(Map.Entry<String, Boolean> entry : keys.entrySet()) {
+            lookupElements.add(new TranslatorLookupElement(entry.getKey(), domainName, entry.getValue()));
         }
 
         return lookupElements;
     }
 
     @NotNull
-    public static List<LookupElement> getTranslationDomainLookupElements(Project project) {
+    public static List<LookupElement> getTranslationDomainLookupElements(@NotNull Project project) {
+        Map<String, Boolean> domains = new HashMap<>();
 
-        List<LookupElement> lookupElements = new ArrayList<>();
-
-        // domains on complied file
-        TranslationStringMap map = TranslationIndex.getInstance(project).getTranslationMap();
-        Set<String> domainList = map.getDomainList();
-        for(String domainKey : domainList) {
-            lookupElements.add(new TranslatorLookupElement(domainKey, domainKey));
-        }
-
-        // attach index domains as weak one
-        for(String domainKey: SymfonyProcessors.createResult(project, TranslationStubIndex.KEY, domainList)) {
-            if(!domainList.contains(domainKey)) {
-                lookupElements.add(new TranslatorLookupElement(domainKey, domainKey, true));
+        for (TranslatorProvider translationProvider : getTranslationProviders()) {
+            for (TranslatorProviderDict.TranslationDomain translationDomain : translationProvider.getTranslationDomains(project)) {
+                String domain = translationDomain.getDomain();
+                if (domains.containsKey(domain)) {
+                    // weak to full
+                    if(!domains.get(domain) && !translationDomain.isWeak()) {
+                        domains.put(domain, translationDomain.isWeak());
+                    }
+                } else {
+                    domains.put(domain, translationDomain.isWeak());
+                }
             }
         }
 
-        return lookupElements;
+        return domains.entrySet().stream()
+            .map((Function<Map.Entry<String, Boolean>, LookupElement>) entry ->
+                new TranslatorLookupElement(entry.getKey(), entry.getKey(), entry.getValue())
+            ).collect(Collectors.toList());
     }
 
-    public static List<PsiFile> getDomainPsiFiles(final Project project, String domainName) {
+    public static List<PsiFile> getDomainPsiFiles(@NotNull Project project, @NotNull String domainName) {
+        Set<VirtualFile> files = new HashSet<>();
 
-        final List<PsiFile> results = new ArrayList<>();
-        final List<VirtualFile> uniqueFileList = new ArrayList<>();
-
-        // get translation files from compiler
-        for(VirtualFile virtualFile : TranslationUtil.getDomainFilePsiElements(project, domainName)) {
-            PsiFile psiFile = PsiManager.getInstance(project).findFile(virtualFile);
-            if(psiFile != null) {
-                uniqueFileList.add(virtualFile);
-                results.add(psiFile);
-            }
+        for (TranslatorProvider translationProvider : getTranslationProviders()) {
+            files.addAll(translationProvider.getDomainPsiFiles(project, domainName));
         }
 
-        FileBasedIndex.getInstance().getFilesWithKey(TranslationStubIndex.KEY, new HashSet<>(Collections.singletonList(domainName)), virtualFile -> {
-            if(uniqueFileList.contains(virtualFile)) {
-                return true;
-            }
-
-            PsiFile psiFile = PsiManager.getInstance(project).findFile(virtualFile);
-            if(psiFile != null) {
-                uniqueFileList.add(virtualFile);
-                results.add(psiFile);
-            }
-
-            return true;
-        }, PhpIndex.getInstance(project).getSearchScope());
-
-        return results;
+        return new ArrayList<>(PsiElementUtils.convertVirtualFilesToPsiFiles(project, files));
     }
 
     @NotNull
@@ -351,9 +329,9 @@ public class TranslationUtil {
         Document document;
 
         try {
-            DocumentBuilder documentBuilder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+            DocumentBuilder documentBuilder = SecureXmlUtil.createDocumentBuilder();
             document = documentBuilder.parse(content);
-        } catch (ParserConfigurationException | SAXException | IOException e) {
+        } catch (ParserConfigurationException | SAXException | ArrayIndexOutOfBoundsException | IOException e) {
             return;
         }
 
@@ -414,6 +392,56 @@ public class TranslationUtil {
         return placeholder;
     }
 
+    public static boolean isFunctionReferenceTranslationTFunction(@NotNull FunctionReference functionReference) {
+        return "\\Symfony\\Component\\Translation\\t".equals(functionReference.getFQN());
+    }
+
+    public static boolean isTranslationReference(@NotNull ParameterListOwner psiElement) {
+        return (psiElement instanceof MethodReference methodReference && PhpElementsUtil.isMethodReferenceInstanceOf(methodReference, TranslationUtil.PHP_TRANSLATION_SIGNATURES))
+            || (psiElement instanceof NewExpression newExpression && PhpElementsUtil.isNewExpressionPhpClassWithInstance(newExpression, TranslationUtil.PHP_TRANSLATION_TRANSLATABLE_MESSAGE))
+            || (psiElement instanceof FunctionReference functionReference && TranslationUtil.isFunctionReferenceTranslationTFunction(functionReference));
+    }
+
+    /**
+     * Returns the zero-based domain parameter index for supported PHP translation calls.
+     * Example: in {@code $translator->trans($id, $parameters, $domain)}, the third argument has index {@code 2}.
+     */
+    public static int getDomainParameter(@NotNull PsiElement methodReferenceOrNewExpression) {
+        return switch (methodReferenceOrNewExpression) {
+            case MethodReference methodReference when PhpElementsUtil.isMethodReferenceInstanceOf(methodReference, PHP_TRANSLATION_SIGNATURES) -> "transChoice".equals(methodReference.getName()) ? 3 : 2;
+            case NewExpression newExpression when PhpElementsUtil.isNewExpressionPhpClassWithInstance(newExpression, PHP_TRANSLATION_TRANSLATABLE_MESSAGE) -> 2;
+            case FunctionReference functionReference when isFunctionReferenceTranslationTFunction(functionReference) -> 2;
+            default -> -1;
+        };
+    }
+
+    /**
+     * Returns the enclosing {@link ParameterListOwner} ({@link FunctionReference} or {@link NewExpression})
+     * when {@code psiElement} is a {@link com.jetbrains.php.lang.psi.elements.StringLiteralExpression} directly
+     * inside a {@link ParameterList} of such a call, or {@code null} otherwise.
+     */
+    @Nullable
+    public static ParameterListOwner getTranslationFunctionContext(@NotNull PsiElement psiElement) {
+        if (!(psiElement instanceof StringLiteralExpression)) {
+            return null;
+        }
+        PsiElement parameterList = psiElement.getContext();
+        if (!(parameterList instanceof ParameterList)) {
+            return null;
+        }
+        PsiElement parent = parameterList.getContext();
+        if (!(parent instanceof FunctionReference) && !(parent instanceof NewExpression)) {
+            return null;
+        }
+        return (ParameterListOwner) parent;
+    }
+
+
+    @NotNull
+    private static TranslatorProvider[] getTranslationProviders() {
+        return INTERNAL_TRANSLATOR_PROVIDERS;
+    }
+
     /**
      * Extract common placeholder pattern from translation content
      */
@@ -422,7 +450,7 @@ public class TranslationUtil {
         Set<String> placeholder = new HashSet<>();
         Set<VirtualFile> visitedXlf = new HashSet<>();
 
-        for (PsiElement element : TranslationUtil.getTranslationPsiElements(project, key, domain)) {
+        for (PsiElement element : TranslationUtil.getTranslationPsiElementsOriginPsiElement(project, key, domain)) {
             if (element instanceof YAMLScalar) {
                 String textValue = ((YAMLScalar) element).getTextValue();
                 if(StringUtils.isBlank(textValue)) {
@@ -454,6 +482,25 @@ public class TranslationUtil {
         return placeholder;
     }
 
+    /**
+     * class FooConstraint extends \Symfony\Component\Validator\Constraint
+     * public $message = 'This value should not be blank.';
+     * public $messageFoo = 'This value should not be blank.';
+     * public $fooMessage = 'This value should not be blank.';
+     */
+    public static boolean isConstraintPropertyField(@NotNull StringLiteralExpression psiElement) {
+        PsiElement field = psiElement.getParent();
+        if (field instanceof Field) {
+            PhpClass containingClass = ((Field) field).getContainingClass();
+            if (containingClass != null && PhpElementsUtil.isInstanceOf(containingClass, "\\Symfony\\Component\\Validator\\Constraint")) {
+                String name = ((Field) field).getName();
+                return name.startsWith("message") || name.endsWith("Message");
+            }
+        }
+
+        return false;
+    }
+
     private static void visitNodes(@NotNull String xpath, @NotNull Document document, @NotNull Consumer<Pair<String, Node>> consumer) {
         Object result;
         try {
@@ -464,15 +511,14 @@ public class TranslationUtil {
             return;
         }
 
-        if(!(result instanceof NodeList)) {
+        if(!(result instanceof NodeList nodeList)) {
             return;
         }
 
-        NodeList nodeList = (NodeList) result;
         for (int i = 0; i < nodeList.getLength(); i++) {
             Element node = (Element) nodeList.item(i);
             String textContent = node.getTextContent();
-            if(org.apache.commons.lang.StringUtils.isNotBlank(textContent)) {
+            if(org.apache.commons.lang3.StringUtils.isNotBlank(textContent)) {
                 consumer.consume(Pair.create(textContent, node));
             }
 
@@ -495,39 +541,28 @@ public class TranslationUtil {
 
     /**
      * <trans-unit id="29">
-     *  <source>foo</source>
-     *  <target>foo</target>
+     * <source>foo</source>
+     * <target>foo</target>
      * </trans-unit>
      */
-    private static class MyXlfTranslationConsumer implements Consumer<Pair<String, Node>> {
-        @NotNull
-        private final Set<String> placeholder;
-
-        @NotNull
-        private final String key;
-
-        MyXlfTranslationConsumer(@NotNull Set<String> placeholder, @NotNull String key) {
-            this.placeholder = placeholder;
-            this.key = key;
-        }
+    private record MyXlfTranslationConsumer(@NotNull Set<String> placeholder, @NotNull String key) implements Consumer<Pair<String, Node>> {
 
         @Override
         public void consume(Pair<String, Node> pair) {
-            if(!(pair.getSecond() instanceof Element) || !"source".equalsIgnoreCase(pair.getSecond().getNodeName())) {
+            if (!(pair.getSecond() instanceof Element source) || !"source".equalsIgnoreCase(pair.getSecond().getNodeName())) {
                 return;
             }
 
-            Element source = (Element) pair.getSecond();
-            if(!key.equalsIgnoreCase(source.getTextContent())) {
+            if (!key.equalsIgnoreCase(source.getTextContent())) {
                 return;
             }
 
             visitNodeText(source);
 
             Node transUnit = source.getParentNode();
-            if(transUnit instanceof Element) {
+            if (transUnit instanceof Element) {
                 NodeList target = ((Element) transUnit).getElementsByTagName("target");
-                if(target.getLength() > 0) {
+                if (target.getLength() > 0) {
                     visitNodeText(target.item(0));
                 }
             }
@@ -535,7 +570,7 @@ public class TranslationUtil {
 
         private void visitNodeText(@NotNull Node target) {
             String nodeValue = target.getTextContent();
-            if(StringUtils.isNotBlank(nodeValue)) {
+            if (StringUtils.isNotBlank(nodeValue)) {
                 placeholder.addAll(
                     TranslationUtil.getPlaceholderFromTranslation(nodeValue)
                 );

@@ -2,6 +2,7 @@ package fr.adrienbrault.idea.symfony2plugin.completion.xml;
 
 import com.intellij.codeInsight.lookup.LookupElement;
 import com.intellij.codeInsight.lookup.LookupElementBuilder;
+import com.intellij.openapi.project.Project;
 import com.intellij.patterns.XmlPatterns;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
@@ -30,12 +31,11 @@ import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.completion.PhpClassCompletionProvider;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.ServiceUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.resource.FileResourceUtil;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -129,12 +129,6 @@ public class XmlGotoCompletionRegistrar implements GotoCompletionRegistrar  {
 
         @NotNull
         @Override
-        public Collection<LookupElement> getLookupElements() {
-            return Collections.emptyList();
-        }
-
-        @NotNull
-        @Override
         public Collection<PsiElement> getPsiTargets(PsiElement element) {
             String xmlAttributeValue = GotoCompletionUtil.getXmlAttributeValue(element);
             if(xmlAttributeValue == null) {
@@ -143,8 +137,10 @@ public class XmlGotoCompletionRegistrar implements GotoCompletionRegistrar  {
 
             Collection<PsiElement> targets = new ArrayList<>();
 
-            targets.addAll(FileResourceUtil.getFileResourceTargetsInBundleScope(element.getProject(), xmlAttributeValue));
-            targets.addAll(FileResourceUtil.getFileResourceTargetsInBundleDirectory(element.getProject(), xmlAttributeValue));
+            Project project = getProject();
+
+            targets.addAll(FileResourceUtil.getFileResourceTargetsInBundleScope(project, xmlAttributeValue));
+            targets.addAll(FileResourceUtil.getFileResourceTargetsInBundleDirectory(project, xmlAttributeValue));
 
             PsiFile containingFile = element.getContainingFile();
             if(containingFile != null) {
@@ -245,18 +241,13 @@ public class XmlGotoCompletionRegistrar implements GotoCompletionRegistrar  {
             for (PhpClass phpClass : phpClasses) {
                 lookupElements.addAll(PhpElementsUtil.getClassPublicMethod(phpClass).stream()
                     .map(PhpLookupElement::new)
-                    .collect(Collectors.toList())
+                    .toList()
                 );
             }
 
             return lookupElements;
         }
 
-        @NotNull
-        @Override
-        public Collection<PsiElement> getPsiTargets(PsiElement element) {
-            return Collections.emptyList();
-        }
     }
 
     private static class MyDecoratedServiceCompletionProvider extends DecoratedServiceCompletionProvider {
@@ -295,11 +286,6 @@ public class XmlGotoCompletionRegistrar implements GotoCompletionRegistrar  {
         @Override
         public GotoCompletionProvider getProvider(@NotNull PsiElement psiElement) {
             return new GotoCompletionProvider(psiElement) {
-                @NotNull
-                @Override
-                public Collection<LookupElement> getLookupElements() {
-                    return Collections.emptyList();
-                }
 
                 @NotNull
                 @Override
@@ -314,7 +300,7 @@ public class XmlGotoCompletionRegistrar implements GotoCompletionRegistrar  {
                         return Collections.emptyList();
                     }
 
-                    return new HashSet<>(TwigUtil.getTemplatePsiElements(getElement().getProject(), xmlAttributeValue));
+                    return new HashSet<>(TwigUtil.getTemplatePsiElements(getProject(), xmlAttributeValue));
                 }
             };
         }
@@ -406,7 +392,7 @@ public class XmlGotoCompletionRegistrar implements GotoCompletionRegistrar  {
                     if(serviceTagParent instanceof XmlTag && "service".equals(((XmlTag) serviceTagParent).getName())) {
                         String aClass = XmlHelper.getClassFromServiceDefinition((XmlTag) serviceTagParent);
                         if(aClass != null) {
-                            PhpClass phpClass = ServiceUtil.getResolvedClassDefinition(serviceTag.getProject(), aClass);
+                            PhpClass phpClass = ServiceUtil.getResolvedClassDefinition(getProject(), aClass);
                             if(phpClass != null) {
                                 methodToVisit = phpClass.findMethodByName(methodName);
                             }
@@ -416,7 +402,7 @@ public class XmlGotoCompletionRegistrar implements GotoCompletionRegistrar  {
             } else if("service".equals(xmlMethodName)) {
                 String aClass = XmlHelper.getClassFromServiceDefinition((XmlTag) serviceTag);
                 if(aClass != null) {
-                    PhpClass phpClass = ServiceUtil.getResolvedClassDefinition(serviceTag.getProject(), aClass);
+                    PhpClass phpClass = ServiceUtil.getResolvedClassDefinition(getProject(), aClass);
                     if(phpClass != null) {
                         methodToVisit = phpClass.getConstructor();
                     }

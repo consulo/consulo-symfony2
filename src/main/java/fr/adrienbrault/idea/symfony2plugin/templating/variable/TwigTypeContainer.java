@@ -1,36 +1,52 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.variable;
 
-import com.intellij.openapi.project.Project;
-import com.jetbrains.php.lang.psi.elements.PhpClass;
-import com.jetbrains.php.lang.psi.elements.PhpNamedElement;
 import fr.adrienbrault.idea.symfony2plugin.templating.variable.dict.PsiVariable;
-import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
+import fr.adrienbrault.idea.symfony2plugin.templating.variable.resolver.holder.FormFieldDataHolder;
+import fr.adrienbrault.idea.symfony2plugin.templating.variable.resolver.holder.FormViewDataHolder;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class TwigTypeContainer {
 
-    private PhpNamedElement phpNamedElement;
-    private String stringElement;
-    private Object dataHolder;
+    private final Set<String> types = new HashSet<>();
+    private final String stringElement;
+    private final FormFieldDataHolder formFieldDataHolder;
+    private final FormViewDataHolder formViewDataHolder;
 
-    public TwigTypeContainer(PhpNamedElement phpNamedElement) {
-        this.phpNamedElement = phpNamedElement;
+    public TwigTypeContainer(@NotNull Collection<String> types) {
+        this(types, null);
+    }
+
+    private TwigTypeContainer(@NotNull Collection<String> types, @Nullable FormViewDataHolder formViewDataHolder) {
+        this.types.addAll(types);
+        this.stringElement = null;
+        this.formFieldDataHolder = null;
+        this.formViewDataHolder = formViewDataHolder;
     }
 
     public TwigTypeContainer(String stringElement) {
-        this.stringElement = stringElement;
+        this(stringElement, null);
     }
 
-    @Nullable
-    public PhpNamedElement getPhpNamedElement() {
-        return phpNamedElement;
+    public TwigTypeContainer(String stringElement, @Nullable FormFieldDataHolder formFieldDataHolder) {
+        this.stringElement = stringElement;
+        this.formFieldDataHolder = formFieldDataHolder;
+        this.formViewDataHolder = null;
+    }
+
+    @NotNull
+    public Set<String> getTypes() {
+        return Collections.unmodifiableSet(types);
     }
 
     @Nullable
@@ -38,26 +54,33 @@ public class TwigTypeContainer {
         return stringElement;
     }
 
-    public static Collection<TwigTypeContainer> fromCollection(Project project, Collection<PsiVariable> psiVariables) {
+    public static Collection<TwigTypeContainer> fromCollection(Collection<PsiVariable> psiVariables) {
 
         List<TwigTypeContainer> twigTypeContainerList = new ArrayList<>();
 
-        for(PsiVariable phpNamedElement :psiVariables) {
-            Collection<PhpClass> phpClass = PhpElementsUtil.getClassFromPhpTypeSet(project, phpNamedElement.getTypes());
-            if(phpClass.size() > 0) {
-                twigTypeContainerList.add(new TwigTypeContainer(phpClass.iterator().next()));
+        for(PsiVariable psiVariable : psiVariables) {
+            if (psiVariable.getTypes().isEmpty()) {
+                continue;
             }
+
+            FormViewDataHolder formViewDataHolder = psiVariable.getFormTypeFqns().isEmpty()
+                ? null
+                : new FormViewDataHolder(psiVariable.getFormTypeFqns());
+
+            twigTypeContainerList.add(new TwigTypeContainer(psiVariable.getTypes(), formViewDataHolder));
         }
 
         return twigTypeContainerList;
     }
 
-    public TwigTypeContainer withDataHolder(Object object) {
-        this.dataHolder = object;
-        return this;
+    @Nullable
+    public FormFieldDataHolder getFormFieldDataHolder() {
+        return formFieldDataHolder;
     }
 
-    public Object getDataHolder() {
-        return dataHolder;
+    @Nullable
+    public FormViewDataHolder getFormViewDataHolder() {
+        return formViewDataHolder;
     }
+
 }

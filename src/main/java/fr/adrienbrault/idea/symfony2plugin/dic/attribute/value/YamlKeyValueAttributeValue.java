@@ -1,10 +1,12 @@
 package fr.adrienbrault.idea.symfony2plugin.dic.attribute.value;
 
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.yaml.psi.YAMLKeyValue;
+
+import java.util.Collection;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -28,5 +30,17 @@ public class YamlKeyValueAttributeValue extends AttributeValueAbstract {
         }
 
         return value;
+    }
+
+    @NotNull
+    @Override
+    public Collection<String> getTags() {
+        return YamlHelper.collectServiceTags(yamlKeyValue);
+    }
+
+    @NotNull
+    @Override
+    public Collection<String> getStringArray(@NotNull String key) {
+        return YamlHelper.getYamlKeyValueStringOrArray(yamlKeyValue, key);
     }
 }

@@ -1,5 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.stubs.indexes;
 
+import com.intellij.patterns.ElementPattern;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiRecursiveElementWalkingVisitor;
@@ -18,7 +19,7 @@ import fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern;
 import fr.adrienbrault.idea.symfony2plugin.templating.dict.TwigBlock;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.HashMap;
@@ -38,6 +39,7 @@ public class TwigBlockIndexExtension extends FileBasedIndexExtension<String, Set
 
     @NotNull
     @Override
+    // Index-safe only: no PhpIndex/type resolution here.
     public DataIndexer<String, Set<String>, FileContent> getIndexer() {
         return fileContent -> {
             Map<String, Set<String>> blocks = new HashMap<>();
@@ -45,38 +47,40 @@ public class TwigBlockIndexExtension extends FileBasedIndexExtension<String, Set
             PsiFile psiFile = fileContent.getPsiFile();
             if(psiFile instanceof TwigFile) {
                 for (TwigBlock twigBlock : TwigUtil.getBlocksInFile((TwigFile) psiFile)) {
+                    String blockName = twigBlock.getName();
+                    if (blockName.length() > 255) {
+                        continue;
+                    }
+
                     // we only index file scope
                     // {% embed 'foo.html.twig' %}{% block foo %}{% endembed %}
                     PsiElement embedStatement = PsiElementUtils.getParentOfType(twigBlock.getTarget(), TwigElementTypes.EMBED_STATEMENT);
                     if(embedStatement == null) {
                         blocks.putIfAbsent("block", new HashSet<>());
-                        blocks.get("block").add(twigBlock.getName());
+                        blocks.get("block").add(blockName);
                     }
                 }
 
-                for(TwigExtendsTag extendsTag : PsiTreeUtil.getChildrenOfTypeAsList(psiFile, TwigExtendsTag.class)) {
-                    for (String templateName : TwigUtil.getTwigExtendsTagTemplates(extendsTag)) {
-                        blocks.putIfAbsent("extends", new HashSet<>());
-                        blocks.get("extends").add(TwigUtil.normalizeTemplateName(templateName));
-                    }
-                }
-
-                for(TwigCompositeElement twigCompositeElement: PsiTreeUtil.getChildrenOfTypeAsList(psiFile, TwigCompositeElement.class)) {
-                    if(twigCompositeElement.getNode().getElementType() == TwigElementTypes.TAG) {
-                        twigCompositeElement.acceptChildren(new PsiRecursiveElementWalkingVisitor() {
-                            @Override
-                            public void visitElement(PsiElement element) {
-                                if(TwigPattern.getTwigTagUseNamePattern().accepts(element) && PsiElementUtils.getParentOfType(element, TwigElementTypes.EMBED_STATEMENT) == null) {
-                                    String templateName = TwigUtil.normalizeTemplateName(PsiElementUtils.trimQuote(element.getText()));
-                                    if(StringUtils.isNotBlank(templateName)) {
-                                        blocks.putIfAbsent("use", new HashSet<>());
-                                        blocks.get("use").add(templateName);
+                ElementPattern<PsiElement> twigTagUseNamePattern = TwigPattern.getTwigTagUseNamePattern();
+                for(PsiElement psiElement : PsiTreeUtil.getChildrenOfAnyType(psiFile, TwigExtendsTag.class, TwigCompositeElement.class)) {
+                    if(psiElement instanceof TwigCompositeElement) {
+                        // {% use 'foo.html.twig' %}
+                        if(psiElement.getNode().getElementType() == TwigElementTypes.TAG) {
+                            psiElement.acceptChildren(new PsiRecursiveElementWalkingVisitor() {
+                                @Override
+                                public void visitElement(PsiElement element) {
+                                    if(twigTagUseNamePattern.accepts(element) && PsiElementUtils.getParentOfType(element, TwigElementTypes.EMBED_STATEMENT) == null) {
+                                        String templateName = TwigUtil.normalizeTemplateName(PsiElementUtils.trimQuote(element.getText()));
+                                        if(templateName.length() < 255 && StringUtils.isNotBlank(templateName)) {
+                                            blocks.putIfAbsent("use", new HashSet<>());
+                                            blocks.get("use").add(templateName);
+                                        }
                                     }
-                                }
 
-                                super.visitElement(element);
-                            }
-                        });
+                                    super.visitElement(element);
+                                }
+                            });
+                        }
                     }
                 }
             }

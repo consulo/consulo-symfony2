@@ -11,7 +11,7 @@ import com.jetbrains.php.lang.psi.elements.*;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
 import fr.adrienbrault.idea.symfony2plugin.util.psi.PsiElementAssertUtil;
-import org.apache.commons.lang.ArrayUtils;
+import org.apache.commons.lang3.ArrayUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -79,7 +79,7 @@ public class ArrayValueWithKeyAndNewExpressionMatcher {
             expressionCall.getIndex() == parameterIndex
         );
 
-        if(filter.size() == 0) {
+        if(filter.isEmpty()) {
             return null;
         }
 
@@ -172,7 +172,7 @@ public class ArrayValueWithKeyAndNewExpressionMatcher {
         @NotNull
         private final String clazz;
 
-        private int index = 0;
+        private int index;
 
         public NewExpressionCall(@NotNull String clazz) {
             this(clazz, 0);

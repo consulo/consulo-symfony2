@@ -1,5 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.config.xml;
 
+import com.intellij.ide.highlighter.XmlFileType;
+import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.patterns.*;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
@@ -7,6 +9,7 @@ import com.intellij.psi.impl.source.xml.XmlDocumentImpl;
 import com.intellij.psi.util.PsiTreeUtil;
 import com.intellij.psi.xml.*;
 import com.intellij.util.Consumer;
+import com.intellij.util.ProcessingContext;
 import com.jetbrains.php.lang.psi.elements.Function;
 import com.jetbrains.php.lang.psi.elements.Method;
 import com.jetbrains.php.lang.psi.elements.Parameter;
@@ -16,17 +19,24 @@ import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.ServiceUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.visitor.ParameterVisitor;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class XmlHelper {
+    public static final PsiElementPattern.Capture<PsiElement> XML_EXTENSION = PlatformPatterns.psiElement().inFile(PlatformPatterns.psiFile().with(new PatternCondition<PsiElement>("xml extension") {
+        @Override
+        public boolean accepts(@NotNull PsiElement psiElement, ProcessingContext processingContext) {
+            PsiFile containingFile = psiElement.getContainingFile();
+            return containingFile != null && isXmlFileExtension(containingFile);
+        }
+    }));
+
     public static PsiElementPattern.Capture<PsiElement> getTagPattern(String... tags) {
         return XmlPatterns
             .psiElement()
@@ -406,7 +416,7 @@ public class XmlHelper {
             return null;
         }
 
-        XmlTag xmlTags[] = PsiTreeUtil.getChildrenOfType(psiFile.getFirstChild(), XmlTag.class);
+        XmlTag[] xmlTags = PsiTreeUtil.getChildrenOfType(psiFile.getFirstChild(), XmlTag.class);
         if(xmlTags == null) {
             return null;
         }
@@ -416,7 +426,12 @@ public class XmlHelper {
                 for(XmlTag servicesTag: xmlTag.getSubTags()) {
                     if(servicesTag.getName().equals("services")) {
                         for(XmlTag serviceTag: servicesTag.getSubTags()) {
-                            String serviceNameId = serviceTag.getAttributeValue("id");
+                            String name = serviceTag.getName();
+                            // we know the attributes and context, but rebuild it like yaml
+                            String serviceNameId = "prototype".equals(name)
+                                ? serviceTag.getAttributeValue("namespace")
+                                : serviceTag.getAttributeValue("id");
+
                             if(serviceNameId != null && serviceNameId.equalsIgnoreCase(serviceName)) {
                                 return serviceTag;
                             }
@@ -436,7 +451,7 @@ public class XmlHelper {
             return null;
         }
 
-        XmlTag xmlTags[] = PsiTreeUtil.getChildrenOfType(psiFile.getFirstChild(), XmlTag.class);
+        XmlTag[] xmlTags = PsiTreeUtil.getChildrenOfType(psiFile.getFirstChild(), XmlTag.class);
         if(xmlTags == null) {
             return null;
         }
@@ -470,7 +485,7 @@ public class XmlHelper {
             return services;
         }
 
-        XmlTag xmlTags[] = PsiTreeUtil.getChildrenOfType(psiFile.getFirstChild(), XmlTag.class);
+        XmlTag[] xmlTags = PsiTreeUtil.getChildrenOfType(psiFile.getFirstChild(), XmlTag.class);
         if(xmlTags == null) {
             return services;
         }
@@ -680,7 +695,7 @@ public class XmlHelper {
         String indexAttr = argumentTag.getAttributeValue("index");
         if(indexAttr != null) {
             try {
-                return Integer.valueOf(indexAttr);
+                return Integer.parseInt(indexAttr);
             } catch (NumberFormatException e) {
                 return -1;
             }
@@ -745,7 +760,7 @@ public class XmlHelper {
         String indexAttr = argumentTag.getAttributeValue("index");
         if(indexAttr != null) {
             try {
-                return Integer.valueOf(indexAttr);
+                return Integer.parseInt(indexAttr);
             } catch (NumberFormatException e) {
                 return -1;
             }
@@ -793,8 +808,30 @@ public class XmlHelper {
      * <service class="Foobar"></service>
      */
     public static PsiElementPattern.Capture<PsiElement> getXmlTagNameLeafStartPattern() {
-        return PlatformPatterns.psiElement(XmlElementType.XML_NAME)
+        return PlatformPatterns.psiElement(XmlTokenType.XML_NAME)
             .afterLeaf(PlatformPatterns.psiElement(XmlTokenType.XML_START_TAG_START))
             .withParent(XmlTag.class);
     }
+
+    public static boolean isXmlFileExtension(@NotNull PsiFile psiFile) {
+        if (psiFile.getFileType() != XmlFileType.INSTANCE) {
+            return false;
+        }
+
+        String filename = psiFile.getName();
+
+        int i = filename.lastIndexOf('.');
+        String extension = null;
+        if (i > 0) {
+            extension = filename.substring(i + 1).toLowerCase();
+        }
+
+        if ("xml".equalsIgnoreCase(extension)) {
+            return true;
+        }
+
+        VirtualFile virtualFile = psiFile.getVirtualFile();
+        return virtualFile == null || !"xml".equalsIgnoreCase(virtualFile.getExtension());
+    }
+
 }

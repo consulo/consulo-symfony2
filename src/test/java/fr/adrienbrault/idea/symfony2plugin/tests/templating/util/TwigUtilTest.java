@@ -1,0 +1,316 @@
+package fr.adrienbrault.idea.symfony2plugin.tests.templating.util;
+
+import com.intellij.openapi.command.WriteCommandAction;
+import com.intellij.openapi.util.Pair;
+import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.psi.PsiDirectory;
+import com.intellij.psi.PsiElement;
+import com.intellij.psi.PsiFile;
+import com.intellij.psi.PsiFileFactory;
+import com.intellij.psi.PsiManager;
+import com.intellij.psi.util.PsiTreeUtil;
+import com.jetbrains.twig.TwigFileType;
+import fr.adrienbrault.idea.symfony2plugin.Settings;
+import fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern;
+import fr.adrienbrault.idea.symfony2plugin.templating.path.TwigNamespaceSetting;
+import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
+import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
+import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlPsiElementFactory;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.yaml.psi.YAMLFile;
+
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+
+/**
+ * @author Daniel Espendiller <daniel@espendiller.net>
+ * @see TwigUtil
+ */
+public class TwigUtilTest extends SymfonyLightCodeInsightFixtureTestCase {
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
+        Settings.getInstance(getProject()).twigNamespaces.clear();
+    }
+
+    /**
+     * @see TwigUtil#getTemplatePsiElements
+     */
+    public void testGetTemplatePsiElements() {
+        myFixture.addFileToProject("res/foo.html.twig", "");
+
+        Settings.getInstance(getProject()).twigNamespaces.addAll(createTwigNamespaceSettings());
+
+        String[] strings = {
+            "@Foo/foo.html.twig", "@!Foo/foo.html.twig", "foo.html.twig", ":foo.html.twig", "@Foo\\foo.html.twig", "::foo.html.twig"
+        };
+
+        for (String file : strings) {
+            Collection<PsiFile> templatePsiElements = TwigUtil.getTemplatePsiElements(getProject(), file);
+
+            assertTrue(!templatePsiElements.isEmpty());
+            assertEquals("foo.html.twig", templatePsiElements.iterator().next().getName());
+        }
+    }
+
+    /**
+     * @see TwigUtil#getTemplateNamesForFile
+     */
+    public void testGetTemplateNamesForFile() {
+        Settings.getInstance(getProject()).twigNamespaces.addAll(createTwigNamespaceSettings());
+
+        assertContainsElements(
+            TwigUtil.getTemplateNamesForFile(getProject(), myFixture.addFileToProject("res/test.html.twig", "").getVirtualFile()),
+            "@Foo/test.html.twig", "test.html.twig", "::test.html.twig", "FooBundle::test.html.twig"
+        );
+
+        assertContainsElements(
+            TwigUtil.getTemplateNamesForFile(getProject(), myFixture.addFileToProject("res/foobar/test.html.twig", "").getVirtualFile()),
+            "@Foo/foobar/test.html.twig", "foobar/test.html.twig", ":foobar:test.html.twig", "FooBundle:foobar:test.html.twig"
+        );
+    }
+
+    /**
+     * @see TwigUtil#getTemplateNavigationOnOffset
+     */
+    public void testGetTemplateNavigationOnOffset() {
+        myFixture.addFileToProject("res/foobar/foo.html.twig", "");
+
+        Settings.getInstance(getProject()).twigNamespaces.addAll(createTwigNamespaceSettings());
+
+        assertTrue(TwigUtil.getTemplateNavigationOnOffset(getProject(), "foobar/foo.html.twig", 3).stream().anyMatch(psiElement -> psiElement instanceof PsiDirectory && "foobar".equals(((PsiDirectory) psiElement).getName())));
+        assertTrue(TwigUtil.getTemplateNavigationOnOffset(getProject(), ":foobar:foo.html.twig", 3).stream().anyMatch(psiElement -> psiElement instanceof PsiDirectory && "foobar".equals(((PsiDirectory) psiElement).getName())));
+
+        assertTrue(TwigUtil.getTemplateNavigationOnOffset(getProject(), "foobar/foo.html.twig", 10).stream().anyMatch(psiElement -> psiElement instanceof PsiFile && "foo.html.twig".equals(((PsiFile) psiElement).getName())));
+
+        assertTrue(TwigUtil.getTemplateTargetOnOffset(getProject(), "foo.html.twig", 40).isEmpty());
+    }
+
+    /**
+     * @see TwigUtil#getTemplateTargetOnOffset
+     */
+    public void testGetTemplateTargetOnOffset() {
+        myFixture.addFileToProject("res/foobar/foo.html.twig", "");
+        myFixture.addFileToProject("res/foobar/apple/foo.html.twig", "");
+
+        Settings.getInstance(getProject()).twigNamespaces.addAll(createTwigNamespaceSettings());
+
+        assertIsDirectoryAtOffset("@Foo/foobar/foo.html.twig", 2, "res");
+        assertIsDirectoryAtOffset("@Foo/foobar\\foo.html.twig", 6, "foobar");
+
+        assertIsDirectoryAtOffset("foobar/foo.html.twig", 3, "foobar");
+        assertIsDirectoryAtOffset("foobar/apple/foo.html.twig", 9, "apple");
+        assertIsDirectoryAtOffset("foobar\\apple\\foo.html.twig", 9, "apple");
+
+        assertIsDirectoryAtOffset("@Foo/foobar/foo.html.twig", 6, "foobar");
+        assertIsDirectoryAtOffset("@Foo/foobar\\foo.html.twig", 6, "foobar");
+        assertIsDirectoryAtOffset("@Foo/foobar/apple/foo.html.twig", 15, "apple");
+
+        assertIsDirectoryAtOffset("@Foo/foobar/foo.html.twig", 3, "res");
+        assertIsDirectoryAtOffset("FooBundle:foobar:foo.html.twig", 6, "res");
+        assertIsDirectoryAtOffset("FooBundle:foobar:foo.html.twig", 13, "foobar");
+        assertIsDirectoryAtOffset(":foobar:foo.php", 4, "foobar");
+
+        assertIsDirectoryAtOffset(":foobar/apple:foo.php", 10, "apple");
+        assertIsDirectoryAtOffset(":foobar\\apple:foo.php", 10, "apple");
+        assertIsDirectoryAtOffset(":foobar\\apple\\foo.php", 10, "apple");
+
+        assertTrue(TwigUtil.getTemplateTargetOnOffset(getProject(), "@Foo/foobar/foo.html.twig", 15).isEmpty());
+        assertTrue(TwigUtil.getTemplateTargetOnOffset(getProject(), "foo.html.twig", 40).isEmpty());
+    }
+
+    /**
+     * @see TwigUtil#getPresentableTemplateName
+     */
+    public void testGetPresentableTemplateName() {
+        createFileInProjectRoot("presentable_res/foo/foo.html.twig", "");
+        VirtualFile res = getProject().getBaseDir().findFileByRelativePath("presentable_res/foo/foo.html.twig");
+        assertNotNull(res);
+
+        Settings.getInstance(getProject()).twigNamespaces.addAll(Collections.singletonList(
+            new TwigNamespaceSetting("Foobar", "presentable_res", true, TwigUtil.NamespaceType.BUNDLE, true)
+        ));
+
+        PsiFile file = PsiManager.getInstance(getProject()).findFile(res);
+        assertEquals("Foobar:foo:foo", TwigUtil.getPresentableTemplateName(file, true));
+        assertEquals("Foobar:foo:foo.html.twig", TwigUtil.getPresentableTemplateName(file, false));
+    }
+
+    /**
+     * @see TwigUtil#getTwigPathFromYamlConfigResolved
+     */
+    public void testGetTwigPathFromYamlConfigResolved() {
+        createFileInProjectRoot("app/test/foo.html.twig", "");
+        createFileInProjectRoot("app/template/foo.html.twig", "");
+
+        PsiFile dummyFile = YamlPsiElementFactory.createDummyFile(getProject(), "" +
+            "twig:\n" +
+            "   paths:\n" +
+            "       '%kernel.root_dir%/test': foo\n" +
+            "       '%kernel.project_dir%/app/test': project\n" +
+            "       '%kernel.root_dir%/../app': app\n" +
+            "       'app/template': MY_PREFIX\n" +
+            "       'app///\\\\\\template': MY_PREFIX_1\n"
+        );
+
+        Collection<Pair<String, String>> paths = TwigUtil.getTwigPathFromYamlConfigResolved((YAMLFile) dummyFile);
+
+        assertNotNull(
+            paths.stream().filter(pair -> "foo".equals(pair.getFirst()) && "app/test".equals(pair.getSecond())).findFirst().get()
+        );
+
+        assertNotNull(
+            paths.stream().filter(pair -> "project".equals(pair.getFirst()) && "app/test".equals(pair.getSecond())).findFirst().get()
+        );
+
+        assertNotNull(
+            paths.stream().filter(pair -> "app".equals(pair.getFirst()) && "app".equals(pair.getSecond())).findFirst().get()
+        );
+
+        assertNotNull(
+            paths.stream().filter(pair -> "MY_PREFIX".equals(pair.getFirst()) && "app/template".equals(pair.getSecond())).findFirst().get()
+        );
+
+        Pair<String, String> myPrefix1 = paths.stream().filter(pair -> "MY_PREFIX_1".equals(pair.getFirst())).findAny().get();
+
+        assertEquals("MY_PREFIX_1", myPrefix1.getFirst());
+        assertEquals("app/template", myPrefix1.getSecond());
+    }
+
+    /**
+     * @see TwigUtil#findTwigFunctionSecondArgumentPathLeaf
+     */
+    public void testFindTwigFunctionSecondArgumentPathLeaf() {
+        assertSecondArgumentPathLeaf("{{ constant('CLUBS', suite) }}", "suite");
+        assertSecondArgumentPathLeaf("{{ constant('CLUBS', order.suite) }}", "suite");
+
+        assertNull(TwigUtil.findTwigFunctionSecondArgumentPathLeaf(findConstantStringArgument("{{ constant('CLUBS') }}")));
+        assertNull(TwigUtil.findTwigFunctionSecondArgumentPathLeaf(findConstantStringArgument("{{ constant('CLUBS', factory()) }}")));
+    }
+
+    /**
+     * @see TwigUtil#isTemplateUsage(PsiElement)
+     */
+    public void testIsTemplateUsage() {
+        PsiElement includeTagString = findCaretElement("{% include 'foo<caret>.html.twig' %}");
+        assertTrue(TwigUtil.isTemplateUsage(includeTagString));
+
+        PsiElement includeFunctionString = findCaretElement("{{ include('foo<caret>.html.twig') }}");
+        assertTrue(TwigUtil.isTemplateUsage(includeFunctionString));
+
+        PsiElement plainString = findCaretElement("{{ 'foo<caret>.html.twig' }}");
+        assertFalse(TwigUtil.isTemplateUsage(plainString));
+    }
+
+    /**
+     * @see TwigUtil#isStaticTemplateUsage(PsiElement)
+     */
+    public void testIsStaticTemplateUsage() {
+        PsiElement includeTagString = findCaretElement("{% include 'foo<caret>.html.twig' %}");
+        assertTrue(TwigUtil.isStaticTemplateUsage(includeTagString));
+
+        PsiElement includeFunctionString = findCaretElement("{{ include('foo<caret>.html.twig') }}");
+        assertTrue(TwigUtil.isStaticTemplateUsage(includeFunctionString));
+
+        PsiElement dynamicTemplateString = findCaretElement("{% include 'foo<caret>#{bar}.html.twig' %}");
+        assertFalse(TwigUtil.isStaticTemplateUsage(dynamicTemplateString));
+    }
+
+    public void testTransDefaultDomainCacheDoesNotRetainInvalidPsiScope() {
+        String template = "{% embed 'card.html.twig' %}{% trans_default_domain 'first' %}{{ 'key'|trans }}{% endembed %}";
+        PsiFile file = myFixture.configureByText(TwigFileType.INSTANCE, template);
+        PsiElement position = file.findElementAt(template.indexOf("'key'") + 1);
+        assertNotNull(position);
+
+        PsiElement scope = TwigUtil.getTransDefaultDomainScope(position);
+        assertNotNull(scope);
+        assertEquals("first", TwigUtil.getTransDefaultDomainOnScope(position));
+
+        String updatedTemplate = "{% embed 'card.html.twig' %}{% trans_default_domain 'second' %}{{ 'key'|trans }}{% endembed %}";
+        PsiFile replacementFile = PsiFileFactory.getInstance(getProject()).createFileFromText("replacement.html.twig", TwigFileType.INSTANCE, updatedTemplate);
+        PsiElement replacementPosition = replacementFile.findElementAt(updatedTemplate.indexOf("'key'") + 1);
+        assertNotNull(replacementPosition);
+
+        PsiElement replacementScope = TwigUtil.getTransDefaultDomainScope(replacementPosition);
+        assertNotNull(replacementScope);
+        WriteCommandAction.runWriteCommandAction(getProject(), (Runnable) () -> scope.replace(replacementScope));
+
+        assertFalse(scope.isValid());
+        PsiElement updatedPosition = file.findElementAt(updatedTemplate.indexOf("'key'") + 1);
+        assertNotNull(updatedPosition);
+        assertEquals("second", TwigUtil.getTransDefaultDomainOnScope(updatedPosition));
+    }
+
+    public void testTemplateUsageRankingCountsFilesAcrossAllGroups() {
+        // Three identical values must count as three files, even if getValues would deduplicate them.
+        for (int i = 0; i < 3; i++) {
+            myFixture.addFileToProject("popular" + i + ".html.twig", templateRankingUsages("popular.html.twig"));
+        }
+        myFixture.addFileToProject("second1.html.twig", templateRankingUsages("second.html.twig"));
+        myFixture.addFileToProject("second2.html.twig", templateRankingUsages("second.html.twig") + "{{ source('second.html.twig') }}");
+        // Repeated calls and several types in the include group still count as just one file.
+        myFixture.addFileToProject("repeated.html.twig", templateRankingUsages("repeated.html.twig").repeat(5)
+            + "{{ include('repeated.html.twig') }} {{ source('repeated.html.twig') }}");
+        myFixture.addFileToProject("import_only.html.twig", "{% import 'macros.html.twig' as macros %}");
+
+        List<String> expected = List.of("popular.html.twig", "second.html.twig", "repeated.html.twig");
+        assertEquals(expected, TwigUtil.getIncludeTemplateUsageAsOrderedList(getProject()));
+        assertEquals(expected, TwigUtil.getEmbedTemplateUsageAsOrderedList(getProject()));
+        assertEquals(expected, TwigUtil.getFormThemeTemplateUsageAsOrderedList(getProject()));
+    }
+
+    public void testSourceRemainsInIncludeRanking() {
+        myFixture.addFileToProject("source.html.twig", "{{ source('source_only.html.twig') }}");
+        assertEquals(List.of("source_only.html.twig"), TwigUtil.getIncludeTemplateUsageAsOrderedList(getProject()));
+        assertTrue(TwigUtil.getEmbedTemplateUsageAsOrderedList(getProject()).isEmpty());
+        assertTrue(TwigUtil.getFormThemeTemplateUsageAsOrderedList(getProject()).isEmpty());
+    }
+
+    private String templateRankingUsages(String template) {
+        return "{% include '" + template + "' %}"
+            + "{% embed '" + template + "' %}{% endembed %}"
+            + "{% form_theme form '" + template + "' %}";
+    }
+
+    @NotNull
+    static List<TwigNamespaceSetting> createTwigNamespaceSettings() {
+        return Arrays.asList(
+            new TwigNamespaceSetting("Foo", "res", true, TwigUtil.NamespaceType.ADD_PATH, true),
+            new TwigNamespaceSetting(TwigUtil.MAIN, "res", true, TwigUtil.NamespaceType.ADD_PATH, true),
+            new TwigNamespaceSetting(TwigUtil.MAIN, "res", true, TwigUtil.NamespaceType.BUNDLE, true),
+            new TwigNamespaceSetting("FooBundle", "res", true, TwigUtil.NamespaceType.BUNDLE, true)
+        );
+    }
+
+    private void assertIsDirectoryAtOffset(@NotNull String templateName, int offset, @NotNull String directory) {
+        assertTrue(TwigUtil.getTemplateTargetOnOffset(getProject(), templateName, offset).stream().anyMatch(psiElement -> psiElement instanceof PsiDirectory && directory.equals(((PsiDirectory) psiElement).getName())));
+    }
+
+    private void assertSecondArgumentPathLeaf(@NotNull String template, @NotNull String expectedName) {
+        PsiElement pathLeaf = TwigUtil.findTwigFunctionSecondArgumentPathLeaf(findConstantStringArgument(template));
+
+        assertNotNull(pathLeaf);
+        assertEquals(expectedName, pathLeaf.getText());
+    }
+
+    @NotNull
+    private PsiElement findCaretElement(@NotNull String template) {
+        myFixture.configureByText(TwigFileType.INSTANCE, template);
+        PsiElement element = myFixture.getFile().findElementAt(myFixture.getCaretOffset());
+        assertNotNull(element);
+
+        return element;
+    }
+
+    @NotNull
+    private PsiElement findConstantStringArgument(@NotNull String template) {
+        myFixture.configureByText(TwigFileType.INSTANCE, template);
+
+        PsiElement[] elements = PsiTreeUtil.collectElements(myFixture.getFile(), TwigPattern.getPrintBlockOrTagFunctionPattern("constant")::accepts);
+        assertEquals(1, elements.length);
+
+        return elements[0];
+    }
+}

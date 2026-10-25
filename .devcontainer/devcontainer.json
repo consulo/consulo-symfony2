@@ -1,0 +1,25 @@
+{
+  "name": "Java",
+  "image": "mcr.microsoft.com/devcontainers/java:3-21-trixie",
+
+  "features": {
+    "ghcr.io/devcontainers/features/java:1": {
+      "version": "21",
+      "installGradle": true,
+      "installMaven": true
+    },
+    "ghcr.io/stu-bell/devcontainer-features/claude-code:0": {},
+    "ghcr.io/jsburckhardt/devcontainer-features/opencode:1": {}
+  },
+
+  // Use 'forwardPorts' to make a list of ports inside the container available locally.
+  // "forwardPorts": [],
+
+  "containerEnv": {
+    "NO_FS_ROOTS_ACCESS_CHECK": "true"
+  },
+
+  "postCreateCommand": "sudo apt-get update -q && sudo apt-get install -y libfreetype6 fontconfig fonts-dejavu-core && mkdir -p \"$JAVA_HOME/Packages\"",
+
+  //"remoteUser": "root"
+}

@@ -1,7 +1,9 @@
 package fr.adrienbrault.idea.symfony2plugin.config.yaml;
 
 import com.intellij.codeInsight.completion.*;
+import com.intellij.codeInsight.lookup.LookupElement;
 import com.intellij.codeInsight.lookup.LookupElementBuilder;
+import com.intellij.openapi.util.Pair;
 import com.intellij.openapi.vfs.VfsUtil;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.vfs.VirtualFileVisitor;
@@ -14,7 +16,10 @@ import com.intellij.psi.util.PsiTreeUtil;
 import com.intellij.util.ProcessingContext;
 import com.jetbrains.php.completion.PhpLookupElement;
 import com.jetbrains.php.lang.psi.elements.Method;
+import com.jetbrains.php.lang.psi.elements.Parameter;
+import com.jetbrains.php.lang.psi.elements.ParameterList;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
+import com.jetbrains.php.lang.psi.resolve.types.PhpType;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.config.component.ParameterLookupElement;
@@ -22,6 +27,8 @@ import fr.adrienbrault.idea.symfony2plugin.config.doctrine.DoctrineStaticTypeLoo
 import fr.adrienbrault.idea.symfony2plugin.config.yaml.completion.ConfigCompletionProvider;
 import fr.adrienbrault.idea.symfony2plugin.dic.ContainerParameter;
 import fr.adrienbrault.idea.symfony2plugin.dic.ServiceCompletionProvider;
+import fr.adrienbrault.idea.symfony2plugin.dic.container.dict.ServiceTypeHint;
+import fr.adrienbrault.idea.symfony2plugin.dic.container.suggestion.utils.ServiceSuggestionUtil;
 import fr.adrienbrault.idea.symfony2plugin.dic.container.util.DotEnvUtil;
 import fr.adrienbrault.idea.symfony2plugin.dic.container.util.ServiceContainerUtil;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.DoctrineYamlAnnotationLookupBuilder;
@@ -30,9 +37,11 @@ import fr.adrienbrault.idea.symfony2plugin.doctrine.component.PhpEntityClassComp
 import fr.adrienbrault.idea.symfony2plugin.doctrine.dict.DoctrineModelField;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.dict.DoctrineModelFieldLookupElement;
 import fr.adrienbrault.idea.symfony2plugin.form.util.FormUtil;
+import fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper;
 import fr.adrienbrault.idea.symfony2plugin.stubs.ContainerCollectionResolver;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
+import fr.adrienbrault.idea.symfony2plugin.util.SimilarSuggestionUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.SymfonyBundleFileCompletionProvider;
 import fr.adrienbrault.idea.symfony2plugin.util.completion.EventCompletionProvider;
 import fr.adrienbrault.idea.symfony2plugin.util.completion.PhpClassAndParameterCompletionProvider;
@@ -41,19 +50,19 @@ import fr.adrienbrault.idea.symfony2plugin.util.completion.TagNameCompletionProv
 import fr.adrienbrault.idea.symfony2plugin.util.controller.ControllerCompletionProvider;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.ServiceUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.yaml.YAMLTokenTypes;
 import org.jetbrains.yaml.psi.YAMLCompoundValue;
 import org.jetbrains.yaml.psi.YAMLKeyValue;
+import org.jetbrains.yaml.psi.YAMLMapping;
 import org.jetbrains.yaml.psi.YAMLScalar;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -62,7 +71,7 @@ public class YamlCompletionContributor extends CompletionContributor {
 
     // @TODO: use xsd file
     // Symfony/Component/DependencyInjection/Loader/schema/dic/services/services-1.0.xsd
-    private static final Map<String, String> SERVICE_KEYS = Collections.unmodifiableMap(new HashMap<String, String>() {{
+    private static final Map<String, String> SERVICE_KEYS = Collections.unmodifiableMap(new HashMap<>() {{
         put("class", "(string)");
         put("public", "(bool)");
         put("tags", null);
@@ -80,29 +89,35 @@ public class YamlCompletionContributor extends CompletionContributor {
         put("factory_service", "<= 2.5");
         put("factory_method", "<= 2.5");
         put("autowire", "(bool) >= 2.8");
-        put("autowiring_type", ">= 2.8");
+        put("autowiring_types", ">= 2.8, < 4.0");
         put("deprecated", "(string) >= 2.8");
         put("decorates", null);
         put("decoration_inner_name", null);
         put("decoration_priority", "(int) >= 2.8");
+        put("decoration_on_invalid", "(exception|ignore|null) >= 4.4");
         put("shared", "(bool) >= 3.0");
         put("resource", "(string) >= 3.3");
         put("autoconfigure", "(bool) >= 3.3");
+        put("properties", ">= 5.1");
+        put("configurator", ">= 2.8");
+        put("bind", ">= 2.8");
+        put("file", ">= 2.8");
+        put("exclude", ">= 2.8");
     }});
 
-    private static final Map<String, String> ROUTE_KEYS = Collections.unmodifiableMap(new HashMap<String, String>() {{
-        put("pattern", "deprecated");
-        put("defaults", "(bool)");
-        put("path", "(string)");
-        put("requirements", "(array)");
-        put("methods", "(array|string)");
-        put("condition", "(string / expression)");
-        put("resource", "(string)");
-        put("prefix", "(string)");
-        put("schemes", "(array|string)");
-        put("host", "(string)");
-        put("controller", "(string)");
-    }});
+    private static final Map<String, String> ROUTE_KEYS = Map.ofEntries(
+        Map.entry("pattern", "deprecated"),
+        Map.entry("defaults", "(bool)"),
+        Map.entry("path", "(string)"),
+        Map.entry("requirements", "(array)"),
+        Map.entry("methods", "(array|string)"),
+        Map.entry("condition", "(string / expression)"),
+        Map.entry("resource", "(string)"),
+        Map.entry("prefix", "(string)"),
+        Map.entry("schemes", "(array|string)"),
+        Map.entry("host", "(string)"),
+        Map.entry("controller", "(string)")
+    );
 
     public YamlCompletionContributor() {
 
@@ -130,27 +145,28 @@ public class YamlCompletionContributor extends CompletionContributor {
 
         extend(
             CompletionType.BASIC, YamlElementPatternHelper.getServiceParameterDefinition(),
-            new CompletionProvider<CompletionParameters>() {
+            new CompletionProvider<>() {
                 public void addCompletions(@NotNull CompletionParameters parameters,
-                                           ProcessingContext context,
+                                           @NotNull ProcessingContext context,
                                            @NotNull CompletionResultSet resultSet) {
 
-                    if(!Symfony2ProjectComponent.isEnabled(parameters.getPosition())) {
+                    if (!Symfony2ProjectComponent.isEnabled(parameters.getPosition())) {
                         return;
                     }
 
                     PsiElement element = parameters.getOriginalPosition();
 
-                    if(element == null) {
+                    if (element == null) {
                         return;
                     }
 
-                    for(ContainerParameter containerParameter: ContainerCollectionResolver.getParameters(parameters.getPosition().getProject()).values()) {
+                    for (ContainerParameter containerParameter : ContainerCollectionResolver.getParameters(parameters.getPosition().getProject()).values()) {
                         resultSet.addElement(new ParameterLookupElement(containerParameter, ParameterPercentWrapInsertHandler.getInstance(), element.getText()));
                     }
 
                     for (String s : DotEnvUtil.getEnvironmentVariables(element.getProject())) {
-                        resultSet.addElement(new ParameterLookupElement(new ContainerParameter("env(" + s +")", false), ParameterPercentWrapInsertHandler.getInstance(), element.getText()));
+                        resultSet.addElement(new ParameterLookupElement(new ContainerParameter("env(" + s + ")", false), ParameterPercentWrapInsertHandler.getInstance(), element.getText()));
+                        resultSet.addElement(new ParameterLookupElement(new ContainerParameter("env(resolve:" + s + ")", false), ParameterPercentWrapInsertHandler.getInstance(), element.getText()));
                     }
                 }
             }
@@ -193,8 +209,9 @@ public class YamlCompletionContributor extends CompletionContributor {
         extend(CompletionType.BASIC, YamlElementPatternHelper.getOrmSingleLineScalarKey("referencedColumnName"), new ReferencedColumnCompletionProvider());
 
         extend(CompletionType.BASIC, YamlElementPatternHelper.getSingleLineScalarKey("_controller", "controller"), new ControllerCompletionProvider());
+        extend(CompletionType.BASIC, YamlElementPatternHelper.getSingleLineScalarKey("path"), new RoutePathParametersCompletionProvider());
 
-        extend(CompletionType.BASIC, YamlElementPatternHelper.getSingleLineScalarKey("resource"), new SymfonyBundleFileCompletionProvider("Resources/config", "Controller"));
+        extend(CompletionType.BASIC, YamlElementPatternHelper.getSingleLineScalarKey("resource"), new SymfonyBundleFileCompletionProvider("Resources/config", "config", "Controller", "src/Controller"));
         extend(CompletionType.BASIC, YamlElementPatternHelper.getSingleLineScalarKey("resource"), new DirectoryScopeCompletionProvider());
 
         extend(CompletionType.BASIC, YamlElementPatternHelper.getSuperParentArrayKey("services"), new YamlCompletionProvider(SERVICE_KEYS));
@@ -232,7 +249,7 @@ public class YamlCompletionContributor extends CompletionContributor {
         // tags: [ foobar ]
         extend(
             CompletionType.BASIC,
-            YamlElementPatternHelper.getTagsAsSequencePattern(),
+            YamlElementPatternHelper.getSequenceValueWithArrayKeyPattern("tags"),
             new TagNameCompletionProvider()
         );
 
@@ -252,6 +269,9 @@ public class YamlCompletionContributor extends CompletionContributor {
         //  _defaults:
         //    bind:
         //      $<caret>: ''
+        //  service:
+        //    arguments:
+        //      $<caret>: ''
         extend(
             CompletionType.BASIC,
             YamlElementPatternHelper.getNamedDefaultBindPattern(),
@@ -264,7 +284,7 @@ public class YamlCompletionContributor extends CompletionContributor {
      */
     private static class MyFactoryStringMethodCompletionProvider extends CompletionProvider<CompletionParameters> {
         @Override
-        protected void addCompletions(@NotNull CompletionParameters parameters, ProcessingContext processingContext, @NotNull CompletionResultSet completionResultSet) {
+        protected void addCompletions(@NotNull CompletionParameters parameters, @NotNull ProcessingContext processingContext, @NotNull CompletionResultSet completionResultSet) {
             PsiElement position = parameters.getPosition();
             if(!Symfony2ProjectComponent.isEnabled(position)) {
                 return;
@@ -300,7 +320,7 @@ public class YamlCompletionContributor extends CompletionContributor {
 
     private static class FactoryMethodCompletionProvider extends CompletionProvider<CompletionParameters> {
         @Override
-        protected void addCompletions(@NotNull CompletionParameters parameters, ProcessingContext processingContext, @NotNull CompletionResultSet completionResultSet) {
+        protected void addCompletions(@NotNull CompletionParameters parameters, @NotNull ProcessingContext processingContext, @NotNull CompletionResultSet completionResultSet) {
 
             PsiElement position = parameters.getPosition();
             if(!Symfony2ProjectComponent.isEnabled(position)) {
@@ -328,7 +348,7 @@ public class YamlCompletionContributor extends CompletionContributor {
 
     public static class DirectoryScopeCompletionProvider extends CompletionProvider<CompletionParameters> {
         @Override
-        protected void addCompletions(@NotNull CompletionParameters completionParameters, final ProcessingContext processingContext, @NotNull final CompletionResultSet completionResultSet) {
+        protected void addCompletions(@NotNull CompletionParameters completionParameters, final @NotNull ProcessingContext processingContext, @NotNull final CompletionResultSet completionResultSet) {
 
             PsiFile originalFile = completionParameters.getOriginalFile();
             if(!Symfony2ProjectComponent.isEnabled(originalFile)) {
@@ -373,7 +393,7 @@ public class YamlCompletionContributor extends CompletionContributor {
      */
     private static class MyServiceKeyAsClassCompletionParametersCompletionProvider extends CompletionProvider<CompletionParameters> {
         @Override
-        protected void addCompletions(@NotNull CompletionParameters parameters, ProcessingContext processingContext, @NotNull CompletionResultSet completionResultSet) {
+        protected void addCompletions(@NotNull CompletionParameters parameters, @NotNull ProcessingContext processingContext, @NotNull CompletionResultSet completionResultSet) {
             PsiElement position = parameters.getPosition();
 
             if(!Symfony2ProjectComponent.isEnabled(position)) {
@@ -395,27 +415,203 @@ public class YamlCompletionContributor extends CompletionContributor {
      *     _defaults:
      *         bind:
      *             $projectDir: '%kernel.project_dir%'
+     *     foobar:
+     *         arguments:
+     *             $projectDir: '%kernel.project_dir%'
      */
     private static class NamedArgumentCompletionProvider extends CompletionProvider<CompletionParameters> {
         @Override
-        protected void addCompletions(@NotNull CompletionParameters parameters, ProcessingContext context, @NotNull CompletionResultSet result) {
-            HashSet<String> uniqueParameters = new HashSet<>();
+        protected void addCompletions(@NotNull CompletionParameters parameters, @NotNull ProcessingContext context, @NotNull CompletionResultSet result) {
+            PsiElement position = parameters.getPosition();
+            boolean hasEmptyNextElement = position.getNextSibling() == null;
 
-            ServiceContainerUtil.visitNamedArguments(parameters.getPosition().getContainingFile(), parameter -> {
-                String name = parameter.getName();
-                if (uniqueParameters.contains(name)) {
+            YAMLMapping serviceDefintion = null;
+
+            Collection<Pair<Parameter, Integer>> arguments = new ArrayList<>();
+
+            // depending on code complete state we already have a key or not
+            // then decide if we are inside a "service" or "default bind" scope
+            if (position.getNode().getElementType() == YAMLTokenTypes.SCALAR_KEY) {
+                // "$name" key exists
+                YAMLKeyValue parentOfType = PsiTreeUtil.getParentOfType(position, YAMLKeyValue.class);
+                YAMLKeyValue parentOfType2 = PsiTreeUtil.getParentOfType(parentOfType, YAMLKeyValue.class);
+                if (parentOfType2 == null) {
                     return;
                 }
 
-                uniqueParameters.add(name);
+                String keyText2 = parentOfType2.getKeyText();
+                if (!"bind".equals(keyText2)) {
+                    serviceDefintion = parentOfType2.getParentMapping();
+                }
+            } else {
+                // "$" its just a text element
+                YAMLKeyValue parentOfType = PsiTreeUtil.getParentOfType(position, YAMLKeyValue.class);
+                if (parentOfType == null) {
+                    return;
+                }
+
+                if (!"bind".equals(parentOfType.getKeyText())) {
+                    serviceDefintion = parentOfType.getParentMapping();
+                }
+            }
+
+            ContainerCollectionResolver.LazyServiceCollector lazyServiceCollector = new ContainerCollectionResolver.LazyServiceCollector(position.getProject());
+
+            // visit full file for arguments or current service scope
+            if (serviceDefintion == null) {
+                ServiceContainerUtil.visitNamedArguments(position.getContainingFile(), arguments::add);
+            } else {
+                @Nullable PhpClass yamlNamedArgumentPhpClass = ServiceContainerUtil.getServicePhpClassFromServiceMapping(serviceDefintion, lazyServiceCollector);
+                if (yamlNamedArgumentPhpClass != null) {
+                    Method constructor = yamlNamedArgumentPhpClass.getConstructor();
+                    if (constructor != null) {
+                        Parameter @NotNull [] constructorParameters = constructor.getParameters();
+                        for (int i = 0; i < constructorParameters.length; i++) {
+                            arguments.add(Pair.create(constructorParameters[i], i));
+                        }
+                    }
+                }
+            }
+
+            Set<String> uniqueParameters = new HashSet<>();
+            for (Pair<Parameter, Integer> pair : arguments) {
+                Parameter parameter = pair.getFirst();
+                String parameterName = parameter.getName();
+                if (uniqueParameters.contains(parameterName)) {
+                    return;
+                }
+
+                uniqueParameters.add(parameterName);
 
                 // create argument for yaml: $parameter
                 result.addElement(
-                        LookupElementBuilder.create("$" + name)
-                                .withIcon(parameter.getIcon())
-                                .withTypeText(StringUtils.stripStart(parameter.getType().toString(), "\\"), true)
+                    LookupElementBuilder.create("$" + parameterName)
+                        .withIcon(parameter.getIcon())
+                        .withTypeText(StringUtils.stripStart(parameter.getType().toString(), "\\"))
                 );
-            });
+
+                if (hasEmptyNextElement) {
+                    // iterable $handlers => can also provide "!tagged_iterator"
+                    if (parameter.getType().getTypes().stream().anyMatch(s -> s.equalsIgnoreCase(PhpType._ITERABLE))) {
+                        LookupElementBuilder element = LookupElementBuilder.create("$" + parameterName + ": !tagged_iterator")
+                            .withIcon(parameter.getIcon())
+                            .withTypeText(StringUtils.stripStart(parameter.getType().toString(), "\\"), true);
+
+                        result.addElement(PrioritizedLookupElement.withPriority(element, -1000));
+                    }
+
+                    if (!parameter.getType().getTypes().stream().allMatch(PhpType::isPrimitiveType)) {
+                        // $foobar: '@service'
+                        result.addAllElements(getServiceSuggestion(position, pair, parameterName, lazyServiceCollector));
+                    } else {
+                        String parameterNormalized = parameterName.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", "");
+                        if (parameterNormalized.length() > 5) {
+                            // $projectDir: '%kernel.project_dir%'
+                            result.addAllElements(getParameterSuggestion(parameter, parameterName, parameterNormalized));
+
+                            // $kernelClass: '%env(KERNEL_CLASS)%'
+                            result.addAllElements(getDotEnvSuggestion(parameter, parameterName, parameterNormalized));
+                        }
+                    }
+                }
+            }
+        }
+
+        /**
+         * Matched service name on instance
+         *
+         * $foobar: '@service'
+         */
+        @NotNull
+        private Collection<LookupElement> getServiceSuggestion(@NotNull PsiElement position, @NotNull Pair<Parameter, Integer> pair, @NotNull String parameterName, @NotNull ContainerCollectionResolver.LazyServiceCollector lazyServiceCollector) {
+            Parameter parameter = pair.getFirst();
+
+            PsiElement parameterList = parameter.getParent();
+            if (parameterList instanceof ParameterList) {
+                PsiElement parent = parameterList.getParent();
+                if (parent instanceof Method) {
+                    Collection<String> suggestions = new ArrayList<>(ServiceSuggestionUtil.createSuggestions(new ServiceTypeHint(
+                        (Method) parent,
+                        pair.getSecond(),
+                        position
+                    ), lazyServiceCollector.getCollector().getServices().values()));
+
+                    return suggestions.stream()
+                        .limit(3)
+                        .map(service -> {
+                            LookupElementBuilder element = LookupElementBuilder.create(String.format("$%s: '@%s'", parameterName, service))
+                                .withIcon(Symfony2Icons.SERVICE)
+                                .withTypeText(StringUtils.stripStart(parameter.getType().toString(), "\\"), true);
+
+                            return PrioritizedLookupElement.withPriority(element, -1000);
+                        })
+                        .collect(Collectors.toList());
+                }
+            }
+
+            return Collections.emptyList();
+        }
+
+        /**
+         * $projectDir: '%kernel.project_dir%'
+         */
+        private Collection<LookupElement> getParameterSuggestion(@NotNull Parameter parameter, @NotNull String parameterName, @NotNull String parameterNormalized) {
+            Set<String> values = new HashSet<>();
+
+            for (String name : ContainerCollectionResolver.getParameterNames(parameter.getProject())) {
+                String symfonyParameterNormalized = name.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", "");
+
+                if (symfonyParameterNormalized.contains(parameterNormalized)) {
+                    values.add(name);
+                }
+            }
+
+            // weight items: append all indirect matched, after them in case there they are not similar
+            List<String> similarString = new ArrayList<>(SimilarSuggestionUtil.findSimilarString(parameterNormalized, values));
+            similarString.addAll(values);
+
+            return similarString.stream()
+                .distinct()
+                .limit(3)
+                .map(service -> {
+                    LookupElementBuilder element = LookupElementBuilder.create("$" + parameterName + ": '%" + service + "%'")
+                        .withIcon(Symfony2Icons.PARAMETER)
+                        .withTypeText(StringUtils.stripStart(parameter.getType().toString(), "\\"), true);
+
+                    return PrioritizedLookupElement.withPriority(element, -1000);
+                })
+                .collect(Collectors.toList());
+        }
+
+        /**
+         * "$kernelClass: '%env(KERNEL_CLASS)%'"
+         */
+        @NotNull
+        private Collection<LookupElement> getDotEnvSuggestion(@NotNull Parameter parameter, @NotNull String parameterName, @NotNull String parameterNormalized) {
+            Set<String> dotEnv = new HashSet<>();
+            for (String name : DotEnvUtil.getEnvironmentVariables(parameter.getProject())) {
+                String symfonyParameterNormalized = name.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", "");
+
+                if (symfonyParameterNormalized.contains(parameterNormalized)) {
+                    dotEnv.add(name);
+                }
+            }
+
+            // weight items: append all indirect matched, after them in case there they are not similar
+            List<String> similarString = new ArrayList<>(SimilarSuggestionUtil.findSimilarString(parameterNormalized, dotEnv));
+            similarString.addAll(dotEnv);
+
+            return similarString.stream()
+                .distinct()
+                .limit(3)
+                .map(service -> {
+                    LookupElementBuilder element = LookupElementBuilder.create("$" + parameterName + ": '%env(" + service + ")%'")
+                        .withIcon(Symfony2Icons.PARAMETER)
+                        .withTypeText(StringUtils.stripStart(parameter.getType().toString(), "\\"), true);
+
+                    return PrioritizedLookupElement.withPriority(element, -1000);
+                })
+                .collect(Collectors.toList());
         }
     }
 
@@ -423,9 +619,9 @@ public class YamlCompletionContributor extends CompletionContributor {
      * tags:
      *  - { method: 'foobar' }
      */
-    private class ServiceCallsMethodTestCompletion extends CompletionProvider<CompletionParameters> {
+    private static class ServiceCallsMethodTestCompletion extends CompletionProvider<CompletionParameters> {
 
-        protected void addCompletions(@NotNull CompletionParameters completionParameters, ProcessingContext processingContext, @NotNull CompletionResultSet completionResultSet) {
+        protected void addCompletions(@NotNull CompletionParameters completionParameters, @NotNull ProcessingContext processingContext, @NotNull CompletionResultSet completionResultSet) {
             if(!Symfony2ProjectComponent.isEnabled(completionParameters.getPosition())) {
                 return;
             }
@@ -443,15 +639,14 @@ public class YamlCompletionContributor extends CompletionContributor {
         }
     }
 
-    private class ServiceClassMethodInsideScalarKeyCompletion extends CompletionProvider<CompletionParameters> {
-
-        private String yamlArrayKeyName;
+    private static class ServiceClassMethodInsideScalarKeyCompletion extends CompletionProvider<CompletionParameters> {
+        private final String yamlArrayKeyName;
 
         ServiceClassMethodInsideScalarKeyCompletion(String yamlArrayKeyName) {
             this.yamlArrayKeyName = yamlArrayKeyName;
         }
 
-        protected void addCompletions(@NotNull CompletionParameters completionParameters, ProcessingContext processingContext, @NotNull CompletionResultSet completionResultSet) {
+        protected void addCompletions(@NotNull CompletionParameters completionParameters, @NotNull ProcessingContext processingContext, @NotNull CompletionResultSet completionResultSet) {
 
             if(!Symfony2ProjectComponent.isEnabled(completionParameters.getPosition())) {
                 return;
@@ -469,9 +664,9 @@ public class YamlCompletionContributor extends CompletionContributor {
 
     }
 
-    private class ServiceCallsMethodCompletion extends CompletionProvider<CompletionParameters> {
+    private static class ServiceCallsMethodCompletion extends CompletionProvider<CompletionParameters> {
 
-        protected void addCompletions(@NotNull CompletionParameters completionParameters, ProcessingContext processingContext, @NotNull CompletionResultSet completionResultSet) {
+        protected void addCompletions(@NotNull CompletionParameters completionParameters, @NotNull ProcessingContext processingContext, @NotNull CompletionResultSet completionResultSet) {
             if(!Symfony2ProjectComponent.isEnabled(completionParameters.getPosition())) {
                 return;
             }
@@ -510,7 +705,7 @@ public class YamlCompletionContributor extends CompletionContributor {
 
     private static class FormAliasCompletionProvider extends CompletionProvider<CompletionParameters> {
         @Override
-        protected void addCompletions(@NotNull CompletionParameters completionParameters, ProcessingContext processingContext, @NotNull CompletionResultSet completionResultSet) {
+        protected void addCompletions(@NotNull CompletionParameters completionParameters, @NotNull ProcessingContext processingContext, @NotNull CompletionResultSet completionResultSet) {
 
             if(!Symfony2ProjectComponent.isEnabled(completionParameters.getPosition())) {
                 return;
@@ -540,7 +735,7 @@ public class YamlCompletionContributor extends CompletionContributor {
 
     private static class OrmRelationCompletionProvider extends CompletionProvider<CompletionParameters> {
         @Override
-        protected void addCompletions(@NotNull CompletionParameters completionParameters, ProcessingContext processingContext, @NotNull CompletionResultSet completionResultSet) {
+        protected void addCompletions(@NotNull CompletionParameters completionParameters, @NotNull ProcessingContext processingContext, @NotNull CompletionResultSet completionResultSet) {
 
             PsiElement position = completionParameters.getPosition();
             if(!Symfony2ProjectComponent.isEnabled(position)) {
@@ -583,7 +778,7 @@ public class YamlCompletionContributor extends CompletionContributor {
      */
     private static class ReferencedColumnCompletionProvider extends CompletionProvider<CompletionParameters> {
         @Override
-        protected void addCompletions(@NotNull CompletionParameters completionParameters, ProcessingContext processingContext, @NotNull CompletionResultSet completionResultSet) {
+        protected void addCompletions(@NotNull CompletionParameters completionParameters, @NotNull ProcessingContext processingContext, @NotNull CompletionResultSet completionResultSet) {
 
             PsiElement position = completionParameters.getPosition();
             if(!Symfony2ProjectComponent.isEnabled(position)) {
@@ -654,9 +849,9 @@ public class YamlCompletionContributor extends CompletionContributor {
     /**
      * "requirements" on "path/pattern: /hello/{name}"
      */
-    private class RouteRequirementsCompletion extends CompletionProvider<CompletionParameters> {
+    private static class RouteRequirementsCompletion extends CompletionProvider<CompletionParameters> {
         @Override
-        protected void addCompletions(@NotNull CompletionParameters completionParameters, ProcessingContext processingContext, @NotNull CompletionResultSet completionResultSet) {
+        protected void addCompletions(@NotNull CompletionParameters completionParameters, @NotNull ProcessingContext processingContext, @NotNull CompletionResultSet completionResultSet) {
             YAMLKeyValue yamlKeyValue = PsiTreeUtil.getParentOfType(completionParameters.getOriginalPosition(), YAMLKeyValue.class);
             if(yamlKeyValue != null) {
                 PsiElement compoundValue = yamlKeyValue.getParent();
@@ -677,6 +872,18 @@ public class YamlCompletionContributor extends CompletionContributor {
 
                 }
             }
+        }
+    }
+
+    private static class RoutePathParametersCompletionProvider extends CompletionProvider<CompletionParameters> {
+        @Override
+        protected void addCompletions(@NotNull CompletionParameters parameters, @NotNull ProcessingContext context, @NotNull CompletionResultSet result) {
+            PsiElement position = parameters.getPosition();
+            if(!Symfony2ProjectComponent.isEnabled(position)) {
+                return;
+            }
+
+            result.addAllElements(RouteHelper.getRoutesPathLookupElements(position.getProject()));
         }
     }
 }

@@ -14,7 +14,7 @@ public class QueryBuilderPropertyAlias {
 
     final private String alias;
     final private String fieldName;
-    private DoctrineModelField field;
+    private final DoctrineModelField field;
 
     public QueryBuilderPropertyAlias(String alias, String fieldName, DoctrineModelField field) {
         this.alias = alias;
@@ -31,7 +31,7 @@ public class QueryBuilderPropertyAlias {
     }
 
     public Collection<PsiElement> getPsiTargets() {
-        return field == null ? Collections.EMPTY_LIST : field.getTargets();
+        return field == null ? Collections.emptyList() : field.getTargets();
     }
 
     @Nullable

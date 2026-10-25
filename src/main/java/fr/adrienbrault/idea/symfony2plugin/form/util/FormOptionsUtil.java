@@ -7,16 +7,16 @@ import com.intellij.patterns.PlatformPatterns;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.util.PsiTreeUtil;
 import com.intellij.util.containers.ContainerUtil;
-import com.jetbrains.php.PhpIndex;
 import com.jetbrains.php.lang.psi.elements.*;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
 import fr.adrienbrault.idea.symfony2plugin.form.dict.*;
 import fr.adrienbrault.idea.symfony2plugin.form.visitor.FormOptionLookupVisitor;
 import fr.adrienbrault.idea.symfony2plugin.form.visitor.FormOptionVisitor;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
+import fr.adrienbrault.idea.symfony2plugin.util.PhpIndexUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
 import fr.adrienbrault.idea.symfony2plugin.util.service.ServiceXmlParserFactory;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -81,7 +81,7 @@ public class FormOptionsUtil {
             );
         }
 
-        for(PhpClass phpClass: PhpIndex.getInstance(project).getAllSubclasses(FormUtil.FORM_EXTENSION_INTERFACE)) {
+        for(PhpClass phpClass: PhpIndexUtil.getAllSubclasses(project, FormUtil.FORM_EXTENSION_INTERFACE)) {
             if(!FormUtil.isValidFormPhpClass(phpClass)) {
                 continue;
             }
@@ -329,10 +329,12 @@ public class FormOptionsUtil {
                     }
                 }
 
+                Project project = phpClass.getProject();
+
                 // support: parent::setDefaultOptions($resolver)
                 // Symfony\Component\Form\Extension\Core\Type\FormType:setDefaultOptions
                 if(PhpElementsUtil.isEqualMethodReferenceName(methodReference, methodName) && methodReference.getReferenceType() == PhpModifier.State.PARENT) {
-                    PsiElement parentMethod = PhpElementsUtil.getPsiElementsBySignatureSingle(phpClass.getProject(), methodReference.getSignature());
+                    PsiElement parentMethod = PhpElementsUtil.getPsiElementsBySignatureSingle(project, methodReference.getSignature());
                     if(parentMethod instanceof Method) {
                         PhpClass phpClassInner = ((Method) parentMethod).getContainingClass();
                         if(phpClassInner != null) {
@@ -385,10 +387,8 @@ public class FormOptionsUtil {
             .collect(Collectors.toCollection(ArrayList::new));
     }
 
-    @Deprecated
     @NotNull
-    public static Collection<PsiElement> getDefaultOptionTargets(@NotNull StringLiteralExpression element, @NotNull String formType) {
-
+    public static Collection<PsiElement> getFormDefaultOptionTargets(@NotNull StringLiteralExpression element, @NotNull String formType) {
         final String value = element.getContents();
         if(StringUtils.isBlank(value)) {
             return Collections.emptySet();
@@ -403,6 +403,12 @@ public class FormOptionsUtil {
         });
 
         return psiElements;
+    }
+
+    @Deprecated
+    @NotNull
+    public static Collection<PsiElement> getDefaultOptionTargets(@NotNull StringLiteralExpression element, @NotNull String formType) {
+        return getFormDefaultOptionTargets(element, formType);
     }
 
     @NotNull
@@ -440,16 +446,11 @@ public class FormOptionsUtil {
 
         for (String scopeMethod : scopeMethods) {
             Method method = phpClass.findMethodByName(scopeMethod);
-
             if(method == null) {
                 continue;
             }
 
-            for (MethodReference methodReference : PsiTreeUtil.collectElementsOfType(method, MethodReference.class)) {
-                if(!methodName.equals(methodReference.getName())) {
-                    continue;
-                }
-
+            for (MethodReference methodReference : PhpElementsUtil.collectMethodReferencesInsideControlFlow(method, methodName)) {
                 // our key to find
                 String argument = PhpElementsUtil.getMethodReferenceStringValueParameter(methodReference, 0);
                 if(!key.equals(argument)) {
@@ -467,5 +468,31 @@ public class FormOptionsUtil {
         }
 
         return values;
+    }
+
+    /**
+     * $resolver->setDefaults(['data_class' => User::class]);
+     * $resolver->setDefault('data_class', User::class);
+     */
+    @Nullable
+    public static PhpClass getFormPhpClassFromContext(@NotNull PsiElement psiElement) {
+        Collection<String> classes = new ArrayList<>();
+
+        // $resolver->setDefaults(['data_class' => User::class]);
+        String className = PhpElementsUtil.getArrayKeyValueInsideSignature(psiElement, FormOptionsUtil.FORM_OPTION_METHODS, "setDefaults", "data_class");
+        if(className != null) {
+            classes.add(className);
+        }
+
+        // $resolver->setDefault('data_class', User::class);
+        classes.addAll(FormOptionsUtil.getMethodReferenceStringParameter(psiElement, FormOptionsUtil.FORM_OPTION_METHODS, "setDefault", "data_class"));
+
+        // find first class
+        Project project = psiElement.getProject();
+
+        return classes.stream()
+            .map(clazz -> PhpElementsUtil.getClassInterface(project, clazz))
+            .filter(Objects::nonNull).findFirst()
+            .orElse(null);
     }
 }

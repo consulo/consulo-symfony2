@@ -1,6 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.doctrine.metadata;
 
 import com.intellij.codeInsight.completion.*;
+import com.intellij.openapi.project.Project;
 import com.intellij.patterns.PlatformPatterns;
 import com.intellij.patterns.XmlPatterns;
 import com.intellij.psi.PsiElement;
@@ -24,13 +25,19 @@ public class DoctrineXmlCompletionContributor extends CompletionContributor {
             DoctrineMetadataPattern.getXmlModelClass(),
             DoctrineMetadataPattern.getXmlTargetEntityClass(),
             DoctrineMetadataPattern.getXmlTargetDocumentClass(),
-            DoctrineMetadataPattern.getEmbeddableNameClassPattern()
-        )), new CompletionProvider<CompletionParameters>() {
+            DoctrineMetadataPattern.getEmbeddableNameClassPattern(),
+            DoctrineMetadataPattern.getEmbeddedClassPattern(),
+            DoctrineMetadataPattern.getFieldEnumType()
+        )), new CompletionProvider<>() {
             @Override
-            protected void addCompletions(@NotNull CompletionParameters parameters, ProcessingContext processingContext, @NotNull CompletionResultSet resultSet) {
-
+            protected void addCompletions(@NotNull CompletionParameters parameters, @NotNull ProcessingContext processingContext, @NotNull CompletionResultSet resultSet) {
                 PsiElement psiElement = parameters.getOriginalPosition();
-                if(psiElement == null || !Symfony2ProjectComponent.isEnabled(psiElement)) {
+                if (psiElement == null) {
+                    return;
+                }
+
+                Project project = psiElement.getProject();
+                if (!Symfony2ProjectComponent.isEnabled(project)) {
                     return;
                 }
 
@@ -41,20 +48,19 @@ public class DoctrineXmlCompletionContributor extends CompletionContributor {
         // <entity repository-class="Class\Name"/>
         // <document repository-class="Class\Name"/>
         extend(CompletionType.BASIC, XmlPatterns.psiElement().withParent(PlatformPatterns.or(DoctrineMetadataPattern.getXmlRepositoryClass())),
-            new CompletionProvider<CompletionParameters>() {
-            @Override
-            protected void addCompletions(@NotNull CompletionParameters parameters, ProcessingContext processingContext, @NotNull CompletionResultSet resultSet) {
+            new CompletionProvider<>() {
+                @Override
+                protected void addCompletions(@NotNull CompletionParameters parameters, @NotNull ProcessingContext processingContext, @NotNull CompletionResultSet resultSet) {
+                    Project project = parameters.getPosition().getProject();
+                    if (!Symfony2ProjectComponent.isEnabled(project)) {
+                        return;
+                    }
 
-                PsiElement psiElement = parameters.getOriginalPosition();
-                if(psiElement == null || !Symfony2ProjectComponent.isEnabled(psiElement)) {
-                    return;
+                    // @TODO: filter on doctrine manager
+                    resultSet.addAllElements(
+                        DoctrineMetadataUtil.getObjectRepositoryLookupElements(project)
+                    );
                 }
-
-                // @TODO: filter on doctrine manager
-                resultSet.addAllElements(
-                    DoctrineMetadataUtil.getObjectRepositoryLookupElements(psiElement.getProject())
-                );
-            }
-        });
+            });
    }
 }

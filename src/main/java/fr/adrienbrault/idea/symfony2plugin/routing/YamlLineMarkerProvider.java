@@ -13,7 +13,8 @@ import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.util.DoctrineMetadataUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.resource.FileResourceUtil;
-import org.apache.commons.lang.StringUtils;
+import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.yaml.YAMLTokenTypes;
@@ -28,8 +29,8 @@ import java.util.List;
 public class YamlLineMarkerProvider implements LineMarkerProvider {
 
     @Override
-    public void collectSlowLineMarkers(@NotNull List<PsiElement> psiElements, @NotNull Collection<LineMarkerInfo> lineMarkerInfos) {
-        if(psiElements.size() == 0 || !Symfony2ProjectComponent.isEnabled(psiElements.get(0))) {
+    public void collectSlowLineMarkers(@NotNull List<? extends PsiElement> psiElements, @NotNull Collection<? super LineMarkerInfo<?>> lineMarkerInfos) {
+        if(psiElements.isEmpty() || !Symfony2ProjectComponent.isEnabled(psiElements.get(0))) {
             return;
         }
 
@@ -37,6 +38,7 @@ public class YamlLineMarkerProvider implements LineMarkerProvider {
             attachRouteActions(lineMarkerInfos, psiElement);
             attachEntityClass(lineMarkerInfos, psiElement);
             attachRelationClass(lineMarkerInfos, psiElement);
+            attachRoutingForResources(lineMarkerInfos, psiElement);
 
             if(psiElement instanceof YAMLFile) {
                 RelatedItemLineMarkerInfo<PsiElement> lineMarker = FileResourceUtil.getFileImplementsLineMarker((PsiFile) psiElement);
@@ -47,7 +49,46 @@ public class YamlLineMarkerProvider implements LineMarkerProvider {
         }
     }
 
-    private void attachEntityClass(@NotNull Collection<LineMarkerInfo> lineMarkerInfos, @NotNull PsiElement psiElement) {
+    /**
+     * controllers:
+     *    resource: '../../src/Controller/'
+     *    type: annotation
+     *
+     * controllers:
+     *     resource:
+     *         path: ../src/Controller/
+     *         namespace: App\Controller
+     */
+    private void attachRoutingForResources(@NotNull Collection<? super LineMarkerInfo<?>> result, @NotNull PsiElement leafTarget) {
+        if (leafTarget.getNode().getElementType() != YAMLTokenTypes.SCALAR_KEY) {
+            return;
+        }
+
+        PsiElement yamlKeyValue = leafTarget.getParent();
+        if (!(yamlKeyValue instanceof YAMLKeyValue)) {
+            return;
+        }
+
+        String resourcePath = FileResourceUtil.getResourcePath((YAMLKeyValue) yamlKeyValue);
+        if (resourcePath == null) {
+            return;
+        }
+
+        String type = YamlHelper.getYamlKeyValueAsString((YAMLKeyValue) yamlKeyValue, "type");
+        if (!"annotation".equals(type) && !"attribute".equals(type)) {
+            return;
+        }
+
+        result.add(
+            FileResourceUtil.getNavigationGutterForRouteAnnotationResources(
+                leafTarget.getProject(),
+                leafTarget.getContainingFile().getVirtualFile(),
+                resourcePath
+            ).createLineMarkerInfo(leafTarget)
+        );
+    }
+
+    private void attachEntityClass(@NotNull Collection<? super LineMarkerInfo<?>> lineMarkerInfos, @NotNull PsiElement psiElement) {
         if(psiElement.getNode().getElementType() != YAMLTokenTypes.SCALAR_KEY) {
             return;
         }
@@ -70,7 +111,7 @@ public class YamlLineMarkerProvider implements LineMarkerProvider {
                 String keyText = ((YAMLKeyValue) yamlKeyValue).getKeyText();
                 if(StringUtils.isNotBlank(keyText)) {
                     Collection<PhpClass> phpClasses = PhpElementsUtil.getClassesInterface(psiElement.getProject(), keyText);
-                    if(phpClasses.size() > 0) {
+                    if(!phpClasses.isEmpty()) {
                         NavigationGutterIconBuilder<PsiElement> builder = NavigationGutterIconBuilder.create(Symfony2Icons.DOCTRINE_LINE_MARKER).
                             setTargets(phpClasses).
                             setTooltipText("Navigate to class");
@@ -89,7 +130,7 @@ public class YamlLineMarkerProvider implements LineMarkerProvider {
      *   defaults: { _controller: "Bundle:Foo:Bar" }
      *   controller: "Bundle:Foo:Bar"
      */
-    private void attachRouteActions(@NotNull Collection<LineMarkerInfo> lineMarkerInfos, @NotNull PsiElement psiElement) {
+    private void attachRouteActions(@NotNull Collection<? super LineMarkerInfo<?>> lineMarkerInfos, @NotNull PsiElement psiElement) {
         if(psiElement.getNode().getElementType() != YAMLTokenTypes.SCALAR_KEY) {
             return;
         }
@@ -100,21 +141,17 @@ public class YamlLineMarkerProvider implements LineMarkerProvider {
         }
 
         String yamlController = RouteHelper.getYamlController((YAMLKeyValue) yamlKeyValue);
-        if(yamlController != null) {
+        if (yamlController != null) {
             PsiElement[] methods = RouteHelper.getMethodsOnControllerShortcut(psiElement.getProject(), yamlController);
-            if(methods.length > 0) {
-                NavigationGutterIconBuilder<PsiElement> builder = NavigationGutterIconBuilder.create(Symfony2Icons.TWIG_CONTROLLER_LINE_MARKER).
-                    setTargets(methods).
-                    setTooltipText("Navigate to action");
-
-                lineMarkerInfos.add(builder.createLineMarkerInfo(psiElement));
+            if (methods.length > 0) {
+                RouteHelper.addControllerLineMarker(lineMarkerInfos, methods, psiElement);
             }
         }
     }
 
     @Nullable
     @Override
-    public LineMarkerInfo getLineMarkerInfo(@NotNull PsiElement psiElement) {
+    public LineMarkerInfo<?> getLineMarkerInfo(@NotNull PsiElement psiElement) {
         return null;
     }
 
@@ -124,7 +161,7 @@ public class YamlLineMarkerProvider implements LineMarkerProvider {
      * foo:
      *   targetEntity: Class
      */
-    private void attachRelationClass(@NotNull Collection<LineMarkerInfo> lineMarkerInfos, @NotNull PsiElement psiElement) {
+    private void attachRelationClass(@NotNull Collection<? super LineMarkerInfo<?>> lineMarkerInfos, @NotNull PsiElement psiElement) {
         if(psiElement.getNode().getElementType() != YAMLTokenTypes.SCALAR_KEY) {
             return;
         }
@@ -145,7 +182,7 @@ public class YamlLineMarkerProvider implements LineMarkerProvider {
         }
 
         Collection<PhpClass> classesInterface = DoctrineMetadataUtil.getClassInsideScope(yamlKeyValue, valueText);
-        if(classesInterface.size() == 0) {
+        if(classesInterface.isEmpty()) {
             return;
         }
 

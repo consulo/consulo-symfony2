@@ -33,6 +33,20 @@ public class LocalProfilerRequest implements ProfilerRequestInterface {
     }
 
     @Nullable
+    @Override
+    public Long getTime() {
+        if (this.separatedLine.size() <= 4) {
+            return null;
+        }
+
+        try {
+            return Long.parseLong(this.separatedLine.get(4));
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    @Nullable
     public String getMethod() {
         return this.separatedLine.get(2);
     }
@@ -55,12 +69,13 @@ public class LocalProfilerRequest implements ProfilerRequestInterface {
         }
 
         try {
-            return Integer.valueOf(this.separatedLine.get(6));
+            return Integer.parseInt(this.separatedLine.get(6));
         } catch (NumberFormatException e) {
             return 0;
         }
     }
 
+    @SuppressWarnings("unchecked")
     public <T> T getCollector(Class<T> classFactory) {
         for (Object collector : collectors) {
             if(classFactory.isAssignableFrom(collector.getClass())) {

@@ -3,7 +3,7 @@ package fr.adrienbrault.idea.symfony2plugin.util.controller;
 import com.intellij.codeInsight.lookup.LookupElement;
 import com.intellij.codeInsight.lookup.LookupElementPresentation;
 import com.jetbrains.php.PhpIcons;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -11,7 +11,7 @@ import org.jetbrains.annotations.NotNull;
  */
 public class ControllerActionLookupElement extends LookupElement {
 
-    private ControllerAction controllerAction;
+    private final ControllerAction controllerAction;
 
     public ControllerActionLookupElement(ControllerAction controllerAction) {
         this.controllerAction = controllerAction;
@@ -27,7 +27,7 @@ public class ControllerActionLookupElement extends LookupElement {
         presentation.setItemText(getLookupString());
         presentation.setTypeText(StringUtils.stripStart(controllerAction.getMethod().getFQN(), "\\"));
         presentation.setTypeGrayed(true);
-        presentation.setIcon(PhpIcons.METHOD_ICON);
+        presentation.setIcon(PhpIcons.METHOD);
     }
 
 }

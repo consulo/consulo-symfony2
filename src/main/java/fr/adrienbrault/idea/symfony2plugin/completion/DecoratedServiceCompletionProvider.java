@@ -51,19 +51,18 @@ abstract public class DecoratedServiceCompletionProvider extends GotoCompletionP
 
     @NotNull
     @Override
-    public Collection<LookupElement> getLookupElements() {
-        return Collections.emptyList();
-    }
-
-    @NotNull
-    @Override
     public Collection<PsiElement> getPsiTargets(PsiElement element) {
         String decoratesId = GotoCompletionUtil.getTextValueForElement(element);
         if(decoratesId == null) {
             return Collections.emptyList();
         }
 
-        return Collections.singletonList(ServiceUtil.getResolvedClassDefinition(getProject(), decoratesId));
+        PhpClass phpClass = ServiceUtil.getResolvedClassDefinition(getProject(), decoratesId);
+        if (phpClass != null) {
+            return Collections.singletonList(phpClass);
+        }
+
+        return Collections.emptyList();
     }
 
     @Nullable

@@ -1,16 +1,18 @@
 package fr.adrienbrault.idea.symfony2plugin.util;
 
+import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.psi.PsiElement;
 import com.jetbrains.php.PhpIndex;
 import com.jetbrains.php.lang.psi.elements.*;
 import com.jetbrains.php.lang.psi.resolve.types.PhpType;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -65,7 +67,7 @@ public class PhpTypeProviderUtil {
 
         // whitelist here; we can also provide some more but think of performance
         // Service::NAME, $this->name and Entity::CLASS;
-        if (parameter instanceof PhpReference && (parameter instanceof ClassConstantReference || parameter instanceof FieldReference)) {
+        if ((parameter instanceof ClassConstantReference || parameter instanceof FieldReference)) {
             String signature = ((PhpReference) parameter).getSignature();
             if (StringUtil.isNotEmpty(signature)) {
                 return refSignature + trimKey + signature;
@@ -96,7 +98,7 @@ public class PhpTypeProviderUtil {
 
             // get psi element from signature
             Collection<? extends PhpNamedElement> signTypes = phpIndex.getBySignature(parameter, null, 0);
-            if(signTypes.size() == 0) {
+            if(signTypes.isEmpty()) {
                 return null;
             }
 
@@ -160,6 +162,43 @@ public class PhpTypeProviderUtil {
     }
 
     /**
+     * Splits a TRIM_KEY encoded expression back into the original method signature and the parameter
+     * string, then resolves the type signature to a collection of named elements.
+     *
+     * <p>Returns {@code null} when the expression does not contain {@code trimKey}, or when the
+     * resolved type signature yields no elements.  Callers that need to distinguish "not a Method"
+     * from "nothing found" can inspect {@link SignatureSplit#elements()} after a null check.
+     */
+    @Nullable
+    public static SignatureSplit resolveSignatureSplit(@NotNull String expression, char trimKey, @NotNull Project project) {
+        int endIndex = expression.lastIndexOf(trimKey);
+        if (endIndex == -1) {
+            return null;
+        }
+
+        String originalSignature = expression.substring(0, endIndex);
+        String parameter = expression.substring(endIndex + 1);
+
+        PhpIndex phpIndex = PhpIndex.getInstance(project);
+        Collection<? extends PhpNamedElement> elements = getTypeSignature(phpIndex, originalSignature);
+        if (elements.isEmpty()) {
+            return null;
+        }
+
+        return new SignatureSplit(phpIndex, parameter, elements);
+    }
+
+    /**
+     * Carries the resolved state from {@link #resolveSignatureSplit}: the {@link PhpIndex}, the
+     * decoded parameter string, and the matched named elements.
+     */
+    public record SignatureSplit(
+        @NotNull PhpIndex phpIndex,
+        @NotNull String parameter,
+        @NotNull Collection<? extends PhpNamedElement> elements
+    ) {}
+
+    /**
      * We can have multiple types inside a TypeProvider; split them on "|" so that we dont get empty types
      *
      * #M#x#M#C\FooBar.get?doctrine.odm.mongodb.document_manager.getRepository|
@@ -172,7 +211,7 @@ public class PhpTypeProviderUtil {
             return phpIndex.getBySignature(signature, null, 0);
         }
 
-        Collection<PhpNamedElement> elements = new ArrayList<>();
+        Collection<PhpNamedElement> elements = new HashSet<>();
         for (String s : signature.split("\\|")) {
             elements.addAll(phpIndex.getBySignature(s, null, 0));
         }

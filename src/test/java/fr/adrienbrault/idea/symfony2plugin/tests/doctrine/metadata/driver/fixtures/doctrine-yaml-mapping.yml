@@ -1,0 +1,32 @@
+Doctrine\Tests\ORM\YamlEntity:
+  type: entity
+  table: yaml_entity
+  id:
+    id:
+      type: integer
+  fields:
+    name:
+      type: string
+      column: user_name
+    status:
+      type: string
+      enumType: ORM\Foobar\Status
+  embedded:
+    addressDetails:
+      class: Doctrine\Tests\ORM\YamlAddress
+      columnPrefix: details_
+    location:
+      class: Doctrine\Tests\ORM\YamlAddress
+      columnPrefix: false
+  oneToOne:
+    address:
+      targetEntity: Address
+  oneToMany:
+    phonenumbers:
+      targetEntity: Phonenumber
+  manyToMany:
+    groups:
+      targetEntity: Group
+  manyToOne:
+    author:
+      targetEntity: Author

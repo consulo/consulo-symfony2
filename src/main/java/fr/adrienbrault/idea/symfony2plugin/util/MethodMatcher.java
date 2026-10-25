@@ -70,32 +70,41 @@ public class MethodMatcher {
     }
 
     public static class MethodMatchParameter {
-
+        @NotNull
         final private CallToSignature signature;
+
+        @NotNull
         final private ParameterBag parameterBag;
+
+        @NotNull
         final private PsiElement[] parameters;
+
+        @NotNull
         final private MethodReference methodReference;
 
-        public MethodMatchParameter(CallToSignature signature, ParameterBag parameterBag, PsiElement[] parameters, MethodReference methodReference) {
+        public MethodMatchParameter(@NotNull CallToSignature signature, @NotNull ParameterBag parameterBag, @NotNull PsiElement[] parameters, @NotNull MethodReference methodReference) {
             this.signature = signature;
             this.parameterBag = parameterBag;
             this.parameters = parameters;
             this.methodReference = methodReference;
         }
 
-        @Nullable
+        @NotNull
         public CallToSignature getSignature() {
             return signature;
         }
 
+        @NotNull
         public ParameterBag getParameterBag() {
             return this.parameterBag;
         }
 
+        @NotNull
         public PsiElement[] getParameters() {
             return parameters;
         }
 
+        @NotNull
         public MethodReference getMethodReference() {
             return methodReference;
         }
@@ -108,6 +117,10 @@ public class MethodMatcher {
             super(psiElement, parameterIndex);
         }
 
+        public StringParameterMatcher(PsiElement psiElement) {
+            super(psiElement, -1);
+        }
+
         @Nullable
         public MethodMatchParameter match() {
 
@@ -115,13 +128,14 @@ public class MethodMatcher {
                 return null;
             }
 
-            MethodReferenceBag bag = PhpElementsUtil.getMethodParameterReferenceBag(psiElement, this.parameterIndex);
+            MethodReferenceBag bag = PhpElementsUtil.getMethodParameterReferenceBag(psiElement);
+
             if(bag == null) {
                 return null;
             }
 
             CallToSignature matchedMethodSignature = this.isCallTo(bag.getMethodReference());
-            if(matchedMethodSignature == null) {
+            if(matchedMethodSignature == null || !matchesParameter(bag.getMethodReference(), bag.getParameterBag())) {
                 return null;
             }
 
@@ -227,15 +241,14 @@ public class MethodMatcher {
                 return null;
             }
 
-            PsiElement methodParameters[] = ((ParameterList) parameterList).getParameters();
+            PsiElement[] methodParameters = ((ParameterList) parameterList).getParameters();
             if (methodParameters.length < this.parameterIndex) {
                 return null;
             }
 
-            if (!(parameterList.getContext() instanceof MethodReference)) {
+            if (!(parameterList.getContext() instanceof MethodReference methodReference)) {
                 return null;
             }
-            MethodReference methodReference = (MethodReference) parameterList.getContext();
 
             ParameterBag currentIndex = PsiElementUtils.getCurrentParameterIndex(arrayCreationExpression);
             if (currentIndex == null || currentIndex.getIndex() != this.parameterIndex) {
@@ -282,6 +295,30 @@ public class MethodMatcher {
         public AbstractMethodParameterMatcher withSignature(CallToSignature[] callToSignatures) {
             this.signatures.addAll(Arrays.asList(callToSignatures));
             return this;
+        }
+
+        /**
+         * Match both positional and reordered named arguments against the declared parameter position.
+         * For example: generateUrl(parameters: ['slug' => 'blog'], name: 'app_blog').
+         */
+        protected boolean matchesParameter(@NotNull MethodReference methodReference, @NotNull ParameterBag parameter) {
+            if (parameterIndex < 0) {
+                return true;
+            }
+
+            String argumentName = PsiElementUtils.getNamedArgumentName(parameter.getElement());
+            if (argumentName == null) {
+                return parameter.getIndex() == parameterIndex;
+            }
+
+            for (Method method : PhpElementsUtil.getMultiResolvedMethod(methodReference)) {
+                if (method.getParameters().length > parameterIndex
+                    && argumentName.equals(method.getParameters()[parameterIndex].getName())) {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         @Nullable

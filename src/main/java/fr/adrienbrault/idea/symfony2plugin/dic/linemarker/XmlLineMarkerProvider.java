@@ -3,14 +3,21 @@ package fr.adrienbrault.idea.symfony2plugin.dic.linemarker;
 import com.intellij.codeInsight.daemon.LineMarkerInfo;
 import com.intellij.codeInsight.daemon.LineMarkerProvider;
 import com.intellij.codeInsight.navigation.NavigationGutterIconBuilder;
+import com.intellij.icons.AllIcons;
+import com.intellij.openapi.project.Project;
+import com.intellij.openapi.util.NotNullLazyValue;
+import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.patterns.XmlPatterns;
 import com.intellij.patterns.XmlTagPattern;
 import com.intellij.psi.PsiElement;
+import com.intellij.psi.PsiFile;
 import com.intellij.psi.xml.XmlTag;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.config.xml.XmlHelper;
+import fr.adrienbrault.idea.symfony2plugin.dic.container.ServiceSerializable;
+import fr.adrienbrault.idea.symfony2plugin.stubs.ServiceIndexUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.ServiceUtil;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -23,81 +30,99 @@ import java.util.List;
 public class XmlLineMarkerProvider implements LineMarkerProvider {
     @Nullable
     @Override
-    public LineMarkerInfo getLineMarkerInfo(@NotNull PsiElement psiElement) {
+    public LineMarkerInfo<?> getLineMarkerInfo(@NotNull PsiElement psiElement) {
         return null;
     }
 
     @Override
-    public void collectSlowLineMarkers(@NotNull List<PsiElement> psiElements, @NotNull Collection<LineMarkerInfo> result) {
-        if(psiElements.size() == 0 || !Symfony2ProjectComponent.isEnabled(psiElements.get(0))) {
+    public void collectSlowLineMarkers(@NotNull List<? extends PsiElement> psiElements, @NotNull Collection<? super LineMarkerInfo<?>> result) {
+        if (psiElements.isEmpty()) {
+            return;
+        }
+
+        Project project = psiElements.get(0).getProject();
+        if (!Symfony2ProjectComponent.isEnabled(project)) {
+            return;
+        }
+
+        PsiFile containingFile = psiElements.get(0).getContainingFile();
+        if (containingFile == null || !XmlHelper.isXmlFileExtension(containingFile)) {
             return;
         }
 
         LazyDecoratedParentServiceValues lazyDecoratedParentServiceValues = null;
+        var xmlTagNameLeafPattern = XmlHelper.getXmlTagNameLeafStartPattern();
+        var serviceIdPattern = getServiceIdPattern();
+        var prototypeNamespacePattern = getPrototypeNamespacePattern();
 
         for (PsiElement psiElement : psiElements) {
-            if(!XmlHelper.getXmlTagNameLeafStartPattern().accepts(psiElement)) {
+            if(!xmlTagNameLeafPattern.accepts(psiElement)) {
                 continue;
             }
 
             PsiElement xmlTag = psiElement.getParent();
-            if(!(xmlTag instanceof XmlTag) || !getServiceIdPattern().accepts(xmlTag)) {
+            if(!(xmlTag instanceof XmlTag)) {
                 continue;
             }
 
-            if(lazyDecoratedParentServiceValues == null) {
-                lazyDecoratedParentServiceValues = new LazyDecoratedParentServiceValues(psiElement.getProject());
+            if (serviceIdPattern.accepts(xmlTag)) {
+                if(lazyDecoratedParentServiceValues == null) {
+                    lazyDecoratedParentServiceValues = new LazyDecoratedParentServiceValues(project);
+                }
+
+                // <services><service id="foo"/></services>
+                visitServiceId(project, psiElement, (XmlTag) xmlTag, result, lazyDecoratedParentServiceValues);
+
+                continue;
             }
 
-            // <services><service id="foo"/></services>
-            visitServiceId(psiElement, (XmlTag) xmlTag, result, lazyDecoratedParentServiceValues);
+            if (prototypeNamespacePattern.accepts(xmlTag)) {
+                String namespace = ((XmlTag) xmlTag).getAttributeValue("namespace");
+                if (StringUtils.isBlank(namespace)) {
+                    continue;
+                }
+
+                VirtualFile containerFile = containingFile.getVirtualFile();
+                if (containerFile == null) {
+                    continue;
+                }
+
+                ServiceSerializable service = ServiceIndexUtil.findServiceDefinition(project, containerFile, namespace);
+                if (service == null || service.getResource().isEmpty()) {
+                    continue;
+                }
+
+                result.add(NavigationGutterIconBuilder.create(AllIcons.Modules.SourceRoot)
+                    .setTargets(NotNullLazyValue.lazy(() -> ServiceIndexUtil.getClassesForServiceDefinition(project, containerFile, service)))
+                    .setTooltipText("Navigate to class")
+                    .createLineMarkerInfo(psiElement));
+            }
         }
     }
 
     /**
      * <service id="foo"/>
      */
-    private void visitServiceId(@NotNull PsiElement leafTarget, @NotNull XmlTag xmlTag, @NotNull Collection<LineMarkerInfo> result, @NotNull LazyDecoratedParentServiceValues lazyDecoratedParentServiceValues) {
+    private void visitServiceId(@NotNull Project project, @NotNull PsiElement leafTarget, @NotNull XmlTag xmlTag, @NotNull Collection<? super LineMarkerInfo<?>> result, @NotNull LazyDecoratedParentServiceValues lazyDecoratedParentServiceValues) {
         String id = xmlTag.getAttributeValue("id");
         if(StringUtils.isBlank(id)) {
             return;
         }
 
-        // <service decorates="foobar" />
-        String decorates = xmlTag.getAttributeValue("decorates");
-        if(decorates != null && StringUtils.isNotBlank(decorates)) {
-            result.add(ServiceUtil.getLineMarkerForDecoratesServiceId(leafTarget, ServiceUtil.ServiceLineMarker.DECORATE, decorates));
-        }
-
-        // <service parent="foobar" />
-        String parent = xmlTag.getAttributeValue("parent");
-        if(parent != null && StringUtils.isNotBlank(parent)) {
-            result.add(ServiceUtil.getLineMarkerForDecoratesServiceId(leafTarget, ServiceUtil.ServiceLineMarker.PARENT, parent));
-        }
-
-        // foreign "decorates" linemarker
-        NavigationGutterIconBuilder<PsiElement> lineMarkerDecorates = ServiceUtil.getLineMarkerForDecoratedServiceId(
-            xmlTag.getProject(),
-            ServiceUtil.ServiceLineMarker.DECORATE,
-            lazyDecoratedParentServiceValues.getDecoratedServices(),
-            id
+        ServiceLineMarkerUtil.collectDecoratesAndParentTargets(
+            leafTarget,
+            result,
+            xmlTag.getAttributeValue("decorates"),
+            xmlTag.getAttributeValue("parent")
         );
 
-        if(lineMarkerDecorates != null) {
-            result.add(lineMarkerDecorates.createLineMarkerInfo(leafTarget));
-        }
-
-        // foreign "parent" linemarker
-        NavigationGutterIconBuilder<PsiElement> lineMarkerParent = ServiceUtil.getLineMarkerForDecoratedServiceId(
-            xmlTag.getProject(),
-            ServiceUtil.ServiceLineMarker.PARENT,
-            lazyDecoratedParentServiceValues.getParentServices(),
+        ServiceLineMarkerUtil.collectDecoratedAndParentTargets(
+            project,
+            leafTarget,
+            result,
+            lazyDecoratedParentServiceValues,
             id
         );
-
-        if(lineMarkerParent != null) {
-            result.add(lineMarkerParent.createLineMarkerInfo(leafTarget));
-        }
     }
 
     /**
@@ -106,6 +131,16 @@ public class XmlLineMarkerProvider implements LineMarkerProvider {
     private static XmlTagPattern.Capture getServiceIdPattern() {
         return XmlPatterns.xmlTag().withName("service")
             .withChild(XmlPatterns.xmlAttribute().withName("id")).inside(
+                XmlHelper.getInsideTagPattern("services")
+            ).inFile(XmlHelper.getXmlFilePattern());
+    }
+
+    /**
+     * <prototype namespace="App\" resource="../src/*" exclude="../src/{DependencyInjection,Entity,Tests,Kernel.php}"/>
+     */
+    private static XmlTagPattern.Capture getPrototypeNamespacePattern() {
+        return XmlPatterns.xmlTag().withName("prototype")
+            .withChild(XmlPatterns.xmlAttribute().withName("namespace")).inside(
                 XmlHelper.getInsideTagPattern("services")
             ).inFile(XmlHelper.getXmlFilePattern());
     }

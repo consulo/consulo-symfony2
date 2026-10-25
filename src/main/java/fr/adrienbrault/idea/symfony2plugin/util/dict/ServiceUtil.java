@@ -1,23 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.util.dict;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
-import org.apache.commons.lang.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.jetbrains.yaml.YAMLFileType;
 import com.intellij.codeInsight.daemon.RelatedItemLineMarkerInfo;
-import com.intellij.codeInsight.hint.HintManager;
 import com.intellij.codeInsight.navigation.NavigationGutterIconBuilder;
-import com.intellij.ide.highlighter.XmlFileType;
 import com.intellij.openapi.command.WriteCommandAction;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.project.Project;
@@ -28,20 +12,18 @@ import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiManager;
-import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.util.CachedValue;
 import com.intellij.psi.util.CachedValueProvider;
 import com.intellij.psi.util.CachedValuesManager;
 import com.intellij.psi.util.PsiModificationTracker;
-import com.intellij.psi.util.PsiTreeUtil;
-import com.intellij.ui.components.JBList;
 import com.intellij.util.Consumer;
 import com.intellij.util.containers.ContainerUtil;
 import com.intellij.util.indexing.FileBasedIndex;
 import com.jetbrains.php.PhpIcons;
 import com.jetbrains.php.PhpIndex;
+import com.jetbrains.php.lang.psi.PhpFile;
+import com.jetbrains.php.lang.psi.PhpPsiUtil;
 import com.jetbrains.php.lang.psi.elements.*;
-import consulo.php.lang.psi.PhpClass;
 import fr.adrienbrault.idea.symfony2plugin.action.ServiceActionUtil;
 import fr.adrienbrault.idea.symfony2plugin.action.generator.naming.DefaultServiceNameStrategy;
 import fr.adrienbrault.idea.symfony2plugin.action.generator.naming.JavascriptServiceNameStrategy;
@@ -55,61 +37,68 @@ import fr.adrienbrault.idea.symfony2plugin.stubs.ServiceIndexUtil;
 import fr.adrienbrault.idea.symfony2plugin.stubs.SymfonyProcessors;
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.ContainerParameterStubIndex;
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.ServicesTagStubIndex;
+import fr.adrienbrault.idea.symfony2plugin.util.IdeHelper;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
+import fr.adrienbrault.idea.symfony2plugin.util.PhpIndexUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.service.ServiceXmlParserFactory;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
+import org.apache.commons.lang3.StringUtils;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.*;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class ServiceUtil {
-    private static ServiceNameStrategyInterface[] NAME_STRATEGIES = new ServiceNameStrategyInterface[] {
+    private static final ServiceNameStrategyInterface[] NAME_STRATEGIES = new ServiceNameStrategyInterface[] {
         new JavascriptServiceNameStrategy(),
         new DefaultServiceNameStrategy(),
     };
 
-    public static final Map<String , String> TAG_INTERFACES = new HashMap<String , String>() {{
-        put("assetic.asset", "\\Assetic\\Filter\\FilterInterface");
-        put("assetic.factory_worker", "\\Assetic\\Factory\\Worker\\WorkerInterface");
-        put("assetic.filter", "\\Assetic\\Filter\\FilterInterface");
-        put("assetic.formula_loader", "\\Assetic\\Factory\\Loader\\FormulaLoaderInterface");
-        put("assetic.formula_resource", null);
-        put("assetic.templating.php", null);
-        put("assetic.templating.twig", null);
-        put("console.command", "\\Symfony\\Component\\Console\\Command\\Command");
-        put("data_collector", "\\Symfony\\Component\\HttpKernel\\DataCollector\\DataCollectorInterface");
-        put("doctrine.event_listener", null);
-        put("doctrine.event_subscriber", null);
-        put("form.type", "\\Symfony\\Component\\Form\\FormTypeInterface");
-        put("form.type_extension", "\\Symfony\\Component\\Form\\FormTypeExtensionInterface");
-        put("form.type_guesser", "\\Symfony\\Component\\Form\\FormTypeGuesserInterface");
-        put("kernel.cache_clearer", null);
-        put("kernel.cache_warmer", "\\Symfony\\Component\\HttpKernel\\CacheWarmer\\CacheWarmerInterface");
-        put("kernel.event_subscriber", "\\Symfony\\Component\\EventDispatcher\\EventSubscriberInterface");
-        put("kernel.fragment_renderer", "\\Symfony\\Component\\HttpKernel\\Fragment\\FragmentRendererInterface");
-        put("monolog.logger", null);
-        put("monolog.processor", null);
-        put("routing.loader", "\\Symfony\\Component\\Config\\Loader\\LoaderInterface");
+    public static final Map<String , String[]> TAG_INTERFACES = new HashMap<>() {{
+        put("assetic.asset", new String[]{"\\Assetic\\Filter\\FilterInterface"});
+        put("assetic.factory_worker", new String[]{"\\Assetic\\Factory\\Worker\\WorkerInterface"});
+        put("assetic.filter", new String[]{"\\Assetic\\Filter\\FilterInterface"});
+        put("assetic.formula_loader", new String[]{"\\Assetic\\Factory\\Loader\\FormulaLoaderInterface"});
+        put("assetic.formula_resource", new String[] {});
+        put("assetic.templating.php", new String[] {});
+        put("assetic.templating.twig", new String[] {});
+        put("console.command", new String[]{"\\Symfony\\Component\\Console\\Command\\Command"});
+        put("data_collector", new String[]{"\\Symfony\\Component\\HttpKernel\\DataCollector\\DataCollectorInterface"});
+        put("doctrine.event_listener", new String[] {});
+        put("doctrine.event_subscriber", new String[] {});
+        put("form.type", new String[]{"\\Symfony\\Component\\Form\\FormTypeInterface"});
+        put("form.type_extension", new String[]{"\\Symfony\\Component\\Form\\FormTypeExtensionInterface"});
+        put("form.type_guesser", new String[]{"\\Symfony\\Component\\Form\\FormTypeGuesserInterface"});
+        put("kernel.cache_clearer", new String[] {});
+        put("kernel.cache_warmer", new String[]{"\\Symfony\\Component\\HttpKernel\\CacheWarmer\\CacheWarmerInterface"});
+        put("kernel.event_subscriber", new String[]{"\\Symfony\\Component\\EventDispatcher\\EventSubscriberInterface"});
+        put("kernel.fragment_renderer", new String[]{"\\Symfony\\Component\\HttpKernel\\Fragment\\FragmentRendererInterface"});
+        put("monolog.logger", new String[] {});
+        put("monolog.processor", new String[] {});
+        put("routing.loader", new String[]{"\\Symfony\\Component\\Config\\Loader\\LoaderInterface"});
         //put("security.remember_me_aware", null);
-        put("security.voter", "\\Symfony\\Component\\Security\\Core\\Authorization\\Voter\\VoterInterface");
-        put("serializer.encoder", "\\Symfony\\Component\\Serializer\\Encoder\\EncoderInterface");
-        put("serializer.normalizer", "\\Symfony\\Component\\Serializer\\Normalizer\\NormalizerInterface");
+        put("security.voter", new String[]{"\\Symfony\\Component\\Security\\Core\\Authorization\\Voter\\VoterInterface"});
+        put("serializer.encoder", new String[]{"\\Symfony\\Component\\Serializer\\Encoder\\EncoderInterface"});
+        put("serializer.normalizer", new String[]{"\\Symfony\\Component\\Serializer\\Normalizer\\NormalizerInterface"});
         // Symfony\Component\Serializer\Normalizer\DenormalizerInterface
-        put("swiftmailer.default.plugin", "\\Swift_Events_EventListener");
-        put("templating.helper", "\\Symfony\\Component\\Templating\\Helper\\HelperInterface");
-        put("translation.loader", "\\Symfony\\Component\\Translation\\Loader\\LoaderInterface");
-        put("translation.extractor", "\\Symfony\\Component\\Translation\\Extractor\\ExtractorInterface");
-        put("translation.dumper", "\\Symfony\\Component\\Translation\\Dumper\\DumperInterface");
-        put("twig.extension", "\\Twig_Extension");
-        put("twig.loader", "\\Twig_LoaderInterface");
-        put("validator.constraint_validator", "Symfony\\Component\\Validator\\ConstraintValidator");
-        put("validator.initializer", "Symfony\\Component\\Validator\\ObjectInitializerInterface");
+        put("swiftmailer.default.plugin", new String[]{"\\Swift_Events_EventListener"});
+        put("templating.helper", new String[]{"\\Symfony\\Component\\Templating\\Helper\\HelperInterface"});
+        put("translation.loader", new String[]{"\\Symfony\\Component\\Translation\\Loader\\LoaderInterface"});
+        put("translation.extractor", new String[]{"\\Symfony\\Component\\Translation\\Extractor\\ExtractorInterface"});
+        put("translation.dumper", new String[]{"\\Symfony\\Component\\Translation\\Dumper\\DumperInterface"});
+        put("twig.extension", new String[]{"\\Twig\\Extension\\ExtensionInterface", "\\Twig_ExtensionInterface"});
+        put("twig.loader", new String[]{"\\Twig\\Loader\\LoaderInterface", "\\Twig_LoaderInterface"});
+        put("validator.constraint_validator", new String[]{"Symfony\\Component\\Validator\\ConstraintValidator"});
+        put("validator.initializer", new String[]{"Symfony\\Component\\Validator\\ObjectInitializerInterface"});
 
         // 2.6 - @TODO: how to handle duplicate interfaces; also make them weaker
-        put("routing.expression_language_provider", "\\Symfony\\Component\\ExpressionLanguage\\ExpressionFunctionProviderInterface");
-        put("security.expression_language_provider", "\\Symfony\\Component\\ExpressionLanguage\\ExpressionFunctionProviderInterface");
+        put("routing.expression_language_provider", new String[]{"\\Symfony\\Component\\ExpressionLanguage\\ExpressionFunctionProviderInterface"});
+        put("security.expression_language_provider", new String[]{"\\Symfony\\Component\\ExpressionLanguage\\ExpressionFunctionProviderInterface"});
 
-        put("controller.service_arguments", null);
+        put("controller.service_arguments", new String[] {});
     }};
 
     /**
@@ -117,7 +106,7 @@ public class ServiceUtil {
      *
      * TODO: replace with live fetch; now redundant because of @Event const in Symfony itself
      */
-    public static final Map<String , String> TAGS = new HashMap<String , String>() {{
+    public static final Map<String , String> TAGS = new HashMap<>() {{
         put("kernel.request", "\\Symfony\\Component\\HttpKernel\\Event\\GetResponseEvent");
         put("kernel.view", "\\Symfony\\Component\\HttpKernel\\Event\\GetResponseForControllerResultEvent");
         put("kernel.controller", "\\Symfony\\Component\\HttpKernel\\Event\\FilterControllerEvent");
@@ -139,6 +128,9 @@ public class ServiceUtil {
      * Cache kernel.root_dir of Kernel class
      */
     private static final Key<CachedValue<Collection<String>>> KERNEL_PARAMETER_CACHE = new Key<>("KERNEL_PARAMETER_CACHE");
+
+    // Per-file cache for kernel parameter extraction
+    private static final Key<CachedValue<Collection<String>>> FILE_KERNEL_PARAMETER_CACHE = new Key<>("FILE_KERNEL_PARAMETER_CACHE");
 
     /**
      * Linemarker types for service declarations
@@ -196,7 +188,7 @@ public class ServiceUtil {
 
         Collection<PsiElement> psiElements = new ArrayList<>();
 
-        Collection<VirtualFile> fileCollection = FileBasedIndex.getInstance().getContainingFiles(ContainerParameterStubIndex.KEY, parameterName, GlobalSearchScope.getScopeRestrictedByFileTypes(GlobalSearchScope.allScope(project), XmlFileType.INSTANCE, YAMLFileType.YML));
+        Collection<VirtualFile> fileCollection = FileBasedIndex.getInstance().getContainingFiles(ContainerParameterStubIndex.KEY, parameterName, ServiceIndexUtil.getRestrictedFileTypesScope(project));
         for(VirtualFile virtualFile: fileCollection) {
             PsiFile psiFile = PsiManager.getInstance(project).findFile(virtualFile);
             if(psiFile != null) {
@@ -244,8 +236,8 @@ public class ServiceUtil {
         for (String serviceName : result) {
 
             // get service where we found our tags
-            List<Set<String>> values = FileBasedIndex.getInstance().getValues(ServicesTagStubIndex.KEY, serviceName, GlobalSearchScope.getScopeRestrictedByFileTypes(GlobalSearchScope.allScope(project), XmlFileType.INSTANCE, YAMLFileType.YML));
-            if(values.size() == 0) {
+            List<Set<String>> values = FileBasedIndex.getInstance().getValues(ServicesTagStubIndex.KEY, serviceName, ServiceIndexUtil.getRestrictedFileTypesScope(project));
+            if(values.isEmpty()) {
                 continue;
             }
 
@@ -305,7 +297,7 @@ public class ServiceUtil {
         Set<String> service = new HashSet<>();
 
         for(String serviceName: SymfonyProcessors.createResult(project, ServicesTagStubIndex.KEY)) {
-            List<Set<String>> serviceDefinitions = FileBasedIndex.getInstance().getValues(ServicesTagStubIndex.KEY, serviceName, GlobalSearchScope.getScopeRestrictedByFileTypes(GlobalSearchScope.allScope(project), XmlFileType.INSTANCE, YAMLFileType.YML));
+            List<Set<String>> serviceDefinitions = FileBasedIndex.getInstance().getValues(ServicesTagStubIndex.KEY, serviceName, ServiceIndexUtil.getRestrictedFileTypesScope(project));
             for(Set<String> strings: serviceDefinitions) {
                 if(strings.contains(tagName)) {
                     service.add(serviceName);
@@ -316,12 +308,27 @@ public class ServiceUtil {
         return service;
     }
 
-    public static Collection<PhpClass> getTaggedClasses(@NotNull Project project, @NotNull String tagName) {
+    @NotNull
+    public static Set<String> getServiceTags(@NotNull Project project, @NotNull String serviceId) {
+        Set<String> service = new HashSet<>();
+
+        for(Set<String> strings: FileBasedIndex.getInstance().getValues(ServicesTagStubIndex.KEY, serviceId, ServiceIndexUtil.getRestrictedFileTypesScope(project))) {
+            service.addAll(strings);
+        }
+
+        for(Set<String> strings: FileBasedIndex.getInstance().getValues(ServicesTagStubIndex.KEY, serviceId.toLowerCase(), ServiceIndexUtil.getRestrictedFileTypesScope(project))) {
+            service.addAll(strings);
+        }
+
+        return service;
+    }
+
+    private static Collection<PhpClass> getTaggedClassesOnIndex(@NotNull Project project, @NotNull String tagName) {
 
         List<PhpClass> phpClasses = new ArrayList<>();
 
         Set<String> taggedServices = getTaggedServices(project, tagName);
-        if(taggedServices.size() == 0) {
+        if(taggedServices.isEmpty()) {
             return phpClasses;
         }
 
@@ -339,13 +346,18 @@ public class ServiceUtil {
         return phpClasses;
     }
 
+    public static boolean isPhpClassTaggedWith(@NotNull PhpClass phpClass, @NotNull String tagName) {
+        return ServiceUtil.getTaggedClassesOnIndex(phpClass.getProject(), tagName).stream()
+            .anyMatch(phpClass1 -> phpClass1.getFQN().equalsIgnoreCase(phpClass1.getFQN()));
+    }
+
     @NotNull
-    public static Collection<PhpClass> getTaggedClassesWithCompiled(@NotNull Project project, @NotNull String tagName) {
+    public static Collection<PhpClass> getTaggedClasses(@NotNull Project project, @NotNull String tagName) {
 
         Set<String> uniqueClass = new HashSet<>();
 
         Collection<PhpClass> taggedClasses = new ArrayList<>();
-        for(PhpClass phpClass: getTaggedClasses(project, tagName)) {
+        for(PhpClass phpClass: getTaggedClassesOnIndex(project, tagName)) {
             String presentableFQN = phpClass.getPresentableFQN();
             if(!uniqueClass.contains(presentableFQN)) {
                 uniqueClass.add(presentableFQN);
@@ -381,7 +393,7 @@ public class ServiceUtil {
 
         serviceName = YamlHelper.trimSpecialSyntaxServiceName(serviceName);
 
-        if(serviceName.length() == 0) {
+        if(serviceName.isEmpty()) {
             return null;
         }
 
@@ -405,7 +417,7 @@ public class ServiceUtil {
     public static PhpClass getServiceClass(@NotNull Project project, @NotNull String serviceName, @NotNull ContainerCollectionResolver.ServiceCollector collector) {
 
         serviceName = YamlHelper.trimSpecialSyntaxServiceName(serviceName);
-        if(serviceName.length() == 0) {
+        if(serviceName.isEmpty()) {
             return null;
         }
 
@@ -422,23 +434,18 @@ public class ServiceUtil {
      */
     @NotNull
     public static Set<String> getPhpClassServiceTags(@NotNull PhpClass phpClass) {
-
         Set<String> tags = new HashSet<>();
 
-        for (Map.Entry<String, String> entry : TAG_INTERFACES.entrySet()) {
-
-            if(entry.getValue() == null) {
-                continue;
+        for (Map.Entry<String, String[]> entry : TAG_INTERFACES.entrySet()) {
+            for (String s : entry.getValue()) {
+                if(PhpElementsUtil.isInstanceOf(phpClass, s)) {
+                    tags.add(entry.getKey());
+                }
             }
-
-            if(PhpElementsUtil.isInstanceOf(phpClass, entry.getValue())) {
-                tags.add(entry.getKey());
-            }
-
         }
 
         // strong tags wins
-        if(tags.size() > 0) {
+        if(!tags.isEmpty()) {
             return tags;
         }
 
@@ -455,7 +462,7 @@ public class ServiceUtil {
         // form alias
         if(service.getTagName().equals("form.type") && PhpElementsUtil.isInstanceOf(service.getPhpClass(), FormUtil.ABSTRACT_FORM_INTERFACE)) {
             Collection<String> aliases = FormUtil.getFormAliases(service.getPhpClass());
-            if(aliases.size() > 0) {
+            if(!aliases.isEmpty()) {
                 service.addAttribute("alias", aliases.iterator().next());
             }
         }
@@ -474,6 +481,14 @@ public class ServiceUtil {
         Collection<ContainerService> instances = new ArrayList<>();
 
         for(ContainerService service: serviceMap) {
+            // help here: based on Symfony compiled file already
+            // '@.session.deprecated'
+            // '@.session.do-not-use'
+            String serviceNameNormalized = service.getName().toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", "");
+            if (serviceNameNormalized.contains("donotuse") || serviceNameNormalized.contains("deprecated")) {
+                continue;
+            }
+
             if(service.getClassName() == null) {
                 continue;
             }
@@ -519,32 +534,21 @@ public class ServiceUtil {
     }
 
     public static void insertTagWithPopupDecision(final @NotNull Editor editor, final @NotNull Set<String> phpServiceTags, final @NotNull Consumer<String> consumer) {
-        final JBList<String> list = new JBList<>(phpServiceTags);
+        final List<String> list = new ArrayList<>(phpServiceTags);
 
-        if(phpServiceTags.size() == 0) {
-            HintManager.getInstance().showErrorHint(editor, "Ops, no tag found");
+        if(phpServiceTags.isEmpty()) {
+            IdeHelper.showErrorHintIfAvailable(editor, "Ops, no tag found");
             return;
         }
 
         if(phpServiceTags.size() == 1) {
-            new WriteCommandAction.Simple(editor.getProject(), "Service Suggestion Insert") {
-                @Override
-                protected void run() {
-                    consumer.consume(phpServiceTags.iterator().next());
-                }
-            }.execute();
-
+            WriteCommandAction.runWriteCommandAction(editor.getProject(), "Service Suggestion Insert", null, () -> consumer.consume(phpServiceTags.iterator().next()));
             return;
         }
 
-        JBPopupFactory.getInstance().createListPopupBuilder(list)
+        JBPopupFactory.getInstance().createPopupChooserBuilder(list)
             .setTitle("Symfony: Tag Suggestion")
-            .setItemChoosenCallback(() -> new WriteCommandAction.Simple(editor.getProject(), "Service Suggestion Insert") {
-                @Override
-                protected void run() {
-                    consumer.consume((String) list.getSelectedValue());
-                }
-            }.execute())
+            .setItemChosenCallback(s -> WriteCommandAction.runWriteCommandAction(editor.getProject(), "Service Suggestion Insert", null, () -> consumer.consume(s)))
             .createPopup()
             .showInBestPositionFor(editor);
     }
@@ -603,61 +607,122 @@ public class ServiceUtil {
      */
     @NotNull
     public static Collection<String> getParameterParameters(@NotNull Project project) {
-        CachedValue<Collection<String>> cache = project.getUserData(KERNEL_PARAMETER_CACHE);
-
-        if(cache == null) {
-            cache = CachedValuesManager.getManager(project).createCachedValue(() ->
-                CachedValueProvider.Result.create(getParameterParametersInner(project), PsiModificationTracker.MODIFICATION_COUNT),
-                false
-            );
-
-            project.putUserData(KERNEL_PARAMETER_CACHE, cache);
-        }
-
-        return cache.getValue();
+        return CachedValuesManager.getManager(project).getCachedValue(
+            project,
+            KERNEL_PARAMETER_CACHE,
+            () -> CachedValueProvider.Result.create(getParameterParametersInner(project), PsiModificationTracker.getInstance(project).forLanguage(com.jetbrains.php.lang.PhpLanguage.INSTANCE)),
+            false
+        );
     }
 
     @NotNull
     private static Collection<String> getParameterParametersInner(@NotNull Project project) {
         Collection<String> parameters = new HashSet<>();
 
-        Collection<PhpClass> phpClasses = new HashSet<PhpClass>() {{
+        Collection<PhpClass> phpClasses = new HashSet<>() {{
             addAll(PhpIndex.getInstance(project).getAnyByFQN("Symfony\\Component\\HttpKernel\\Kernel"));
-            addAll(PhpIndex.getInstance(project).getAllSubclasses("Symfony\\Component\\HttpKernel\\Kernel"));
+            addAll(PhpIndexUtil.getAllSubclasses(project, "Symfony\\Component\\HttpKernel\\Kernel"));
         }};
 
+        // Collect unique files for per-file caching
+        Set<PsiFile> files = new HashSet<>();
         for (PhpClass phpClass : phpClasses) {
-            Method method = phpClass.findMethodByName("getKernelParameters");
-            if(method == null) {
-                continue;
-            }
-
-            // search for for all return values and try to extract array keys
-            for (PhpReturn phpReturn: PsiTreeUtil.collectElementsOfType(method, PhpReturn.class)) {
-                PhpPsiElement firstPsiChild = phpReturn.getFirstPsiChild();
-
-                if(firstPsiChild instanceof ArrayCreationExpression) {
-                    // return ['foobar' => 'foo']
-
-                    parameters.addAll(PhpElementsUtil.getArrayCreationKeys((ArrayCreationExpression) firstPsiChild));
-                } else if(firstPsiChild instanceof FunctionReference && (
-                    "array_merge".equalsIgnoreCase(firstPsiChild.getName()) ||
-                    "array_merge_recursive".equalsIgnoreCase(firstPsiChild.getName()) ||
-                    "array_replace".equalsIgnoreCase(firstPsiChild.getName())
-                )) {
-                    // return array_merge(['foobar' => 'foo'])
-                    // return array_merge($foobar, ['foobar' => 'foo'])
-
-                    for (PsiElement parameter : ((FunctionReference) firstPsiChild).getParameters()) {
-                        if(parameter instanceof ArrayCreationExpression) {
-                            parameters.addAll(PhpElementsUtil.getArrayCreationKeys((ArrayCreationExpression) parameter));
-                        }
-                    }
-                }
+            PsiFile file = phpClass.getContainingFile();
+            if (file instanceof PhpFile) {
+                files.add(file);
             }
         }
 
+        // Parse each file (cached per file)
+        for (PsiFile file : files) {
+            Collection<String> fileParameters = CachedValuesManager.getCachedValue(file, FILE_KERNEL_PARAMETER_CACHE, () -> {
+                Collection<String> result = new HashSet<>();
+                // Resolve classes fresh from file inside cache provider
+                for (PhpClass phpClass : PhpPsiUtil.findAllClasses((PhpFile) file)) {
+                    // Only process classes that extend Kernel
+                    if (!PhpElementsUtil.isInstanceOf(phpClass, "\\Symfony\\Component\\HttpKernel\\Kernel")) {
+                        continue;
+                    }
+
+                    Method method = phpClass.findMethodByName("getKernelParameters");
+                    if (method == null) {
+                        continue;
+                    }
+
+                    // search for all return values and try to extract array keys
+                    for (PsiElement phpReturnArgument : PhpElementsUtil.collectPhpReturnArgumentsInsideControlFlow(method)) {
+                        if (phpReturnArgument instanceof ArrayCreationExpression) {
+                            // return ['foobar' => 'foo']
+                            result.addAll(PhpElementsUtil.getArrayCreationKeys((ArrayCreationExpression) phpReturnArgument));
+                        } else if (phpReturnArgument instanceof FunctionReference functionReference && (
+                            "array_merge".equalsIgnoreCase(functionReference.getName()) ||
+                            "array_merge_recursive".equalsIgnoreCase(functionReference.getName()) ||
+                            "array_replace".equalsIgnoreCase(functionReference.getName())
+                        )) {
+                            // return array_merge(['foobar' => 'foo'])
+                            // return array_merge($foobar, ['foobar' => 'foo'])
+                            for (PsiElement param : functionReference.getParameters()) {
+                                if (param instanceof ArrayCreationExpression) {
+                                    result.addAll(PhpElementsUtil.getArrayCreationKeys((ArrayCreationExpression) param));
+                                }
+                            }
+                        } else if (phpReturnArgument instanceof BinaryExpression binaryExpression) {
+                            // Symfony 6.4+: return [...] + (condition ? ['key' => value] : [])
+                            // The + operator is used for array union
+                            extractArrayKeysFromBinaryExpression(binaryExpression, result);
+                        }
+                    }
+                }
+                return CachedValueProvider.Result.create(result, file);
+            });
+
+            parameters.addAll(fileParameters);
+        }
+
         return parameters;
+    }
+
+    /**
+     * Extracts array keys from a BinaryExpression, typically used for array union (+) operator.
+     * Handles patterns like: return [...] + (condition ? ['key' => value] : [])
+     */
+    private static void extractArrayKeysFromBinaryExpression(@NotNull BinaryExpression binaryExpression, @NotNull Collection<String> parameters) {
+        // Process left operand
+        extractArrayKeysFromExpression(binaryExpression.getLeftOperand(), parameters);
+
+        // Process right operand
+        extractArrayKeysFromExpression(binaryExpression.getRightOperand(), parameters);
+    }
+
+    /**
+     * Extracts array keys from various expression types (arrays, ternary, parenthesized, binary).
+     */
+    private static void extractArrayKeysFromExpression(@Nullable PsiElement expression, @NotNull Collection<String> parameters) {
+        if (expression == null) {
+            return;
+        }
+
+        if (expression instanceof ArrayCreationExpression) {
+            parameters.addAll(PhpElementsUtil.getArrayCreationKeys((ArrayCreationExpression) expression));
+        } else if (expression instanceof BinaryExpression) {
+            // Nested binary expression: [...] + [...] + [...]
+            extractArrayKeysFromBinaryExpression((BinaryExpression) expression, parameters);
+        } else if (expression instanceof TernaryExpression) {
+            // Ternary: condition ? ['key' => value] : []
+            extractArrayKeysFromTernaryExpression((TernaryExpression) expression, parameters);
+        } else if (expression instanceof ParenthesizedExpression) {
+            // Unwrap parenthesized expression: (condition ? [...] : [])
+            extractArrayKeysFromExpression(((ParenthesizedExpression) expression).getArgument(), parameters);
+        }
+    }
+
+    /**
+     * Extracts array keys from a TernaryExpression.
+     * Handles patterns like: condition ? ['key' => value] : []
+     */
+    private static void extractArrayKeysFromTernaryExpression(@NotNull TernaryExpression ternaryExpression, @NotNull Collection<String> parameters) {
+        extractArrayKeysFromExpression(ternaryExpression.getTrueVariant(), parameters);
+        extractArrayKeysFromExpression(ternaryExpression.getFalseVariant(), parameters);
     }
 
     /**
@@ -671,5 +736,11 @@ public class ServiceUtil {
             .setTargets(ServiceIndexUtil.getServiceIdDefinitionLazyValue(psiElement.getProject(), Collections.singletonList(foreignId)))
             .setTooltipText(lineMarker == ServiceLineMarker.DECORATE ? "Navigate to decorated service" : "Navigate to parent service")
             .createLineMarkerInfo(psiElement);
+    }
+
+    public static boolean isPhpClassAService(@NotNull PhpClass phpClass) {
+        return !ContainerCollectionResolver.ServiceCollector.create(phpClass.getProject())
+            .convertClassNameToServices(phpClass.getFQN())
+            .isEmpty();
     }
 }

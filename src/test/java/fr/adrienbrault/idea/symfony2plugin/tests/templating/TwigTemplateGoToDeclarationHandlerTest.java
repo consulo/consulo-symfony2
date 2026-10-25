@@ -1,0 +1,516 @@
+package fr.adrienbrault.idea.symfony2plugin.tests.templating;
+
+import com.intellij.patterns.PlatformPatterns;
+import com.intellij.psi.PsiElement;
+import com.intellij.psi.PsiFile;
+import com.jetbrains.php.lang.psi.elements.Constant;
+import com.jetbrains.php.lang.psi.elements.Field;
+import com.jetbrains.php.lang.psi.elements.Function;
+import com.jetbrains.php.lang.psi.elements.Method;
+import com.jetbrains.php.lang.psi.elements.PhpClass;
+import com.jetbrains.twig.TwigFileType;
+import fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern;
+import fr.adrienbrault.idea.symfony2plugin.templating.TwigTemplateGoToDeclarationHandler;
+import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
+import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
+
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+
+/**
+ * @author Daniel Espendiller <daniel@espendiller.net>
+ * @see fr.adrienbrault.idea.symfony2plugin.templating.TwigTemplateGoToDeclarationHandler
+ */
+public class TwigTemplateGoToDeclarationHandlerTest extends SymfonyLightCodeInsightFixtureTestCase {
+    public void setUp() throws Exception {
+        super.setUp();
+        myFixture.copyFileToProject("classes.php");
+        myFixture.copyFileToProject("TwigTemplateGoToLocalDeclarationHandler.php");
+    }
+
+    public String getTestDataPath() {
+        return "src/test/java/fr/adrienbrault/idea/symfony2plugin/tests/templating/fixtures";
+    }
+
+    /**
+     * @see fr.adrienbrault.idea.symfony2plugin.templating.TwigTemplateGoToDeclarationHandler
+     */
+    public void testSimpleTestNavigationToExtension() {
+        myFixture.copyFileToProject("TwigFilterExtension.php");
+
+        assertNavigationMatch(
+            TwigFileType.INSTANCE,
+            "{% if foo is bar<caret>_even %}",
+            PlatformPatterns.psiElement(Function.class).withName("twig_test_even")
+        );
+
+        assertNavigationMatch(
+            TwigFileType.INSTANCE,
+            "{% if foo is bar ev<caret>en %}",
+            PlatformPatterns.psiElement(Function.class).withName("twig_test_even")
+        );
+
+        assertNavigationMatch(
+            TwigFileType.INSTANCE,
+            "{% if foo is b<caret>ar even %}",
+            PlatformPatterns.psiElement(Function.class).withName("twig_test_even")
+        );
+
+        assertNavigationMatch(
+            TwigFileType.INSTANCE,
+            "{% if foo is not bar<caret>_even %}",
+            PlatformPatterns.psiElement(Function.class).withName("twig_test_even")
+        );
+
+        assertNavigationMatch(
+            TwigFileType.INSTANCE,
+            "{% if foo is not bar ev<caret>en %}",
+            PlatformPatterns.psiElement(Function.class).withName("twig_test_even")
+        );
+    }
+
+    public void testGetVarClassGoto() {
+        assertNavigationMatch(TwigFileType.INSTANCE, "{# @var bar \\Date<caret>Time #}", PlatformPatterns.psiElement(PhpClass.class));
+        assertNavigationMatch(TwigFileType.INSTANCE, "{# @var \\Date<caret>Time bar #}", PlatformPatterns.psiElement(PhpClass.class));
+
+        assertNavigationMatch(TwigFileType.INSTANCE, "{# @var \\Date<caret>Time[] bar #}", PlatformPatterns.psiElement(PhpClass.class));
+        assertNavigationMatch(TwigFileType.INSTANCE, "{# @var bar \\Date<caret>Time[] #}", PlatformPatterns.psiElement(PhpClass.class));
+    }
+
+    public void testGetVarClassGotoSupportsUnionTypes() {
+        addTwigUnionFixture();
+
+        myFixture.configureByText(TwigFileType.INSTANCE, "{# @var item \\Foo\\Union\\Us<caret>er|\\Foo\\Union\\Admin|null #}");
+
+        assertNavigationClassNames("\\Foo\\Union\\User", "\\Foo\\Union\\Admin");
+    }
+
+    public void testGetVarClassGotoSupportsArrayUnionTypes() {
+        addTwigUnionFixture();
+
+        myFixture.configureByText(TwigFileType.INSTANCE, "{# @var item \\Foo\\Union\\Us<caret>er[]|\\Foo\\Union\\Admin[] #}");
+
+        assertNavigationClassNames("\\Foo\\Union\\User", "\\Foo\\Union\\Admin");
+    }
+
+    public void testGetVarClassGotoDeprecated() {
+        assertNavigationMatch(TwigFileType.INSTANCE, "{# bar \\Date<caret>Time #}", PlatformPatterns.psiElement(PhpClass.class));
+        assertNavigationMatch(TwigFileType.INSTANCE, "{# bar \\Date<caret>Time[] #}", PlatformPatterns.psiElement(PhpClass.class));
+    }
+
+    public void testTypesTagClassGoto() {
+        assertNavigationMatch(TwigFileType.INSTANCE, "{% types { bar: '\\Date<caret>Time' } %}", PlatformPatterns.psiElement(PhpClass.class));
+        assertNavigationMatch(TwigFileType.INSTANCE, "{% types { bar: '\\Date<caret>Time[]' } %}", PlatformPatterns.psiElement(PhpClass.class));
+    }
+
+    public void testTypesTagClassGotoSupportsUnionTypes() {
+        addTwigUnionFixture();
+
+        myFixture.configureByText(TwigFileType.INSTANCE, "{% types { item: '\\Foo\\Union\\User|\\Foo\\Union\\Ad<caret>min|null' } %}");
+
+        assertNavigationClassNames("\\Foo\\Union\\User", "\\Foo\\Union\\Admin");
+    }
+
+    public void testTypesTagClassGotoSupportsArrayUnionTypes() {
+        addTwigUnionFixture();
+
+        myFixture.configureByText(TwigFileType.INSTANCE, "{% types { item: '\\Foo\\Union\\User[]|\\Foo\\Union\\Ad<caret>min[]' } %}");
+
+        assertNavigationClassNames("\\Foo\\Union\\User", "\\Foo\\Union\\Admin");
+    }
+
+    public void testTypesTagClassGotoWithOptionalMarker() {
+        assertNavigationMatch(TwigFileType.INSTANCE, "{% types { bar?: '\\Date<caret>Time' } %}", PlatformPatterns.psiElement(PhpClass.class));
+    }
+
+    public void testTypesTagClassGotoMultipleVariables() {
+        assertNavigationMatch(TwigFileType.INSTANCE, "{% types { foo: 'DateTime', bar: '\\Date<caret>Time' } %}", PlatformPatterns.psiElement(PhpClass.class));
+    }
+
+    public void testTypeGotoIgnoresCoreTwigReferenceResolutionForPropertyAccess() {
+        myFixture.configureByText(
+            TwigFileType.INSTANCE,
+            "{# @var date2 \\Foo\\Template\\Foobar #}\n" +
+                "{{ date2.foobar }}\n" +
+                "{{ date2.foo<caret>bar }}\n"
+        );
+
+        PsiElement psiElement = myFixture.getFile().findElementAt(myFixture.getCaretOffset());
+        Collection<PsiElement> typeGoto = TwigTemplateGoToDeclarationHandler.getTypeGoto(psiElement);
+
+        Set<String> methodNames = typeGoto.stream()
+            .filter(Method.class::isInstance)
+            .map(Method.class::cast)
+            .map(Method::getName)
+            .collect(Collectors.toSet());
+
+        assertContainsElements(methodNames, "getFoobar");
+    }
+
+    public void testTypeGotoSupportsMethodCallInPath() {
+        addTwigTypePathFixture();
+
+        assertNavigationMatch(
+            TwigFileType.INSTANCE,
+            "{# @var root \\Foo\\TypePath\\Root #}{{ root.children.fff('value').ba<caret>r }}",
+            PlatformPatterns.psiElement(Method.class).withName("getBar")
+        );
+
+        assertNavigationMatch(
+            TwigFileType.INSTANCE,
+            "{# @var root \\Foo\\TypePath\\Root #}{{ root.getChildren().fff('value').ba<caret>r }}",
+            PlatformPatterns.psiElement(Method.class).withName("getBar")
+        );
+    }
+
+    public void testTypeGotoSupportsTwigFilterReturnTypeMethodCall() {
+        myFixture.copyFileToProject("TwigFilterExtension.php");
+        myFixture.copyFileToProject("TwigStringExtension.php");
+
+        assertNavigationMatch(
+            TwigFileType.INSTANCE,
+            "{{ 'Symfony'|u.trun<caret>cate(8) }}",
+            PlatformPatterns.psiElement(Method.class).withName("truncate")
+        );
+
+        assertNavigationMatch(
+            TwigFileType.INSTANCE,
+            "{{ ustring().trun<caret>cate(8) }}",
+            PlatformPatterns.psiElement(Method.class).withName("truncate")
+        );
+
+        assertNavigationMatch(
+            TwigFileType.INSTANCE,
+            "{{ ustring(ass).trun<caret>cate(8) }}",
+            PlatformPatterns.psiElement(Method.class).withName("truncate")
+        );
+
+        assertNavigationMatch(
+            TwigFileType.INSTANCE,
+            "{{ ustring('aa').trun<caret>cate(8) }}",
+            PlatformPatterns.psiElement(Method.class).withName("truncate")
+        );
+
+        assertNavigationMatch(
+            TwigFileType.INSTANCE,
+            "{{ ustring('aaa').trun<caret>cate(8) }}",
+            PlatformPatterns.psiElement(Method.class).withName("truncate")
+        );
+
+        assertNavigationMatch(
+            TwigFileType.INSTANCE,
+            "{{ ustring(text: 'aaa').trun<caret>cate(8) }}",
+            PlatformPatterns.psiElement(Method.class).withName("truncate")
+        );
+    }
+
+    public void testFormFieldGotoUsesPrimitiveFormDataHolderOwnerFormTypeFqn() {
+        myFixture.copyFileToProject("ide-twig.json");
+
+        myFixture.addFileToProject(
+            "src/Controller/FormGotoController.php",
+            "<?php\n" +
+                "namespace Symfony\\Component\\Form {\n" +
+                "  interface FormTypeInterface {}\n" +
+                "  interface FormBuilderInterface { public function add(); }\n" +
+                "  class FormView {}\n" +
+                "  interface FormInterface { public function createView(): FormView; }\n" +
+                "}\n" +
+                "namespace Symfony\\Component\\Form\\Extension\\Core\\Type { class TextType implements \\Symfony\\Component\\Form\\FormTypeInterface {} }\n" +
+                "namespace Symfony\\Bundle\\FrameworkBundle\\Controller {\n" +
+                "  abstract class AbstractController {\n" +
+                "    public function createForm($type): \\Symfony\\Component\\Form\\FormInterface {}\n" +
+                "    public function render($template, array $parameters = []) {}\n" +
+                "  }\n" +
+                "}\n" +
+                "namespace App\\Form {\n" +
+                "  class ProductType implements \\Symfony\\Component\\Form\\FormTypeInterface {\n" +
+                "    public function buildForm(\\Symfony\\Component\\Form\\FormBuilderInterface $builder, array $options) {\n" +
+                "      $builder->add('title', \\Symfony\\Component\\Form\\Extension\\Core\\Type\\TextType::class);\n" +
+                "    }\n" +
+                "  }\n" +
+                "}\n" +
+                "namespace App\\Controller {\n" +
+                "  class FormGotoController extends \\Symfony\\Bundle\\FrameworkBundle\\Controller\\AbstractController {\n" +
+                "    public function index() {\n" +
+                "      $form = $this->createForm(\\App\\Form\\ProductType::class);\n" +
+                "      return $this->render('form/goto.html.twig', ['form' => $form->createView()]);\n" +
+                "    }\n" +
+                "  }\n" +
+                "}\n"
+        );
+
+        PsiFile templateFile = myFixture.addFileToProject("templates/form/goto.html.twig", "{{ form.title }}");
+        myFixture.configureFromExistingVirtualFile(templateFile.getVirtualFile());
+        myFixture.getEditor().getCaretModel().moveToOffset("{{ form.ti".length());
+
+        assertNavigationMatch(PlatformPatterns.psiElement(PhpClass.class).withName("ProductType"));
+    }
+
+    public void testSeeTagGoto() {
+        assertNavigationMatch(TwigFileType.INSTANCE, "{# @see \\Date<caret>Time #}", PlatformPatterns.psiElement(PhpClass.class));
+        assertNavigationMatch(TwigFileType.INSTANCE, "{# @see Date<caret>Time #}", PlatformPatterns.psiElement(PhpClass.class));
+        assertNavigationMatch(TwigFileType.INSTANCE, "{# @see Date<caret>Time::format #}", PlatformPatterns.psiElement(Method.class));
+        assertNavigationMatch(TwigFileType.INSTANCE, "{# @see \\Date<caret>Time:format #}", PlatformPatterns.psiElement(Method.class));
+        assertNavigationMatch(TwigFileType.INSTANCE, "{# \\Date<caret>Time:format #}", PlatformPatterns.psiElement(Method.class));
+    }
+
+    public void testSeeTagGotoRegexMatch() {
+        for (String s : new String[]{"\\DateTime", "\\DateTime::format", "foo/foo.html.twig", "@foo/foo.html.twig", "@foo/fo-o.html.twig", "@foo\\fo-o.html.twig", "Include/type_embed.html.twig"}) {
+            assertTrue(Pattern.compile(TwigPattern.DOC_SEE_REGEX).matcher("{# @see " + s + " #}").find());
+            assertTrue(Pattern.compile(TwigPattern.DOC_SEE_REGEX).matcher("{# @see " + s + "#}").find());
+
+            assertTrue(Pattern.compile(TwigUtil.DOC_SEE_REGEX_WITHOUT_SEE).matcher("{# " + s + " #}").find());
+            assertTrue(Pattern.compile(TwigUtil.DOC_SEE_REGEX_WITHOUT_SEE).matcher("{# " + s + "#}").find());
+        }
+    }
+
+    public void testThatConstantAndEnumProvidesNavigation() {
+        assertNavigationMatch(TwigFileType.INSTANCE, "{{ constant('\\Foo\\ConstantBar\\Foo::F<caret>OO') }}", PlatformPatterns.psiElement(Field.class).withName("FOO"));
+        assertNavigationMatch(TwigFileType.INSTANCE, "{{ constant('\\\\Foo\\\\ConstantBar\\\\Foo::F<caret>OO') }}", PlatformPatterns.psiElement(Field.class).withName("FOO"));
+        assertNavigationMatch(TwigFileType.INSTANCE, "{{ constant('BugDemo\\\\NAMESPACED_<caret>CONST') }}", PlatformPatterns.psiElement(Constant.class).withName("NAMESPACED_CONST"));
+        assertNavigationMatch(TwigFileType.INSTANCE, "{{ constant('\\\\BugDemo\\\\NAMESPACED_<caret>CONST') }}", PlatformPatterns.psiElement(Constant.class).withName("NAMESPACED_CONST"));
+        assertNavigationMatch(TwigFileType.INSTANCE, "{# @var suite \\BugDemo\\CardSuite #}\n{{ constant('CL<caret>UBS', suite) }}", PlatformPatterns.psiElement(Field.class).withName("CLUBS"));
+
+        assertNavigationMatch(TwigFileType.INSTANCE, "{% if foo == constant('\\Foo\\ConstantBar\\Foo::F<caret>OO') %}", PlatformPatterns.psiElement(Field.class).withName("FOO"));
+        assertNavigationMatch(TwigFileType.INSTANCE, "{% set foo == constant('\\Foo\\ConstantBar\\Foo::F<caret>OO') %}", PlatformPatterns.psiElement(Field.class).withName("FOO"));
+
+        assertNavigationMatch(TwigFileType.INSTANCE, "{{ constant('\\\\App\\\\FooEnum::F<caret>OO') }}", PlatformPatterns.psiElement());
+    }
+
+    public void testTestControllerActionsProvidesReferences() {
+        assertNavigationMatch(TwigFileType.INSTANCE, "{{ controller('\\FooBundle\\Cont<caret>roller\\FooController::barAction') }}", PlatformPatterns.psiElement(Method.class).withName("barAction"));
+        assertNavigationMatch(TwigFileType.INSTANCE, "{{ controller('\\\\FooBundle\\\\Cont<caret>roller\\\\FooController::barAction') }}", PlatformPatterns.psiElement(Method.class).withName("barAction"));
+        assertNavigationMatch(TwigFileType.INSTANCE, "{{ controller('FooBundle\\Cont<caret>roller\\FooController::barAction') }}", PlatformPatterns.psiElement(Method.class).withName("barAction"));
+        assertNavigationMatch(TwigFileType.INSTANCE, "{{ controller('FooBundle\\\\Cont<caret>roller\\\\FooController::barAction') }}", PlatformPatterns.psiElement(Method.class).withName("barAction"));
+    }
+
+    public void testFunctionNavigation() {
+        assertNavigationMatch(
+            TwigFileType.INSTANCE,
+            "{{ foo<caret>_test() }}", PlatformPatterns.psiElement(Function.class).withName("foo_test")
+        );
+
+        assertNavigationMatch(
+            TwigFileType.INSTANCE,
+            "{{ foo<caret>_test }}", PlatformPatterns.psiElement(Function.class).withName("foo_test")
+        );
+
+        assertNavigationMatch(
+            TwigFileType.INSTANCE,
+            "{% set foo = foo<caret>_test %}", PlatformPatterns.psiElement(Function.class).withName("foo_test")
+        );
+
+        assertNavigationMatch(
+            TwigFileType.INSTANCE,
+            "{% set foo = foo<caret>_test() %}", PlatformPatterns.psiElement(Function.class).withName("foo_test")
+        );
+
+        assertNavigationMatch(
+            TwigFileType.INSTANCE,
+            "{% if foo<caret>_test() %}{% endif %}", PlatformPatterns.psiElement(Function.class).withName("foo_test")
+        );
+
+        assertNavigationMatch(
+            TwigFileType.INSTANCE,
+            "{% if %}{% elseif foo<caret>_test() %}{% endif %}", PlatformPatterns.psiElement(Function.class).withName("foo_test")
+        );
+
+        assertNavigationMatch(
+            TwigFileType.INSTANCE,
+            "{% for user in foo<caret>_test() %}{% endfor %}", PlatformPatterns.psiElement(Function.class).withName("foo_test")
+        );
+
+        assertNavigationMatch(
+            TwigFileType.INSTANCE,
+            "{% for user in users if foo<caret>_test() %}{% endfor %}", PlatformPatterns.psiElement(Function.class).withName("foo_test")
+        );
+    }
+
+    public void testTokenTagNavigation() {
+        assertNavigationMatch(
+            TwigFileType.INSTANCE,
+            "{% tag_<caret>foobar 'foo' %}", PlatformPatterns.psiElement()
+        );
+
+        assertNavigationMatch(
+            TwigFileType.INSTANCE,
+            "{% tag_foobar 'foo' %}{% endtag_<caret>foobar %}", PlatformPatterns.psiElement()
+        );
+    }
+
+    public void testMacroImport() {
+        assertNavigationMatch(
+            TwigFileType.INSTANCE,
+            "{% import _self as macros %}\n" +
+                "{% macro renderItem(form) %}{% endmacro %}\n" +
+                "\n" +
+                "{{ macros.rend<caret>erItem(foo) }}" +
+                "",
+            PlatformPatterns.psiElement()
+        );
+
+        assertNavigationMatch(
+            TwigFileType.INSTANCE,
+            "{% import _self as macros %}\n" +
+                "{% macro renderItem(form) %}{% endmacro %}\n" +
+                "\n" +
+                "{{ macros.rend<caret>erItem() }}" +
+                "",
+            PlatformPatterns.psiElement()
+        );
+
+        assertNavigationMatch(
+            TwigFileType.INSTANCE,
+            "{% import _self as macros %}\n" +
+                "{% macro renderItem(form) %}{% endmacro %}\n" +
+                "\n" +
+                "{{ macros.rend<caret>erItem }}" +
+                "",
+            PlatformPatterns.psiElement()
+        );
+    }
+
+    public void testSelfMacroImport() {
+        assertNavigationMatch(
+            TwigFileType.INSTANCE,
+                "{% macro foobar(name) %}{% endmacro %}\n" +
+                "{{ _self.foo<caret>bar('password') }}",
+            PlatformPatterns.psiElement()
+        );
+
+        assertNavigationMatch(
+            TwigFileType.INSTANCE,
+            "{% macro foobar(name) %}{% endmacro %}\n" +
+                "{{ _self.foo<caret>bar }}",
+            PlatformPatterns.psiElement()
+        );
+
+        assertNavigationIsEmpty(
+            TwigFileType.INSTANCE,
+                "{% macro foobarUnknown(name) %}\n" +
+                "{% endmacro %}\n" +
+                "{{ _self.foo<caret>bar('password') }}"
+        );
+    }
+
+    public void testComponentNameNavigation() {
+        assertNavigationMatch(
+            TwigFileType.INSTANCE,
+                "{{ component('Ale<caret>rt') }}",
+            PlatformPatterns.psiElement(PhpClass.class)
+        );
+    }
+
+    public void testComponentNameTagNavigation() {
+        assertNavigationMatch(
+            TwigFileType.INSTANCE,
+            "{% component Ale<caret>rt %}",
+            PlatformPatterns.psiElement(PhpClass.class)
+        );
+    }
+
+    public void testFoo() {
+        assertNavigationMatch(
+            TwigFileType.INSTANCE,
+            "{{ path('App\\\\Controller\\\\Foobar<caret>Controller') }}",
+            PlatformPatterns.psiElement(Method.class)
+        );
+
+        assertNavigationMatch(
+            TwigFileType.INSTANCE,
+            "{{ path('App\\\\Controller\\\\FooCo<caret>ntroller::foobar') }}",
+            PlatformPatterns.psiElement(Method.class)
+        );
+    }
+
+    public void testThatEnumProvidesNavigationToEnumClass() {
+        assertNavigationMatch(TwigFileType.INSTANCE, "{{ enum('App\\\\Bike\\\\Foo<caret>Enum') }}", PlatformPatterns.psiElement(PhpClass.class).withName("FooEnum"));
+        assertNavigationMatch(TwigFileType.INSTANCE, "{{ enum('\\\\App\\\\Bike\\\\Foo<caret>Enum') }}", PlatformPatterns.psiElement(PhpClass.class).withName("FooEnum"));
+
+        assertNavigationMatch(TwigFileType.INSTANCE, "{% if foo == enum('App\\\\Bike\\\\Foo<caret>Enum') %}", PlatformPatterns.psiElement(PhpClass.class).withName("FooEnum"));
+        assertNavigationMatch(TwigFileType.INSTANCE, "{% set foo == enum('\\\\App\\\\Bike\\\\Foo<caret>Enum') %}", PlatformPatterns.psiElement(PhpClass.class).withName("FooEnum"));
+
+        // Should not navigate to non-enum classes
+        assertNavigationIsEmpty(TwigFileType.INSTANCE, "{{ enum('App\\\\Bike\\\\Foo<caret>Const') }}");
+    }
+
+    public void testThatEnumCasesProvidesNavigationToEnumClass() {
+        assertNavigationMatch(TwigFileType.INSTANCE, "{{ enum_cases('App\\\\Bike\\\\Foo<caret>Enum') }}", PlatformPatterns.psiElement(PhpClass.class).withName("FooEnum"));
+        assertNavigationMatch(TwigFileType.INSTANCE, "{{ enum_cases('\\\\App\\\\Bike\\\\Foo<caret>Enum') }}", PlatformPatterns.psiElement(PhpClass.class).withName("FooEnum"));
+
+        assertNavigationMatch(TwigFileType.INSTANCE, "{% if foo == enum_cases('App\\\\Bike\\\\Foo<caret>Enum') %}", PlatformPatterns.psiElement(PhpClass.class).withName("FooEnum"));
+        assertNavigationMatch(TwigFileType.INSTANCE, "{% set foo == enum_cases('\\\\App\\\\Bike\\\\Foo<caret>Enum') %}", PlatformPatterns.psiElement(PhpClass.class).withName("FooEnum"));
+
+        // Should not navigate to non-enum classes
+        assertNavigationIsEmpty(TwigFileType.INSTANCE, "{{ enum_cases('App\\\\Bike\\\\Foo<caret>Const') }}");
+    }
+
+    public void testNavigationForRouteCompareExpressions() {
+        myFixture.copyFileToProject("routing.xml");
+
+        assertNavigationMatch(TwigFileType.INSTANCE, "{% if app.request.attributes.get('_route') == 'xml_ro<caret>ute' %}", PlatformPatterns.psiElement());
+        assertNavigationMatch(TwigFileType.INSTANCE, "{% if app.request.attributes.get('_route') != 'xml_ro<caret>ute' %}", PlatformPatterns.psiElement());
+        assertNavigationMatch(TwigFileType.INSTANCE, "{% if app.request.attributes.get('_route') starts with 'xml_ro<caret>ute' %}", PlatformPatterns.psiElement());
+        assertNavigationMatch(TwigFileType.INSTANCE, "{% if app.request.attributes.get('_route') starts with('xml_ro<caret>ute') %}", PlatformPatterns.psiElement());
+        assertNavigationMatch(TwigFileType.INSTANCE, "{% if app.request.attributes.get('_route') is same as('xml_ro<caret>ute') %}", PlatformPatterns.psiElement());
+        assertNavigationMatch(TwigFileType.INSTANCE, "{% if app.request.attributes.get('_route') in ['xml_ro<caret>ute'] %}", PlatformPatterns.psiElement());
+        assertNavigationMatch(TwigFileType.INSTANCE, "{% if app.request.attributes.get('_route') not in ['xml_ro<caret>ute'] %}", PlatformPatterns.psiElement());
+    }
+
+    public void testStartsWithNavigatesOnPartialPrefix() {
+        myFixture.copyFileToProject("routing.xml");
+
+        // 'xml' is a partial prefix — should still navigate to xml_route
+        assertNavigationMatch(TwigFileType.INSTANCE,
+            "{% if app.request.attributes.get('_route') starts with 'xm<caret>l' %}",
+            PlatformPatterns.psiElement());
+    }
+
+    private void addTwigTypePathFixture() {
+        myFixture.addFileToProject(
+            "src/Foo/TypePath/Root.php",
+            "<?php\n" +
+                "namespace Foo\\TypePath;\n" +
+                "class Root { public function getChildren(): Children {} }\n" +
+                "class Children { public function fff(string $value): Leaf {} }\n" +
+                "class Leaf { public function getBar(): string {} public function getBaz(): string {} }\n"
+        );
+    }
+
+    private void addTwigUnionFixture() {
+        myFixture.addFileToProject(
+            "src/Foo/Union/User.php",
+            "<?php\n" +
+                "namespace Foo\\Union;\n" +
+                "class User { public function getUsername(): string {} }\n"
+        );
+
+        myFixture.addFileToProject(
+            "src/Foo/Union/Admin.php",
+            "<?php\n" +
+                "namespace Foo\\Union;\n" +
+                "class Admin { public function getRoleName(): string {} }\n"
+        );
+    }
+
+    private void assertNavigationClassNames(String... expectedClassNames) {
+        PsiElement psiElement = myFixture.getFile().findElementAt(myFixture.getCaretOffset());
+        PsiElement[] targets = new TwigTemplateGoToDeclarationHandler()
+            .getGotoDeclarationTargets(psiElement, myFixture.getCaretOffset(), myFixture.getEditor());
+
+        Set<String> classNames = new HashSet<>();
+        if (targets != null) {
+            for (PsiElement target : targets) {
+                if (target instanceof PhpClass phpClass) {
+                    classNames.add(phpClass.getFQN());
+                }
+            }
+        }
+
+        assertContainsElements(classNames, expectedClassNames);
+    }
+}

@@ -11,6 +11,7 @@ import javax.swing.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.text.JTextComponent;
+import java.awt.*;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.event.WindowAdapter;
@@ -23,27 +24,29 @@ public class MethodParameterDialog extends JDialog {
     private JPanel contentPane;
     private JButton buttonOK;
     private JButton buttonCancel;
-    private JComboBox comboProvider;
-    private JComboBox comboContributor;
+    private JComboBox<String> comboProvider;
+    private JComboBox<String> comboContributor;
     private JTextField textCallTo;
     private JTextField textMethodName;
     private JTextField textIndex;
     private JTextField textContributorData;
     private MethodParameterSetting methodParameterSetting;
-    private TableView<MethodParameterSetting> tableView;
+    private final TableView<MethodParameterSetting> tableView;
 
-    private Project project;
+    private final Project project;
 
-    class ComboBoxRenderer extends ColoredListCellRenderer {
+    static class ComboBoxRenderer extends ColoredListCellRenderer<String> {
         @Override
-        protected void customizeCellRenderer(JList list, Object value, int index, boolean selected, boolean hasFocus) {
-            append((String) value);
+        protected void customizeCellRenderer(JList<? extends String> list, String value, int index, boolean selected, boolean hasFocus) {
+            append(value);
         }
     }
 
     public MethodParameterDialog(Project project, TableView<MethodParameterSetting> tableView) {
         this.tableView = tableView;
         this.project = project;
+
+        createUIComponents();
 
         comboContributor.setRenderer(new ComboBoxRenderer());
         comboProvider.setRenderer(new ComboBoxRenderer());
@@ -72,7 +75,7 @@ public class MethodParameterDialog extends JDialog {
 
         comboContributor.addItemListener(e -> {
             AssistantReferenceContributor assistantReferenceContributor = AssistantReferenceUtil.getContributorProviderByName(MethodParameterDialog.this.project, (String) e.getItem());
-            if(assistantReferenceContributor != null) {
+            if (assistantReferenceContributor != null) {
                 MethodParameterDialog.this.textContributorData.setEnabled(assistantReferenceContributor.supportData());
             }
         });
@@ -80,7 +83,7 @@ public class MethodParameterDialog extends JDialog {
         // allow only number values to indexes
         // simple?
         this.textIndex.addKeyListener(new KeyAdapter() {
-            private String allowedRegex = "[^0-9]";
+            private final String allowedRegex = "[^0-9]";
 
             @Override
             public void keyReleased(KeyEvent e) {
@@ -95,11 +98,11 @@ public class MethodParameterDialog extends JDialog {
     }
 
     private void attachComboBoxValues(Project project) {
-        for(String provider: AssistantReferenceUtil.getReferenceProvider(project)) {
+        for (String provider : AssistantReferenceUtil.getReferenceProvider(project)) {
             comboProvider.addItem(provider);
         }
 
-        for(String provider: AssistantReferenceUtil.getContributorProvider(project)) {
+        for (String provider : AssistantReferenceUtil.getContributorProvider(project)) {
             comboContributor.addItem(provider);
         }
     }
@@ -113,14 +116,51 @@ public class MethodParameterDialog extends JDialog {
         this.textContributorData.setText(methodParameterSetting.getContributorData());
         this.methodParameterSetting = methodParameterSetting;
 
-        if(methodParameterSetting.getReferenceProviderName() != null) {
+        if (methodParameterSetting.getReferenceProviderName() != null) {
             this.comboProvider.setSelectedItem(methodParameterSetting.getReferenceProviderName());
         }
 
-        if(methodParameterSetting.getContributorName() != null) {
+        if (methodParameterSetting.getContributorName() != null) {
             this.comboContributor.setSelectedItem(methodParameterSetting.getContributorName());
         }
 
+    }
+
+    private void createUIComponents() {
+        contentPane = new JPanel(new BorderLayout(0, 5));
+        contentPane.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+        textCallTo = new JTextField(20);
+        textMethodName = new JTextField(20);
+        textIndex = new JTextField(20);
+        comboProvider = new JComboBox<>();
+        comboContributor = new JComboBox<>();
+        textContributorData = new JTextField(20);
+
+        JPanel fieldsPanel = new JPanel(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(2, 2, 2, 2);
+        gbc.anchor = GridBagConstraints.WEST;
+
+        String[] labels = {"CallTo", "Method", "Index", "Provider", "Contributor", "ContributorData"};
+        JComponent[] fields = {textCallTo, textMethodName, textIndex, comboProvider, comboContributor, textContributorData};
+
+        for (int i = 0; i < labels.length; i++) {
+            gbc.gridx = 0; gbc.gridy = i; gbc.fill = GridBagConstraints.NONE; gbc.weightx = 0;
+            fieldsPanel.add(new JLabel(labels[i]), gbc);
+            gbc.gridx = 1; gbc.fill = GridBagConstraints.HORIZONTAL; gbc.weightx = 1.0;
+            fieldsPanel.add(fields[i], gbc);
+        }
+
+        buttonOK = new JButton("OK");
+        buttonCancel = new JButton("Cancel");
+
+        JPanel buttonsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
+        buttonsPanel.add(buttonOK);
+        buttonsPanel.add(buttonCancel);
+
+        contentPane.add(fieldsPanel, BorderLayout.CENTER);
+        contentPane.add(buttonsPanel, BorderLayout.SOUTH);
     }
 
     private void onOK() {
@@ -135,7 +175,7 @@ public class MethodParameterDialog extends JDialog {
         MethodParameterSetting twigPath = new MethodParameterSetting(this.textCallTo.getText(), this.textMethodName.getText(), index, (String) this.comboProvider.getSelectedItem());
         twigPath.setContributorName((String) comboContributor.getSelectedItem());
 
-        if(textContributorData.isEnabled()) {
+        if (textContributorData.isEnabled()) {
             twigPath.setContributorData(textContributorData.getText());
         }
 
@@ -143,7 +183,7 @@ public class MethodParameterDialog extends JDialog {
 
         // re-add old item to not use public setter wor twigpaths
         // update ?
-        if(this.methodParameterSetting != null) {
+        if (this.methodParameterSetting != null) {
             int row = this.tableView.getSelectedRows()[0];
             this.tableView.getListTableModel().removeRow(row);
             this.tableView.getListTableModel().insertRow(row, twigPath);
@@ -159,9 +199,9 @@ public class MethodParameterDialog extends JDialog {
 
     private void setOkState() {
         this.buttonOK.setEnabled(
-            this.textCallTo.getText().length() > 0 &&
-            this.textMethodName.getText().length() > 0 &&
-            this.textIndex.getText().length() > 0
+            !this.textCallTo.getText().isEmpty() &&
+                !this.textMethodName.getText().isEmpty() &&
+                !this.textIndex.getText().isEmpty()
         );
     }
 

@@ -10,7 +10,7 @@ import fr.adrienbrault.idea.symfony2plugin.codeInspection.quickfix.CreateMethodQ
 import fr.adrienbrault.idea.symfony2plugin.routing.Route;
 import fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper;
 import fr.adrienbrault.idea.symfony2plugin.routing.dic.ControllerClassOnShortcutReturn;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -24,7 +24,7 @@ public class InspectionUtil {
     public static void inspectController(@NotNull PsiElement psiElement, @NotNull String controllerName, @NotNull ProblemsHolder holder, final @NotNull LazyControllerNameResolve lazyControllerNameResolve) {
 
         List<PsiElement> psiElements = Arrays.asList(RouteHelper.getMethodsOnControllerShortcut(psiElement.getProject(), controllerName));
-        if(psiElements.size() > 0) {
+        if(!psiElements.isEmpty()) {
             return;
         }
 
@@ -35,9 +35,6 @@ public class InspectionUtil {
 
         int lastPos = controllerName.lastIndexOf(":") + 1;
         String actionName = controllerName.substring(lastPos);
-        if(!shortcutReturn.isService()) {
-            actionName += "Action";
-        }
 
         final Project project = shortcutReturn.getPhpClass().getProject();
         final String finalActionName = actionName;
@@ -48,9 +45,9 @@ public class InspectionUtil {
             String routeName = lazyControllerNameResolve.getRouteName();
             if(routeName != null) {
                 Collection<Route> routes = RouteHelper.getRoute(project, routeName);
-                if(routes.size() > 0) {
+                if(!routes.isEmpty()) {
                     Set<String> vars = routes.iterator().next().getVariables();
-                    if(vars.size() > 0) {
+                    if(!vars.isEmpty()) {
 
                         // add dollar char for vars
                         List<String> varsDollar = new ArrayList<>();

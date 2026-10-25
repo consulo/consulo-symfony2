@@ -2,6 +2,8 @@ package fr.adrienbrault.idea.symfony2plugin.config.component.parser;
 
 import fr.adrienbrault.idea.symfony2plugin.util.service.AbstractServiceParser;
 
+import com.intellij.openapi.project.Project;
+import com.intellij.openapi.vfs.VirtualFile;
 import java.io.InputStream;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -11,14 +13,14 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class ParameterServiceParser extends AbstractServiceParser {
 
-    protected Map<String, String> parameterMap = new ConcurrentHashMap<>();
+    protected final Map<String, String> parameterMap = new ConcurrentHashMap<>();
 
     @Override
     public String getXPathFilter() {
         return "";
     }
 
-    public void parser(final InputStream file) {
+    public void parser(InputStream file, VirtualFile sourceFile, Project project) {
         this.parameterMap.putAll(ParameterServiceCollector.collect(file));
     }
 

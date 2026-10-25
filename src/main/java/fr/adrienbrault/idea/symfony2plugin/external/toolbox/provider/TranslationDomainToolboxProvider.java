@@ -2,7 +2,6 @@ package fr.adrienbrault.idea.symfony2plugin.external.toolbox.provider;
 
 import com.intellij.codeInsight.lookup.LookupElement;
 import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
 import de.espend.idea.php.toolbox.completion.dict.PhpToolboxCompletionContributorParameter;
 import de.espend.idea.php.toolbox.extension.PhpToolboxProviderAbstract;
 import de.espend.idea.php.toolbox.navigation.dict.PhpToolboxDeclarationHandlerParameter;
@@ -40,12 +39,7 @@ public class TranslationDomainToolboxProvider extends PhpToolboxProviderAbstract
             return Collections.emptyList();
         }
 
-        Collection<PsiElement> psiElements = new HashSet<>();
-        for (PsiFile psiFile : TranslationUtil.getDomainPsiFiles(parameter.getProject(), parameter.getContents())) {
-            psiElements.add(psiFile);
-        }
-
-        return psiElements;
+        return new HashSet<>(TranslationUtil.getDomainPsiFiles(parameter.getProject(), parameter.getContents()));
     }
 
     @NotNull

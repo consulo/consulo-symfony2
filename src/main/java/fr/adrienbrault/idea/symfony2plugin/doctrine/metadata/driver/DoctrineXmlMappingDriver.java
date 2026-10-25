@@ -7,7 +7,8 @@ import fr.adrienbrault.idea.symfony2plugin.doctrine.EntityHelper;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.dict.DoctrineModelField;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.DoctrineMetadataPattern;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.dict.DoctrineMetadataModel;
-import org.apache.commons.lang.StringUtils;
+import fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.util.DoctrineMetadataUtil;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -46,14 +47,16 @@ public class DoctrineXmlMappingDriver implements DoctrineMappingDriverInterface 
 
             if("entity".equals(xmlTag.getName()) && args.isEqualClass(name)) {
                 // Doctrine ORM
-                // @TODO: refactor allow multiple
-                fields.addAll(EntityHelper.getEntityFields((XmlFile) psiFile));
+                fields.addAll(EntityHelper.getXmlModelFields(xmlTag));
+                addEmbeddedFields(args, rootTag, xmlTag, fields);
 
                 // get table for dbal
                 String table = xmlTag.getAttributeValue("table");
                 if(StringUtils.isNotBlank(table)) {
                     model.setTable(table);
                 }
+            } else if("embeddable".equals(xmlTag.getName()) && args.isEqualClass(name)) {
+                fields.addAll(EntityHelper.getXmlModelFields(xmlTag));
             } else if("document".equals(xmlTag.getName()) && args.isEqualClass(name)) {
                 // Doctrine ODM
                 getOdmFields(xmlTag, fields);
@@ -65,6 +68,57 @@ public class DoctrineXmlMappingDriver implements DoctrineMappingDriverInterface 
         }
 
         return model;
+    }
+
+    private void addEmbeddedFields(
+        @NotNull DoctrineMappingDriverArguments args,
+        @NotNull XmlTag rootTag,
+        @NotNull XmlTag entityTag,
+        @NotNull Collection<DoctrineModelField> fields
+    ) {
+        String entityClass = entityTag.getAttributeValue("name");
+        if (StringUtils.isBlank(entityClass)) {
+            return;
+        }
+
+        Collection<DoctrineEmbeddedFieldUtil.Mapping> mappings = new ArrayList<>();
+        for (XmlTag embeddedTag : entityTag.findSubTags("embedded")) {
+            String propertyName = embeddedTag.getAttributeValue("name");
+            String embeddedClass = embeddedTag.getAttributeValue("class");
+            if (propertyName != null && embeddedClass != null) {
+                mappings.add(new DoctrineEmbeddedFieldUtil.Mapping(propertyName, embeddedClass, getColumnPrefix(embeddedTag, propertyName)));
+            }
+        }
+
+        DoctrineEmbeddedFieldUtil.addEmbeddedFields(entityClass, mappings, className -> {
+            DoctrineMetadataModel metadata = getLocalEmbeddableMetadata(rootTag, className);
+            return metadata != null ? metadata : DoctrineMetadataUtil.getModelFields(args.getProject(), className);
+        }, fields);
+    }
+
+    @Nullable
+    private DoctrineMetadataModel getLocalEmbeddableMetadata(@NotNull XmlTag rootTag, @NotNull String className) {
+        for (XmlTag embeddableTag : rootTag.findSubTags("embeddable")) {
+            String name = embeddableTag.getAttributeValue("name");
+            if (name == null || !StringUtils.stripStart(name, "\\").equals(StringUtils.stripStart(className, "\\"))) {
+                continue;
+            }
+
+            Collection<DoctrineModelField> fields = EntityHelper.getXmlModelFields(embeddableTag);
+            return fields.isEmpty() ? null : new DoctrineMetadataModel(fields);
+        }
+
+        return null;
+    }
+
+    @NotNull
+    private String getColumnPrefix(@NotNull XmlTag embeddedTag, @NotNull String propertyName) {
+        if ("false".equalsIgnoreCase(embeddedTag.getAttributeValue("use-column-prefix"))) {
+            return "";
+        }
+
+        String columnPrefix = embeddedTag.getAttributeValue("column-prefix");
+        return columnPrefix != null ? columnPrefix : propertyName + "_";
     }
 
     private void getOdmFields(@NotNull XmlTag xmlTag, @NotNull Collection<DoctrineModelField> fields) {

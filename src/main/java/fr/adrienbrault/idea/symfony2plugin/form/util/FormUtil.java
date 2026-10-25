@@ -4,49 +4,84 @@ import com.intellij.codeInsight.completion.CompletionResultSet;
 import com.intellij.codeInsight.lookup.LookupElement;
 import com.intellij.codeInsight.lookup.LookupElementBuilder;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.util.Key;
 import com.intellij.psi.PsiElement;
+import com.intellij.psi.PsiFile;
 import com.intellij.psi.impl.source.xml.XmlDocumentImpl;
-import com.intellij.psi.util.PsiTreeUtil;
+import com.intellij.psi.util.*;
 import com.intellij.psi.xml.XmlAttribute;
 import com.intellij.psi.xml.XmlFile;
 import com.intellij.psi.xml.XmlTag;
 import com.jetbrains.php.PhpIndex;
+import com.jetbrains.php.codeInsight.controlFlow.PhpControlFlowUtil;
+import com.jetbrains.php.codeInsight.controlFlow.PhpInstructionProcessor;
+import com.jetbrains.php.codeInsight.controlFlow.instructions.PhpAccessVariableInstruction;
+import com.jetbrains.php.codeInsight.controlFlow.instructions.PhpReturnInstruction;
+import com.jetbrains.php.codeInsight.controlFlow.instructions.PhpYieldInstruction;
+import com.jetbrains.php.lang.PhpLanguage;
 import com.jetbrains.php.lang.parser.PhpElementTypes;
+import com.jetbrains.php.lang.psi.PhpFile;
 import com.jetbrains.php.lang.psi.PhpPsiUtil;
 import com.jetbrains.php.lang.psi.elements.*;
-import com.jetbrains.php.lang.psi.elements.impl.PhpTypedElementImpl;
+import com.jetbrains.php.lang.psi.resolve.types.PhpType;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
+import fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.util.DoctrineMetadataUtil;
 import fr.adrienbrault.idea.symfony2plugin.form.FormTypeLookup;
 import fr.adrienbrault.idea.symfony2plugin.form.dict.EnumFormTypeSource;
+import fr.adrienbrault.idea.symfony2plugin.form.dict.FormClass;
 import fr.adrienbrault.idea.symfony2plugin.form.dict.FormTypeClass;
 import fr.adrienbrault.idea.symfony2plugin.form.dict.FormTypeServiceParser;
 import fr.adrienbrault.idea.symfony2plugin.util.MethodMatcher;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
+import fr.adrienbrault.idea.symfony2plugin.util.PhpIndexUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
 import fr.adrienbrault.idea.symfony2plugin.util.psi.PsiElementAssertUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.service.ServiceXmlParserFactory;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
-import org.apache.commons.lang.StringUtils;
+import kotlin.Pair;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
+import static fr.adrienbrault.idea.symfony2plugin.util.StringUtils.underscore;
 import org.jetbrains.yaml.psi.YAMLFile;
 import org.jetbrains.yaml.psi.YAMLKeyValue;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class FormUtil {
+    private static final Key<CachedValue<Collection<String[]>>> FORM_EXTENSION_TYPES = new Key<>("SYMFONY_FORM_EXTENSION_TYPES");
+
+    // Per-file cache for form type extraction
+    private static final Key<CachedValue<Collection<String[]>>> FILE_FORM_TYPES = new Key<>("FILE_FORM_TYPES");
 
     final public static String ABSTRACT_FORM_INTERFACE = "\\Symfony\\Component\\Form\\FormTypeInterface";
     final public static String FORM_EXTENSION_INTERFACE = "\\Symfony\\Component\\Form\\FormTypeExtensionInterface";
 
-    public static MethodMatcher.CallToSignature[] PHP_FORM_BUILDER_SIGNATURES = new MethodMatcher.CallToSignature[] {
+    public static final MethodMatcher.CallToSignature[] PHP_FORM_BUILDER_SIGNATURES = new MethodMatcher.CallToSignature[] {
         new MethodMatcher.CallToSignature("\\Symfony\\Component\\Form\\FormBuilderInterface", "add"),
         new MethodMatcher.CallToSignature("\\Symfony\\Component\\Form\\FormBuilderInterface", "create"),
         new MethodMatcher.CallToSignature("\\Symfony\\Component\\Form\\FormInterface", "add"),
         new MethodMatcher.CallToSignature("\\Symfony\\Component\\Form\\FormInterface", "create")
+    };
+
+    public static final MethodMatcher.CallToSignature[] FORM_FACTORY_SIGNATURES = new MethodMatcher.CallToSignature[] {
+        new MethodMatcher.CallToSignature("\\Symfony\\Bundle\\FrameworkBundle\\Controller\\Controller", "createForm"),
+        // Symfony 3.3 / 3.4
+        new MethodMatcher.CallToSignature("\\Symfony\\Bundle\\FrameworkBundle\\Controller\\ControllerTrait", "createForm"),
+        // Symfony 4
+        new MethodMatcher.CallToSignature("\\Symfony\\Bundle\\FrameworkBundle\\Controller\\AbstractController", "createForm"),
+        new MethodMatcher.CallToSignature("\\Symfony\\Component\\Form\\FormFactoryInterface", "create"),
+        new MethodMatcher.CallToSignature("\\Symfony\\Component\\Form\\FormFactory", "createBuilder"),
+    };
+
+    public static final MethodMatcher.CallToSignature[] PHP_FORM_NAMED_BUILDER_SIGNATURES = new MethodMatcher.CallToSignature[] {
+        new MethodMatcher.CallToSignature("\\Symfony\\Component\\Form\\FormFactoryInterface", "createNamedBuilder"),
+        new MethodMatcher.CallToSignature("\\Symfony\\Component\\Form\\FormFactoryInterface", "createNamed"),
     };
 
     @Nullable
@@ -54,7 +89,7 @@ public class FormUtil {
         return new FormTypeCollector(project).collect().getFormTypeToClass(formType);
     }
 
-    public static Collection<LookupElement> getFormTypeLookupElements(Project project) {
+    public static Collection<LookupElement> getFormTypeLookupElements(@NotNull Project project) {
 
         Collection<LookupElement> lookupElements = new ArrayList<>();
 
@@ -64,7 +99,7 @@ public class FormUtil {
             String name = entry.getValue().getName();
             String typeText = entry.getValue().getPhpClassName();
 
-            PhpClass phpClass = entry.getValue().getPhpClass();
+            PhpClass phpClass = entry.getValue().getPhpClass(project);
             if(phpClass != null) {
                 typeText = phpClass.getName();
             }
@@ -80,25 +115,66 @@ public class FormUtil {
         return lookupElements;
     }
 
-    public static MethodReference[] getFormBuilderTypes(Method method) {
-        List<MethodReference> methodReferences = new ArrayList<>();
-
-        PsiTreeUtil.collectElements(method, methodReference -> {
+    public static MethodReference[] getFormBuilderTypes(@NotNull Method method) {
+        PsiElementFilter filter = methodReference -> {
             if (methodReference instanceof MethodReference) {
                 String methodName = ((MethodReference) methodReference).getName();
                 if (methodName != null && (methodName.equals("add") || methodName.equals("create"))) {
-                    if(PhpElementsUtil.isMethodReferenceInstanceOf((MethodReference) methodReference, FormUtil.PHP_FORM_BUILDER_SIGNATURES)) {
-                        methodReferences.add((MethodReference) methodReference);
-                        return true;
-                    }
+                    return PhpElementsUtil.isMethodReferenceInstanceOf((MethodReference) methodReference, FormUtil.PHP_FORM_BUILDER_SIGNATURES);
                 }
             }
 
             return false;
-        });
+        };
 
-        return methodReferences.toArray(new MethodReference[methodReferences.size()]);
+        Collection<PsiElement> methodReferences = new HashSet<>(Arrays.asList(PsiTreeUtil.collectElements(method, filter)));
 
+        // some code flow detection for sub methods
+        if ("buildForm".equals(method.getName())) {
+            for (Parameter parameter : method.getParameters()) {
+                boolean isFormBuilder = parameter.getType().getTypes().stream()
+                    .noneMatch(s -> StringUtils.stripStart(s, "\\").equalsIgnoreCase("Symfony\\Component\\Form\\FormBuilderInterface"));
+
+                if (isFormBuilder) {
+                    continue;
+                }
+
+                String text = parameter.getName();
+
+                Collection<PsiElement> variables = new ArrayList<>();
+
+                PhpControlFlowUtil.processFlow(method.getControlFlow(), new PhpInstructionProcessor() {
+                    @Override
+                    public boolean processAccessVariableInstruction(PhpAccessVariableInstruction instruction) {
+                        if (text.contentEquals(instruction.getVariableName())) {
+                            variables.add(instruction.getAnchor());
+                        }
+
+                        return super.processAccessVariableInstruction(instruction);
+                    }
+                });
+
+                for (PsiElement psiElement : variables) {
+                    PsiElement parameterList = psiElement.getParent();
+                    if (!(parameterList instanceof ParameterList)) {
+                        continue;
+                    }
+                    PsiElement methodReference = parameterList.getParent();
+                    if (!(methodReference instanceof MethodReference)) {
+                        continue;
+                    }
+
+                    PsiElement resolve = ((MethodReference) methodReference).resolve();
+                    if (!(resolve instanceof Method)) {
+                        continue;
+                    }
+
+                    Collections.addAll(methodReferences, PsiTreeUtil.collectElements(resolve, filter));
+                }
+            }
+        }
+
+        return methodReferences.stream().map(psiElement -> (MethodReference) psiElement).toArray(MethodReference[]::new);
     }
 
     /**
@@ -175,21 +251,40 @@ public class FormUtil {
      */
     @Nullable
     public static PhpClass getFormTypeClassOnParameter(@NotNull PsiElement psiElement) {
-
-        if(psiElement instanceof StringLiteralExpression) {
-            return getFormTypeToClass(psiElement.getProject(), ((StringLiteralExpression) psiElement).getContents());
-        }
-
-        if(psiElement instanceof PhpTypedElementImpl) {
-            String typeName = ((PhpTypedElementImpl) psiElement).getType().toString();
-            return getFormTypeToClass(psiElement.getProject(), typeName);
-        }
-
-        if(psiElement instanceof ClassConstantReference) {
-            return PhpElementsUtil.getClassConstantPhpClass((ClassConstantReference) psiElement);
+        switch (psiElement) {
+            case StringLiteralExpression stringLiteralExpression -> {
+                return getFormTypeToClass(psiElement.getProject(), stringLiteralExpression.getContents());
+            }
+            case ClassConstantReference classConstantReference -> {
+                return PhpElementsUtil.getClassConstantPhpClass(classConstantReference);
+            }
+            case PhpTypedElement phpTypedElement -> {
+                String typeName = phpTypedElement.getType().toString();
+                return getFormTypeToClass(psiElement.getProject(), typeName);
+            }
+            default -> {
+            }
         }
 
         return null;
+    }
+
+    /**
+     * Resolves a Symfony form type parameter to a normalized FQN string without exposing the resolved {@link PhpClass}.
+     *
+     * <p>Supported inputs match {@link #getFormTypeClassOnParameter(PsiElement)}: string literals, class constants,
+     * and typed expressions such as {@code new FooType()}.</p>
+     *
+     * @return normalized class FQN with a leading backslash, or {@code null} when the parameter cannot be resolved
+     */
+    @Nullable
+    public static String getFormTypeFqnOnParameter(@NotNull PsiElement psiElement) {
+        PhpClass phpClass = getFormTypeClassOnParameter(psiElement);
+        if (phpClass == null) {
+            return null;
+        }
+
+        return phpClass.getFQN();
     }
 
     @NotNull
@@ -222,12 +317,12 @@ public class FormUtil {
      */
     @NotNull
     public static Map<String, Set<String>> getTags(@NotNull YAMLFile yamlFile) {
-
         Map<String, Set<String>> map = new HashMap<>();
+
         for(YAMLKeyValue yamlServiceKeyValue : YamlHelper.getQualifiedKeyValuesInFile(yamlFile, "services")) {
             String serviceName = yamlServiceKeyValue.getName();
             Set<String> serviceTagMap = YamlHelper.collectServiceTags(yamlServiceKeyValue);
-            if(serviceTagMap != null && serviceTagMap.size() > 0) {
+            if(!serviceTagMap.isEmpty()) {
                 map.put(serviceName, serviceTagMap);
             }
         }
@@ -235,8 +330,7 @@ public class FormUtil {
         return map;
     }
 
-    public static Map<String, Set<String>> getTags(XmlFile psiFile) {
-
+    public static Map<String, Set<String>> getTags(@NotNull XmlFile psiFile) {
         Map<String, Set<String>> map = new HashMap<>();
 
         XmlDocumentImpl document = PsiTreeUtil.getChildOfType(psiFile, XmlDocumentImpl.class);
@@ -252,7 +346,7 @@ public class FormUtil {
          * </services>
          */
 
-        XmlTag xmlTags[] = PsiTreeUtil.getChildrenOfType(psiFile.getFirstChild(), XmlTag.class);
+        XmlTag[] xmlTags = PsiTreeUtil.getChildrenOfType(psiFile.getFirstChild(), XmlTag.class);
         if(xmlTags == null) {
             return map;
         }
@@ -270,7 +364,7 @@ public class FormUtil {
                                 if(serviceNameId != null) {
 
                                     Set<String> serviceTags = getTags(serviceTag);
-                                    if(serviceTags.size() > 0) {
+                                    if(!serviceTags.isEmpty()) {
                                         map.put(serviceNameId, serviceTags);
                                     }
                                 }
@@ -294,7 +388,7 @@ public class FormUtil {
                 XmlAttribute attribute = serviceSubTag.getAttribute("name");
                 if(attribute != null) {
                     String tagName = attribute.getValue();
-                    if(tagName != null && StringUtils.isNotBlank(tagName)) {
+                    if(StringUtils.isNotBlank(tagName)) {
                         tags.add(tagName);
                     }
                 }
@@ -307,20 +401,66 @@ public class FormUtil {
 
     @NotNull
     public static Map<String, FormTypeClass> getFormTypeClasses(@NotNull Project project) {
+        Collection<String[]> nameAndClass = CachedValuesManager.getManager(project).getCachedValue(
+            project,
+            FORM_EXTENSION_TYPES,
+            new CachedValueProvider<>() {
+                @Override
+                public @NotNull Result<Collection<String[]>> compute() {
+                    Collection<String[]> items = new ArrayList<>();
+
+                    Collection<PhpClass> phpClasses = PhpIndexUtil.getAllSubclasses(project, ABSTRACT_FORM_INTERFACE);
+
+                    // Collect unique files for per-file caching
+                    Set<PsiFile> files = new HashSet<>();
+                    for (PhpClass phpClass : phpClasses) {
+                        if (!isValidFormPhpClass(phpClass)) {
+                            continue;
+                        }
+                        PsiFile file = phpClass.getContainingFile();
+                        if (file instanceof PhpFile) {
+                            files.add(file);
+                        }
+                    }
+
+                    // Parse each file (cached per file)
+                    for (PsiFile file : files) {
+                        Collection<String[]> fileItems = CachedValuesManager.getCachedValue(file, FILE_FORM_TYPES, () -> {
+                            Collection<String[]> result = new ArrayList<>();
+                            // Resolve classes fresh from file inside cache provider
+                            for (PhpClass phpClass : PhpPsiUtil.findAllClasses((PhpFile) file)) {
+                                // Only process classes that implement FormTypeInterface
+                                if (!PhpElementsUtil.isInstanceOf(phpClass, ABSTRACT_FORM_INTERFACE)) {
+                                    continue;
+                                }
+
+                                if (!isValidFormPhpClass(phpClass)) {
+                                    continue;
+                                }
+
+                                String name = FormUtil.getFormNameOfPhpClass(phpClass);
+                                if (name == null) {
+                                    continue;
+                                }
+
+                                result.add(new String[]{name, phpClass.getFQN()});
+                            }
+                            return CachedValueProvider.Result.create(result, file);
+                        });
+
+                        items.addAll(fileItems);
+                    }
+
+                    return Result.create(items, PsiModificationTracker.getInstance(project).forLanguage(PhpLanguage.INSTANCE));
+                }
+            },
+            false
+        );
 
         Map<String, FormTypeClass> map = new HashMap<>();
 
-        for(PhpClass phpClass: PhpIndex.getInstance(project).getAllSubclasses(ABSTRACT_FORM_INTERFACE)) {
-            if(!isValidFormPhpClass(phpClass)) {
-                continue;
-            }
-
-            String name = FormUtil.getFormNameOfPhpClass(phpClass);
-            if (name == null) {
-                continue;
-            }
-
-            map.put(name, new FormTypeClass(name, phpClass, EnumFormTypeSource.INDEX));
+        for (String[] item : nameAndClass) {
+            map.put(item[0], new FormTypeClass(item[0], item[1], EnumFormTypeSource.INDEX));
         }
 
         return map;
@@ -335,7 +475,7 @@ public class FormUtil {
         private final Map<String, FormTypeClass> formTypesMap;
         private final Project project;
 
-        FormTypeCollector(Project project) {
+        public FormTypeCollector(Project project) {
             this.project = project;
             this.formTypesMap = new HashMap<>();
         }
@@ -395,7 +535,7 @@ public class FormUtil {
                 return null;
             }
 
-            return forms.get(formTypeName).getPhpClass();
+            return forms.get(formTypeName).getPhpClass(project);
         }
 
         public Map<String, FormTypeClass> getFormTypesMap() {
@@ -435,21 +575,19 @@ public class FormUtil {
 
         Collection<String> parents = new HashSet<>();
 
-        for (PhpReturn phpReturn : PsiTreeUtil.collectElementsOfType(getParent, PhpReturn.class)) {
-            PhpPsiElement firstPsiChild = phpReturn.getFirstPsiChild();
-
-            if(firstPsiChild instanceof TernaryExpression) {
+        for (PsiElement phpReturnArgument : PhpElementsUtil.collectPhpReturnArgumentsInsideControlFlow(getParent)) {
+            if(phpReturnArgument instanceof TernaryExpression ternaryExpression) {
                 // true ? 'foobar' : Foo::class
-                parents.addAll(PhpElementsUtil.getTernaryExpressionConditionStrings((TernaryExpression) firstPsiChild));
-            } else if(firstPsiChild instanceof BinaryExpression && PsiElementAssertUtil.isNotNullAndIsElementType(firstPsiChild, PhpElementTypes.CONCATENATION_EXPRESSION)) {
+                parents.addAll(PhpElementsUtil.getTernaryExpressionConditionStrings(ternaryExpression));
+            } else if(phpReturnArgument instanceof BinaryExpression binaryExpression && PsiElementAssertUtil.isNotNullAndIsElementType(phpReturnArgument, PhpElementTypes.CONCATENATION_EXPRESSION)) {
                 // Symfony core: __NAMESPACE__.'\Foo'
-                PsiElement leftOperand = ((BinaryExpression) firstPsiChild).getLeftOperand();
+                PsiElement leftOperand = binaryExpression.getLeftOperand();
                 ConstantReference constantReference = PsiElementAssertUtil.getInstanceOfOrNull(leftOperand, ConstantReference.class);
                 if(constantReference == null || !"__NAMESPACE__".equals(constantReference.getName())) {
                     continue;
                 }
 
-                StringLiteralExpression stringValue = PsiElementAssertUtil.getInstanceOfOrNull(((BinaryExpression) firstPsiChild).getRightOperand(), StringLiteralExpression.class);
+                StringLiteralExpression stringValue = PsiElementAssertUtil.getInstanceOfOrNull(binaryExpression.getRightOperand(), StringLiteralExpression.class);
                 if(stringValue == null) {
                     continue;
                 }
@@ -463,7 +601,7 @@ public class FormUtil {
             }
 
             // fallback try to resolve string value
-            String contents = PhpElementsUtil.getStringValue(firstPsiChild);
+            String contents = PhpElementsUtil.getStringValue(phpReturnArgument);
             if(StringUtils.isNotBlank(contents)) {
                 parents.add(contents);
             }
@@ -497,15 +635,13 @@ public class FormUtil {
             return StringUtils.stripStart(phpClass.getFQN(), "\\");
         }
 
-        for (PhpReturn phpReturn : PsiTreeUtil.collectElementsOfType(method, PhpReturn.class)) {
-            PhpPsiElement firstPsiChild = phpReturn.getFirstPsiChild();
-
+        for (PsiElement firstPsiChild : PhpElementsUtil.collectPhpReturnArgumentsInsideControlFlow(method)) {
             // $this->getBlockPrefix()
-            if(firstPsiChild instanceof MethodReference) {
-                PhpExpression classReference = ((MethodReference) firstPsiChild).getClassReference();
+            if(firstPsiChild instanceof MethodReference methodReference) {
+                PhpExpression classReference = methodReference.getClassReference();
                 if(classReference != null && "this".equals(classReference.getName())) {
-                    String name = firstPsiChild.getName();
-                    if(name != null && "getBlockPrefix".equals(name)) {
+                    String name = methodReference.getName();
+                    if("getBlockPrefix".equals(name)) {
                         if(phpClass.findOwnMethodByName("getBlockPrefix") != null) {
                             return PhpElementsUtil.getMethodReturnAsString(phpClass, name);
                         } else {
@@ -518,7 +654,7 @@ public class FormUtil {
                                 className = className.substring(0, className.length() - 4);
                             }
 
-                            return fr.adrienbrault.idea.symfony2plugin.util.StringUtils.underscore(className);
+                            return underscore(className);
                         }
                     }
                 }
@@ -554,15 +690,13 @@ public class FormUtil {
         // public function getExtendedType() { return true === true ? FileType::class : Form:class; }
         Method extendedType = phpClass.findMethodByName("getExtendedType");
         if(extendedType != null) {
-            for (PhpReturn phpReturn : PsiTreeUtil.collectElementsOfType(extendedType, PhpReturn.class)) {
-                PhpPsiElement firstPsiChild = phpReturn.getFirstPsiChild();
-
+            for (PsiElement phpReturnsArgument : PhpElementsUtil.collectPhpReturnArgumentsInsideControlFlow(extendedType)) {
                 // true ? 'foo' : 'foo'
-                if(firstPsiChild instanceof TernaryExpression) {
-                    types.addAll(PhpElementsUtil.getTernaryExpressionConditionStrings((TernaryExpression) firstPsiChild));
+                if(phpReturnsArgument instanceof TernaryExpression ternaryExpression) {
+                    types.addAll(PhpElementsUtil.getTernaryExpressionConditionStrings(ternaryExpression));
                 }
 
-                String stringValue = PhpElementsUtil.getStringValue(firstPsiChild);
+                String stringValue = PhpElementsUtil.getStringValue(phpReturnsArgument);
                 if(stringValue != null) {
                     types.add(stringValue);
                 }
@@ -574,30 +708,46 @@ public class FormUtil {
         // https://symfony.com/blog/new-in-symfony-4-2-improved-form-type-extensions
         Method extendedTypes = phpClass.findMethodByName("getExtendedTypes");
         if (extendedTypes != null) {
-            // [Foo::class, FooBar::class]
-            for (PhpReturn phpReturn : PsiTreeUtil.collectElementsOfType(extendedTypes, PhpReturn.class)) {
-                PhpPsiElement arrayCreationExpression = phpReturn.getFirstPsiChild();
-                if (arrayCreationExpression instanceof ArrayCreationExpression) {
-                    Collection<PsiElement> arrayValues = PhpPsiUtil.getChildren(arrayCreationExpression, psiElement ->
-                            psiElement.getNode().getElementType() == PhpElementTypes.ARRAY_VALUE
-                    );
+            Collection<ArrayCreationExpression> phpReturnsArray = new ArrayList<>();
+            Collection<PsiElement> yieldArguments = new ArrayList<>();
 
-                    for (PsiElement child : arrayValues) {
-                        String stringValue = PhpElementsUtil.getStringValue(child.getFirstChild());
-                        if (stringValue != null) {
-                            types.add(stringValue);
-                        }
+            PhpControlFlowUtil.processFlow(extendedTypes.getControlFlow(), new PhpInstructionProcessor() {
+                @Override
+                public boolean processYieldInstruction(PhpYieldInstruction instruction) {
+                    PsiElement argument = instruction.getArgument();
+                    if (argument != null) {
+                        yieldArguments.add(argument);
+                    }
+
+                    return super.processYieldInstruction(instruction);
+                }
+
+                @Override
+                public boolean processReturnInstruction(PhpReturnInstruction instruction) {
+                    if (instruction.getArgument() instanceof ArrayCreationExpression arrayCreationExpression) {
+                        phpReturnsArray.add(arrayCreationExpression);
+                    }
+
+                    return super.processReturnInstruction(instruction);
+                }
+            });
+
+            // [Foo::class, FooBar::class]
+            for (ArrayCreationExpression phpReturnArray : phpReturnsArray) {
+                Collection<PsiElement> arrayValues = PhpPsiUtil.getChildren(phpReturnArray, psiElement ->
+                    psiElement.getNode().getElementType() == PhpElementTypes.ARRAY_VALUE
+                );
+
+                for (PsiElement child : arrayValues) {
+                    String stringValue = PhpElementsUtil.getStringValue(child.getFirstChild());
+                    if (stringValue != null) {
+                        types.add(stringValue);
                     }
                 }
             }
 
             // yield Foo::class
-            for (PhpYield phpReturn : PsiTreeUtil.collectElementsOfType(extendedTypes, PhpYield.class)) {
-                PsiElement yieldArgument = phpReturn.getArgument();
-                if (yieldArgument == null) {
-                    continue;
-                }
-
+            for (PsiElement yieldArgument : yieldArguments) {
                 String stringValue = PhpElementsUtil.getStringValue(yieldArgument);
                 if (stringValue != null) {
                     types.add(stringValue);
@@ -623,5 +773,159 @@ public class FormUtil {
         }
 
         return null;
+    }
+
+    /**
+     * public function getParent() { return ChoiceType::class; }
+     */
+    @NotNull
+    public static Collection<String> getFormTypeParentFromOptionResolverScope(@NotNull PsiElement psiElement) {
+        Method methodScope = PsiTreeUtil.getParentOfType(psiElement, Method.class);
+
+        if (methodScope != null && Arrays.stream(FormOptionsUtil.FORM_OPTION_METHODS).anyMatch(s -> s.equalsIgnoreCase(methodScope.getName()))) {
+            PhpClass phpClass = methodScope.getContainingClass();
+            if (phpClass != null) {
+                return PhpElementsUtil.getMethodReturnAsStrings(phpClass, "getParent");
+            }
+        }
+
+        return Collections.emptySet();
+    }
+
+    /**
+     *
+     * public function buildForm(FormBuilderInterface $builder, array $options) {
+     *   $options['<caret>'];
+     * }
+     *
+     * public function getParent() { return ChoiceType::class; }
+     */
+    @NotNull
+    public static Collection<String> getFormTypeParentFromFormTypeImplementation(@NotNull PsiElement psiElement) {
+        Method methodScope = PsiTreeUtil.getParentOfType(psiElement, Method.class);
+
+        if (methodScope != null) {
+            PhpClass phpClass = methodScope.getContainingClass();
+            if (phpClass != null && (PhpElementsUtil.isInstanceOf(phpClass, "\\Symfony\\Component\\Form\\FormTypeInterface"))) {
+                return PhpElementsUtil.getMethodReturnAsStrings(phpClass, "getParent");
+            }
+        }
+
+        return Collections.emptyList();
+    }
+
+    public static Pair<String, Map<String, String>> getGuessedFormFieldParameters(@NotNull PhpIndex phpIndex, @NotNull Project project, @NotNull String key, @NotNull PhpNamedElement phpNamedElement) {
+        // method / function
+        PhpType phpType = null;
+        if (phpNamedElement instanceof Function function) {
+            PsiElement parameter = function.getParameter(0);
+            if (parameter instanceof PhpTypedElement phpTypedElement) {
+                phpType = phpIndex.completeType(project, phpTypedElement.getType(), new HashSet<>());
+            }
+        } else {
+            // properties
+            phpType = phpIndex.completeType(project, phpNamedElement.getType(), new HashSet<>());
+        }
+
+        if (phpType == null) {
+            return new Pair<>("\\Symfony\\Component\\Form\\Extension\\Core\\Type\\TextType", null);
+        }
+
+        String typeClass = null;
+        Map<String, String> options = new HashMap<>();
+
+        PhpClass phpClass = PhpElementsUtil.getClassFromPhpTypeSetArrayClean(project, phpType.getTypes()).stream().findFirst().orElse(null);
+
+        if (phpClass != null && PhpElementsUtil.isInstanceOf(phpClass, "\\DateTimeImmutable")) {
+            typeClass = "\\Symfony\\Component\\Form\\Extension\\Core\\Type\\DateTimeType";
+            options.put("input", "'datetime_immutable'");
+        } else if (phpClass != null && PhpElementsUtil.isInstanceOf(phpClass, "\\DateTimeInterface")) {
+            typeClass = "\\Symfony\\Component\\Form\\Extension\\Core\\Type\\DateTimeType";
+        } else if (phpClass != null && phpClass.isEnum()) {
+            typeClass = "\\Symfony\\Component\\Form\\Extension\\Core\\Type\\EnumType";
+            options.put("class", phpClass.getFQN());
+        } else if (phpClass != null && !DoctrineMetadataUtil.findMetadataFiles(project, StringUtils.stripStart(phpClass.getFQN(), "\\")).isEmpty()) {
+            typeClass = "\\Symfony\\Bridge\\Doctrine\\Form\\Type\\EntityType";
+            options.put("class", phpClass.getFQN());
+        } else if (phpType.isConvertibleFrom(project, PhpType.from(PhpType.INT))) {
+            typeClass = "\\Symfony\\Component\\Form\\Extension\\Core\\Type\\IntegerType";
+        } else if (phpType.isConvertibleFrom(project, PhpType.from(PhpType.FLOAT))) {
+            typeClass = "\\Symfony\\Component\\Form\\Extension\\Core\\Type\\NumberType";
+        } else if (phpType.isConvertibleFrom(project, PhpType.from(PhpType.ARRAY))) {
+            typeClass = "\\Symfony\\Component\\Form\\Extension\\Core\\Type\\ChoiceType";
+            options.put("choices", "[]");
+        } else if (phpType.isConvertibleFrom(project, PhpType.from(PhpType.STRING))) {
+            typeClass = "\\Symfony\\Component\\Form\\Extension\\Core\\Type\\TextType";
+
+            String lowerCase = key.toLowerCase();
+            if (lowerCase.contains("description") || lowerCase.contains("note") || lowerCase.contains("beschreibung") || lowerCase.contains("comment")) {
+                typeClass = "\\Symfony\\Component\\Form\\Extension\\Core\\Type\\TextAreaType";
+            } else if (lowerCase.contains("mail")) {
+                typeClass = "\\Symfony\\Component\\Form\\Extension\\Core\\Type\\EmailType";
+            } else if (lowerCase.contains("password")) {
+                typeClass = "\\Symfony\\Component\\Form\\Extension\\Core\\Type\\PasswordType";
+            } else if (lowerCase.contains("url")) {
+                typeClass = "\\Symfony\\Component\\Form\\Extension\\Core\\Type\\UrlType";
+            } else if (lowerCase.contains("language")) {
+                typeClass = "\\Symfony\\Component\\Form\\Extension\\Core\\Type\\LanguageType";
+            } else if (lowerCase.equals("uuid")) {
+                typeClass = "\\Symfony\\Component\\Form\\Extension\\Core\\Type\\UuidType";
+            } else if (lowerCase.equals("ulid")) {
+                typeClass = "\\Symfony\\Component\\Form\\Extension\\Core\\Type\\UlidType";
+            } else if (lowerCase.contains("country")) {
+                typeClass = "\\Symfony\\Component\\Form\\Extension\\Core\\Type\\CountryType";
+            } else if (lowerCase.contains("currency")) {
+                typeClass = "\\Symfony\\Component\\Form\\Extension\\Core\\Type\\MoneyType";
+            } else if (lowerCase.contains("telephone") || lowerCase.contains("phone") || lowerCase.contains("mobile")) {
+                typeClass = "\\Symfony\\Component\\Form\\Extension\\Core\\Type\\TelType";
+            }
+        }
+
+        return new Pair<>(typeClass, options);
+    }
+
+
+    /**
+     * Get all form class which extend the given class by any type e.g. parent, extendTypes
+     */
+    @NotNull
+    public static Collection<PhpClass> getParentAndExtendingTypes(@NotNull PhpClass phpClass, @NotNull FormUtil.FormTypeCollector collector) {
+        Collection<PhpClass> parentClasses = new HashSet<>();
+        visitParentFormsRecursive(phpClass, collector, parentClasses, 10);
+
+        // current class and all parent class need to visit for extending
+        Set<String> classesToVisitForExtends = new HashSet<>() {{
+            add(phpClass.getFQN());
+            addAll(parentClasses.stream().map(PhpNamedElement::getFQN).collect(Collectors.toSet()));
+        }};
+
+        for (FormClass formClass : FormOptionsUtil.getExtendedTypeClasses(phpClass.getProject(), classesToVisitForExtends.toArray(String[]::new))) {
+            parentClasses.add(formClass.getPhpClass());
+        }
+
+        return parentClasses;
+    }
+
+    /**
+     * Visit recursive all parent forms
+     */
+    private static void visitParentFormsRecursive(@NotNull PhpClass phpClass, @NotNull FormUtil.FormTypeCollector collector, @NotNull Collection<PhpClass> parentClasses, int depth) {
+        Collection<PhpClass> scopedClasses = new HashSet<>();
+
+        for (String formParent : FormUtil.getFormParentOfPhpClass(phpClass)) {
+            PhpClass formPhpClass = collector.getFormTypeToClass(formParent);
+            if (formPhpClass != null) {
+                scopedClasses.add(formPhpClass);
+            }
+        }
+
+        for (PhpClass nextScopeClass : scopedClasses) {
+            depth--;
+            if (depth > 0) {
+                visitParentFormsRecursive(nextScopeClass, collector, parentClasses, depth);
+            }
+        }
+
+        parentClasses.addAll(scopedClasses);
     }
 }

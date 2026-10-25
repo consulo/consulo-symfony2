@@ -5,6 +5,8 @@ import fr.adrienbrault.idea.symfony2plugin.util.service.AbstractServiceParser;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
+import com.intellij.openapi.project.Project;
+import com.intellij.openapi.vfs.VirtualFile;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
@@ -16,15 +18,15 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class XmlEventParser extends AbstractServiceParser {
 
-    protected Map<String, String> list = new ConcurrentHashMap<>();
-    protected List<EventDispatcherSubscribedEvent> events = new ArrayList<>();
+    protected final Map<String, String> list = new ConcurrentHashMap<>();
+    protected final List<EventDispatcherSubscribedEvent> events = new ArrayList<>();
 
     @Override
     public String getXPathFilter() {
         return "/container/services/service[@id]/tag[@event]";
     }
 
-    public void parser(InputStream file) {
+    public void parser(InputStream file, VirtualFile sourceFile, Project project) {
         NodeList nodeList = this.parserer(file);
 
         if(nodeList == null) {

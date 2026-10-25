@@ -1,137 +1,137 @@
 package fr.adrienbrault.idea.symfony2plugin.translation;
 
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.util.Key;
+import com.intellij.openapi.util.SimpleModificationTracker;
 import com.intellij.openapi.util.io.FileUtil;
+import com.intellij.openapi.vfs.InvalidVirtualFileAccessException;
+import com.intellij.openapi.vfs.VfsUtil;
+import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.psi.util.CachedValue;
+import com.intellij.psi.util.CachedValueProvider;
+import com.intellij.psi.util.CachedValuesManager;
 import fr.adrienbrault.idea.symfony2plugin.Settings;
-import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
-import fr.adrienbrault.idea.symfony2plugin.translation.parser.TranslationPsiParser;
+import fr.adrienbrault.idea.symfony2plugin.dic.container.util.ServiceContainerUtil;
 import fr.adrienbrault.idea.symfony2plugin.translation.parser.TranslationStringMap;
-import org.jetbrains.annotations.Nullable;
+import fr.adrienbrault.idea.symfony2plugin.util.ProjectUtil;
+import fr.adrienbrault.idea.symfony2plugin.util.SymfonyVarDirectoryWatcher;
+import fr.adrienbrault.idea.symfony2plugin.util.SymfonyVarDirectoryWatcherKt;
+import org.apache.commons.lang3.StringUtils;
+import org.jetbrains.annotations.NotNull;
 
-import java.io.File;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Collection;
+import java.util.HashSet;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class TranslationIndex {
+    private static final Key<CachedValue<TranslationStringMap>> SYMFONY_TRANSLATION_MAP_COMPILED = new Key<>("SYMFONY_TRANSLATION_MAP_COMPILED");
 
-    protected static Map<Project, TranslationIndex> instance = new HashMap<>();
-
-    protected Project project;
-
-    @Nullable
-    private TranslationStringMap translationStringMap;
-    private Long translationStringMapModified;
-
-    public static TranslationIndex getInstance(Project project){
-
-        TranslationIndex projectInstance = instance.get(project);
-        if(projectInstance != null) {
-          return projectInstance;
-        }
-
-        projectInstance = new TranslationIndex(project);
-        instance.put(project, projectInstance);
-
-        return projectInstance;
-
+    private TranslationIndex() {
     }
 
-    public TranslationIndex(Project project) {
-        this.project = project;
+    synchronized static public TranslationStringMap getTranslationMap(@NotNull Project project) {
+        return CachedValuesManager.getManager(project).getCachedValue(
+            project,
+            SYMFONY_TRANSLATION_MAP_COMPILED,
+            () -> {
+                Collection<VirtualFile> translationDirectories = findTranslationDirectories(project);
+
+                TranslationStringMap translationStringMap;
+                if (!translationDirectories.isEmpty()) {
+                    translationStringMap = TranslationStringMap.create(translationDirectories);
+                } else {
+                    translationStringMap = TranslationStringMap.createEmpty();
+                }
+
+                return CachedValueProvider.Result.create(translationStringMap, getTranslationsTracker(project));
+            },
+            false
+        );
     }
 
+    /**
+     * Discovers compiled translation catalogue directories from var/cache and app/cache
+     * "dev" directories, the configured pathToTranslation setting, and sibling translations/
+     * directories next to container XML files.
+     *
+     * Cache invalidation is handled by SymfonyVarDirectoryWatcher via VFS events.
+     */
+    @NotNull
+    private static Collection<VirtualFile> findTranslationDirectories(@NotNull Project project) {
+        Collection<VirtualFile> files = new HashSet<>();
 
-    synchronized public TranslationStringMap getTranslationMap() {
+        VirtualFile projectDir = ProjectUtil.getProjectDir(project);
+        if (projectDir != null) {
+            for (String root : new String[] {"var/cache", "app/cache"}) {
+                VirtualFile cache;
+                try {
+                    cache = VfsUtil.findRelativeFile(projectDir, root.split("/"));
+                } catch (InvalidVirtualFileAccessException ignored) {
+                    continue;
+                }
 
-        if(this.translationStringMap != null && this.isCacheValid()) {
-            return this.translationStringMap;
-        }
+                if (cache == null) {
+                    continue;
+                }
 
-        File translationDirectory = this.getTranslationRoot();
-        if(null == translationDirectory) {
-            return new TranslationStringMap();
-        }
-
-        Symfony2ProjectComponent.getLogger().info("translations changed: " + translationDirectory.toString());
-
-        this.translationStringMapModified = translationDirectory.lastModified();
-        return this.translationStringMap = new TranslationPsiParser(project).parsePathMatcher(translationDirectory.getPath());
-    }
-
-    protected boolean isCacheValid() {
-
-        // symfony2 recreates translation file on change, so folder modtime is caching indicator
-        File translationRootPath = this.getTranslationRoot();
-        if (null == translationRootPath) {
-            return false;
-        }
-
-        Long translationModified = translationRootPath.lastModified();
-        if(!translationModified.equals(translationStringMapModified)) {
-            return false;
-        }
-
-        // @TODO make this more abstract
-        // we check for possible file modifications here per translation file
-        if(this.translationStringMap != null) {
-
-
-            File file = new File(translationRootPath.getPath());
-
-            // use cache in any i/o error
-            File[] files = file.listFiles();
-            if(null == files) {
-                return true;
-            }
-
-            // directory is empty or not exits, before and after instance
-            Map<String, Long> fileNames = this.translationStringMap.getFileNames();
-            if(files.length == 0 && fileNames.size() == 0) {
-                return true;
-            }
-
-            for (File fileEntry : files) {
-                if (!fileEntry.isDirectory()) {
-                    String fileName = fileEntry.getName();
-                    if(fileName.startsWith("catalogue") && fileName.endsWith("php")) {
-
-
-                        if(!fileNames.containsKey(fileName)) {
-                            return false;
-                        }
-
-                        if(!fileNames.get(fileName).equals(fileEntry.lastModified())) {
-                            return false;
-                        }
-
+                for (VirtualFile child : cache.getChildren()) {
+                    String filename = child.getName();
+                    // support "dev" and "dev_*"
+                    if (!"dev".equals(filename) && !filename.startsWith("dev_")) {
+                        continue;
                     }
+
+                    VirtualFile translations = child.findChild("translations");
+                    if (translations == null) {
+                        continue;
+                    }
+
+                    files.add(translations);
                 }
             }
 
+            String translationPath = Settings.getInstance(project).pathToTranslation;
+            if (StringUtils.isNotBlank(translationPath)) {
+                VirtualFile vf;
+                if (FileUtil.isAbsolute(translationPath)) {
+                    vf = VfsUtil.findFileByIoFile(new java.io.File(translationPath), false);
+                } else {
+                    vf = VfsUtil.findRelativeFile(projectDir, translationPath.replace('\\', '/').split("/"));
+                }
 
+                if (vf != null && vf.isDirectory()) {
+                    files.add(vf);
+                }
+            }
         }
 
-        return true;
+        for (String containerFile : ServiceContainerUtil.getContainerFiles(project)) {
+            // resolve the file
+            VirtualFile containerVirtualFile = VfsUtil.findRelativeFile(containerFile, projectDir);
+            if (containerVirtualFile == null) {
+                continue;
+            }
+
+            // get directory of the file; translation folder is same directory
+            VirtualFile cacheDirectory = containerVirtualFile.getParent();
+            if (cacheDirectory == null) {
+                continue;
+            }
+
+            // get translation sub directory
+            VirtualFile translations = cacheDirectory.findChild("translations");
+            if (translations != null) {
+                files.add(translations);
+            }
+        }
+
+        return files;
     }
 
-    @Nullable
-    protected File getTranslationRoot() {
-
-        String translationPath = Settings.getInstance(this.project).pathToTranslation;
-        if (!FileUtil.isAbsolute(translationPath)) {
-            translationPath = project.getBasePath() + "/" + translationPath;
-        }
-
-        File file = new File(translationPath);
-        if(!file.exists() || !file.isDirectory()) {
-            return null;
-        }
-
-        return file;
+    private static SimpleModificationTracker getTranslationsTracker(@NotNull Project project) {
+        return SymfonyVarDirectoryWatcherKt.getSymfonyVarDirectoryWatcher(project)
+            .getModificationTracker(SymfonyVarDirectoryWatcher.Scope.TRANSLATIONS);
     }
-
-
 }

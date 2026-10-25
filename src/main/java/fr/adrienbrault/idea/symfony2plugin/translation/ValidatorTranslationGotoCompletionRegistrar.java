@@ -21,18 +21,26 @@ public class ValidatorTranslationGotoCompletionRegistrar implements GotoCompleti
         "Symfony\\Component\\Validator\\Constraint"
     );
 
+    private static final PhpPsiMatcher.NamedValueWithKeyAndNewExpression.Matcher CONSTRAINT_MESSAGE_NAMED = new PhpPsiMatcher.NamedValueWithKeyAndNewExpression.Matcher(
+        "message",
+        "Symfony\\Component\\Validator\\Constraint"
+    );
+
     @Override
     public void register(@NotNull GotoCompletionRegistrarParameter registrar) {
         // new Constraint(['message' => '<caret>'])
+        // new Constraint(message: '<caret>')
         registrar.register(
-            PhpPsiMatcher.ArrayValueWithKeyAndNewExpression.pattern(), psiElement -> {
+            PlatformPatterns.or(
+                PhpPsiMatcher.ArrayValueWithKeyAndNewExpression.pattern(),
+                PhpPsiMatcher.NamedValueWithKeyAndNewExpression.pattern()
+            ), psiElement -> {
                 PsiElement parent = psiElement.getParent();
                 if (!(parent instanceof StringLiteralExpression)) {
                     return null;
                 }
 
-                PhpPsiMatcher.ArrayValueWithKeyAndNewExpression.Result result = PhpPsiMatcher.match(parent, CONSTRAINT_MESSAGE);
-                if (result == null) {
+                if (PhpPsiMatcher.match(parent, CONSTRAINT_MESSAGE) == null && PhpPsiMatcher.match(parent, CONSTRAINT_MESSAGE_NAMED) == null) {
                     return null;
                 }
 
@@ -43,7 +51,7 @@ public class ValidatorTranslationGotoCompletionRegistrar implements GotoCompleti
         // addViolation('<caret>')
         // buildViolation('<caret>')
         registrar.register(
-            PlatformPatterns.psiElement().withParent(PhpElementsUtil.getMethodWithFirstStringPattern()), psiElement -> {
+            PlatformPatterns.psiElement().withParent(PhpElementsUtil.getMethodWithFirstStringOrNamedArgumentPattern()), psiElement -> {
                 PsiElement context = psiElement.getContext();
                 if (!(context instanceof StringLiteralExpression)) {
                     return null;
@@ -64,7 +72,7 @@ public class ValidatorTranslationGotoCompletionRegistrar implements GotoCompleti
 
         // setTranslationDomain('<caret>')
         registrar.register(
-            PlatformPatterns.psiElement().withParent(PhpElementsUtil.getMethodWithFirstStringPattern()), psiElement -> {
+            PlatformPatterns.psiElement().withParent(PhpElementsUtil.getMethodWithFirstStringOrNamedArgumentPattern()), psiElement -> {
                 PsiElement context = psiElement.getContext();
                 if (!(context instanceof StringLiteralExpression)) {
                     return null;

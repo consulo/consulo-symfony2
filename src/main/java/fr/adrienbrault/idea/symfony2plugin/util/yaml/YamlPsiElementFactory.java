@@ -1,12 +1,10 @@
 package fr.adrienbrault.idea.symfony2plugin.util.yaml;
 
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.Ref;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiFileFactory;
 import com.intellij.psi.PsiRecursiveElementWalkingVisitor;
-import com.intellij.psi.tree.IElementType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.yaml.YAMLFileType;
@@ -15,28 +13,8 @@ import org.jetbrains.yaml.YAMLFileType;
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class YamlPsiElementFactory {
-
-    @NotNull
-    public static PsiElement createYamlPsiFromText(Project p, final IElementType type, @NotNull String text) {
-        final Ref<PsiElement> ret = new Ref<>();
-        PsiFile dummyFile = createDummyFile(p, text);
-        dummyFile.accept(new PsiRecursiveElementWalkingVisitor() {
-            @Override
-            public void visitElement(PsiElement element) {
-                if(element.getNode() == type) {
-                    ret.set(element);
-                }
-
-                super.visitElement(element);
-            }
-        });
-
-        assert !ret.isNull() : "cannot create element from text:\n" + dummyFile.getText();
-
-        return ret.get();
-    }
-
     @Nullable
+    @SuppressWarnings("unchecked")
     public static <T extends PsiElement> T createFromText(@NotNull Project p, final Class<T> aClass, String text) {
         final PsiElement[] ret = new PsiElement[]{null};
 

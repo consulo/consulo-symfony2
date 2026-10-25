@@ -23,7 +23,7 @@ import java.util.List;
  */
 public class PhpClassReference extends PsiPolyVariantReferenceBase<PsiElement> {
 
-    private String classFQN;
+    private final String classFQN;
     private boolean provideVariants = false;
 
     private boolean useClasses = true;
@@ -64,7 +64,7 @@ public class PhpClassReference extends PsiPolyVariantReferenceBase<PsiElement> {
             this.attachPhpClassResolveResults(phpIndex.getInterfacesByFQN(classFQN.startsWith("\\") ? classFQN : "\\" + classFQN), results);
         }
 
-        return results.toArray(new ResolveResult[results.size()]);
+        return results.toArray(new ResolveResult[0]);
     }
 
     private void attachPhpClassResolveResults(Collection<PhpClass> phpClasses, List<ResolveResult> results) {
@@ -99,7 +99,7 @@ public class PhpClassReference extends PsiPolyVariantReferenceBase<PsiElement> {
         if(this.useInterfaces) {
             for (String name : phpIndex.getAllInterfaceNames()) {
 
-                if(this.classFQN.length() > 0 && !name.toLowerCase().contains(this.classFQN.toLowerCase())) {
+                if(!this.classFQN.isEmpty() && !name.toLowerCase().contains(this.classFQN.toLowerCase())) {
                     continue;
                 }
 

@@ -8,9 +8,8 @@ import com.jetbrains.php.lang.PhpLangUtil;
 import com.jetbrains.php.lang.documentation.phpdoc.PhpDocUtil;
 import com.jetbrains.php.lang.documentation.phpdoc.psi.PhpDocComment;
 import com.jetbrains.php.lang.documentation.phpdoc.psi.tags.PhpDocTag;
-import com.jetbrains.php.lang.psi.PhpPsiUtil;
 import com.jetbrains.php.lang.psi.elements.*;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -23,7 +22,7 @@ import java.util.*;
  */
 public class AnnotationBackportUtil {
 
-    public static Set<String> NON_ANNOTATION_TAGS = new HashSet<String>() {{
+    public static final Set<String> NON_ANNOTATION_TAGS = new HashSet<>() {{
         addAll(Arrays.asList(PhpDocUtil.ALL_TAGS));
         add("@Annotation");
         add("@inheritDoc");
@@ -67,11 +66,16 @@ public class AnnotationBackportUtil {
 
     @NotNull
     public static Map<String, String> getUseImportMap(@NotNull PhpDocComment phpDocComment) {
+        return getUseImportMap((PsiElement) phpDocComment);
+    }
+
+    @NotNull
+    public static Map<String, String> getUseImportMap(@NotNull PsiElement element) {
 
         // search for use alias in local file
         final Map<String, String> useImports = new HashMap<>();
 
-        PhpPsiElement scope = PhpCodeInsightUtil.findScopeForUseOperator(phpDocComment);
+        PhpPsiElement scope = PhpCodeInsightUtil.findScopeForUseOperator(element);
         if(scope == null) {
             return useImports;
         }
@@ -79,11 +83,7 @@ public class AnnotationBackportUtil {
         for (PhpUseList phpUseList : PhpCodeInsightUtil.collectImports(scope)) {
             for (PhpUse phpUse : phpUseList.getDeclarations()) {
                 String alias = phpUse.getAliasName();
-                if (alias != null) {
-                    useImports.put(alias, phpUse.getFQN());
-                } else {
-                    useImports.put(phpUse.getName(), phpUse.getFQN());
-                }
+                useImports.put(Objects.requireNonNullElseGet(alias, phpUse::getName), phpUse.getFQN());
             }
         }
 
@@ -146,13 +146,16 @@ public class AnnotationBackportUtil {
      */
     @Nullable
     public static String getQualifiedName(@NotNull PsiElement psiElement, @NotNull String fqn) {
+        if (!fqn.startsWith("\\")) {
+            fqn = "\\" + fqn;
+        }
 
         PhpPsiElement scopeForUseOperator = PhpCodeInsightUtil.findScopeForUseOperator(psiElement);
         if (scopeForUseOperator == null) {
             return null;
         }
 
-        PhpReference reference = PhpPsiUtil.getParentByCondition(psiElement, false, PhpReference.INSTANCEOF);
+        PhpReference reference = PsiTreeUtil.getParentOfType(psiElement, PhpReference.class, false);
         String qualifiedName = PhpCodeInsightUtil.createQualifiedName(scopeForUseOperator, fqn, reference, false);
         if (!PhpLangUtil.isFqn(qualifiedName)) {
             return qualifiedName;
@@ -170,39 +173,41 @@ public class AnnotationBackportUtil {
      * "AppBundle\Controller\DefaultController::fooAction" => app_default_foo"
      * "Foo\ParkResortBundle\Controller\SubController\BundleController\FooController::nestedFooAction" => foo_parkresort_sub_bundle_foo_nestedfoo"
      */
+    @Nullable
     public static String getRouteByMethod(@NotNull PhpDocTag phpDocTag) {
-        PhpPsiElement method = getMethodScope(phpDocTag);
+        Method method = getMethodScope(phpDocTag);
         if (method == null) {
             return null;
         }
 
+        return getRouteByMethod(method);
+    }
+
+    public static String getRouteByMethod(@NotNull Method method) {
         String name = method.getName();
-        if(name == null) {
-            return null;
-        }
 
         // strip action
         if(name.endsWith("Action")) {
             name = name.substring(0, name.length() - "Action".length());
         }
 
-        PhpClass containingClass = ((Method) method).getContainingClass();
+        PhpClass containingClass = method.getContainingClass();
         if(containingClass == null) {
             return null;
         }
 
-        String[] fqn = org.apache.commons.lang.StringUtils.strip(containingClass.getFQN(), "\\").split("\\\\");
+        String[] fqn = org.apache.commons.lang3.StringUtils.strip(containingClass.getFQN(), "\\").split("\\\\");
 
         // remove empty and controller only namespace
         List<String> filter = ContainerUtil.filter(fqn, s ->
-            org.apache.commons.lang.StringUtils.isNotBlank(s) && !"controller".equalsIgnoreCase(s)
+            org.apache.commons.lang3.StringUtils.isNotBlank(s) && !"controller".equalsIgnoreCase(s)
         );
 
-        if(filter.size() == 0) {
+        if(filter.isEmpty()) {
             return null;
         }
 
-        return org.apache.commons.lang.StringUtils.join(ContainerUtil.map(filter, s -> {
+        return org.apache.commons.lang3.StringUtils.join(ContainerUtil.map(filter, s -> {
             String content = s.toLowerCase();
             if (content.endsWith("bundle") && !content.equalsIgnoreCase("bundle")) {
                 return content.substring(0, content.length() - "bundle".length());
@@ -212,6 +217,70 @@ public class AnnotationBackportUtil {
             }
             return content;
         }), "_") + (!name.startsWith("_") ? "_" : "") + name.toLowerCase();
+    }
+
+    /**
+     * Generate a route path/URL from the method and controller name.
+     *
+     * "App\Controller\ProductController::indexAction" => "/product"
+     * "App\Controller\ProductController::showAction" => "/product/show"
+     * "App\Controller\Admin\UserController::editAction" => "/admin/user/edit"
+     */
+    @Nullable
+    public static String getRoutePathByMethod(@NotNull Method method) {
+        String methodName = method.getName();
+
+        // strip "Action" suffix
+        if (methodName.endsWith("Action")) {
+            methodName = methodName.substring(0, methodName.length() - "Action".length());
+        }
+
+        PhpClass containingClass = method.getContainingClass();
+        if (containingClass == null) {
+            return null;
+        }
+
+        String[] fqnParts = org.apache.commons.lang3.StringUtils.strip(containingClass.getFQN(), "\\").split("\\\\");
+
+        // filter and transform namespace parts
+        List<String> pathParts = new ArrayList<>();
+        boolean foundController = false;
+
+        for (String part : fqnParts) {
+            if (org.apache.commons.lang3.StringUtils.isBlank(part)) {
+                continue;
+            }
+
+            String lowerPart = part.toLowerCase();
+
+            // skip everything before "controller" namespace
+            if ("controller".equalsIgnoreCase(part)) {
+                foundController = true;
+                continue;
+            }
+
+            if (!foundController) {
+                continue;
+            }
+
+            // strip "Controller" suffix from class name
+            if (lowerPart.endsWith("controller")) {
+                pathParts.add(lowerPart.substring(0, lowerPart.length() - "controller".length()));
+            } else {
+                pathParts.add(lowerPart);
+            }
+        }
+
+        if (pathParts.isEmpty()) {
+            return null;
+        }
+
+        // add method name if not "index"
+        if (!"index".equalsIgnoreCase(methodName)) {
+            pathParts.add(methodName.toLowerCase());
+        }
+
+        return "/" + org.apache.commons.lang3.StringUtils.join(pathParts, "/");
     }
 
     @Nullable
@@ -232,7 +301,7 @@ public class AnnotationBackportUtil {
     @Nullable
     public static String getClassNameReference(PhpDocTag phpDocTag, Map<String, String> useImports) {
 
-        if(useImports.size() == 0) {
+        if(useImports.isEmpty()) {
             return null;
         }
 
@@ -263,5 +332,67 @@ public class AnnotationBackportUtil {
         }
 
         return annotationFqnName;
+    }
+
+    /**
+     * Generate a full FQN class name out of a given short class name with respecting current namespace and use scope
+     *
+     * - "Foobar" needs to have its use statement attached
+     * - No use statement match its on the same namespace as the class
+     *
+     * TODO: find a core function for this
+     *
+     * @param shortClassName Foobar
+     */
+    @NotNull
+    public static String getFqnClassNameFromScope(@NotNull PhpClass phpClass, @NotNull String shortClassName, @NotNull Map<String, String> useImportMap) {
+        String classNameScope = phpClass.getFQN();
+        if(!classNameScope.startsWith("\\")) {
+            classNameScope = "\\" + classNameScope;
+        }
+
+        // its already on the global namespace: "\Exception"
+        if (shortClassName.startsWith("\\")) {
+            return shortClassName;
+        }
+
+        // "Foo\Bar" split it on "subnamespace"; if no "subnamespace" only care about the first array item as out use match
+        String[] split = shortClassName.split("\\\\");
+        if (useImportMap.containsKey(split[0])) {
+            String shortClassImport = useImportMap.get(split[0]);
+
+            // on "Foo\Bar" we must extend also "Bar" for the import
+            // "Foo\Bar" => "\Car\Foo\Bar"
+            if (split.length > 1) {
+                String[] yourArray = Arrays.copyOfRange(split, 1, split.length);
+                shortClassImport += "\\" + StringUtils.join(yourArray, "\\");
+            }
+
+            return shortClassImport;
+        }
+
+        // strip the last namespace part and replace it with ours: "Foobar\Bar" => "Foobar\OurShortClass"
+        return StringUtils.substringBeforeLast(classNameScope, "\\") + "\\" + shortClassName;
+    }
+
+    /**
+     * Generate a full FQN class name out of a given short class name with respecting current namespace and use scope
+     *
+     * - "Foobar" needs to have its use statement attached
+     * - No use statement match its on the same namespace as the class
+     *
+     * TODO: find a core function for this
+     *
+     * @param shortClassName Foobar
+     */
+    @NotNull
+    public static String getFqnClassNameFromScope(@NotNull PhpClass phpClass, @NotNull String shortClassName) {
+        // @TODO: better scope? we dont need a doc comment
+        PhpDocComment docComment = phpClass.getDocComment();
+        if (docComment == null) {
+            return shortClassName;
+        }
+
+        return getFqnClassNameFromScope(phpClass, shortClassName, getUseImportMap(docComment));
     }
 }

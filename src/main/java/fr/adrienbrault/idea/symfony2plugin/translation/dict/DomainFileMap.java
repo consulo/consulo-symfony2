@@ -4,7 +4,7 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VfsUtil;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiManager;
+import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
@@ -14,10 +14,10 @@ import java.io.File;
  */
 public class DomainFileMap {
 
-    private String loader;
-    private String Path;
-    private String languageKey;
-    private String domain;
+    private final String loader;
+    private final String Path;
+    private final String languageKey;
+    private final String domain;
 
     public DomainFileMap(String loader, String Path, String languageKey, String domain) {
         this.loader = loader;
@@ -50,19 +50,12 @@ public class DomainFileMap {
               return null;
         }
 
-        return VfsUtil.findFileByIoFile(file, true);
+        return VfsUtil.findFileByIoFile(file, false);
     }
 
     @Nullable
     public PsiFile getPsiFile(Project project) {
         VirtualFile virtualFile = this.getFile();
-        if(virtualFile == null) {
-            return null;
-        }
-
-        return PsiManager.getInstance(project).findFile(virtualFile);
-
+        return PsiElementUtils.virtualFileToPsiFile(project, virtualFile);
     }
-
-
 }

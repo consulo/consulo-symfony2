@@ -5,21 +5,20 @@ import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiElementResolveResult;
 import com.intellij.psi.PsiPolyVariantReferenceBase;
 import com.intellij.psi.ResolveResult;
-import com.jetbrains.php.lang.psi.elements.Method;
-import com.jetbrains.php.lang.psi.elements.PhpClass;
-import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
+import com.jetbrains.php.lang.psi.elements.*;
 import fr.adrienbrault.idea.symfony2plugin.util.StringUtils;
+import kotlin.Pair;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
-import java.util.stream.Collectors;
+import java.util.function.Consumer;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class FormUnderscoreMethodReference extends PsiPolyVariantReferenceBase<StringLiteralExpression> {
     @NotNull
-    private PhpClass phpClass;
+    private final PhpClass phpClass;
 
     public FormUnderscoreMethodReference(@NotNull StringLiteralExpression element, @NotNull PhpClass phpClass) {
         super(element);
@@ -30,7 +29,7 @@ public class FormUnderscoreMethodReference extends PsiPolyVariantReferenceBase<S
     @Override
     public ResolveResult[] multiResolve(boolean incompleteCode) {
         String contents = getElement().getContents();
-        if(org.apache.commons.lang.StringUtils.isBlank(contents)) {
+        if(org.apache.commons.lang3.StringUtils.isBlank(contents)) {
             return new ResolveResult[0];
         }
 
@@ -49,7 +48,7 @@ public class FormUnderscoreMethodReference extends PsiPolyVariantReferenceBase<S
         // property path
         psiElements.addAll(this.phpClass.getFields().stream()
             .filter(field -> !field.isConstant() && field.getModifier().isPublic() && methods.contains(field.getName()))
-            .collect(Collectors.toList())
+            .toList()
         );
 
         return PsiElementResolveResult.createResults(psiElements);
@@ -60,23 +59,30 @@ public class FormUnderscoreMethodReference extends PsiPolyVariantReferenceBase<S
     public Object[] getVariants() {
         Collection<LookupElement> lookupElements = new ArrayList<>();
 
-        // provide setter fallback for non model class or unknown methods
-        for(Method method: this.phpClass.getMethods()) {
+        visitPropertyPath(
+            this.phpClass,
+            pair -> lookupElements.add(new PhpFormPropertyMethodLookupElement(pair.getSecond(), pair.getFirst()))
+        );
+
+        return lookupElements.toArray();
+    }
+
+    public static void visitPropertyPath(@NotNull PhpClass phpClass, @NotNull Consumer<Pair<String, PhpNamedElement>> consumer) {
+        // provide setter fallback for non-model class or unknown methods
+        for (Method method: phpClass.getMethods()) {
             String name = method.getName();
-            if(name.length() > 3 && name.startsWith("set")) {
-                lookupElements.add(new PhpFormPropertyMethodLookupElement(method, StringUtils.lcfirst(name.substring(3))));
+            if (name.length() > 3 && name.startsWith("set")) {
+                consumer.accept(new Pair<>(StringUtils.lcfirst(name.substring(3)), method));
             }
         }
 
         // Symfony\Component\PropertyAccess\PropertyAccessor::getWriteAccessInfo
         // property: public $foobar
-        lookupElements.addAll(this.phpClass.getFields().stream()
-            .filter(field -> !field.isConstant() && field.getModifier().isPublic())
-            .map(field -> new PhpFormPropertyMethodLookupElement(field, field.getName()))
-            .collect(Collectors.toList())
-        );
-
-        return lookupElements.toArray();
+        for (Field field: phpClass.getFields()) {
+            if (!field.isConstant() && field.getModifier().isPublic()) {
+                consumer.accept(new Pair<>(field.getName(), field));
+            }
+        }
     }
 
     @NotNull

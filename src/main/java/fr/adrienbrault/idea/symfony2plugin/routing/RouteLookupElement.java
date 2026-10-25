@@ -6,7 +6,7 @@ import com.intellij.codeInsight.lookup.LookupElement;
 import com.intellij.codeInsight.lookup.LookupElementPresentation;
 import com.intellij.util.containers.ContainerUtil;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
@@ -23,6 +23,7 @@ public class RouteLookupElement extends LookupElement {
     final private Route route;
     private boolean isWeak = false;
     private InsertHandler<RouteLookupElement> insertHandler;
+    private boolean escape = false;
 
     public RouteLookupElement(@NotNull Route route) {
         this.route = route;
@@ -36,6 +37,10 @@ public class RouteLookupElement extends LookupElement {
     @NotNull
     @Override
     public String getLookupString() {
+        if (escape) {
+            return route.getName().replace("\\", "\\\\");
+        }
+
         return route.getName();
     }
 
@@ -55,16 +60,16 @@ public class RouteLookupElement extends LookupElement {
         List<String> tails = new ArrayList<>();
 
         Collection<String> methods = route.getMethods();
-        if(methods.size() > 0) {
+        if(!methods.isEmpty()) {
             tails.add(StringUtils.join(ContainerUtil.map(methods, String::toUpperCase), "|"));
         }
 
         Set<String> variables = this.route.getVariables();
-        if(variables.size() > 0) {
+        if(!variables.isEmpty()) {
             tails.addAll(variables);
         }
 
-        if(tails.size() > 0) {
+        if(!tails.isEmpty()) {
             presentation.setTailText("(" + StringUtils.join(tails, ", ") + ")", true);
         }
     }
@@ -79,6 +84,10 @@ public class RouteLookupElement extends LookupElement {
 
     public void withInsertHandler(InsertHandler<RouteLookupElement> insertHandler) {
         this.insertHandler = insertHandler;
+    }
+
+    public void withEscape() {
+        this.escape = true;
     }
 
     public Route getRoute() {

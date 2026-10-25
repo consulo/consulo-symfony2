@@ -3,29 +3,34 @@ package fr.adrienbrault.idea.symfony2plugin.profiler;
 import com.intellij.util.containers.ContainerUtil;
 import fr.adrienbrault.idea.symfony2plugin.profiler.collector.LocalDefaultDataCollector;
 import fr.adrienbrault.idea.symfony2plugin.profiler.collector.LocalMailCollector;
+import fr.adrienbrault.idea.symfony2plugin.profiler.collector.LocalTwigComponentDataCollector;
 import fr.adrienbrault.idea.symfony2plugin.profiler.dict.LocalProfilerRequest;
 import fr.adrienbrault.idea.symfony2plugin.profiler.dict.ProfilerRequestInterface;
 import fr.adrienbrault.idea.symfony2plugin.profiler.reader.ReverseFileLineReader;
 import fr.adrienbrault.idea.symfony2plugin.profiler.utils.ProfilerUtil;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.Callable;
+import java.util.regex.Pattern;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class LocalProfilerIndex implements ProfilerIndexInterface {
+    private static final Pattern PROFILER_HASH_PATTERN = Pattern.compile("^[a-fA-F0-9]{6,64}$");
+    private static final int MAX_RAW_PROFILE_BYTES = 5 * 1024 * 1024;
+
     @NotNull
-    private File file;
+    private final File file;
 
     @Nullable
     private String baseUrl;
@@ -74,7 +79,27 @@ public class LocalProfilerIndex implements ProfilerIndexInterface {
             return this.baseUrl  + "/" + StringUtils.stripStart(request.getProfilerUrl(), "/");
         }
 
-        return ProfilerUtil.getBaseProfilerUrlFromRequest(request.getProfilerUrl());
+        return ProfilerUtil.getBaseProfilerUrlFromRequest(request) + "/" + StringUtils.stripStart(request.getProfilerUrl(), "/");
+    }
+
+    @Override
+    public byte @Nullable [] getRawProfile(@NotNull String hash) {
+        File profile = this.getFile(hash);
+        if (profile == null) {
+            return null;
+        }
+
+        try (InputStream input = Files.newInputStream(profile.toPath())) {
+            // Read one extra byte so a concurrently growing profile cannot bypass the size limit.
+            byte[] content = input.readNBytes(MAX_RAW_PROFILE_BYTES + 1);
+            if (content.length > MAX_RAW_PROFILE_BYTES) {
+                return null;
+            }
+
+            return content;
+        } catch (IOException ignored) {
+            return null;
+        }
     }
 
     @NotNull
@@ -85,10 +110,22 @@ public class LocalProfilerIndex implements ProfilerIndexInterface {
 
     @Nullable
     private File getFile(@NotNull String hash) {
+        if (!PROFILER_HASH_PATTERN.matcher(hash).matches()) {
+            return null;
+        }
+
         String path = this.getPath(hash);
 
-        File file = new File(this.file.getParentFile().getAbsolutePath() + "/" + path);
-        if(!file.exists()) {
+        File profilerDirectory;
+        File file;
+        try {
+            profilerDirectory = this.file.getParentFile().getCanonicalFile();
+            file = new File(profilerDirectory, path).getCanonicalFile();
+        } catch (IOException e) {
+            return null;
+        }
+
+        if (!file.toPath().startsWith(profilerDirectory.toPath()) || !file.isFile()) {
             return null;
         }
 
@@ -102,19 +139,7 @@ public class LocalProfilerIndex implements ProfilerIndexInterface {
             return  null;
         }
 
-        StringBuilder content = new StringBuilder();
-
-        try {
-            BufferedReader in = new BufferedReader(new FileReader(file));
-            String str;
-            while ((str = in.readLine()) != null) {
-                content.append(str);
-            }
-            in.close();
-        } catch (IOException ignored) {
-        }
-
-        return content.toString();
+        return ProfilerUtil.getContentForFile(file);
     }
 
     private class MyProfilerRequestBuilderCallable implements Callable<ProfilerRequestInterface> {
@@ -125,7 +150,7 @@ public class LocalProfilerIndex implements ProfilerIndexInterface {
         }
 
         @Override
-        public ProfilerRequestInterface call() throws Exception {
+        public ProfilerRequestInterface call() {
             String content = getContentForHash(split[0]);
             if(content == null) {
                 return new LocalProfilerRequest(split);
@@ -134,7 +159,8 @@ public class LocalProfilerIndex implements ProfilerIndexInterface {
             return new LocalProfilerRequest(
                 split,
                 new LocalDefaultDataCollector(content),
-                new LocalMailCollector(content)
+                new LocalMailCollector(content),
+                new LocalTwigComponentDataCollector(content)
             );
         }
     }

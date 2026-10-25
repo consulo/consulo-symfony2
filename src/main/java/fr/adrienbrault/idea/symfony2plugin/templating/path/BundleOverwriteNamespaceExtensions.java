@@ -5,10 +5,12 @@ import fr.adrienbrault.idea.symfony2plugin.extension.TwigNamespaceExtension;
 import fr.adrienbrault.idea.symfony2plugin.extension.TwigNamespaceExtensionParameter;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.SymfonyBundleUtil;
+import fr.adrienbrault.idea.symfony2plugin.util.VfsExUtil;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 
 /**
  * "app/Resources/ParentBundle/Resources/views"
@@ -19,12 +21,19 @@ public class BundleOverwriteNamespaceExtensions implements TwigNamespaceExtensio
     @NotNull
     @Override
     public Collection<TwigPath> getNamespaces(@NotNull TwigNamespaceExtensionParameter parameter) {
+        if (!TwigUtil.hasBundleNamespaceSupport(parameter.getProject())) {
+            return Collections.emptyList();
+        }
+
         Collection<TwigPath> twigPaths = new ArrayList<>();
 
         new SymfonyBundleUtil(parameter.getProject()).getParentBundles().forEach((key, virtualFile) -> {
             VirtualFile views = virtualFile.getRelative("Resources/views");
             if (views != null) {
-                twigPaths.add(new TwigPath(views.getPath(), key, TwigUtil.NamespaceType.BUNDLE));
+                String path = VfsExUtil.getRelativeProjectPathStrict(parameter.getProject(), views);
+                if (path != null) {
+                    twigPaths.add(new TwigPath(path, key, TwigUtil.NamespaceType.BUNDLE));
+                }
             }
         });
 

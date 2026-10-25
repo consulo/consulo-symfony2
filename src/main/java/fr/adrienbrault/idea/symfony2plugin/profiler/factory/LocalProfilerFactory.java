@@ -7,7 +7,8 @@ import fr.adrienbrault.idea.symfony2plugin.Settings;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.profiler.LocalProfilerIndex;
 import fr.adrienbrault.idea.symfony2plugin.profiler.ProfilerIndexInterface;
-import org.apache.commons.lang.StringUtils;
+import fr.adrienbrault.idea.symfony2plugin.util.ProjectUtil;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -47,7 +48,7 @@ public class LocalProfilerFactory implements ProfilerFactoryInterface {
             return getCsvIndex(project);
         }
 
-        VirtualFile relativeFile = VfsUtil.findRelativeFile(project.getBaseDir(), profilerCsvPath.replace("\\", "/").split("/"));
+        VirtualFile relativeFile = VfsUtil.findRelativeFile(ProjectUtil.getProjectDir(project), profilerCsvPath.replace("\\", "/").split("/"));
         if (relativeFile != null) {
             return VfsUtil.virtualToIoFile(relativeFile);
         }
@@ -57,13 +58,15 @@ public class LocalProfilerFactory implements ProfilerFactoryInterface {
 
     @Nullable
     protected File getCsvIndex(@NotNull Project project) {
-        Symfony2ProjectComponent symfony2ProjectComponent = project.getComponent(Symfony2ProjectComponent.class);
-        for(File file: symfony2ProjectComponent.getContainerFiles()) {
-            if(file.exists()) {
-                File csvFile = new File(file.getParentFile().getPath() + "/profiler/index.csv");
-                if (csvFile.exists()) {
-                    return csvFile;
-                }
+        for (VirtualFile file : Symfony2ProjectComponent.getContainerFiles(project)) {
+            VirtualFile parent = file.getParent();
+            if (parent == null) {
+                continue;
+            }
+
+            VirtualFile csvFile = VfsUtil.findRelativeFile(parent, "profiler", "index.csv");
+            if (csvFile != null && csvFile.exists()) {
+                return VfsUtil.virtualToIoFile(csvFile);
             }
         }
 

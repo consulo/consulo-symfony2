@@ -1,55 +1,50 @@
 package fr.adrienbrault.idea.symfony2plugin.util.yaml;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
-import org.apache.commons.lang.ArrayUtils;
-import org.apache.commons.lang.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.jetbrains.yaml.YAMLElementGenerator;
-import org.jetbrains.yaml.YAMLTokenTypes;
-import org.jetbrains.yaml.YAMLUtil;
-import org.jetbrains.yaml.psi.*;
-import org.jetbrains.yaml.psi.impl.YAMLHashImpl;
-import org.jetbrains.yaml.psi.impl.YAMLPlainTextImpl;
-import com.intellij.codeInspection.ProblemHighlightType;
-import com.intellij.codeInspection.ProblemsHolder;
-import com.intellij.openapi.application.Result;
 import com.intellij.openapi.command.WriteCommandAction;
 import com.intellij.openapi.util.Pair;
 import com.intellij.openapi.util.text.StringUtil;
+import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.patterns.PatternCondition;
 import com.intellij.patterns.PlatformPatterns;
 import com.intellij.patterns.PsiElementPattern;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
+import com.intellij.psi.impl.source.tree.LeafPsiElement;
 import com.intellij.psi.util.PsiTreeUtil;
 import com.intellij.util.Consumer;
 import com.intellij.util.ObjectUtils;
 import com.intellij.util.ProcessingContext;
-import com.intellij.util.Processor;
 import com.intellij.util.containers.ContainerUtil;
+import com.jetbrains.php.config.PhpLanguageLevel;
 import com.jetbrains.php.lang.psi.elements.Parameter;
+import com.jetbrains.php.lang.psi.elements.PhpClass;
 import com.jetbrains.php.refactoring.PhpNameUtil;
-import consulo.php.lang.psi.PhpClass;
+import fr.adrienbrault.idea.symfony2plugin.config.yaml.YamlElementPatternHelper;
 import fr.adrienbrault.idea.symfony2plugin.dic.ParameterResolverConsumer;
 import fr.adrienbrault.idea.symfony2plugin.dic.container.util.ServiceContainerUtil;
 import fr.adrienbrault.idea.symfony2plugin.dic.tags.yaml.StaticAttributeResolver;
 import fr.adrienbrault.idea.symfony2plugin.stubs.ContainerCollectionResolver;
+import fr.adrienbrault.idea.symfony2plugin.stubs.ServiceIndexUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.ServiceUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.visitor.ParameterVisitor;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.visitor.YamlServiceTag;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.visitor.YamlTagVisitor;
+import org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.jetbrains.yaml.YAMLElementGenerator;
+import org.jetbrains.yaml.YAMLElementTypes;
+import org.jetbrains.yaml.YAMLTokenTypes;
+import org.jetbrains.yaml.YAMLUtil;
+import org.jetbrains.yaml.psi.*;
+import org.jetbrains.yaml.psi.impl.YAMLHashImpl;
+import org.jetbrains.yaml.psi.impl.YAMLPlainTextImpl;
+
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -77,7 +72,7 @@ public class YamlHelper {
 
         PsiElement startElement = psiElement.getFirstChild();
         if(startElement == null) {
-            return psiElements.toArray(new PsiElement[psiElements.size()]);
+            return psiElements.toArray(new PsiElement[0]);
         }
 
         psiElements.add(startElement);
@@ -86,7 +81,7 @@ public class YamlHelper {
             psiElements.add(child);
         }
 
-        return psiElements.toArray(new PsiElement[psiElements.size()]);
+        return psiElements.toArray(new PsiElement[0]);
     }
 
     /**
@@ -177,7 +172,7 @@ public class YamlHelper {
                 PsiElement value = yamlParameterArray.getValue();
                 if(value instanceof YAMLScalar) {
                     String myTextValue = ((YAMLScalar) value).getTextValue();
-                    if(myTextValue.length() > 0 && myTextValue.length() < 150) {
+                    if(!myTextValue.isEmpty() && myTextValue.length() < 150) {
                         textValue = myTextValue;
                     }
                 }
@@ -210,7 +205,7 @@ public class YamlHelper {
                 }
             });
 
-            if(psiElements.size() == 0) {
+            if(psiElements.isEmpty()) {
                 return null;
             }
 
@@ -254,7 +249,7 @@ public class YamlHelper {
 
         // optional syntax
         if(serviceName.startsWith("?")) {
-            serviceName = serviceName.substring(1, serviceName.length());
+            serviceName = serviceName.substring(1);
         }
 
         return serviceName;
@@ -305,6 +300,28 @@ public class YamlHelper {
         return getYamlKeyValue(yamlHash, keyName, false);
     }
 
+    /**
+     * test:
+     *   DEBUG_WEB_1: 1
+     *   DEBUG_WEB_2: 1
+     */
+    @NotNull
+    public static Map<String, YAMLValue> getYamlArrayKeyMap(@NotNull YAMLMapping yamlHash) {
+        Map<String, YAMLValue> keys = new HashMap<>();
+
+        for(YAMLKeyValue yamlKeyValue: PsiTreeUtil.getChildrenOfAnyType(yamlHash, YAMLKeyValue.class)) {
+            String keyText = yamlKeyValue.getKeyText();
+            if (StringUtils.isNotBlank(keyText)) {
+                YAMLValue value = yamlKeyValue.getValue();
+                if (value != null) {
+                    keys.put(keyText, value);
+                }
+            }
+        }
+
+        return keys;
+    }
+
     @Nullable
     public static String getYamlKeyValueAsString(@NotNull YAMLMapping yamlHash, @NotNull String keyName) {
         YAMLKeyValue yamlKeyValue = getYamlKeyValue(yamlHash, keyName, false);
@@ -333,6 +350,50 @@ public class YamlHelper {
     @Nullable
     public static String getYamlKeyValueAsString(@NotNull YAMLKeyValue yamlKeyValue, @NotNull String keyName) {
         return getYamlKeyValueAsString(yamlKeyValue, keyName, false);
+    }
+
+    /**
+     *  foo:
+     *     class: "name"
+     *
+     *  class:
+     *   - "name"
+     *   - "test"
+     */
+    @NotNull
+    public static Collection<String> getYamlKeyValueStringOrArray(@NotNull YAMLKeyValue yamlKeyValue, @NotNull String keyName) {
+        YAMLKeyValue childrenKeyValue = getYamlKeyValue(yamlKeyValue, keyName);
+        if (childrenKeyValue == null) {
+            return Collections.emptyList();
+        }
+
+        // class: [test]
+        // class:
+        //  - "test"
+        YAMLValue value = childrenKeyValue.getValue();
+        if(value instanceof YAMLSequence) {
+          return getYamlArrayValuesAsString((YAMLSequence) value);
+        }
+
+        if (isYamlNullScalar(value)) {
+            return Collections.emptyList();
+        }
+
+        // class: "test"
+        String valueText = getYamlKeyValueAsString(yamlKeyValue, keyName);
+        if (StringUtils.isBlank(valueText)) {
+            return Collections.emptyList();
+        }
+
+        return Collections.singletonList(valueText);
+    }
+
+    private static boolean isYamlNullScalar(@Nullable YAMLValue value) {
+        if (!(value instanceof YAMLScalar scalar) || value.getNode().getElementType() != YAMLElementTypes.SCALAR_PLAIN_VALUE) {
+            return false;
+        }
+
+        return "~".equals(scalar.getTextValue()) || "null".equalsIgnoreCase(scalar.getTextValue());
     }
 
     @Nullable
@@ -418,64 +479,25 @@ public class YamlHelper {
 
     }
 
-    /**
-     * Migrate to processKeysAfterRoot @TODO
-     *
-     * @param keyContext Should be Document or YAMLCompoundValueImpl which holds the key value children
-     */
-    public static void attachDuplicateKeyInspection(PsiElement keyContext, @NotNull ProblemsHolder holder) {
-
-        Map<String, PsiElement> psiElementMap = new HashMap<>();
-        Set<PsiElement> yamlKeyValues = new HashSet<>();
-
-        Collection<YAMLKeyValue> collection = PsiTreeUtil.getChildrenOfTypeAsList(keyContext, YAMLKeyValue.class);
-        for(YAMLKeyValue yamlKeyValue: collection) {
-            String keyText = PsiElementUtils.trimQuote(yamlKeyValue.getKeyText());
-            if(StringUtils.isNotBlank(keyText)) {
-                if(psiElementMap.containsKey(keyText)) {
-                    yamlKeyValues.add(psiElementMap.get(keyText));
-                    yamlKeyValues.add(yamlKeyValue);
-                } else {
-                    psiElementMap.put(keyText, yamlKeyValue);
-                }
-
-            }
-
-        }
-
-        if(yamlKeyValues.size() > 0) {
-            for(PsiElement psiElement: yamlKeyValues) {
-                if(psiElement instanceof YAMLKeyValue) {
-                    final PsiElement keyElement = ((YAMLKeyValue) psiElement).getKey();
-                    assert keyElement != null;
-                    holder.registerProblem(keyElement, "Duplicate key", ProblemHighlightType.GENERIC_ERROR_OR_WARNING);
-                }
-            }
-        }
-
-    }
-
-    /**
-     * Process yaml key in second level filtered by a root:
-     * File > roots -> "Item"
-     * TODO: visitQualifiedKeyValuesInFile
-     */
-    public static void processKeysAfterRoot(@NotNull PsiFile psiFile, @NotNull Processor<YAMLKeyValue> yamlKeyValueProcessor, @NotNull String... roots) {
-        for (String root : roots) {
-            YAMLKeyValue yamlKeyValue = YAMLUtil.getQualifiedKeyInFile((YAMLFile) psiFile, root);
-            if(yamlKeyValue != null) {
-                YAMLCompoundValue yaml = PsiTreeUtil.findChildOfType(yamlKeyValue, YAMLCompoundValue.class);
-                if(yaml != null) {
-                    for(YAMLKeyValue yamlKeyValueVisit: PsiTreeUtil.getChildrenOfTypeAsList(yaml, YAMLKeyValue.class)) {
-                        yamlKeyValueProcessor.process(yamlKeyValueVisit);
-                    }
-                }
-            }
-        }
-    }
-
     public static boolean isRoutingFile(PsiFile psiFile) {
         return psiFile.getName().contains("routing") || psiFile.getVirtualFile().getPath().contains("/routing");
+    }
+
+    public static boolean isConfigFile(@NotNull PsiFile psiFile) {
+        return psiFile.getName().contains("config") || psiFile.getVirtualFile().getPath().contains("/config");
+    }
+
+    public static boolean isServicesFile(@NotNull PsiFile psiFile) {
+        return psiFile.getName().contains("services") || psiFile.getVirtualFile().getPath().contains("/services");
+    }
+
+    public static boolean isInsideServiceDefinition(@NotNull PsiElement psiElement) {
+        return YamlElementPatternHelper.getInsideServiceKeyPattern().accepts(psiElement);
+    }
+
+    public static boolean isInsideServiceArgumentDefinition(@NotNull PsiElement psiElement) {
+        return isInsideServiceDefinition(psiElement)
+            && YamlElementPatternHelper.getInsideKeyValue("arguments", "properties", "calls").accepts(psiElement);
     }
 
     /**
@@ -592,23 +614,21 @@ public class YamlHelper {
      * @param yamlKeyValue the service key value to find the "tags" key on
      * @return tag names
      */
-    @Nullable
+    @NotNull
     public static Set<String> collectServiceTags(@NotNull YAMLKeyValue yamlKeyValue) {
-
         YAMLKeyValue tagsKeyValue = YamlHelper.getYamlKeyValue(yamlKeyValue, "tags");
         if(tagsKeyValue == null) {
-            return null;
+            return Collections.emptySet();
         }
 
         PsiElement tagsCompound = tagsKeyValue.getValue();
         if(!(tagsCompound instanceof YAMLSequence)) {
-            return null;
+            return Collections.emptySet();
         }
 
         Set<String> tags = new HashSet<>();
 
         for (YAMLSequenceItem yamlSequenceItem : ((YAMLSequence) tagsCompound).getItems()) {
-
             YAMLValue value = yamlSequenceItem.getValue();
             if(value instanceof YAMLMapping) {
                 // tags:
@@ -632,6 +652,26 @@ public class YamlHelper {
     }
 
     /**
+     * acme_demo.form.type.gender:
+     *  class: espend\Form\TypeBundle\Form\FooType
+     *  tags:
+     *   - { name: foo  }
+     */
+    @NotNull
+    public static Collection<YAMLKeyValue> getTaggedServices(@NotNull YAMLFile yamlFile, @NotNull String tag) {
+        Collection<YAMLKeyValue> yamlKeyValues = new HashSet<>();
+
+        for (YAMLKeyValue yamlServiceKeyValue : YamlHelper.getQualifiedKeyValuesInFile(yamlFile, "services")) {
+            Set<String> serviceTagMap = YamlHelper.collectServiceTags(yamlServiceKeyValue);
+            if (serviceTagMap.contains(tag)) {
+                yamlKeyValues.add(yamlServiceKeyValue);
+            }
+        }
+
+        return yamlKeyValues;
+    }
+
+    /**
      * TODO: use visitor pattern for all tags, we are using them to often
      */
     public static void visitTagsOnServiceDefinition(@NotNull YAMLKeyValue yamlServiceKeyValue, @NotNull YamlTagVisitor visitor) {
@@ -651,11 +691,10 @@ public class YamlHelper {
         for(YAMLSequenceItem yamlSequenceItem: ((YAMLSequence) tagsValue).getItems()) {
             final YAMLValue itemValue = yamlSequenceItem.getValue();
 
-            if(itemValue instanceof YAMLMapping) {
+            if(itemValue instanceof final YAMLMapping yamlHash) {
                 // tags:
                 //  - {name: foobar}
 
-                final YAMLMapping yamlHash = (YAMLMapping) itemValue;
                 String tagName = YamlHelper.getYamlKeyValueAsString(yamlHash, "name");
                 if(tagName != null) {
                     visitor.visit(new YamlServiceTag(serviceId, tagName, yamlHash));
@@ -847,19 +886,11 @@ public class YamlHelper {
             return null;
         }
 
-        // finally wirte changes
+        // finally write changes
         final YAMLMapping finalChildOfType = childOfType;
-        new WriteCommandAction(yamlFile.getProject()) {
-            @Override
-            protected void run(@NotNull Result result) throws Throwable {
-                finalChildOfType.putKeyValue(next);
-            }
-
-            @Override
-            public String getGroupID() {
-                return "Key insertion";
-            }
-        }.execute();
+        WriteCommandAction.writeCommandAction(yamlFile.getProject())
+            .withName("Key insertion")
+            .run(() -> finalChildOfType.putKeyValue(next));
 
         return childOfType;
     }
@@ -875,12 +906,12 @@ public class YamlHelper {
 
             // split content of array value object;
             // drop first item as getValueText() removes our key indent
-            String[] remove = (String[]) ArrayUtils.remove(text.split("\\r?\\n"), 0);
+            String[] remove = ArrayUtils.remove(text.split("\\r?\\n"), 0);
 
             List<String> map = ContainerUtil.map(remove, s -> previousIndent + s);
 
             return "\n" + StringUtils.strip(StringUtils.join(map, "\n"), "\n");
-        }, (String[]) ArrayUtils.add(keys, keyText));
+        }, ArrayUtils.add(keys, keyText));
     }
 
     public static PsiElement insertKeyIntoFile(final @NotNull YAMLFile yamlFile, final @Nullable String value, @NotNull String... keys) {
@@ -950,8 +981,16 @@ public class YamlHelper {
             return false;
         }
 
-        // fallback let decide PhpStorm if this is a valid class
-        return PhpNameUtil.isValidNamespaceFullName(serviceId, true);
+        // A valid namespace can still end in a reserved class name, for example "My\\Sweet\\Class".
+        return PhpNameUtil.isValidNamespaceFullName(serviceId, true, PhpLanguageLevel.DEFAULT)
+            && PhpNameUtil.isValidClassName(StringUtil.getShortName(serviceId, '\\'));
+    }
+
+    /**
+     * Returns true if given parameter name is default value for ENV variable.
+     */
+    public static boolean isDefaultEnvValue(@NotNull String parameterName) {
+        return parameterName.length() > 5 && parameterName.startsWith("env(") && parameterName.endsWith(")");
     }
 
     /**
@@ -989,7 +1028,7 @@ public class YamlHelper {
                                     PsiElement parent = yamlMapping.getParent();
                                     if(parent instanceof YAMLKeyValue) {
                                         String keyText = ((YAMLKeyValue) parent).getKeyText();
-                                        if(!keyText.contains(".") && PhpNameUtil.isValidNamespaceFullName(keyText)) {
+                                        if(!keyText.contains(".") && PhpNameUtil.isValidNamespaceFullName(keyText, PhpLanguageLevel.DEFAULT)) {
                                             consumer.consume(keyText);
                                         }
                                     }
@@ -1027,7 +1066,7 @@ public class YamlHelper {
                     PsiElement parent = yamlMapping.getParent();
                     if(parent instanceof YAMLKeyValue) {
                         String keyText = ((YAMLKeyValue) parent).getKeyText();
-                        if(StringUtils.isNotBlank(keyText) && !keyText.contains(".") && PhpNameUtil.isValidNamespaceFullName(keyText)) {
+                        if(StringUtils.isNotBlank(keyText) && !keyText.contains(".") && PhpNameUtil.isValidNamespaceFullName(keyText, PhpLanguageLevel.DEFAULT)) {
                             return keyText;
                         }
                     }
@@ -1050,16 +1089,12 @@ public class YamlHelper {
      */
     public static void visitServiceCallArgument(@NotNull YAMLScalar yamlScalar, @NotNull Consumer<ParameterVisitor> consumer) {
         PsiElement context = yamlScalar.getContext();
-        if(context instanceof YAMLSequenceItem) {
+        if(context instanceof YAMLSequenceItem argumentSequenceItem) {
             // [@foobar, @fo<caret>obar]
-            YAMLSequenceItem argumentSequenceItem = (YAMLSequenceItem) context;
-            if (argumentSequenceItem.getContext() instanceof YAMLSequence) {
-                YAMLSequence yamlCallParameterArray = (YAMLSequence) argumentSequenceItem.getContext();
+            if (argumentSequenceItem.getContext() instanceof YAMLSequence yamlCallParameterArray) {
                 PsiElement callSequenceItem = yamlCallParameterArray.getContext();
-                if(callSequenceItem instanceof YAMLSequenceItem) {
-                    YAMLSequenceItem enclosingItem = (YAMLSequenceItem) callSequenceItem;
-                    if (enclosingItem.getContext() instanceof YAMLSequence) {
-                        YAMLSequence yamlCallArray = (YAMLSequence) enclosingItem.getContext();
+                if(callSequenceItem instanceof YAMLSequenceItem enclosingItem) {
+                    if (enclosingItem.getContext() instanceof YAMLSequence yamlCallArray) {
                         PsiElement seqItem = yamlCallArray.getContext();
                         if(seqItem instanceof YAMLSequenceItem) {
                             // - [ setFoo, [@args_bar] ]
@@ -1122,14 +1157,11 @@ public class YamlHelper {
         }
 
         String textValue = ((YAMLScalar) value).getTextValue().toLowerCase();
-        switch (textValue) {
-            case "false":
-                return false;
-            case "true":
-                return true;
-            default:
-                return null;
-        }
+        return switch (textValue) {
+            case "false" -> false;
+            case "true" -> true;
+            default -> null;
+        };
     }
 
     /**
@@ -1185,7 +1217,7 @@ public class YamlHelper {
 
     @NotNull
     public static Collection<PhpClass> getPhpClassesInYamlFile(@NotNull YAMLFile yamlFile, @NotNull ContainerCollectionResolver.LazyServiceCollector lazyServiceCollector) {
-        Collection<PhpClass> phpClasses = new HashSet<>();
+        Collection<PhpClass> phpClasses = new HashSet<>(); //TODO
 
         for (YAMLKeyValue keyValue : YamlHelper.getQualifiedKeyValuesInFile(yamlFile, "services")) {
             YAMLValue value = keyValue.getValue();
@@ -1199,6 +1231,12 @@ public class YamlHelper {
                         phpClasses.add(serviceClass);
                     }
                 }
+
+                // My<caret>Class\:
+                //    resource: ...
+                if (keyValue.getKeyText().endsWith("\\")) {
+                    phpClasses.addAll(YamlHelper.getNamespaceResourcesClasses(keyValue));
+                }
             } else if(value instanceof YAMLPlainTextImpl) {
                 // Foo\Bar: ~
                 String text = keyValue.getKeyText();
@@ -1211,4 +1249,65 @@ public class YamlHelper {
 
         return phpClasses;
     }
+
+    /**
+     * My<caret>Class\:
+     *  resource: '....'
+     *  exclude: '....'
+     */
+    @NotNull
+    public static Collection<PhpClass> getNamespaceResourcesClasses(@NotNull YAMLKeyValue yamlKeyValue) {
+        PsiFile containingFile = yamlKeyValue.getContainingFile();
+        if (containingFile == null) {
+            return Collections.emptyList();
+        }
+
+        VirtualFile containerFile = containingFile.getVirtualFile();
+        if (containerFile == null) {
+            return Collections.emptyList();
+        }
+
+        var service = ServiceIndexUtil.findServiceDefinition(yamlKeyValue.getProject(), containerFile, yamlKeyValue.getKeyText());
+        if (service == null || service.getResource().isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        return ServiceIndexUtil.getClassesForServiceDefinition(yamlKeyValue.getProject(), containerFile, service).stream()
+            .filter(PhpClass.class::isInstance)
+            .map(PhpClass.class::cast)
+            .collect(Collectors.toCollection(HashSet::new));
+    }
+
+    /**
+     * key: !my_tag <caret>
+     */
+    public static boolean isElementAfterYamlTag(PsiElement psiElement) {
+        if (!(psiElement instanceof LeafPsiElement)) {
+            return false;
+        }
+
+        // key: !my_tag <caret>\n
+        if (((LeafPsiElement) psiElement).getElementType() == YAMLTokenTypes.EOL) {
+            PsiElement prevElement = PsiTreeUtil.getDeepestVisibleLast(psiElement);
+            if (prevElement instanceof LeafPsiElement) {
+                if (((LeafPsiElement) prevElement).getElementType() == YAMLTokenTypes.TAG) {
+                    return ((LeafPsiElement) prevElement).getText().startsWith("!");
+                }
+            }
+        }
+
+        return PsiTreeUtil.findSiblingBackward(psiElement, YAMLTokenTypes.TAG, null) != null;
+    }
+
+    /**
+     * key: foo\n
+     * <caret>
+     */
+    public static boolean isElementAfterEol(PsiElement psiElement) {
+        if (psiElement.getParent() instanceof YAMLPlainTextImpl) {
+            psiElement = psiElement.getParent();
+        }
+        return PsiElementUtils.getPrevSiblingOfType(psiElement, PlatformPatterns.psiElement(YAMLTokenTypes.EOL)) != null;
+    }
+
 }

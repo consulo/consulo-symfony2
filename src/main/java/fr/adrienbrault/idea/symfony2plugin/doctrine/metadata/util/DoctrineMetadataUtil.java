@@ -5,16 +5,23 @@ import com.intellij.lang.xml.XMLLanguage;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Key;
 import com.intellij.openapi.util.Pair;
+import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiManager;
 import com.intellij.psi.search.GlobalSearchScope;
-import com.intellij.psi.util.*;
+import com.intellij.psi.util.CachedValue;
+import com.intellij.psi.util.CachedValueProvider;
+import com.intellij.psi.util.CachedValuesManager;
+import com.intellij.psi.util.PsiTreeUtil;
 import com.intellij.psi.xml.XmlTag;
 import com.intellij.util.indexing.FileBasedIndex;
-import com.jetbrains.php.PhpIndex;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
+import fr.adrienbrault.idea.symfony2plugin.doctrine.EntityHelper;
+import fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.DoctrineMetadataPattern;
+import fr.adrienbrault.idea.symfony2plugin.util.dict.DoctrineModel;
+import fr.adrienbrault.idea.symfony2plugin.doctrine.dict.DoctrineModelSerializable;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.dict.DoctrineModelInterface;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.dict.DoctrineManagerEnum;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.dict.DoctrineMetadataModel;
@@ -23,9 +30,12 @@ import fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.lookup.DoctrineRepo
 import fr.adrienbrault.idea.symfony2plugin.stubs.cache.FileIndexCaches;
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.DoctrineMetadataFileStubIndex;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
-import org.apache.commons.lang.StringUtils;
+import fr.adrienbrault.idea.symfony2plugin.util.PhpIndexUtil;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
+import static fr.adrienbrault.idea.symfony2plugin.util.StringUtils.underscore;
 import org.jetbrains.yaml.psi.*;
 
 import java.util.*;
@@ -38,16 +48,23 @@ import java.util.regex.Pattern;
 public class DoctrineMetadataUtil {
 
     private static final Key<CachedValue<Set<String>>> CLASS_KEYS = new Key<>("CLASS_KEYS");
+    private static final Key<CachedValue<Collection<Pair<String, String>>>> DOCTRINE_TABLES_CACHE = new Key<>("DOCTRINE_TABLES_CACHE");
 
-    private static DoctrineMappingDriverInterface[] MAPPING_DRIVERS = new DoctrineMappingDriverInterface[] {
-        new DoctrineXmlMappingDriver(),
-        new DoctrineYamlMappingDriver(),
-        new DoctrinePhpMappingDriver(),
+    private static final DoctrineMappingDriverInterface[] MAPPING_DRIVERS = new DoctrineMappingDriverInterface[] {
+        new DoctrinePhpMappingDriver(), // cross-file content, no simple cache
+        new DoctrinePhpAttributeMappingDriver(), // cross-file content, no simple cache
+        new DoctrineMappingDriverFileCacheDecorator(new DoctrineXmlMappingDriver()),
+        new DoctrineMappingDriverFileCacheDecorator(new DoctrineYamlMappingDriver()),
     };
 
     @NotNull
     public static Collection<LookupElement> getObjectRepositoryLookupElements(@NotNull Project project) {
-        return new ArrayList<>(DoctrineRepositoryLookupElement.create(PhpIndex.getInstance(project).getAllSubclasses("\\Doctrine\\Common\\Persistence\\ObjectRepository")));
+        Collection<PhpClass> collection = new ArrayList<>();
+
+        collection.addAll(PhpIndexUtil.getAllSubclasses(project, "\\Doctrine\\Common\\Persistence\\ObjectRepository"));
+        collection.addAll(PhpIndexUtil.getAllSubclasses(project, "\\Doctrine\\Persistence\\ObjectRepository"));
+
+        return new ArrayList<>(DoctrineRepositoryLookupElement.create(collection));
     }
 
     /**
@@ -79,9 +96,14 @@ public class DoctrineMetadataUtil {
         return null;
     }
 
+    /**
+     * Find Doctrine metadata files (YAML, XML, PHP) for the given entity class.
+     *
+     * @param className fully qualified class name, with or without leading backslash
+     */
     @NotNull
     public static Collection<VirtualFile> findMetadataFiles(@NotNull Project project, @NotNull String className) {
-
+        className = StringUtils.stripStart(className, "\\");
         final Collection<VirtualFile> virtualFiles = new ArrayList<>();
 
         FileBasedIndex.getInstance().getFilesWithKey(DoctrineMetadataFileStubIndex.KEY, new HashSet<>(Collections.singletonList(className)), virtualFile -> {
@@ -91,6 +113,12 @@ public class DoctrineMetadataUtil {
 
         return virtualFiles;
     }
+
+    /**
+     * Find Doctrine metadata files for the entity that uses the given repository class.
+     *
+     * @param phpClass the repository PhpClass
+     */
     @NotNull
     public static Collection<VirtualFile> findMetadataForRepositoryClass(@NotNull PhpClass phpClass) {
         return findMetadataForRepositoryClass(
@@ -105,12 +133,17 @@ public class DoctrineMetadataUtil {
         DOCTRINE_REPOSITORY_CACHE = new Key<>("DOCTRINE_REPOSITORY_CACHE");
     }
 
+    /**
+     * Find Doctrine metadata files for the entity that references the given repository class name.
+     *
+     * @param repositoryClass fully qualified repository class name without leading backslash
+     */
     @NotNull
     public static Collection<VirtualFile> findMetadataForRepositoryClass(final @NotNull Project project, @NotNull String repositoryClass) {
-
-        CachedValue<Map<String, Collection<String>>> cache = project.getUserData(DOCTRINE_REPOSITORY_CACHE);
-        if(cache == null) {
-            cache = CachedValuesManager.getManager(project).createCachedValue(() -> {
+        Map<String, Collection<String>> cache = CachedValuesManager.getManager(project).getCachedValue(
+            project,
+            DOCTRINE_REPOSITORY_CACHE,
+            () -> {
                 Map<String, Collection<String>> repositoryMap = new HashMap<>();
                 for (String key : FileIndexCaches.getIndexKeysCache(project, CLASS_KEYS, DoctrineMetadataFileStubIndex.KEY)) {
                     for (DoctrineModelInterface repositoryDefinition : FileBasedIndex.getInstance().getValues(DoctrineMetadataFileStubIndex.KEY, key, GlobalSearchScope.allScope(project))) {
@@ -130,20 +163,19 @@ public class DoctrineMetadataUtil {
                     }
                 }
 
-                return CachedValueProvider.Result.create(repositoryMap, PsiModificationTracker.MODIFICATION_COUNT);
-            }, false);
-
-            project.putUserData(DOCTRINE_REPOSITORY_CACHE, cache);
-        }
+                return CachedValueProvider.Result.create(repositoryMap, FileIndexCaches.getModificationTrackerForIndexId(project, DoctrineMetadataFileStubIndex.KEY));
+            },
+            false
+        );
 
         repositoryClass = StringUtils.stripStart(repositoryClass,"\\");
-        if(!cache.getValue().containsKey(repositoryClass)) {
+        if(!cache.containsKey(repositoryClass)) {
             return Collections.emptyList();
         }
 
         Set<VirtualFile> virtualFiles = new HashSet<>();
 
-        for (String s : cache.getValue().get(repositoryClass)) {
+        for (String s : cache.get(repositoryClass)) {
             virtualFiles.addAll(
                 FileBasedIndex.getInstance().getContainingFiles(DoctrineMetadataFileStubIndex.KEY, s, GlobalSearchScope.allScope(project))
             );
@@ -177,38 +209,79 @@ public class DoctrineMetadataUtil {
         return models;
     }
 
+    /**
+     * Returns cached pairs of (tableName, classFqn) from the Doctrine metadata index.
+     */
     @NotNull
-    public static Collection<Pair<String, PsiElement>> getTables(@NotNull Project project) {
-
-        Collection<Pair<String, PsiElement>> pair = new ArrayList<>();
-
-        for (String key : FileIndexCaches.getIndexKeysCache(project, CLASS_KEYS, DoctrineMetadataFileStubIndex.KEY)) {
-            for (VirtualFile virtualFile : FileBasedIndex.getInstance().getContainingFiles(DoctrineMetadataFileStubIndex.KEY, key, GlobalSearchScope.allScope(project))) {
-                PsiFile psiFile = PsiManager.getInstance(project).findFile(virtualFile);
-                if(psiFile == null) {
-                    continue;
-                }
-
-                DoctrineMappingDriverArguments arguments = new DoctrineMappingDriverArguments(project, psiFile, key);
-
-                for (DoctrineMappingDriverInterface mappingDriver : MAPPING_DRIVERS) {
-                    DoctrineMetadataModel metadata = mappingDriver.getMetadata(arguments);
-                    if(metadata == null) {
-                        continue;
+    public static Collection<Pair<String, String>> getTables(@NotNull Project project) {
+        return CachedValuesManager.getManager(project).getCachedValue(
+            project,
+            DOCTRINE_TABLES_CACHE,
+            () -> {
+                Collection<Pair<String, String>> pairs = new ArrayList<>();
+                FileBasedIndex.getInstance().processAllKeys(DoctrineMetadataFileStubIndex.KEY, key -> {
+                    for (DoctrineModelSerializable model : FileBasedIndex.getInstance().getValues(DoctrineMetadataFileStubIndex.KEY, key, GlobalSearchScope.allScope(project))) {
+                        String tableName = model.getTableName();
+                        if (tableName != null) {
+                            pairs.add(new Pair<>(tableName, model.getClassName()));
+                        }
                     }
+                    return true;
+                }, project);
+                return CachedValueProvider.Result.create(pairs, FileIndexCaches.getModificationTrackerForIndexId(project, DoctrineMetadataFileStubIndex.KEY));
+            },
+            false
+        );
+    }
 
-                    String table = metadata.getTable();
-                    if(table == null) {
-                        continue;
-                    }
+    /**
+     * Find Doctrine entity PHP classes for the given database table name.
+     * Checks explicit table name mappings from the index, then guessing from the class.
+     */
+    @NotNull
+    public static Collection<PhpClass> findEntityByTableName(@NotNull Project project, @NotNull String tableName) {
+        String normalizedTableName = tableName.trim().toLowerCase();
+        Collection<PhpClass> navigatables = new HashSet<>();
 
-                    // @TODO: add target
-                    pair.add(new Pair<>(table, psiFile));
-                }
+        // First: use the index for explicit table name mappings (fast, cached)
+        for (Pair<String, String> pair : getTables(project)) {
+            if (!pair.getFirst().trim().toLowerCase().equals(normalizedTableName)) {
+                continue;
+            }
+
+            PhpClass phpClass = PhpElementsUtil.getClassInterface(project, pair.getSecond());
+            if (phpClass == null) {
+                continue;
+            }
+
+            navigatables.add(phpClass);
+        }
+
+        if (!navigatables.isEmpty()) {
+            return new ArrayList<>(navigatables);
+        }
+
+        // Fallback: guess table name from class short name (snake_case + optional plural)
+        for (DoctrineModel model : EntityHelper.getModelClasses(project)) {
+            PhpClass phpClass = model.getPhpClass();
+
+            String shortName = phpClass.getName();
+            if (shortName.isBlank()) {
+                continue;
+            }
+
+            String singular = underscore(shortName);
+            if (singular.isBlank()) {
+                continue;
+            }
+
+            String plural = StringUtil.pluralize(singular);
+            if (singular.equalsIgnoreCase(normalizedTableName) || plural.equalsIgnoreCase(normalizedTableName)) {
+                navigatables.add(phpClass);
             }
         }
 
-        return pair;
+        return new ArrayList<>(navigatables);
     }
 
     @Nullable
@@ -230,7 +303,7 @@ public class DoctrineMetadataUtil {
                     }
 
                     String table = metadata.getTable();
-                    if(table != null && tableName.equals(table)) {
+                    if(tableName.equals(table)) {
                         return metadata;
                     }
                 }
@@ -240,9 +313,11 @@ public class DoctrineMetadataUtil {
         return null;
     }
 
+    /**
+     * @param className fully qualified class name (preferred), with or without leading backslash
+     */
     @Nullable
     public static DoctrineMetadataModel getModelFields(@NotNull Project project, @NotNull String className) {
-
         for (VirtualFile file : findMetadataFiles(project, className)) {
             PsiFile psiFile = PsiManager.getInstance(project).findFile(file);
             if(psiFile == null) {
@@ -295,20 +370,21 @@ public class DoctrineMetadataUtil {
     public static String findModelNameInScope(@NotNull PsiElement psiElement) {
 
         if(psiElement.getLanguage().equals(XMLLanguage.INSTANCE)) {
-            PsiElement firstParent = PsiTreeUtil.findFirstParent(psiElement, psiElement1 -> {
-                if (!(psiElement1 instanceof XmlTag)) {
-                    return false;
-                }
+            XmlTag xmlTag = PsiTreeUtil.getParentOfType(psiElement, XmlTag.class, false);
+            while (xmlTag != null) {
+                String tagName = xmlTag.getName();
+                boolean isModelTag = tagName.equals("entity")
+                    || tagName.equals("document")
+                    || tagName.equals("embedded-document")
+                    || tagName.equals("embeddable")
+                    || tagName.equals("embedded") && xmlTag.getParentTag() != null && xmlTag.getParentTag().getName().matches(DoctrineMetadataPattern.DOCTRINE_MAPPING);
 
-                String name = ((XmlTag) psiElement1).getName();
-                return name.equals("entity") || name.equals("document") || name.equals("embedded") || name.equals("embedded-document");
-            });
-
-            if(firstParent instanceof XmlTag) {
-                String name = ((XmlTag) firstParent).getAttributeValue("name");
+                String name = isModelTag ? xmlTag.getAttributeValue("name") : null;
                 if(StringUtils.isNotBlank(name)) {
                     return name;
                 }
+
+                xmlTag = PsiTreeUtil.getParentOfType(xmlTag, XmlTag.class, true);
             }
         } else if(psiElement.getContainingFile() instanceof YAMLFile) {
             PsiFile psiFile = psiElement.getContainingFile();

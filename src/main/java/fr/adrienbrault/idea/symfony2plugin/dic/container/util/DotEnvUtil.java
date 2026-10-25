@@ -3,27 +3,28 @@ package fr.adrienbrault.idea.symfony2plugin.dic.container.util;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Key;
 import com.intellij.openapi.util.Pair;
+import com.intellij.openapi.vfs.VfsUtil;
 import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.openapi.vfs.VirtualFileManager;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiManager;
 import com.intellij.psi.search.FilenameIndex;
 import com.intellij.psi.search.GlobalSearchScope;
-import com.intellij.psi.util.CachedValue;
-import com.intellij.psi.util.CachedValueProvider;
-import com.intellij.psi.util.CachedValuesManager;
-import com.intellij.psi.util.PsiModificationTracker;
+import com.intellij.psi.util.*;
+import fr.adrienbrault.idea.symfony2plugin.util.ProjectUtil;
+import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.yaml.YAMLUtil;
 import org.jetbrains.yaml.psi.*;
 
-import java.io.IOException;
 import java.util.*;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.io.InputStream;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -53,8 +54,8 @@ public class DotEnvUtil {
 
         // https://github.com/symfony/symfony/pull/23901 => RegisterEnvVarProcessorsPass
         // '%env(int:DATABASE_PORT)%'
-        // '%env(resolve:DB)%'
-        Matcher matcher = Pattern.compile("^[\\w]+:(.*)$", Pattern.MULTILINE).matcher(parameterName);
+        // '%env(resolve:int:foo:DB)%'
+        Matcher matcher = Pattern.compile("^[\\w-_^:]+:(.*)$", Pattern.MULTILINE).matcher(parameterName);
         if(matcher.find()){
             parameterName = matcher.group(1);
         }
@@ -62,24 +63,101 @@ public class DotEnvUtil {
         return DotEnvUtil.getEnvironmentVariableTargets(project, parameterName);
     }
 
+    /**
+     * Get environment variable keys with their values from .env files.
+     * Only reads .env files (not docker-compose or Dockerfile) since those
+     * rarely contain DATABASE_URL style connection strings with actual values.
+     */
     @NotNull
-    public static Collection<String> getEnvironmentVariables(@NotNull Project project) {
-        CachedValue<Set<String>> cache = project.getUserData(DOT_ENV_VARIABLE_CACHE);
-        if (cache == null) {
-            cache = CachedValuesManager.getManager(project).createCachedValue(() -> {
-                Set<String> items = new HashSet<>();
+    public static Map<String, String> getEnvironmentVariablesWithValues(@NotNull Project project) {
+        Map<String, String> variables = new HashMap<>();
 
-                DotEnvUtil.visitEnvironment(project, pair ->
-                    items.add(pair.getFirst())
-                );
-
-                return CachedValueProvider.Result.create(items, PsiModificationTracker.MODIFICATION_COUNT);
-                }, false
-            );
-            project.putUserData(DOT_ENV_VARIABLE_CACHE, cache);
+        for (VirtualFile virtualFile : collectDotEnvFiles(project)) {
+            try (InputStream inputStream = virtualFile.getInputStream()) {
+                String content = new String(inputStream.readAllBytes(), virtualFile.getCharset());
+                parseDotEnvContent(content, variables);
+            } catch (Throwable ignored) {
+            }
         }
 
-        return cache.getValue();
+        return variables;
+    }
+
+    @NotNull
+    private static Set<VirtualFile> collectDotEnvFiles(@NotNull Project project) {
+        Set<VirtualFile> files = new HashSet<>(
+            FilenameIndex.getAllFilesByExt(project, "env", GlobalSearchScope.allScope(project))
+        );
+
+        for (String name : new String[]{".env", ".env.dist", ".env.test", ".env.local"}) {
+            files.addAll(FilenameIndex.getVirtualFilesByName(name, GlobalSearchScope.allScope(project)));
+        }
+
+        VirtualFile projectDir = VfsUtil.findRelativeFile(ProjectUtil.getProjectDir(project));
+        if (projectDir != null) {
+            for (VirtualFile child : projectDir.getChildren()) {
+                if (child.getName().startsWith(".env")) {
+                    files.add(child);
+                }
+            }
+        }
+
+        return files;
+    }
+
+    /**
+     * Parse .env file content into key/value pairs.
+     * Handles double-quoted and single-quoted values by stripping the surrounding quotes.
+     * Unlike Java's Properties.load(), this correctly handles values like:
+     *   DATABASE_URL="postgresql://user:pass@host/db"
+     */
+    private static void parseDotEnvContent(@NotNull String content, @NotNull Map<String, String> variables) {
+        // KEY=VALUE, KEY="VALUE", KEY='VALUE' — optional export prefix, inline comments ignored
+        Pattern pattern = Pattern.compile(
+            "^\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*=\\s*(['\"]?)(.*?)\\2\\s*(?:#.*)?$",
+            Pattern.MULTILINE
+        );
+        Matcher matcher = pattern.matcher(content);
+        while (matcher.find()) {
+            String key = matcher.group(1);
+            String quote = matcher.group(2);
+            String value = matcher.group(3);
+            // For unquoted values, trim trailing whitespace (which may precede an inline comment)
+            if (quote.isEmpty()) {
+                value = value.trim();
+            }
+            variables.put(key, value);
+        }
+    }
+
+    @NotNull
+    public static Collection<String> getEnvironmentVariables(@NotNull Project project) {
+        return CachedValuesManager.getManager(project).getCachedValue(
+            project,
+            DOT_ENV_VARIABLE_CACHE,
+            () -> {
+                Set<String> items = new HashSet<>();
+                Set<VirtualFile> files = new HashSet<>();
+
+                DotEnvUtil.visitEnvironment(project, pair -> {
+                    items.add(pair.getFirst());
+                    files.add(pair.getSecond().getContainingFile().getVirtualFile());
+                });
+
+                Object[] dependencies = new Object[files.size() + 1];
+                int i = 0;
+                for (VirtualFile file : files) {
+                    dependencies[i++] = file;
+                }
+                dependencies[i] = VirtualFileManager.VFS_STRUCTURE_MODIFICATIONS;
+
+                return CachedValueProvider.Result.create(
+                    items,
+                    dependencies
+                );
+            },
+            false
+        );
     }
 
     @NotNull
@@ -96,28 +174,29 @@ public class DotEnvUtil {
     }
 
     private static void visitEnvironment(@NotNull Project project, @NotNull Consumer<Pair<String, PsiElement>> consumer) {
-        for (VirtualFile virtualFile : FilenameIndex.getAllFilesByExt(project, "env", GlobalSearchScope.allScope(project))) {
-            Properties variables = new Properties();
-            try {
-                variables.load(virtualFile.getInputStream());
-            } catch (IOException e) {
+        for (VirtualFile virtualFile : collectDotEnvFiles(project)) {
+            PsiFile file = PsiManager.getInstance(project).findFile(virtualFile);
+            if (file == null) {
                 continue;
             }
 
-            PsiFile file = PsiManager.getInstance(project).findFile(virtualFile);
-            if(file == null) {
+            Properties variables = new Properties();
+            try {
+                variables.load(virtualFile.getInputStream());
+            } catch (Throwable e) {
                 continue;
             }
 
             for (Map.Entry<Object, Object> variable : variables.entrySet()) {
                 Object key = variable.getKey();
-                if(key instanceof String) {
-                    consumer.accept(Pair.create(key.toString(), file));
+                if (key instanceof String) {
+                    consumer.accept(Pair.create((String) key, file));
                 }
             }
         }
 
-        for (PsiFile psiFile : FilenameIndex.getFilesByName(project, "docker-compose.yml", GlobalSearchScope.allScope(project))) {
+        Collection<VirtualFile> virtualFilesByName = FilenameIndex.getVirtualFilesByName("docker-compose.yml", GlobalSearchScope.allScope(project));
+        for (PsiFile psiFile : PsiElementUtils.convertVirtualFilesToPsiFiles(project, virtualFilesByName)) {
             if(!(psiFile instanceof YAMLFile)) {
                 continue;
             }
@@ -137,8 +216,17 @@ public class DotEnvUtil {
         }
 
         for (String file : DOCKER_FILES) {
-            for (PsiFile psiFile : FilenameIndex.getFilesByName(project, file, GlobalSearchScope.allScope(project))) {
+            Collection<VirtualFile> virtualFilesByName1 = FilenameIndex.getVirtualFilesByName(file, GlobalSearchScope.allScope(project));
+            for (PsiFile psiFile : PsiElementUtils.convertVirtualFilesToPsiFiles(project, virtualFilesByName1)) {
+                // ENV DOCKERFILE_FOO /bar
                 Matcher matcher = Pattern.compile("ENV\\s+([^\\s]*)\\s+").matcher(psiFile.getText());
+                while(matcher.find()){
+                    consumer.accept(Pair.create(matcher.group(1), psiFile));
+                }
+
+                // ENV ADMIN_USER_DOCKERFILE="mark"
+                // ENV ADMIN_USER_DOCKERFILE ="mark"
+                matcher = Pattern.compile("ENV\\s+([\\w+]*)\\s*=").matcher(psiFile.getText());
                 while(matcher.find()){
                     consumer.accept(Pair.create(matcher.group(1), psiFile));
                 }
@@ -149,10 +237,14 @@ public class DotEnvUtil {
     /**
      * environment:
      *   - FOOBAR=0
+     *
+     * environment:
+     *   FOOBAR: 0
      */
     private static void visitEnvironmentSquenceItems(@NotNull Consumer<Pair<String, PsiElement>> consumer, @NotNull YAMLKeyValue yamlKeyValue) {
         YAMLKeyValue environment = YamlHelper.getYamlKeyValue(yamlKeyValue, "environment");
         if (environment != null) {
+            // FOOBAR=0
             for (YAMLSequenceItem yamlSequenceItem : YamlHelper.getSequenceItems(environment)) {
                 YAMLValue value = yamlSequenceItem.getValue();
                 if (value instanceof YAMLScalar) {
@@ -163,6 +255,14 @@ public class DotEnvUtil {
                             consumer.accept(Pair.create(split[0], value));
                         }
                     }
+                }
+            }
+
+            // FOOBAR: 0
+            YAMLMapping childOfType = PsiTreeUtil.getChildOfType(environment, YAMLMapping.class);
+            if (childOfType != null) {
+                for (Map.Entry<String, YAMLValue> entry : YamlHelper.getYamlArrayKeyMap(childOfType).entrySet()) {
+                    consumer.accept(Pair.create(entry.getKey(), entry.getValue()));
                 }
             }
         }

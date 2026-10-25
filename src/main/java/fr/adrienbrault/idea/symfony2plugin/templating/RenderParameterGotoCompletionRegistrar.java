@@ -12,7 +12,7 @@ import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionProvider;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionRegistrar;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionRegistrarParameter;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.utils.GotoCompletionUtil;
-import fr.adrienbrault.idea.symfony2plugin.navigation.controller.TemplatesControllerRelatedGotoCollector;
+import fr.adrienbrault.idea.symfony2plugin.templating.util.PhpMethodVariableResolveUtil;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import icons.TwigIcons;
@@ -55,7 +55,7 @@ public class RenderParameterGotoCompletionRegistrar implements GotoCompletionReg
         @Override
         public Collection<LookupElement> getLookupElements() {
             Collection<String> templateNames = getTemplatesForScope(getElement());
-            if(templateNames.size() == 0) {
+            if(templateNames.isEmpty()) {
                 return Collections.emptyList();
             }
 
@@ -90,12 +90,12 @@ public class RenderParameterGotoCompletionRegistrar implements GotoCompletionReg
         @Override
         public Collection<PsiElement> getPsiTargets(PsiElement element) {
             Collection<String> templateNames = getTemplatesForScope(element);
-            if(templateNames.size() == 0) {
+            if(templateNames.isEmpty()) {
                 return Collections.emptyList();
             }
 
             String variable = GotoCompletionUtil.getTextValueForElement(element);
-            if(org.apache.commons.lang.StringUtils.isBlank(variable)) {
+            if(org.apache.commons.lang3.StringUtils.isBlank(variable)) {
                 return Collections.emptyList();
             }
 
@@ -164,19 +164,18 @@ public class RenderParameterGotoCompletionRegistrar implements GotoCompletionReg
             // }
             Method method = PsiTreeUtil.getParentOfType(parentArrayCreation, Method.class);
             if(method != null) {
-                TemplatesControllerRelatedGotoCollector.visitMethodTemplateNames(method, pair -> templates.add(
-                    TwigUtil.normalizeTemplateName(pair.getFirst())
-                ));
+                PhpMethodVariableResolveUtil.visitRenderTemplateFunctions(method, triple ->
+                    templates.add(TwigUtil.normalizeTemplateName(triple.getFirst()))
+                );
             }
         } else {
             // foobar('foo.html.twig', ['<caret>'])
             PsiElement prevSibling = arrayCreationElement.getPrevPsiSibling();
             if(prevSibling != null) {
-                String stringValue = PhpElementsUtil.getStringValue(prevSibling);
-                if(stringValue != null && stringValue.toLowerCase().endsWith(".twig")) {
-                    templates.add(
-                        TwigUtil.normalizeTemplateName(stringValue)
-                    );
+                for (String stringValue : PhpElementsUtil.StringResolver.findStringValues(prevSibling)) {
+                    if(stringValue != null && stringValue.toLowerCase().endsWith(".twig")) {
+                        templates.add(TwigUtil.normalizeTemplateName(stringValue));
+                    }
                 }
             }
         }

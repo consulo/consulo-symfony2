@@ -4,6 +4,8 @@ import fr.adrienbrault.idea.symfony2plugin.util.service.AbstractServiceParser;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
+import com.intellij.openapi.project.Project;
+import com.intellij.openapi.vfs.VirtualFile;
 import java.io.InputStream;
 
 /**
@@ -11,14 +13,14 @@ import java.io.InputStream;
  */
 public class FormTypeServiceParser extends AbstractServiceParser {
 
-    protected FormTypeMap formTypeMap = new FormTypeMap();
+    protected final FormTypeMap formTypeMap = new FormTypeMap();
 
     @Override
     public String getXPathFilter() {
         return "/container/services/service[@id='form.registry']//service[@class]/argument[@type='collection'][1]/argument[@key]";
     }
 
-    public void parser(InputStream file) {
+    public void parser(InputStream file, VirtualFile sourceFile, Project project) {
         NodeList nodeList = this.parserer(file);
 
         if(nodeList == null) {

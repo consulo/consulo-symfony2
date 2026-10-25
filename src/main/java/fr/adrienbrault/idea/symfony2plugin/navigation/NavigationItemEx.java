@@ -6,6 +6,7 @@ import com.intellij.navigation.NavigationItem;
 import com.intellij.pom.Navigatable;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
@@ -18,10 +19,10 @@ import javax.swing.*;
  */
 public class NavigationItemEx implements NavigationItem, ItemPresentation {
 
-    private PsiElement psiElement;
-    private String name;
-    private Icon icon;
-    private String locationString;
+    private final PsiElement psiElement;
+    private final String name;
+    private final Icon icon;
+    private final String locationString;
     private boolean appendBundleLocation = true;
 
     public NavigationItemEx(PsiElement psiElement, final String name, final Icon icon, final String locationString) {
@@ -80,13 +81,11 @@ public class NavigationItemEx implements NavigationItem, ItemPresentation {
     @Nullable
     @Override
     public String getLocationString() {
-
         if(!this.appendBundleLocation) {
             return this.locationString;
         }
 
         PsiFile psiFile = psiElement.getContainingFile();
-
         if(psiFile == null) {
             return this.locationString;
         }
@@ -98,7 +97,7 @@ public class NavigationItemEx implements NavigationItem, ItemPresentation {
         if(bundleName.contains("Bundle")) {
             bundleName = bundleName.substring(0, bundleName.lastIndexOf("Bundle"));
             if(bundleName.length() > 1 && bundleName.contains("/")) {
-                return locationPathString + " " + bundleName.substring(bundleName.lastIndexOf("/") + 1, bundleName.length()) + "::" + psiFile.getName();
+                return locationPathString + " " + bundleName.substring(bundleName.lastIndexOf("/") + 1) + "::" + psiFile.getName();
             }
         }
 
@@ -109,6 +108,25 @@ public class NavigationItemEx implements NavigationItem, ItemPresentation {
     @Override
     public Icon getIcon(boolean b) {
         return icon;
+    }
+
+    /**
+     * Appends bundle and file name to the location string when the file path contains "Bundle".
+     * Format: {@code "locationString BundleDir::filename"}, or {@code "locationString filename"} as fallback.
+     */
+    @NotNull
+    public static String buildBundleLocationString(@NotNull String locationString, @NotNull PsiFile psiFile) {
+        String locationPathString = locationString + " " + psiFile.getName();
+
+        String bundlePath = psiFile.getVirtualFile().getPath();
+        if (bundlePath.contains("Bundle")) {
+            bundlePath = bundlePath.substring(0, bundlePath.lastIndexOf("Bundle"));
+            if (bundlePath.length() > 1 && bundlePath.contains("/")) {
+                locationPathString = locationPathString + " " + bundlePath.substring(bundlePath.lastIndexOf("/") + 1) + "::" + psiFile.getName();
+            }
+        }
+
+        return locationPathString;
     }
 
 }

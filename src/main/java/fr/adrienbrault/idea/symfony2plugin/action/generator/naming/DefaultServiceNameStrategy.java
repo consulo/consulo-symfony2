@@ -1,6 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.action.generator.naming;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -39,6 +39,10 @@ public class DefaultServiceNameStrategy implements ServiceNameStrategyInterface 
 
                     x = i + 1;
                 }
+            }
+
+            if (x < 0) {
+                return formatParts(Arrays.asList(split));
             }
 
             Collection<String> parts = new ArrayList<>();

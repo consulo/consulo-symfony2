@@ -1,0 +1,10 @@
+<idea-plugin>
+    <extensions defaultExtensionNs="com.intellij">
+        <!--
+            MCP Tools Provider - registers tools dynamically based on application-level settings.
+            Tools disabled in application settings are completely hidden from the MCP server.
+            Individual mcpToolset registrations are no longer needed as the provider handles all tools.
+        -->
+        <mcpServer.mcpToolsProvider implementation="fr.adrienbrault.idea.symfony2plugin.mcp.SymfonyMcpToolsProvider"/>
+    </extensions>
+</idea-plugin>

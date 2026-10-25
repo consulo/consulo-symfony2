@@ -1,13 +1,15 @@
 package fr.adrienbrault.idea.symfony2plugin.templating;
 
+import com.intellij.codeInsight.completion.CompletionResultSet;
+import com.intellij.codeInsight.lookup.LookupElement;
 import com.intellij.psi.PsiElement;
+import com.intellij.psi.PsiFile;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.*;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
 import fr.adrienbrault.idea.symfony2plugin.twig.utils.TwigBlockUtil;
-import fr.adrienbrault.idea.symfony2plugin.twig.utils.TwigFileUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Collection;
@@ -44,6 +46,15 @@ public class BlockGotoCompletionRegistrar implements GotoCompletionRegistrar {
                 return Collections.emptyList();
             }
 
+            Collection<PsiFile> explicitTemplateTargets = TwigBlockUtil.getBlockFunctionTemplateTargets(element);
+            if (!explicitTemplateTargets.isEmpty()) {
+                return explicitTemplateTargets.stream()
+                    .map(psiFile -> TwigBlockUtil.getBlockOverwriteTargets(psiFile, blockName, true))
+                    .flatMap(Collection::stream)
+                    .filter(psiElement -> psiElement != element)
+                    .collect(Collectors.toSet());
+            }
+
             Collection<PsiElement> psiElements = new HashSet<>();
 
             psiElements.addAll(
@@ -62,10 +73,17 @@ public class BlockGotoCompletionRegistrar implements GotoCompletionRegistrar {
 
         @Override
         public void getLookupElements(@NotNull GotoCompletionProviderLookupArguments arguments) {
-            arguments.addAllElements(TwigUtil.getBlockLookupElements(
+            Collection<PsiFile> explicitTemplateTargets = TwigBlockUtil.getBlockFunctionTemplateTargets(getElement());
+            Collection<PsiFile> templateTargets = explicitTemplateTargets.isEmpty()
+                ? Collections.singleton(arguments.getParameters().getOriginalFile())
+                : explicitTemplateTargets;
+
+            Collection<LookupElement> lookupElements = TwigUtil.getBlockLookupElements(
                 getProject(),
-                TwigFileUtil.collectParentFiles(true, arguments.getParameters().getOriginalFile())
-            ));
+                TwigBlockUtil.getBlockLookupScopeFiles(templateTargets)
+            );
+            CompletionResultSet completionResultSet = TwigUtil.withCompletionPrefix(arguments.getParameters(), arguments.getResultSet());
+            completionResultSet.addAllElements(lookupElements);
         }
     }
 }

@@ -16,7 +16,7 @@ import java.util.List;
  */
 public class EventDispatcherEventReference extends PsiPolyVariantReferenceBase<PsiElement> {
 
-    private String eventName;
+    private final String eventName;
 
     public EventDispatcherEventReference(@NotNull PsiElement element, String eventName) {
         super(element);
@@ -38,7 +38,7 @@ public class EventDispatcherEventReference extends PsiPolyVariantReferenceBase<P
             resolveResults.add(new PsiElementResolveResult(psiElement));
         }
 
-        return resolveResults.toArray(new ResolveResult[resolveResults.size()]);
+        return resolveResults.toArray(new ResolveResult[0]);
     }
 
     @NotNull

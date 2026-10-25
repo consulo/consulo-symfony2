@@ -1,5 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.dic;
 
+import com.intellij.openapi.project.DumbService;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiElementResolveResult;
 import com.intellij.psi.PsiPolyVariantReferenceBase;
@@ -14,7 +15,7 @@ import org.jetbrains.annotations.NotNull;
  */
 public class TagReference extends PsiPolyVariantReferenceBase<PsiElement> {
 
-    private String tagName;
+    private final String tagName;
 
     public TagReference(PsiElement psiElement, String tagName) {
         super(psiElement);
@@ -29,12 +30,18 @@ public class TagReference extends PsiPolyVariantReferenceBase<PsiElement> {
     @NotNull
     @Override
     public ResolveResult[] multiResolve(boolean incompleteCode) {
-        return PsiElementResolveResult.createResults(ServiceUtil.getTaggedClassesWithCompiled(getElement().getProject(), this.tagName));
+        if (DumbService.isDumb(getElement().getProject())) {
+            return ResolveResult.EMPTY_ARRAY;
+        }
+        return PsiElementResolveResult.createResults(ServiceUtil.getTaggedClasses(getElement().getProject(), this.tagName));
     }
 
     @NotNull
     @Override
     public Object[] getVariants() {
+        if (DumbService.isDumb(getElement().getProject())) {
+            return new Object[0];
+        }
         return TagNameCompletionProvider.getTagLookupElements(getElement().getProject()).toArray();
     }
 

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<container>
+
+    <parameters>
+        <parameter key="foo_parameter">bar</parameter>
+        <parameter key="kernel.project_dir">project_dir</parameter>
+    </parameters>
+
+    <services>
+        <service id="foo" class="MyDateTime"/>
+        <service id="foo.bar_foo" class="MyDateTime"/>
+        <service id="foo.bar-foo" class="MyDateTime"/>
+    </services>
+
+</container>

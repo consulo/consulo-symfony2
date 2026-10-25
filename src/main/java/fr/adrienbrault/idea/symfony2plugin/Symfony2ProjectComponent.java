@@ -1,140 +1,86 @@
 package fr.adrienbrault.idea.symfony2plugin;
 
-import com.intellij.notification.Notification;
-import com.intellij.notification.NotificationType;
-import com.intellij.notification.Notifications;
-import com.intellij.openapi.components.ProjectComponent;
+import com.intellij.openapi.Disposable;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
-import com.intellij.openapi.extensions.ExtensionPointName;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.startup.ProjectActivity;
 import com.intellij.openapi.vfs.VfsUtil;
-import com.intellij.openapi.wm.StatusBar;
-import com.intellij.openapi.wm.WindowManager;
+import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiElement;
 import fr.adrienbrault.idea.symfony2plugin.dic.ContainerFile;
-import fr.adrienbrault.idea.symfony2plugin.extension.ServiceContainerLoader;
-import fr.adrienbrault.idea.symfony2plugin.extension.ServiceContainerLoaderParameter;
-import fr.adrienbrault.idea.symfony2plugin.profiler.widget.SymfonyProfilerWidget;
-import fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper;
+import fr.adrienbrault.idea.symfony2plugin.dic.container.util.ServiceContainerUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.IdeHelper;
-import fr.adrienbrault.idea.symfony2plugin.util.service.ServiceXmlParserFactory;
+import fr.adrienbrault.idea.symfony2plugin.util.ProjectUtil;
+import fr.adrienbrault.idea.symfony2plugin.util.SymfonyVarDirectoryWatcherKt;
+import kotlin.Unit;
+import kotlin.coroutines.Continuation;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 
 /**
  * @author Adrien Brault <adrien.brault@gmail.com>
  */
-public class Symfony2ProjectComponent implements ProjectComponent {
+public class Symfony2ProjectComponent {
+    public static class PostStartupActivity implements ProjectActivity {
+        @Nullable
+        @Override
+        public Object execute(@NotNull Project project, @NotNull Continuation<? super Unit> continuation) {
+            if (isEnabled(project)) {
+                SymfonyVarDirectoryWatcherKt.getSymfonyVarDirectoryWatcher(project);
+            }
 
-    public static String HELP_URL = "http://symfony2-plugin.espend.de/";
+            if (!ApplicationManager.getApplication().isUnitTestMode() && !ApplicationManager.getApplication().isHeadlessEnvironment()) {
+                checkProject(project);
+            }
+
+            return Unit.INSTANCE;
+        }
+    }
+
     final private static Logger LOG = Logger.getInstance("Symfony-Plugin");
-    private static final ExtensionPointName<ServiceContainerLoader> SERVICE_CONTAINER_POINT_NAME = new ExtensionPointName<>("fr.adrienbrault.idea.symfony2plugin.extension.ServiceContainerLoader");
-
-    private Project project;
-
-    public Symfony2ProjectComponent(Project project) {
-        this.project = project;
-    }
-
-    public void initComponent() {
-        //System.out.println("initComponent");
-    }
-
-    public void disposeComponent() {
-        //System.out.println("disposeComponent");
-    }
-
-    @NotNull
-    public String getComponentName() {
-        return "Symfony2ProjectComponent";
-    }
-
-
-
-    public void projectOpened() {
-        this.checkProject();
-
-        // attach toolbar popup (right bottom)
-        StatusBar statusBar = WindowManager.getInstance().getStatusBar(this.project);
-        if(statusBar == null) {
-            return;
-        }
-
-        // clean bar on project open; we can have multiple projects att some time
-        if(statusBar.getWidget(SymfonyProfilerWidget.ID) != null) {
-            statusBar.removeWidget(SymfonyProfilerWidget.ID);
-        }
-
-        if(isEnabled()) {
-            SymfonyProfilerWidget symfonyProfilerWidget = new SymfonyProfilerWidget(this.project);
-            statusBar.addWidget(symfonyProfilerWidget);
-        }
-
-    }
-
-    public void projectClosed() {
-
-        ServiceXmlParserFactory.cleanInstance(project);
-
-        // clean routing
-        if(RouteHelper.COMPILED_CACHE.containsKey(project)) {
-            RouteHelper.COMPILED_CACHE.remove(project);
-        }
-    }
-
     public static Logger getLogger() {
         return LOG;
     }
 
-    public void showInfoNotification(String content) {
-        Notification errorNotification = new Notification("Symfony Plugin", "Symfony Plugin", content, NotificationType.INFORMATION);
-        Notifications.Bus.notify(errorNotification, this.project);
-    }
-
-    public boolean isEnabled() {
-        return Settings.getInstance(project).pluginEnabled;
-    }
-
-    public Collection<File> getContainerFiles() {
+    public static Collection<VirtualFile> getContainerFiles(@NotNull Project project) {
         Collection<ContainerFile> containerFiles = new ArrayList<>();
 
-        ServiceContainerLoaderParameter containerLoaderExtensionParameter = new ServiceContainerLoaderParameter(project, containerFiles);
-        for(ServiceContainerLoader loaderExtension : SERVICE_CONTAINER_POINT_NAME.getExtensions()) {
-            loaderExtension.attachContainerFile(containerLoaderExtensionParameter);
+        List<ContainerFile> settingsContainerFiles = Settings.getInstance(project).containerFiles;
+        if (settingsContainerFiles != null) {
+            containerFiles.addAll(settingsContainerFiles.stream()
+                .filter(containerFile -> containerFile.getPath() != null)
+                .toList());
         }
 
-        if(containerFiles.size() == 0) {
-            for (String s : Settings.DEFAULT_CONTAINER_PATHS) {
+        if (containerFiles.isEmpty()) {
+            for (String s : ServiceContainerUtil.getContainerFiles(project)) {
                 containerFiles.add(new ContainerFile(s));
             }
         }
 
-        Collection<File> validFiles = new ArrayList<>();
-        for(ContainerFile containerFile : containerFiles) {
-            if(containerFile.exists(this.project)) {
-                validFiles.add(containerFile.getFile(this.project));
+        Collection<VirtualFile> validFiles = new ArrayList<>();
+        for (ContainerFile containerFile : containerFiles) {
+            VirtualFile virtualFile = containerFile.getVirtualFile(project);
+            if (virtualFile != null && virtualFile.exists()) {
+                validFiles.add(virtualFile);
             }
         }
 
         return validFiles;
     }
 
-    private void checkProject() {
-        if(!this.isEnabled()
+    private static void checkProject(@NotNull Project project) {
+        if(!isEnabled(project)
             && !Settings.getInstance(project).dismissEnableNotification
-            && VfsUtil.findRelativeFile(this.project.getBaseDir(), "vendor", "symfony") != null
+            && VfsUtil.findRelativeFile(ProjectUtil.getProjectDir(project), "vendor", "symfony") != null
             ) {
 
             IdeHelper.notifyEnableMessage(project);
-            return;
-        }
-
-        if(this.getContainerFiles().size() == 0) {
-            Symfony2ProjectComponent.getLogger().warn("missing at least one container file");
         }
     }
 
@@ -152,12 +98,12 @@ public class Symfony2ProjectComponent implements ProjectComponent {
             return true;
         }
 
-        if(VfsUtil.findRelativeFile(project.getBaseDir(), "vendor", "symfony") != null) {
+        if(VfsUtil.findRelativeFile(ProjectUtil.getProjectDir(project), "vendor", "symfony") != null) {
             return true;
         }
 
         // drupal8; this should not really here
-        if(VfsUtil.findRelativeFile(project.getBaseDir(), "core", "vendor", "symfony") != null) {
+        if(VfsUtil.findRelativeFile(ProjectUtil.getProjectDir(project), "core", "vendor", "symfony") != null) {
             return true;
         }
 

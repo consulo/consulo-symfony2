@@ -6,6 +6,7 @@ import com.intellij.openapi.util.Pair;
 import com.intellij.patterns.PlatformPatterns;
 import com.intellij.psi.PsiElement;
 import com.jetbrains.php.lang.PhpLanguage;
+import com.jetbrains.php.lang.psi.elements.PhpClass;
 import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionProvider;
@@ -17,7 +18,7 @@ import fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.dict.DoctrineMetada
 import fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.util.DoctrineMetadataUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.MethodMatcher;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -134,14 +135,14 @@ public class DoctrineDbalQbGotoCompletionRegistrar implements GotoCompletionRegi
             String underscore = fr.adrienbrault.idea.symfony2plugin.util.StringUtils.underscore(value);
             aliasSet.add(underscore);
 
-            if(value.length() > 0) {
+            if(!value.isEmpty()) {
                 aliasSet.add(value.substring(0, 1));
             }
 
             if(underscore.contains("_")) {
                 String[] split = underscore.split("_");
                 if(split.length > 1) {
-                    aliasSet.add(split[0].substring(0, 1) + split[1].substring(0, 1));
+                    aliasSet.add(split[0].charAt(0) + split[1].substring(0, 1));
                 }
 
                 List<String> i = new ArrayList<>();
@@ -164,11 +165,6 @@ public class DoctrineDbalQbGotoCompletionRegistrar implements GotoCompletionRegi
             return lookupElements;
         }
 
-        @NotNull
-        @Override
-        public Collection<PsiElement> getPsiTargets(PsiElement element) {
-            return Collections.emptyList();
-        }
     }
 
     private boolean isTableNameRegistrar(PsiElement context) {
@@ -208,7 +204,7 @@ public class DoctrineDbalQbGotoCompletionRegistrar implements GotoCompletionRegi
         public Collection<LookupElement> getLookupElements() {
             Collection<LookupElement> elements = new ArrayList<>();
 
-            for (Pair<String, PsiElement> pair : DoctrineMetadataUtil.getTables(getProject())) {
+            for (com.intellij.openapi.util.Pair<String, String> pair : DoctrineMetadataUtil.getTables(getProject())) {
                 elements.add(LookupElementBuilder.create(pair.getFirst()).withIcon(Symfony2Icons.DOCTRINE));
             }
 
@@ -225,17 +221,15 @@ public class DoctrineDbalQbGotoCompletionRegistrar implements GotoCompletionRegi
 
             Collection<PsiElement> psiElements = new ArrayList<>();
 
-            for (Pair<String, PsiElement> pair : DoctrineMetadataUtil.getTables(getProject())) {
+            for (Pair<String, String> pair : DoctrineMetadataUtil.getTables(getProject())) {
                 if(!contents.equals(pair.getFirst())) {
                     continue;
                 }
 
-                PsiElement second = pair.getSecond();
-                if(second == null) {
-                    continue;
+                PhpClass phpClass = PhpElementsUtil.getClassInterface(getProject(), pair.getSecond());
+                if (phpClass != null) {
+                    psiElements.add(phpClass);
                 }
-
-                psiElements.add(second);
             }
 
             return psiElements;

@@ -1,10 +1,12 @@
 package fr.adrienbrault.idea.symfony2plugin.action;
 
+import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.PlatformDataKeys;
 import com.intellij.openapi.project.DumbAwareAction;
 import com.intellij.openapi.project.Project;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
+import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
 
@@ -13,14 +15,21 @@ import javax.swing.*;
  */
 abstract public class AbstractProjectDumbAwareAction extends DumbAwareAction {
 
+    @Override
+    public @NotNull ActionUpdateThread getActionUpdateThread() {
+        return ActionUpdateThread.BGT;
+    }
+
     public AbstractProjectDumbAwareAction(String text, String description, Icon phpFile) {
         super(text, description, phpFile);
     }
 
-    public void update(AnActionEvent event) {
+    public void update(@NotNull AnActionEvent event) {
+        setStatus(event, false);
+
         Project project = event.getData(PlatformDataKeys.PROJECT);
-        if (project == null || !Symfony2ProjectComponent.isEnabled(project)) {
-            setStatus(event, false);
+        if (Symfony2ProjectComponent.isEnabled(project)) {
+            setStatus(event, true);
         }
     }
 
@@ -28,6 +37,4 @@ abstract public class AbstractProjectDumbAwareAction extends DumbAwareAction {
         event.getPresentation().setVisible(status);
         event.getPresentation().setEnabled(status);
     }
-
-
 }

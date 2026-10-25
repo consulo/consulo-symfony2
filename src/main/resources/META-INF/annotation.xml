@@ -1,0 +1,22 @@
+<idea-plugin>
+    <extensions defaultExtensionNs="de.espend.idea.php.annotation">
+        <PhpAnnotationReferenceProvider implementation="fr.adrienbrault.idea.symfony2plugin.twig.annotation.TemplateAnnotationReferences"/>
+        <PhpAnnotationReferenceProvider implementation="fr.adrienbrault.idea.symfony2plugin.doctrine.DoctrineAnnotationTargetEntityReferences"/>
+        <PhpAnnotationReferenceProvider implementation="fr.adrienbrault.idea.symfony2plugin.config.SymfonyAnnotationReferences"/>
+        <PhpAnnotationReferenceProvider implementation="fr.adrienbrault.idea.symfony2plugin.doctrine.DoctrineAnnotationReferencedColumnReferences"/>
+        <PhpAnnotationDocTagGotoHandler implementation="fr.adrienbrault.idea.symfony2plugin.twig.annotation.TemplateAnnotationGotoHandler"/>
+
+        <!-- @Route("/foobar1") -->
+        <PhpAnnotationCompletionProvider implementation="fr.adrienbrault.idea.symfony2plugin.routing.annotation.RouteUrlAnnotationCompletionProvider"/>
+
+        <!-- @Route(name="/foobar1") -->
+        <!-- #[Route(name: '/foobar1')] -->
+        <PhpAnnotationCompletionProvider implementation="fr.adrienbrault.idea.symfony2plugin.routing.annotation.RouteNameAnnotationCompletionProvider"/>
+
+        <!-- @IsGranted -->
+        <PhpAnnotationReferenceProvider implementation="fr.adrienbrault.idea.symfony2plugin.security.IsGrantedAnnotationReferences"/>
+
+        <!-- @FooConstraint(message="sss") / #[FooConstraint(message: "sss")] -->
+        <PhpAnnotationCompletionProvider implementation="fr.adrienbrault.idea.symfony2plugin.translation.ConstraintMessageGotoCompletionRegistrar$ConstraintMessageAnnotationCompletionProvider"/>
+    </extensions>
+</idea-plugin>

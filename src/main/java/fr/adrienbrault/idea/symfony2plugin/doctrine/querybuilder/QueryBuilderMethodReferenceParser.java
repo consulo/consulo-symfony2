@@ -6,15 +6,13 @@ import com.intellij.psi.PsiElement;
 import com.intellij.psi.util.PsiTreeUtil;
 import com.jetbrains.php.PhpIndex;
 import com.jetbrains.php.lang.parser.PhpElementTypes;
-import com.jetbrains.php.lang.psi.elements.ArrayCreationExpression;
-import com.jetbrains.php.lang.psi.elements.ClassConstantReference;
-import com.jetbrains.php.lang.psi.elements.MethodReference;
-import com.jetbrains.php.lang.psi.elements.PhpClass;
+import com.jetbrains.php.lang.psi.elements.*;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.EntityHelper;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.dict.DoctrineModelField;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.querybuilder.detector.FormQueryBuilderRepositoryDetector;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.querybuilder.detector.QueryBuilderRepositoryDetector;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.querybuilder.detector.QueryBuilderRepositoryDetectorParameter;
+import fr.adrienbrault.idea.symfony2plugin.doctrine.querybuilder.dict.QueryBuilderClassJoin;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.querybuilder.dict.QueryBuilderJoin;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.querybuilder.dict.QueryBuilderPropertyAlias;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.querybuilder.dict.QueryBuilderRelation;
@@ -23,6 +21,8 @@ import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpTypeProviderUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.DoctrineModel;
+import org.apache.commons.lang3.StringUtils;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 import java.util.regex.Matcher;
@@ -33,14 +33,14 @@ import java.util.regex.Pattern;
  */
 public class QueryBuilderMethodReferenceParser {
 
-    private boolean collectParameter = true;
-    private boolean collectJoins = true;
-    private boolean collectProperties = true;
+    private final boolean collectParameter = true;
+    private final boolean collectJoins = true;
+    private final boolean collectProperties = true;
 
     final private Project project;
     final private Collection<MethodReference> methodReferences;
     
-    private static QueryBuilderRepositoryDetector[] repositoryDetectors = new QueryBuilderRepositoryDetector[] {
+    private static final QueryBuilderRepositoryDetector[] repositoryDetectors = new QueryBuilderRepositoryDetector[] {
         new FormQueryBuilderRepositoryDetector(),
     };
 
@@ -54,13 +54,12 @@ public class QueryBuilderMethodReferenceParser {
 
         // doctrine needs valid root with an alias, try to find one in method references or scope
         Map<String, String> map = this.findRootDefinition(methodReferences);
-        if(map.size() > 0) {
+        if(!map.isEmpty()) {
             Map.Entry<String, String> entry = map.entrySet().iterator().next();
             qb.addTable(entry.getKey(), entry.getValue());
         }
 
         for(MethodReference methodReference: methodReferences) {
-
             String name = methodReference.getName();
             if(name != null) {
                 collectParameter(qb, methodReference, name);
@@ -68,11 +67,10 @@ public class QueryBuilderMethodReferenceParser {
                 collectSelects(qb, methodReference, name);
                 collectSelectInForm(qb, methodReference, name);
             }
-
         }
 
         // first tableMap entry is root, we add several initial data
-        if(qb.getTableMap().size() > 0) {
+        if(!qb.getTableMap().isEmpty()) {
             Map.Entry<String, String> entry = qb.getTableMap().entrySet().iterator().next();
             String className = entry.getKey();
             PhpClass phpClass = PhpElementsUtil.getClassInterface(project, className);
@@ -95,7 +93,7 @@ public class QueryBuilderMethodReferenceParser {
                 qb.addRelation(entry.getValue(), relationList);
             }
 
-            QueryBuilderRelationClassResolver resolver = new QueryBuilderRelationClassResolver(project, entry.getValue(), entry.getKey(), qb.getRelationMap(), qb.getJoinMap());
+            QueryBuilderRelationClassResolver resolver = new QueryBuilderRelationClassResolver(project, entry.getValue(), entry.getKey(), qb.getRelationMap(), qb.getJoinMap(), qb.getJoinClassMap());
             resolver.collect();
 
         }
@@ -159,42 +157,75 @@ public class QueryBuilderMethodReferenceParser {
             return;
         }
 
-        String join = PsiElementUtils.getMethodParameterAt(methodReference, 0);
-        String alias = PsiElementUtils.getMethodParameterAt(methodReference, 1);
-        if(join != null && alias != null) {
-            qb.addJoin(alias, new QueryBuilderJoin(join, alias));
-        }
+        PsiElement parameter = methodReference.getParameter(0);
+        if (parameter instanceof ClassConstantReference classConstantReference) {
+            // Foobar\Foobar::class
+            String alias = PsiElementUtils.getMethodParameterAt(methodReference, 1);
 
+            if (StringUtils.isNotBlank(alias) && classConstantReference.getClassReference() instanceof ClassReference classReference) {
+                String fqn = classReference.getFQN();
+                if (fqn != null) {
+                    qb.addClassJoin(alias, new QueryBuilderClassJoin(fqn, alias));
+                }
+            }
+        } else {
+            String join = PsiElementUtils.getMethodParameterAt(methodReference, 0);
+            String alias = PsiElementUtils.getMethodParameterAt(methodReference, 1);
+
+            if (join != null && alias != null) {
+                if (!join.contains(".") && join.contains("\\")) {
+                    // Foobar\Foobar
+                    // \Foobar\Foobar
+                    qb.addClassJoin(alias, new QueryBuilderClassJoin("\\" + StringUtils.stripStart(join, "\\"), alias));
+                } else {
+                    // foo.bar
+                    qb.addJoin(alias, new QueryBuilderJoin(join, alias));
+                }
+            }
+        }
     }
 
     private void collectParameter(QueryBuilderScopeContext qb, MethodReference methodReference, String name) {
-
-        if(!collectParameter || !Arrays.asList("where", "andWhere").contains(name)) {
+        if (!collectParameter || !Arrays.asList("where", "andWhere").contains(name)) {
             return;
         }
 
-        String value = PsiElementUtils.getMethodParameterAt(methodReference, 0);
-        if(value != null) {
+        for (PsiElement parameter : methodReference.getParameters()) {
+            String value = PsiElementUtils.getMethodParameter(parameter);
+            if (value == null) {
+                continue;
+            }
+
             Matcher matcher = Pattern.compile(":(\\w+)", Pattern.MULTILINE).matcher(value);
-            while(matcher.find()){
+            while (matcher.find()){
                 qb.addParameter(matcher.group(1));
             }
         }
-
     }
 
-
-    private Map<String, String> findRootDefinition(Collection<MethodReference> methodReferences) {
-
-        Map<String, String> roots = new HashMap<>();
-
-        if(methodReferences.size() == 0) {
-            return roots;
+    /**
+     * Extract model from context
+     *
+     * ```
+     * getRepository('Foo')->createQueryBuilder('test')
+     * ```
+     *
+     * ```
+     * public function __construct(RegistryInterface $registry)
+     * {
+     *  parent::__construct($registry, Entity::class);
+     * }
+     * ```
+     */
+    @NotNull
+    private Map<String, String> findRootDefinition(@NotNull Collection<MethodReference> methodReferences) {
+        if(methodReferences.isEmpty()) {
+            return Collections.emptyMap();
         }
 
+        Map<String, String> roots = new HashMap<>();
         String rootAlias = null;
         String repository = null;
-
 
         for(MethodReference methodReference: methodReferences) {
             String methodReferenceName = methodReference.getName();
@@ -252,12 +283,45 @@ public class QueryBuilderMethodReferenceParser {
             roots.put(repository, rootAlias);
         }
 
+        // public function __construct(RegistryInterface $registry)
+        //   parent::__construct($registry, Entity::class);
+        if(rootAlias != null && repository == null) {
+            MethodReference methodReference = methodReferences.iterator().next();
+            PhpClass phpClass = PsiTreeUtil.getParentOfType(methodReference, PhpClass.class);
+
+            if(phpClass != null && PhpElementsUtil.isInstanceOf(phpClass, "\\Doctrine\\Bundle\\DoctrineBundle\\Repository\\ServiceEntityRepository")) {
+                Method constructor = phpClass.getConstructor();
+                if (constructor != null) {
+                    for (MethodReference reference : PsiTreeUtil.findChildrenOfType(constructor, MethodReference.class)) {
+                        if ("__construct".equals(reference.getName())) {
+                            PsiElement[] parameters = reference.getParameters();
+                            if (parameters.length > 1) {
+                                PsiElement parameter = parameters[1];
+                                String stringValue = PhpElementsUtil.getStringValue(parameter);
+                                if (stringValue != null) {
+                                    roots.put(stringValue, rootAlias);
+                                    return roots;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // we found a alias but not a repository name, so try a scope search if we are inside repository class
         // class implements \Doctrine\Common\Persistence\ObjectRepository, so search for model name of "repositoryClass"
         if(rootAlias != null && repository == null) {
             MethodReference methodReference = methodReferences.iterator().next();
             PhpClass phpClass = PsiTreeUtil.getParentOfType(methodReference, PhpClass.class);
-            if(phpClass != null && PhpElementsUtil.isInstanceOf(phpClass, "\\Doctrine\\Common\\Persistence\\ObjectRepository")) {
+
+            if(
+                phpClass != null &&
+                (
+                    PhpElementsUtil.isInstanceOf(phpClass, "\\Doctrine\\Common\\Persistence\\ObjectRepository") ||
+                    PhpElementsUtil.isInstanceOf(phpClass, "\\Doctrine\\Persistence\\ObjectRepository")
+                )
+            ) {
                 for(DoctrineModel model: EntityHelper.getModelClasses(project)) {
                     String className = model.getPhpClass().getPresentableFQN();
                     PhpClass resolvedRepoName = EntityHelper.getEntityRepositoryClass(project, className);
@@ -267,7 +331,6 @@ public class QueryBuilderMethodReferenceParser {
                     }
                 }
             }
-
         }
 
         // search on PhpTypeProvider
@@ -312,9 +375,9 @@ public class QueryBuilderMethodReferenceParser {
 
         for(QueryBuilderJoin join: qb.getJoinMap().values()) {
             String className = join.getResolvedClass();
-            if(className != null) {
+            if (className != null) {
                 PhpClass phpClass = PhpElementsUtil.getClassInterface(project, className);
-                if(phpClass != null) {
+                if (phpClass != null) {
                     qb.addPropertyAlias(join.getAlias(), new QueryBuilderPropertyAlias(join.getAlias(), null, new DoctrineModelField(join.getAlias()).addTarget(phpClass).setTypeName(phpClass.getPresentableFQN())));
 
                     // add entity properties
@@ -325,6 +388,17 @@ public class QueryBuilderMethodReferenceParser {
             }
         }
 
+        for(QueryBuilderClassJoin join: qb.getJoinClassMap().values()) {
+            PhpClass phpClass = PhpElementsUtil.getClassInterface(project, join.className());
+            if (phpClass != null) {
+                qb.addPropertyAlias(join.alias(), new QueryBuilderPropertyAlias(join.alias(), null, new DoctrineModelField(join.alias()).addTarget(phpClass).setTypeName(phpClass.getPresentableFQN())));
+
+                // add entity properties
+                for(DoctrineModelField field: EntityHelper.getModelFields(phpClass)) {
+                    qb.addPropertyAlias(join.alias() + "." + field.getName(), new QueryBuilderPropertyAlias(join.alias(), field.getName(), field));
+                }
+            }
+        }
     }
 
     public static List<QueryBuilderRelation> attachRelationFields(PhpClass phpClass) {

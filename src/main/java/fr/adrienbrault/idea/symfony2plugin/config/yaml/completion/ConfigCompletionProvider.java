@@ -9,11 +9,12 @@ import com.intellij.openapi.vfs.VfsUtil;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiElement;
 import com.intellij.util.ProcessingContext;
-import com.intellij.util.containers.ContainerUtil;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
+import fr.adrienbrault.idea.symfony2plugin.util.ProjectUtil;
+import fr.adrienbrault.idea.symfony2plugin.util.xml.SecureXmlUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.xerces.dom.CommentImpl;
 import org.apache.xerces.dom.DeferredTextImpl;
 import org.jetbrains.annotations.NotNull;
@@ -25,16 +26,12 @@ import org.w3c.dom.*;
 import org.xml.sax.SAXException;
 
 import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
 import java.io.IOException;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -70,18 +67,18 @@ public class ConfigCompletionProvider extends CompletionProvider<CompletionParam
         }
 
         // get all parent yaml keys
-        List<String> items = YamlHelper.getParentArrayKeys(element);
-        if(items.size() == 0) {
+        List<String> itemsRaw = YamlHelper.getParentArrayKeys(element);
+        if(itemsRaw.isEmpty()) {
             return;
         }
 
         // normalize for xml
-        items = ContainerUtil.map(items, s -> s.replace('_', '-'));
+        List<String> items = new ArrayList<>(itemsRaw.stream().map(s -> s.replace('_', '-')).toList());
 
-        // reverse to get top most item first
+        // reverse to get the top most item first
         Collections.reverse(items);
 
-        Document document = getConfigTemplate(element.getProject().getBaseDir());
+        Document document = getConfigTemplate(ProjectUtil.getProjectDir(element));
         if(document == null) {
             return;
         }
@@ -114,7 +111,7 @@ public class ConfigCompletionProvider extends CompletionProvider<CompletionParam
         Document document;
 
         try {
-            DocumentBuilder builder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+            DocumentBuilder builder = SecureXmlUtil.createDocumentBuilder();
 
             VirtualFile virtualFile = VfsUtil.findRelativeFile(projectBaseDir, ".idea", "symfony2-config.xml");
             if(virtualFile != null) {
@@ -244,7 +241,7 @@ public class ConfigCompletionProvider extends CompletionProvider<CompletionParam
     @Nullable
     private Node getMatchingConfigNode(Document document, List<String> items) {
 
-        if(items.size() == 0) {
+        if(items.isEmpty()) {
             return null;
         }
 
@@ -302,9 +299,6 @@ public class ConfigCompletionProvider extends CompletionProvider<CompletionParam
         if(node == null) return comments;
 
         Node previousSibling = node.getPreviousSibling();
-        if(previousSibling == comments) {
-            return comments;
-        }
 
         // get variable decl: "foo: test"
         Pattern compile = Pattern.compile("^\\s*([\\w_-]+)\\s*:\\s*(.*?)$");
@@ -332,7 +326,7 @@ public class ConfigCompletionProvider extends CompletionProvider<CompletionParam
 
     private void attachRootConfig(CompletionResultSet completionResultSet, PsiElement element) {
 
-        Document document = getConfigTemplate(element.getProject().getBaseDir());
+        Document document = getConfigTemplate(ProjectUtil.getProjectDir(element));
         if(document == null) {
             return;
         }

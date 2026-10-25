@@ -1,6 +1,6 @@
 <?php
 
-namespace {{ ns }};
+namespace {{ namespace }};
 
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
 use Symfony\Component\Console\Input\InputInterface;
@@ -14,7 +14,7 @@ class {{ class }} extends ContainerAwareCommand
     protected function configure()
     {
         $this
-            ->setName('{{ name }}')
+            ->setName('{{ command_name }}')
             ->setDescription('Hello PhpStorm');
     }
 

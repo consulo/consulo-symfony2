@@ -1,3 +1,0 @@
-services:
-    foobar_controller:
-        class: MyFooBarBundle\Controller\CarController

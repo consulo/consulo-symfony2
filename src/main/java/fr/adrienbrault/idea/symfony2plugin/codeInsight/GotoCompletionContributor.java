@@ -6,6 +6,7 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
+ *
  */
 public interface GotoCompletionContributor {
     @Nullable

@@ -4,6 +4,8 @@ import fr.adrienbrault.idea.symfony2plugin.util.service.AbstractServiceParser;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
+import com.intellij.openapi.project.Project;
+import com.intellij.openapi.vfs.VirtualFile;
 import java.io.InputStream;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -13,14 +15,14 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class DocumentNamespacesParser extends AbstractServiceParser {
 
-    protected Map<String, String> entityNameMap = new ConcurrentHashMap<>();
+    protected final Map<String, String> entityNameMap = new ConcurrentHashMap<>();
 
     @Override
     public String getXPathFilter() {
         return "/container/services/service[@id[starts-with(.,'doctrine_mongodb.odm.')] or @id[starts-with(.,'doctrine_couchdb.odm.')]]//call[@method='setDocumentNamespaces']//argument[@key]";
     }
 
-    public void parser(InputStream file) {
+    public void parser(InputStream file, VirtualFile sourceFile, Project project) {
         NodeList nodeList = this.parserer(file);
 
         if(nodeList == null) {

@@ -3,23 +3,31 @@ package fr.adrienbrault.idea.symfony2plugin.profiler.widget.action;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.Presentation;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.util.Computable;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
+import com.intellij.ui.IconManager;
+import com.intellij.util.PsiIconUtil;
+import com.jetbrains.php.lang.psi.elements.PhpClass;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
+import fr.adrienbrault.idea.symfony2plugin.form.util.FormUtil;
 import fr.adrienbrault.idea.symfony2plugin.profiler.ProfilerIndexInterface;
 import fr.adrienbrault.idea.symfony2plugin.profiler.dict.ProfilerRequestInterface;
+import fr.adrienbrault.idea.symfony2plugin.profiler.dict.ProfilerTwigComponent;
 import fr.adrienbrault.idea.symfony2plugin.profiler.utils.ProfilerUtil;
 import fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.IdeHelper;
+import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import icons.TwigIcons;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
 import java.awt.*;
-import java.net.URL;
+import java.net.URI;
 import java.util.Collection;
 
 /**
@@ -28,31 +36,126 @@ import java.util.Collection;
 public class SymfonyProfilerWidgetActions {
 
     public static class TemplateAction extends AnAction {
+        private final String templateName;
+        private final Project project;
 
-        private String templateName;
-        private Project project;
-
-        public TemplateAction(Project project, @Nullable String text) {
-            super(TwigUtil.getFoldingTemplateNameOrCurrent(text), "Open Template", TwigIcons.TwigFileIcon);
-            this.templateName = text;
+        public TemplateAction(@NotNull Project project, @NotNull String templateName) {
+            super(templateName, "Open Template", createDeferredTemplateIcon(project, templateName));
+            this.templateName = templateName;
             this.project = project;
         }
 
         @Override
-        public void actionPerformed(AnActionEvent e) {
+        public void actionPerformed(@NotNull AnActionEvent e) {
             Collection<PsiFile> psiFiles = TwigUtil.getTemplatePsiElements(project, templateName);
 
             // @TODO: multiple targets?
-            if(psiFiles.size() > 0) {
+            if(!psiFiles.isEmpty()) {
                 IdeHelper.navigateToPsiElement(psiFiles.iterator().next());
             }
+        }
+
+        @NotNull
+        private static Icon createDeferredTemplateIcon(@NotNull Project project, @NotNull String templateName) {
+            return IconManager.getInstance().createDeferredIcon(
+                TwigIcons.TwigFileIcon,
+                new TemplateIconRequest(project, templateName),
+                request -> {
+                    Icon icon = ApplicationManager.getApplication().runReadAction((Computable<Icon>) () ->
+                        getTemplateFileIcon(request.project(), request.templateName())
+                    );
+                    return icon != null ? icon : TwigIcons.TwigFileIcon;
+                }
+            );
+        }
+
+        @Nullable
+        public static Icon getTemplateFileIcon(@NotNull Project project, @NotNull String templateName) {
+            for (PsiFile psiFile : TwigUtil.getTemplatePsiElements(project, templateName)) {
+                return PsiIconUtil.getIconFromProviders(psiFile, 0);
+            }
+
+            return null;
+        }
+
+        private record TemplateIconRequest(@NotNull Project project, @NotNull String templateName) {
+        }
+    }
+
+    public static class FormTypeAction extends AnAction {
+        private final String formType;
+        private final Project project;
+
+        public FormTypeAction(@NotNull Project project, @NotNull String formType) {
+            super(formType, "Open FormType", Symfony2Icons.FORM_TYPE);
+            this.formType = formType;
+            this.project = project;
+        }
+
+        @Override
+        public void actionPerformed(@NotNull AnActionEvent e) {
+            PhpClass psiFiles = FormUtil.getFormTypeToClass(project, formType);
+            if (psiFiles != null) {
+                IdeHelper.navigateToPsiElement(psiFiles);
+            }
+        }
+    }
+
+    public static class TwigComponentAction extends AnAction {
+        @NotNull
+        private final Project project;
+
+        @NotNull
+        private final ProfilerTwigComponent component;
+
+        public TwigComponentAction(@NotNull Project project, @NotNull ProfilerTwigComponent component) {
+            super(getText(component), "Open Twig Component", TwigIcons.TwigFileIcon);
+            this.project = project;
+            this.component = component;
+        }
+
+        @Override
+        public void actionPerformed(@NotNull AnActionEvent e) {
+            if (!component.isAnonymous() && component.className() != null) {
+                PhpClass phpClass = PhpElementsUtil.getClassInterface(project, component.className());
+                if (phpClass != null) {
+                    IdeHelper.navigateToPsiElement(phpClass);
+                    return;
+                }
+            }
+
+            PsiFile template = getTemplateFile();
+            if (template != null) {
+                IdeHelper.navigateToPsiElement(template);
+            }
+        }
+
+        @Nullable
+        private PsiFile getTemplateFile() {
+            if (component.template() != null) {
+                Collection<PsiFile> psiFiles = TwigUtil.getTemplatePsiElements(project, component.template());
+                if(!psiFiles.isEmpty()) {
+                    return psiFiles.iterator().next();
+                }
+            }
+
+            return null;
+        }
+
+        @NotNull
+        private static String getText(@NotNull ProfilerTwigComponent component) {
+            if (component.isAnonymous()) {
+                return String.format("%s (anonymous)", component.name());
+            }
+
+            return component.name();
         }
     }
 
     public static class RouteAction extends AnAction {
 
-        private String routeName;
-        private Project project;
+        private final String routeName;
+        private final Project project;
 
         public RouteAction(Project project, @Nullable String text) {
             super(text, "Open Route", Symfony2Icons.ROUTE);
@@ -72,8 +175,8 @@ public class SymfonyProfilerWidgetActions {
 
     public static class MethodAction extends AnAction {
 
-        private String methodShortcut;
-        private Project project;
+        private final String methodShortcut;
+        private final Project project;
 
         public MethodAction(Project project, @Nullable String text) {
             super(text, "Open Method", com.jetbrains.php.PhpIcons.METHOD);
@@ -120,11 +223,22 @@ public class SymfonyProfilerWidgetActions {
             return this;
         }
 
+        public UrlAction withText(String text) {
+            Presentation presentation = getTemplatePresentation();
+            presentation.setText(text);
+
+            return this;
+        }
+
         @Override
         public void actionPerformed(AnActionEvent event) {
             String urlForRequest = profilerIndex.getUrlForRequest(profilerRequest);
             if(urlForRequest == null) {
                 return;
+            }
+
+            if (this.panel != null) {
+                urlForRequest += "?panel=" + this.panel;
             }
 
             Desktop desktop = Desktop.isDesktopSupported() ? Desktop.getDesktop() : null;
@@ -133,10 +247,9 @@ public class SymfonyProfilerWidgetActions {
             }
 
             try {
-                desktop.browse(new URL(urlForRequest).toURI());
+                desktop.browse(URI.create(urlForRequest));
             } catch (Exception ignored) {
             }
         }
     }
 }
-

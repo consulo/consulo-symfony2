@@ -1,0 +1,20 @@
+services:
+  foo_controller_service:
+    class: App\Controller\FooControllerService
+
+  foo_controller.service_invoke:
+    class: App\Controller\FooControllerServiceInvoke
+
+  foo_command.foo_command:
+    class: App\Command\FooCommand
+
+  foo_command.my_foobar_voter:
+    class: App\Voter\MyFoobarVoter
+
+  foo_command.twig_extension:
+    class: App\TwigExtension\MyTwigExtension
+
+  foo_command.eventListener_exception:
+    class: App\EventListener\ExceptionListener
+    tags:
+        - { name: kernel.event_listener, event: kernel.exception }

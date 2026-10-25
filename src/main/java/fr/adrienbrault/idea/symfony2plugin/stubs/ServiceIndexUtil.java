@@ -16,20 +16,27 @@ import com.intellij.psi.util.CachedValuesManager;
 import com.intellij.psi.util.PsiModificationTracker;
 import com.intellij.psi.xml.XmlFile;
 import com.intellij.util.indexing.FileBasedIndex;
+import com.jetbrains.php.lang.PhpFileType;
+import com.jetbrains.php.lang.psi.PhpFile;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
 import fr.adrienbrault.idea.symfony2plugin.config.xml.XmlHelper;
 import fr.adrienbrault.idea.symfony2plugin.dic.ClassServiceDefinitionTargetLazyValue;
 import fr.adrienbrault.idea.symfony2plugin.dic.ContainerService;
+import fr.adrienbrault.idea.symfony2plugin.dic.container.ServiceSerializable;
+import fr.adrienbrault.idea.symfony2plugin.dic.container.util.ServiceContainerUtil;
 import fr.adrienbrault.idea.symfony2plugin.extension.ServiceDefinitionLocator;
 import fr.adrienbrault.idea.symfony2plugin.extension.ServiceDefinitionLocatorParameter;
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.ServicesDefinitionStubIndex;
+import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.yaml.YAMLFileType;
 import org.jetbrains.yaml.psi.YAMLFile;
 
 import java.util.*;
+import java.util.function.Supplier;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -43,20 +50,62 @@ public class ServiceIndexUtil {
         "fr.adrienbrault.idea.symfony2plugin.extension.ServiceDefinitionLocator"
     );
 
-    private static VirtualFile[] findServiceDefinitionFiles(@NotNull Project project, @NotNull String serviceName) {
+    public static VirtualFile[] findServiceDefinitionFiles(@NotNull Project project, @NotNull String serviceName) {
 
         final List<VirtualFile> virtualFiles = new ArrayList<>();
 
         FileBasedIndex.getInstance().getFilesWithKey(ServicesDefinitionStubIndex.KEY, new HashSet<>(Collections.singletonList(serviceName.toLowerCase())), virtualFile -> {
             virtualFiles.add(virtualFile);
             return true;
-        }, GlobalSearchScope.getScopeRestrictedByFileTypes(GlobalSearchScope.allScope(project), XmlFileType.INSTANCE, YAMLFileType.YML));
+        }, getRestrictedFileTypesScope(project));
 
-        return virtualFiles.toArray(new VirtualFile[virtualFiles.size()]);
+        return virtualFiles.toArray(new VirtualFile[0]);
 
     }
 
+    @Nullable
+    public static ServiceSerializable findServiceDefinition(@NotNull Project project, @NotNull VirtualFile virtualFile, @NotNull String serviceName) {
+        return FileBasedIndex.getInstance()
+            .getFileData(ServicesDefinitionStubIndex.KEY, virtualFile, project)
+            .get(serviceName.toLowerCase());
+    }
+
+    /**
+     * Expand resource/exclude patterns for an indexed service definition into PhpClass targets.
+     * Used by XML, YAML, and PHP line marker providers to resolve "Navigate to class" gutters.
+     */
+    @NotNull
+    public static Collection<PsiElement> getClassesForServiceDefinition(
+        @NotNull Project project,
+        @NotNull VirtualFile containerFile,
+        @NotNull ServiceSerializable service
+    ) {
+        Collection<PsiElement> targets = new HashSet<>();
+
+        for (String className : ServiceContainerUtil.getPhpClassFromResources(
+            project,
+            service.getId(),
+            containerFile,
+            service.getResource(),
+            service.getExclude()
+        )) {
+            targets.addAll(PhpElementsUtil.getClassesInterface(project, className));
+        }
+
+        return targets;
+    }
+
     public static List<PsiElement> findServiceDefinitions(@NotNull Project project, @NotNull String serviceName) {
+        return findServiceDefinitions(project, serviceName, false);
+    }
+
+    @NotNull
+    public static List<PsiElement> findServiceDefinitionBlocks(@NotNull Project project, @NotNull String serviceName) {
+        return findServiceDefinitions(project, serviceName, true);
+    }
+
+    @NotNull
+    private static List<PsiElement> findServiceDefinitions(@NotNull Project project, @NotNull String serviceName, boolean usePhpAttributePsi) {
 
         List<PsiElement> items = new ArrayList<>();
 
@@ -70,15 +119,18 @@ public class ServiceIndexUtil {
                 if(servicePsiElement != null) {
                     items.add(servicePsiElement);
                 }
-            }
-
-            if(psiFile instanceof XmlFile) {
+            } else if(psiFile instanceof XmlFile) {
                 PsiElement servicePsiElement = XmlHelper.getLocalServiceName(psiFile, serviceName);
                 if(servicePsiElement != null) {
                     items.add(servicePsiElement);
                 }
+            } else if(psiFile instanceof PhpFile) {
+                ServiceContainerUtil.visitFile((PhpFile) psiFile, service -> {
+                    if (serviceName.equalsIgnoreCase(service.getServiceId())) {
+                        items.add(usePhpAttributePsi ? service.attributes().getPsiElement() : service.getPsiElement());
+                    }
+                });
             }
-
         }
 
         // extension points
@@ -123,7 +175,7 @@ public class ServiceIndexUtil {
         String phpClassName = phpClass.getPresentableFQN();
         Set<String> serviceNames = ContainerCollectionResolver.ServiceCollector.create(phpClass.getProject()).convertClassNameToServices(phpClassName);
 
-        if(serviceNames.size() == 0) {
+        if(serviceNames.isEmpty()) {
             return new PsiElement[0];
         }
 
@@ -132,22 +184,7 @@ public class ServiceIndexUtil {
             psiElements.addAll(findServiceDefinitions(phpClass.getProject(), serviceName));
         }
 
-        return psiElements.toArray(new PsiElement[psiElements.size()]);
-    }
-
-    @Nullable
-    public static ClassServiceDefinitionTargetLazyValue findServiceDefinitionsLazy(@Nullable PhpClass phpClass) {
-        if(phpClass == null) {
-            return null;
-        }
-
-        String phpClassName = phpClass.getPresentableFQN();
-        Set<String> serviceNames = ContainerCollectionResolver.ServiceCollector.create(phpClass.getProject()).convertClassNameToServices(phpClassName);
-        if(serviceNames.size() == 0) {
-            return null;
-        }
-
-        return new ClassServiceDefinitionTargetLazyValue(phpClass.getProject(), phpClassName);
+        return psiElements.toArray(new PsiElement[0]);
     }
 
     /**
@@ -155,29 +192,24 @@ public class ServiceIndexUtil {
      */
     @NotNull
     public static NotNullLazyValue<Collection<? extends PsiElement>> getServiceIdDefinitionLazyValue(@NotNull Project project, @NotNull Collection<String> ids) {
-        return new MyServiceIdLazyValue(project, ids);
+        return NotNullLazyValue.lazy(new MyServiceIdLazyValue(project, ids));
     }
 
     /**
      * So support only some file types, so we can filter them and xml and yaml for now
      */
     public static GlobalSearchScope getRestrictedFileTypesScope(@NotNull Project project) {
-        return GlobalSearchScope.getScopeRestrictedByFileTypes(GlobalSearchScope.allScope(project), XmlFileType.INSTANCE, YAMLFileType.YML);
+        return GlobalSearchScope.getScopeRestrictedByFileTypes(GlobalSearchScope.allScope(project), XmlFileType.INSTANCE, YAMLFileType.YML, PhpFileType.INSTANCE);
     }
 
     @NotNull
     public static Map<String, Collection<ContainerService>> getDecoratedServices(@NotNull Project project) {
-        CachedValue<Map<String, Collection<ContainerService>>> cache = project.getUserData(SERVICE_DECORATION_CACHE);
-
-        if (cache == null) {
-            cache = CachedValuesManager.getManager(project).createCachedValue(() ->
-                CachedValueProvider.Result.create(getDecoratedServicesInner(project), PsiModificationTracker.MODIFICATION_COUNT)
-            , false);
-
-            project.putUserData(SERVICE_DECORATION_CACHE, cache);
-        }
-
-        return cache.getValue();
+        return CachedValuesManager.getManager(project).getCachedValue(
+            project,
+            SERVICE_DECORATION_CACHE,
+            () -> CachedValueProvider.Result.create(getDecoratedServicesInner(project), PsiModificationTracker.MODIFICATION_COUNT),
+            false
+        );
     }
 
     @NotNull
@@ -185,20 +217,9 @@ public class ServiceIndexUtil {
         Map<String, Collection<ContainerService>> services = new HashMap<>();
 
         for (ContainerService containerService : ContainerCollectionResolver.getServices(project).values()) {
-            if(containerService.getService() == null) {
-                continue;
+            for (String decorates : containerService.getDecoratesValues()) {
+                services.computeIfAbsent(decorates, key -> new ArrayList<>()).add(containerService);
             }
-
-            String decorates = containerService.getService().getDecorates();
-            if(decorates == null) {
-                continue;
-            }
-
-            if(!services.containsKey(decorates)) {
-                services.put(decorates, new ArrayList<>());
-            }
-
-            services.get(decorates).add(containerService);
         }
 
         return services;
@@ -209,17 +230,12 @@ public class ServiceIndexUtil {
      */
     @NotNull
     public static Map<String, Collection<ContainerService>> getParentServices(@NotNull Project project) {
-        CachedValue<Map<String, Collection<ContainerService>>> cache = project.getUserData(SERVICE_PARENT);
-
-        if (cache == null) {
-            cache = CachedValuesManager.getManager(project).createCachedValue(() ->
-                    CachedValueProvider.Result.create(getParentServicesInner(project), PsiModificationTracker.MODIFICATION_COUNT)
-                , false);
-
-            project.putUserData(SERVICE_PARENT, cache);
-        }
-
-        return cache.getValue();
+        return CachedValuesManager.getManager(project).getCachedValue(
+            project,
+            SERVICE_PARENT,
+            () -> CachedValueProvider.Result.create(getParentServicesInner(project), PsiModificationTracker.MODIFICATION_COUNT),
+            false
+        );
     }
 
     /**
@@ -230,40 +246,17 @@ public class ServiceIndexUtil {
         Map<String, Collection<ContainerService>> services = new HashMap<>();
 
         for (ContainerService containerService : ContainerCollectionResolver.getServices(project).values()) {
-            if(containerService.getService() == null) {
-                continue;
+            for (String parent : containerService.getParents()) {
+                services.computeIfAbsent(parent, key -> new ArrayList<>()).add(containerService);
             }
-
-            String parent = containerService.getService().getParent();
-            if(parent == null) {
-                continue;
-            }
-
-            if(!services.containsKey(parent)) {
-                services.put(parent, new ArrayList<>());
-            }
-
-            services.get(parent).add(containerService);
         }
 
         return services;
     }
 
-    private static class MyServiceIdLazyValue extends NotNullLazyValue<Collection<? extends PsiElement>> {
-        @NotNull
-        private final Project project;
-
-        @NotNull
-        private final Collection<String> ids;
-
-        MyServiceIdLazyValue(@NotNull Project project, @NotNull Collection<String> ids) {
-            this.project = project;
-            this.ids = ids;
-        }
-
-        @NotNull
+    private record MyServiceIdLazyValue(@NotNull Project project, @NotNull Collection<String> ids) implements Supplier<Collection<? extends PsiElement>> {
         @Override
-        protected Collection<? extends PsiElement> compute() {
+        public Collection<? extends PsiElement> get() {
             Collection<PsiElement> psiElements = new HashSet<>();
 
             for (String id : new HashSet<>(this.ids)) {

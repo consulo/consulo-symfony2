@@ -1,42 +1,47 @@
 package fr.adrienbrault.idea.symfony2plugin.stubs.indexes;
 
-import com.intellij.ide.highlighter.XmlFileType;
+import com.intellij.openapi.util.io.FileUtil;
 import com.intellij.openapi.vfs.VfsUtil;
 import com.intellij.psi.PsiFile;
 import com.intellij.util.indexing.*;
 import com.intellij.util.io.DataExternalizer;
 import com.intellij.util.io.EnumeratorStringDescriptor;
 import com.intellij.util.io.KeyDescriptor;
+import fr.adrienbrault.idea.symfony2plugin.Settings;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
+import fr.adrienbrault.idea.symfony2plugin.dic.ContainerFile;
 import fr.adrienbrault.idea.symfony2plugin.dic.container.ServiceSerializable;
 import fr.adrienbrault.idea.symfony2plugin.dic.container.util.ServiceContainerUtil;
-import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.externalizer.ObjectStreamDataExternalizer;
-import gnu.trove.THashMap;
+import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.externalizer.SerializableServiceExternalizer;
+import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.inputFilter.FileInputFilter;
+import fr.adrienbrault.idea.symfony2plugin.util.ProjectUtil;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.yaml.YAMLFileType;
 
-import java.io.File;
-import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class ServicesDefinitionStubIndex extends FileBasedIndexExtension<String, ServiceSerializable> {
 
-    private static int MAX_FILE_BYTE_SIZE = 5242880;
+    private static final int MAX_FILE_BYTE_SIZE = 5242880;
 
     public static final ID<String, ServiceSerializable> KEY = ID.create("fr.adrienbrault.idea.symfony2plugin.service_definition");
     private final KeyDescriptor<String> myKeyDescriptor = new EnumeratorStringDescriptor();
-    private static ObjectStreamDataExternalizer<ServiceSerializable> EXTERNALIZER = new ObjectStreamDataExternalizer<>();
+    private static final SerializableServiceExternalizer EXTERNALIZER = SerializableServiceExternalizer.INSTANCE;
 
     @NotNull
     @Override
+    // Index-safe only: no PhpIndex/type resolution here.
     public DataIndexer<String, ServiceSerializable, FileContent> getIndexer() {
 
         return inputData -> {
 
-            Map<String, ServiceSerializable> map = new THashMap<>();
+            Map<String, ServiceSerializable> map = new HashMap<>();
 
             PsiFile psiFile = inputData.getPsiFile();
             if(!Symfony2ProjectComponent.isEnabledForIndex(psiFile.getProject()) || !isValidForIndex(inputData, psiFile)) {
@@ -72,8 +77,7 @@ public class ServicesDefinitionStubIndex extends FileBasedIndexExtension<String,
     @NotNull
     @Override
     public FileBasedIndex.InputFilter getInputFilter() {
-        return file ->
-            file.getFileType() == XmlFileType.INSTANCE || file.getFileType() == YAMLFileType.YML;
+        return FileInputFilter.XML_YAML_PHP;
     }
 
     @Override
@@ -83,40 +87,48 @@ public class ServicesDefinitionStubIndex extends FileBasedIndexExtension<String,
 
     @Override
     public int getVersion() {
-        return 4;
+        return 10;
     }
 
     public static boolean isValidForIndex(FileContent inputData, PsiFile psiFile) {
-
-        String fileName = psiFile.getName();
-        if(fileName.startsWith(".") || fileName.endsWith("Test")) {
+        if (!StubIndexValidationUtil.isValidForIndex(
+            inputData,
+            psiFile,
+            MAX_FILE_BYTE_SIZE,
+            true,
+            Set.of("xml", "yml", "yaml", "php")
+        )) {
             return false;
         }
 
-        // container file need to be xml file, eg xsd filetypes are not valid
         String extension = inputData.getFile().getExtension();
-        if(extension == null || !(extension.equalsIgnoreCase("xml") || extension.equalsIgnoreCase("yml") || extension.equalsIgnoreCase("yaml"))) {
-            return false;
-        }
 
         // possible fixture or test file
         // to support also library paths, only filter them on project files
-        String relativePath = VfsUtil.getRelativePath(inputData.getFile(), psiFile.getProject().getBaseDir(), '/');
-        if(relativePath != null && (relativePath.contains("/Test/") || relativePath.contains("/Tests/") || relativePath.contains("/Fixture/") || relativePath.contains("/Fixtures/"))) {
-            return false;
-        }
+        String relativePath = VfsUtil.getRelativePath(inputData.getFile(), ProjectUtil.getProjectDir(inputData.getProject()), '/');
 
-        // dont add configured service paths
-        Collection<File> settingsServiceFiles = psiFile.getProject().getComponent(Symfony2ProjectComponent.class).getContainerFiles();
-        for(File file: settingsServiceFiles) {
-            if(VfsUtil.isAncestor(VfsUtil.virtualToIoFile(inputData.getFile()), file, false)) {
-                return false;
+        // exclude settings-configured service container paths (lightweight path comparison, no VFS lookups)
+        List<ContainerFile> settingsContainerFiles = Settings.getInstance(psiFile.getProject()).containerFiles;
+        if (settingsContainerFiles != null) {
+            String inputPath = FileUtil.toSystemIndependentName(inputData.getFile().getPath());
+            String inputRelativePath = relativePath != null ? FileUtil.toSystemIndependentName(relativePath) : null;
+            for (ContainerFile containerFile : settingsContainerFiles) {
+                String path = containerFile.getPath();
+                if (path != null) {
+                    String normalizedPath = FileUtil.toSystemIndependentName(path);
+                    if (FileUtil.pathsEqual(inputPath, normalizedPath) || (inputRelativePath != null && FileUtil.pathsEqual(inputRelativePath, normalizedPath))) {
+                        return false;
+                    }
+                }
             }
         }
 
-        // dont index files larger then files; use 5 MB here
-        if(inputData.getFile().getLength() > MAX_FILE_BYTE_SIZE) {
-            return false;
+        // exclude XML files in var/cache and app/cache directories
+        if (relativePath != null && extension.equalsIgnoreCase("xml")) {
+            String lowerPath = FileUtil.toSystemIndependentName(relativePath).toLowerCase(Locale.ROOT);
+            if (lowerPath.startsWith("var/cache/") || lowerPath.startsWith("app/cache/")) {
+                return false;
+            }
         }
 
         return true;

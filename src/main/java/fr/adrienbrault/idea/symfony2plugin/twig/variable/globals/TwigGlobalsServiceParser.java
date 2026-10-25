@@ -4,6 +4,8 @@ import fr.adrienbrault.idea.symfony2plugin.util.service.AbstractServiceParser;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
+import com.intellij.openapi.project.Project;
+import com.intellij.openapi.vfs.VirtualFile;
 import java.io.InputStream;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -12,14 +14,14 @@ import java.util.concurrent.ConcurrentHashMap;
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class TwigGlobalsServiceParser extends AbstractServiceParser {
-    private Map<String, TwigGlobalVariable> twigGlobals = new ConcurrentHashMap<>();
+    private final Map<String, TwigGlobalVariable> twigGlobals = new ConcurrentHashMap<>();
 
     @Override
     public String getXPathFilter() {
         return "/container/services/service[@id='twig']//call[@method='addGlobal']";
     }
 
-    public void parser(InputStream file) {
+    public void parser(InputStream file, VirtualFile sourceFile, Project project) {
         NodeList nodeList = this.parserer(file);
 
         if(nodeList == null) {

@@ -23,7 +23,7 @@ import fr.adrienbrault.idea.symfony2plugin.stubs.ContainerCollectionResolver;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.ServiceUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.yaml.psi.YAMLScalar;
@@ -221,15 +221,5 @@ public class ServiceArgumentParameterHintsProvider implements InlayParameterHint
         return parameter.getName();
     }
 
-    private static class Match {
-        @NotNull
-        private final String parameter;
-
-        private final int targetOffset;
-
-        Match(@NotNull String parameter, int targetOffset) {
-            this.parameter = parameter;
-            this.targetOffset = targetOffset;
-        }
-    }
+    private record Match(@NotNull String parameter, int targetOffset) {}
 }

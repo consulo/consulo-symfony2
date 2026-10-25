@@ -1,7 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin;
 
 import com.intellij.openapi.components.PersistentStateComponent;
-import com.intellij.openapi.components.ServiceManager;
 import com.intellij.openapi.components.State;
 import com.intellij.openapi.components.Storage;
 import com.intellij.openapi.project.Project;
@@ -11,45 +10,41 @@ import fr.adrienbrault.idea.symfony2plugin.assistant.signature.MethodSignatureSe
 import fr.adrienbrault.idea.symfony2plugin.dic.ContainerFile;
 import fr.adrienbrault.idea.symfony2plugin.routing.dict.RoutingFile;
 import fr.adrienbrault.idea.symfony2plugin.templating.path.TwigNamespaceSetting;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 
 @State(
        name = "Symfony2PluginSettings",
        storages = {
-               @Storage("/symfony2.xml")
+               @Storage("symfony2.xml")
        }
 )
 public class Settings implements PersistentStateComponent<Settings> {
 
-    // Default Symfony 2, 3 and 4 paths
-    public static String[] DEFAULT_CONTAINER_PATHS = new String[] {
-        "app/cache/dev/appDevDebugProjectContainer.xml",
-        "var/cache/dev/appDevDebugProjectContainer.xml",
-        "var/cache/dev/srcDevDebugProjectContainer.xml",
-    };
-
-    // Default Symfony 2, 3 and 4 paths
-    public static String[] DEFAULT_ROUTES = new String[] {
+    // Default Symfony
+    public static final Collection<String> DEFAULT_ROUTES = Arrays.asList(
         "app/cache/dev/appDevUrlGenerator.php",
         "var/cache/dev/appDevUrlGenerator.php",
         "var/cache/dev/appDevDebugProjectContainerUrlGenerator.php",
         "var/cache/dev/srcDevDebugProjectContainerUrlGenerator.php",
-    };
+        "var/cache/dev/url_generating_routes.php", // Symfony >= 4
+        "var/cache/dev/UrlGenerator.php" // Symfony >= 4
+    );
 
-    public static String DEFAULT_TRANSLATION_PATH = "app/cache/dev/translations";
+    public static final String DEFAULT_TRANSLATION_PATH = "var/cache/dev/translations";
 
-    public static String DEFAULT_WEB_DIRECTORY = "web";
-    public static String DEFAULT_APP_DIRECTORY = "app";
+    public static final String DEFAULT_WEB_DIRECTORY = "public";
+    public static final String DEFAULT_APP_DIRECTORY = "app";
 
     public String pathToTranslation = DEFAULT_TRANSLATION_PATH;
     public String directoryToWeb = DEFAULT_WEB_DIRECTORY;
     public String directoryToApp = DEFAULT_APP_DIRECTORY;
     public String serviceJsNameStrategy = null;
-
-    public boolean remoteDevFileScheduler = false;
 
     public boolean pluginEnabled = false;
 
@@ -61,8 +56,16 @@ public class Settings implements PersistentStateComponent<Settings> {
     public boolean codeFoldingTwigRoute = true;
     public boolean codeFoldingTwigTemplate = true;
     public boolean codeFoldingTwigConstant = true;
+    public boolean featureTwigIcon = true;
+    public boolean featurePhpClassIcon = true;
+    public boolean featureTypeProvider = true;
+
+    public boolean featurePropertyInjection = true;
+
+    public boolean twigBundleNamespaceSupport = false;
 
     public boolean dismissEnableNotification = false;
+    public boolean dismissYamlSchemaNotification = false;
 
     public boolean profilerLocalEnabled = false;
     public String profilerLocalUrl = "http://127.0.0.1:8000";
@@ -74,10 +77,10 @@ public class Settings implements PersistentStateComponent<Settings> {
     /**
      * Use service id attribute as class name for service generator
      */
-    public boolean serviceClassAsIdAttribute = false;
+    public boolean serviceClassAsIdAttribute = true;
 
     /**
-     * Last user selected output of service generator eg: yaml or xml
+     * Last user selected output of service generator eg: yaml, xml, fluent, or phparray
      */
     public String lastServiceGeneratorLanguage = null;
 
@@ -97,7 +100,7 @@ public class Settings implements PersistentStateComponent<Settings> {
     public List<MethodSignatureSetting> methodSignatureSettings = new ArrayList<>();
 
     public static Settings getInstance(Project project) {
-        return ServiceManager.getService(project, Settings.class);
+        return project.getService(Settings.class);
     }
 
     @Nullable
@@ -107,7 +110,7 @@ public class Settings implements PersistentStateComponent<Settings> {
     }
 
     @Override
-    public void loadState(Settings settings) {
+    public void loadState(@NotNull Settings settings) {
         XmlSerializerUtil.copyBean(settings, this);
     }
 }

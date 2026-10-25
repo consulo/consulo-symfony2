@@ -13,6 +13,7 @@ import fr.adrienbrault.idea.symfony2plugin.util.PhpIndexUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.SymfonyBundleUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.ServiceUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.SymfonyBundle;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -31,6 +32,7 @@ public class ControllerIndex {
        this.project = project;
     }
 
+    @NotNull
     public Collection<ControllerAction> getActions() {
         Collection<ControllerAction> actions = new ArrayList<>();
 
@@ -44,13 +46,21 @@ public class ControllerIndex {
     @Nullable
     public ControllerAction getControllerActionOnService(String shortcutName) {
 
-        // only foo_bar:Method is valid
-        if(!RouteHelper.isServiceController(shortcutName)) {
+        String serviceId;
+        String methodName;
+        if(RouteHelper.isServiceController(shortcutName)) {
+            // only "foo_bar:Method" is valid
+            String replace = shortcutName.replace("::", ":");
+
+            serviceId = replace.substring(0, replace.lastIndexOf(":"));
+            methodName = replace.substring(replace.lastIndexOf(":") + 1);
+        } else if(RouteHelper.isServiceControllerInvoke(shortcutName)) {
+            // only "foo_bar" is valid
+            serviceId = shortcutName;
+            methodName = "__invoke";
+        } else {
             return null;
         }
-
-        String serviceId = shortcutName.substring(0, shortcutName.lastIndexOf(":"));
-        String methodName = shortcutName.substring(shortcutName.lastIndexOf(":") + 1);
 
         PhpClass phpClass = ServiceUtil.getResolvedClassDefinition(this.project, serviceId, getLazyServiceCollector(this.project));
         if(phpClass == null) {
@@ -65,8 +75,8 @@ public class ControllerIndex {
         return new ControllerAction(serviceId, method);
     }
 
-    private List<ControllerAction> getActionMethods(SymfonyBundle symfonyBundle) {
-
+    @NotNull
+    private Collection<ControllerAction> getActionMethods(@NotNull SymfonyBundle symfonyBundle) {
         String namespaceName = symfonyBundle.getNamespaceName();
         if(!namespaceName.startsWith("\\")) {
             namespaceName = "\\" + namespaceName;
@@ -81,18 +91,21 @@ public class ControllerIndex {
         List<ControllerAction> actions = new ArrayList<>();
 
         for (PhpClass phpClass : PhpIndexUtil.getPhpClassInsideNamespace(this.project, namespaceName)) {
-
             if(!phpClass.getName().endsWith("Controller")) {
                 continue;
             }
 
             String presentableFQN = phpClass.getPresentableFQN();
+            if(presentableFQN.contains("\\Test\\") || presentableFQN.contains("\\Tests\\") || presentableFQN.startsWith("Test\\") || presentableFQN.startsWith("\\Test\\")) {
+                continue;
+            }
+
             if(!presentableFQN.startsWith("\\")) {
                 presentableFQN = "\\" + presentableFQN;
             }
 
             presentableFQN = presentableFQN.substring(0, presentableFQN.length() - "Controller".length());
-            if(presentableFQN.length() == 0) {
+            if(presentableFQN.isEmpty()) {
                 continue;
             }
 
@@ -100,13 +113,22 @@ public class ControllerIndex {
 
             for(Method method : phpClass.getMethods()) {
                 String methodName = method.getName();
-                if(methodName.endsWith("Action") && method.getAccess().isPublic()) {
+                if(!method.getAccess().isPublic() || (method.getName().startsWith("__") && !method.getName().equals("__invoke"))) {
+                    continue;
+                }
+
+                if(methodName.endsWith("Action")) {
                     String shortcutName = symfonyBundle.getName() + ":" + ns.replace("/", "\\") + ':' + methodName.substring(0, methodName.length() - 6);
                     actions.add(new ControllerAction(shortcutName, method));
                 }
 
+                String shortcutName = StringUtils.stripStart(phpClass.getPresentableFQN(), "\\");
+                if(methodName.equals("__invoke")) {
+                    actions.add(new ControllerAction(shortcutName, method));
+                } else {
+                    actions.add(new ControllerAction(shortcutName + "::" + method.getName(), method));
+                }
             }
-
         }
 
         return actions;
@@ -115,7 +137,7 @@ public class ControllerIndex {
     @NotNull
     private Collection<ControllerAction> getServiceActionMethods(@NotNull Project project) {
         Map<String,Route> routes = RouteHelper.getAllRoutes(project);
-        if(routes.size() == 0) {
+        if(routes.isEmpty()) {
             return Collections.emptyList();
         }
 
@@ -124,7 +146,7 @@ public class ControllerIndex {
         ContainerCollectionResolver.LazyServiceCollector collector = new ContainerCollectionResolver.LazyServiceCollector(project);
 
         Collection<ControllerAction> actions = new ArrayList<>();
-        for (String serviceName : ServiceRouteContainer.build(routes).getServiceNames()) {
+        for (String serviceName : ServiceRouteContainer.getServiceNames(project)) {
             PhpClass phpClass = ServiceUtil.getResolvedClassDefinition(project, serviceName, collector);
             if(phpClass == null) {
                 continue;
@@ -134,6 +156,7 @@ public class ControllerIndex {
             for(Method method : phpClass.getMethods()) {
                 if(method.getAccess().isPublic() && !method.getName().startsWith("__") && !method.getName().startsWith("set")) {
                     actions.add(new ControllerAction(serviceName + ":" + method.getName(), method));
+                    actions.add(new ControllerAction(serviceName + "::" + method.getName(), method));
                 }
             }
         }

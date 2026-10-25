@@ -1,49 +1,20 @@
 package fr.adrienbrault.idea.symfony2plugin.action;
 
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
-
-import org.apache.commons.lang.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.jetbrains.yaml.YAMLFileType;
-import org.jetbrains.yaml.psi.YAMLCompoundValue;
-import org.jetbrains.yaml.psi.YAMLFile;
-import org.jetbrains.yaml.psi.YAMLKeyValue;
-import org.jetbrains.yaml.psi.YAMLMapping;
-import org.jetbrains.yaml.psi.YAMLScalar;
-import org.jetbrains.yaml.psi.YAMLValue;
-import com.intellij.ide.IdeView;
-import com.intellij.ide.highlighter.XmlFileType;
 import com.intellij.openapi.actionSystem.AnActionEvent;
-import com.intellij.openapi.actionSystem.DataContext;
-import com.intellij.openapi.actionSystem.LangDataKeys;
 import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.fileTypes.FileType;
+import com.intellij.openapi.fileEditor.OpenFileDescriptor;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
-import com.intellij.openapi.util.io.StreamUtil;
-import com.intellij.psi.PsiDirectory;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiFileFactory;
-import com.intellij.psi.XmlElementFactory;
+import com.intellij.psi.*;
 import com.intellij.psi.codeStyle.CodeStyleManager;
+import com.intellij.psi.impl.file.PsiDirectoryFactory;
 import com.intellij.psi.util.PsiTreeUtil;
 import com.intellij.psi.xml.XmlTag;
+import com.jetbrains.php.lang.PhpFileType;
 import com.jetbrains.php.lang.psi.elements.Method;
 import com.jetbrains.php.lang.psi.elements.Parameter;
-import consulo.php.lang.psi.PhpClass;
+import com.jetbrains.php.lang.psi.elements.PhpClass;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
 import fr.adrienbrault.idea.symfony2plugin.action.ui.ServiceArgumentSelectionDialog;
 import fr.adrienbrault.idea.symfony2plugin.action.ui.SymfonyCreateService;
@@ -54,10 +25,15 @@ import fr.adrienbrault.idea.symfony2plugin.intentions.yaml.dict.YamlCreateServic
 import fr.adrienbrault.idea.symfony2plugin.intentions.yaml.dict.YamlUpdateArgumentServicesCallback;
 import fr.adrienbrault.idea.symfony2plugin.stubs.ContainerCollectionResolver;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
-import fr.adrienbrault.idea.symfony2plugin.util.SymfonyBundleUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.ServiceUtil;
-import fr.adrienbrault.idea.symfony2plugin.util.dict.SymfonyBundle;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
+import org.apache.commons.lang3.StringUtils;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+import org.jetbrains.yaml.psi.*;
+
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -75,79 +51,44 @@ public class ServiceActionUtil {
             .toArray(String[]::new);
     }
 
-    public static void buildFile(AnActionEvent event, final Project project, String templatePath) {
-        String extension = (templatePath.endsWith(".yml") || templatePath.endsWith(".yaml")) ? "yml" : "xml" ;
+    public static void buildFile(@NotNull AnActionEvent event, @NotNull Project project, @NotNull String templatePath) {
+        String extension;
+
+        if ((templatePath.endsWith(".yml") || templatePath.endsWith(".yaml"))) {
+            extension = "yaml";
+        } else if (templatePath.endsWith(".xml")) {
+            extension = "xml";
+        } else if (templatePath.endsWith(".php")) {
+            extension = "php";
+        } else {
+            throw new RuntimeException("no valid extension for: " + templatePath);
+        }
 
         String fileName = Messages.showInputDialog(project, "File name (without extension)", String.format("Create %s Service", extension), Symfony2Icons.SYMFONY);
         if(fileName == null || StringUtils.isBlank(fileName)) {
             return;
         }
 
-        FileType fileType = (templatePath.endsWith(".yml") || templatePath.endsWith(".yaml")) ? YAMLFileType.YML : XmlFileType.INSTANCE ;
-
-        if(!fileName.endsWith("." + extension)) {
-            fileName = fileName.concat("." + extension);
-        }
-
-        DataContext dataContext = event.getDataContext();
-        IdeView view = LangDataKeys.IDE_VIEW.getData(dataContext);
-        if (view == null) {
+        final PsiDirectory parentDirectory = NewFileActionUtil.getSelectedDirectoryFromAction(event);
+        if (parentDirectory == null) {
             return;
         }
 
-        PsiDirectory[] directories = view.getDirectories();
-        if(directories.length == 0) {
-            return;
-        }
-
-        final PsiDirectory initialBaseDir = directories[0];
-        if (initialBaseDir == null) {
-            return;
-        }
-
-        if(initialBaseDir.findFile(fileName) != null) {
+        if(parentDirectory.findFile(fileName) != null) {
             Messages.showInfoMessage("File exists", "Error");
             return;
         }
 
-        String content;
-        try {
-            content = StreamUtil.readText(ServiceActionUtil.class.getResourceAsStream(templatePath), "UTF-8").replace("\r\n", "\n");
-        } catch (IOException e) {
-            e.printStackTrace();
-            return;
-        }
-
-        final PsiFileFactory factory = PsiFileFactory.getInstance(project);
-
-        String bundleName = "Acme\\DemoBundle";
-
-        SymfonyBundleUtil symfonyBundleUtil = new SymfonyBundleUtil(project);
-        SymfonyBundle symfonyBundle = symfonyBundleUtil.getContainingBundle(initialBaseDir);
-
-        if(symfonyBundle != null) {
-            bundleName = StringUtils.strip(symfonyBundle.getNamespaceName(), "\\");
-        }
-
-        String underscoreBundle = bundleName.replace("\\", ".").toLowerCase();
-        if(underscoreBundle.endsWith("bundle")) {
-            underscoreBundle = underscoreBundle.substring(0, underscoreBundle.length() - 6);
-        }
-
-        content = content.replace("{{ BundleName }}", bundleName).replace("{{ BundleNameUnderscore }}", underscoreBundle);
-
-        final PsiFile file = factory.createFileFromText(fileName, fileType, content);
-
         ApplicationManager.getApplication().runWriteAction(() -> {
-            CodeStyleManager.getInstance(project).reformat(file);
-            initialBaseDir.add(file);
+            PsiFile fileFromText = PsiFileFactory.getInstance(project).createFileFromText("services." + extension, PhpFileType.INSTANCE, NewFileActionUtil.getFileTemplateContent(templatePath));
+
+            if (extension.equals("php")) {
+                CodeStyleManager.getInstance(project).reformat(fileFromText);
+            }
+
+            PsiElement newFile = PsiDirectoryFactory.getInstance(project).createDirectory(parentDirectory.getVirtualFile()).add(fileFromText);
+            new OpenFileDescriptor(project, newFile.getContainingFile().getVirtualFile(), 0).navigate(true);
         });
-
-        PsiFile psiFile = initialBaseDir.findFile(fileName);
-        if(psiFile != null) {
-            view.selectElement(psiFile);
-        }
-
     }
 
     @NotNull
@@ -163,7 +104,7 @@ public class ServiceActionUtil {
     @NotNull
     public static Set<String> getPossibleServices(@NotNull PhpClass phpClass, @NotNull Map<String, ContainerService> serviceClasses) {
         List<ContainerService> matchedContainer = new ArrayList<>(ServiceUtil.getServiceSuggestionForPhpClass(phpClass, serviceClasses));
-        if(matchedContainer.size() == 0) {
+        if(matchedContainer.isEmpty()) {
             return Collections.emptySet();
         }
 
@@ -174,35 +115,12 @@ public class ServiceActionUtil {
         matchedContainer.sort(new SymfonyCreateService.ContainerServicePriorityNameComparator());
 
         matchedContainer.sort((o1, o2) ->
-            ((Integer)ServiceContainerUtil.getServiceUsage(phpClass.getProject(), o2.getName()))
-                .compareTo(ServiceContainerUtil.getServiceUsage(phpClass.getProject(), o1.getName()))
+            Integer.compare(ServiceContainerUtil.getServiceUsage(phpClass.getProject(), o2.getName()), ServiceContainerUtil.getServiceUsage(phpClass.getProject(), o1.getName()))
         );
 
         return matchedContainer.stream()
             .map(ContainerService::getName)
             .collect(Collectors.toCollection(LinkedHashSet::new));
-    }
-
-    @NotNull
-    public static Collection<XmlTag> getXmlContainerServiceDefinition(PsiFile psiFile) {
-
-        Collection<XmlTag> xmlTags = new ArrayList<>();
-
-        for(XmlTag xmlTag: PsiTreeUtil.getChildrenOfTypeAsList(psiFile.getFirstChild(), XmlTag.class)) {
-            if(xmlTag.getName().equals("container")) {
-                for(XmlTag servicesTag: xmlTag.getSubTags()) {
-                    if(servicesTag.getName().equals("services")) {
-                        for(XmlTag parameterTag: servicesTag.getSubTags()) {
-                            if(parameterTag.getName().equals("service")) {
-                                xmlTags.add(parameterTag);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        return xmlTags;
     }
 
     public static class ServiceYamlContainer {
@@ -315,20 +233,26 @@ public class ServiceActionUtil {
             }
         }
 
-        Parameter[] parameters = collectOptionalParameter ? constructor.getParameters() : PhpElementsUtil.getFunctionRequiredParameter(constructor);
-        if(parameters.length <= serviceArguments) {
-            return Collections.emptyList();
+        return collectMissingArgTypes(constructor, serviceArguments, collectOptionalParameter);
+    }
+
+    @Nullable
+    public static XmlTag getServiceTagValid(@NotNull PsiElement psiElement) {
+        XmlTag xmlTag = PsiTreeUtil.getParentOfType(psiElement, XmlTag.class);
+        if (xmlTag == null) {
+            return null;
         }
 
-        final List<String> args = new ArrayList<>();
-
-        for (int i = serviceArguments; i < parameters.length; i++) {
-            Parameter parameter = parameters[i];
-            String s = parameter.getDeclaredType().toString();
-            args.add(s);
+        if ("service".equals(xmlTag.getName())) {
+            return xmlTag;
         }
 
-        return args;
+        xmlTag = PsiTreeUtil.getParentOfType(xmlTag, XmlTag.class);
+        if (xmlTag != null && "service".equals(xmlTag.getName())) {
+            return xmlTag;
+        }
+
+        return null;
     }
 
     @Nullable
@@ -383,23 +307,28 @@ public class ServiceActionUtil {
             return Collections.emptyList();
         }
 
+        return collectMissingArgTypes(constructor, serviceArguments, collectOptionalParameter);
+    }
+
+    @NotNull
+    private static List<String> collectMissingArgTypes(@NotNull Method constructor, int serviceArguments, boolean collectOptionalParameter) {
         Parameter[] parameters = collectOptionalParameter ? constructor.getParameters() : PhpElementsUtil.getFunctionRequiredParameter(constructor);
-        if(parameters.length <= serviceArguments) {
+        if (parameters.length <= serviceArguments) {
             return Collections.emptyList();
         }
 
         final List<String> args = new ArrayList<>();
-
         for (int i = serviceArguments; i < parameters.length; i++) {
-            Parameter parameter = parameters[i];
-            String s = parameter.getDeclaredType().toString();
-            args.add(s);
+            args.add(parameters[i].getDeclaredType().toString());
         }
 
         return args;
     }
 
     public static boolean isValidXmlParameterInspectionService(@NotNull XmlTag xmlTag) {
+        if (!"service".equals(xmlTag.getName())) {
+            return false;
+        }
 
         // we dont support some attributes right now
         for(String s : INVALID_ARGUMENT_ATTRIBUTES) {
@@ -424,7 +353,7 @@ public class ServiceActionUtil {
 
         // <services autowire="true"><defaults/></services>
         PsiElement servicesTag = xmlTag.getParent();
-        if(servicesTag instanceof XmlTag &&  "services".equals(((XmlTag) servicesTag).getName())) {
+        if(servicesTag instanceof XmlTag && "services".equals(((XmlTag) servicesTag).getName())) {
             // <defaults autowire="true" />
             for (XmlTag defaults : ((XmlTag) servicesTag).findSubTags("defaults")) {
                 if("true".equalsIgnoreCase(defaults.getAttributeValue("autowire"))) {
@@ -450,7 +379,7 @@ public class ServiceActionUtil {
             new ContainerCollectionResolver.LazyServiceCollector(yamlKeyValue.getProject())
         );
 
-        if(yamlMissingArgumentTypes.size() == 0) {
+        if(yamlMissingArgumentTypes.isEmpty()) {
             return;
         }
 
@@ -484,14 +413,14 @@ public class ServiceActionUtil {
             List<String> items = new ArrayList<>();
             for (Map.Entry<String, Set<String>> stringSetEntry : resolved.entrySet()) {
                 Set<String> value = stringSetEntry.getValue();
-                if(value.size() > 0 ) {
+                if(!value.isEmpty()) {
                     items.add(value.iterator().next());
                 } else {
                     items.add("?");
                 }
             }
 
-            callback.insert(items);
+            ApplicationManager.getApplication().runWriteAction(() -> callback.insert(items));
 
             return;
         }

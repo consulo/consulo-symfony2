@@ -2,21 +2,23 @@ package fr.adrienbrault.idea.symfony2plugin.doctrine;
 
 import com.intellij.openapi.extensions.ExtensionPointName;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.util.Key;
+import com.intellij.openapi.util.Pair;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiManager;
-import com.intellij.psi.util.PsiTreeUtil;
+import com.intellij.psi.util.*;
 import com.intellij.psi.xml.XmlFile;
 import com.intellij.psi.xml.XmlTag;
-import com.intellij.util.containers.ContainerUtil;
+import com.intellij.util.Function;
 import com.jetbrains.php.PhpIndex;
 import com.jetbrains.php.lang.documentation.phpdoc.psi.PhpDocComment;
 import com.jetbrains.php.lang.documentation.phpdoc.psi.tags.PhpDocParamTag;
 import com.jetbrains.php.lang.psi.elements.*;
-import com.jetbrains.php.lang.psi.elements.impl.PhpNamedElementImpl;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.component.DocumentNamespacesParser;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.component.EntityNamesServiceParser;
+import fr.adrienbrault.idea.symfony2plugin.doctrine.dict.DoctrineClassMetadata;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.dict.DoctrineModelField;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.dict.DoctrineTypes;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.dict.DoctrineMetadataModel;
@@ -43,6 +45,8 @@ public class EntityHelper {
 
     public static final ExtensionPointName<DoctrineModelProvider> MODEL_POINT_NAME = new ExtensionPointName<>("fr.adrienbrault.idea.symfony2plugin.extension.DoctrineModelProvider");
 
+    private static final Key<CachedValue<Collection<DoctrineModelCached>>> SYMFONY_DOCTRINE_MODEL_CACHE = new Key<>("SYMFONY_DOCTRINE_MODEL_CACHE");
+
     final public static String[] ANNOTATION_FIELDS = new String[] {
         "\\Doctrine\\ORM\\Mapping\\Column",
         "\\Doctrine\\ORM\\Mapping\\OneToOne",
@@ -57,25 +61,13 @@ public class EntityHelper {
      * Resolve shortcut and namespaces classes for current phpclass and attached modelname
      */
     @Nullable
-    public static PhpClass getAnnotationRepositoryClass(@NotNull PhpClass phpClass, @NotNull String modelName) {
-
+    public static String getAnnotationRepositoryClass(@NotNull PhpClass phpClass, @NotNull String modelName) {
         // \ns\Class fine we dont need to resolve classname we are in global context
         if(modelName.startsWith("\\")) {
-            return PhpElementsUtil.getClassInterface(phpClass.getProject(), modelName);
+            return modelName;
         }
 
-        // repositoryClass="Classname" pre-append namespace here
-        PhpNamedElementImpl phpNamedElementImpl = PsiTreeUtil.getParentOfType(phpClass, PhpNamedElementImpl.class);
-        if(phpNamedElementImpl != null) {
-            String className = phpNamedElementImpl.getFQN() + "\\" +  modelName;
-            PhpClass namespaceClass = PhpElementsUtil.getClassInterface(phpClass.getProject(), className);
-            if(namespaceClass != null) {
-                return namespaceClass;
-            }
-        }
-
-        // repositoryClass="Classname\Test" trailing backslash can be stripped
-        return  PhpElementsUtil.getClassInterface(phpClass.getProject(), modelName);
+        return AnnotationBackportUtil.getFqnClassNameFromScope(phpClass, modelName);
     }
 
     /**
@@ -86,7 +78,6 @@ public class EntityHelper {
      */
     @Nullable
     public static PhpClass getEntityRepositoryClass(@NotNull Project project, @NotNull String shortcutName) {
-
         PhpClass phpClass = resolveShortcutName(project, shortcutName);
         if(phpClass == null) {
             return null;
@@ -98,17 +89,17 @@ public class EntityHelper {
             return classRepository;
         }
 
-        // @TODO: deprecated code
         // search on annotations
         PhpDocComment docAnnotation = phpClass.getDocComment();
         if(docAnnotation != null) {
-
-            // search for repositoryClass="Foo\Bar\RegisterRepository"
+            // search for repositoryClass="Foo\Bar\RegisterRepository"; repositoryClass=Foo\Bar\RegisterRepository::class
             // @MongoDB\Document; @ORM\Entity
-            String docAnnotationText = docAnnotation.getText();
-            Matcher matcher = Pattern.compile("repositoryClass[\\s]*=[\\s]*[\"|'](.*)[\"|']").matcher(docAnnotationText);
-            if (matcher.find()) {
-                return getAnnotationRepositoryClass(phpClass, matcher.group(1));
+            Collection<DoctrineClassMetadata> classRepositoryPair = DoctrineUtil.extractAnnotations(phpClass, docAnnotation);
+            if (!classRepositoryPair.isEmpty()) {
+                DoctrineClassMetadata next = classRepositoryPair.iterator().next();
+                if (next.repositoryClass() != null) {
+                    return PhpElementsUtil.getClassInterface(project, next.repositoryClass());
+                }
             }
         }
 
@@ -180,6 +171,15 @@ public class EntityHelper {
                 doctrineModelField.setColumn(yamlColumn.getValueText());
             }
 
+            // Enum type
+            YAMLKeyValue yamlEnumType = YamlHelper.getYamlKeyValue(yamlKeyValue, "enumType");
+            if(yamlEnumType != null) {
+                String enumType = yamlEnumType.getValueText();
+                if(!enumType.isEmpty()) {
+                    doctrineModelField.setEnumType("\\" + org.apache.commons.lang3.StringUtils.stripStart(enumType, "\\"));
+                }
+            }
+
             return;
         }
 
@@ -221,7 +221,7 @@ public class EntityHelper {
                 XmlTag entity = rootTag.findFirstSubTag("entity");
                 if(entity != null) {
                     String name = entity.getAttributeValue("name");
-                    if(org.apache.commons.lang.StringUtils.isBlank(name)) {
+                    if(org.apache.commons.lang3.StringUtils.isBlank(name)) {
                         entityName = name;
                     }
                 }
@@ -259,203 +259,48 @@ public class EntityHelper {
     }
 
     @NotNull
-    public static PsiElement[] getModelFieldTargets(@NotNull PhpClass phpClass,@NotNull String fieldName) {
-
-        Collection<PsiElement> psiElements = new ArrayList<>();
-
+    public static PsiElement[] getModelFieldTargets(@NotNull PhpClass phpClass, @NotNull String fieldName) {
         DoctrineMetadataModel modelFields = DoctrineMetadataUtil.getModelFields(phpClass.getProject(), phpClass.getPresentableFQN());
         if(modelFields != null) {
             for (DoctrineModelField field : modelFields.getFields()) {
-                if(field.getName().equals(fieldName) && field.getTargets().size() > 0) {
-                    return field.getTargets().toArray(new PsiElement[psiElements.size()]);
+                if(field.getName().equals(fieldName) && !field.getTargets().isEmpty()) {
+                    return field.getTargets().toArray(new PsiElement[0]);
                 }
             }
         }
 
-        // @TODO: deprecated
-        PsiFile psiFile = EntityHelper.getModelConfigFile(phpClass);
-
-        if(psiFile instanceof YAMLFile) {
-            // @TODO: migrate to getEntityFields()
-            YAMLValue topLevelValue = ((YAMLFile) psiFile).getDocuments().get(0).getTopLevelValue();
-            if(topLevelValue instanceof YAMLMapping) {
-                Collection<YAMLKeyValue> keyValues = ((YAMLMapping) topLevelValue).getKeyValues();
-                if(keyValues.size() > 0) {
-                    for(YAMLKeyValue yamlKeyValue: EntityHelper.getYamlModelFieldKeyValues(keyValues.iterator().next()).values()) {
-                        ContainerUtil.addIfNotNull(psiElements, YamlHelper.getYamlKeyValue(yamlKeyValue, "name"));
-                    }
-                }
-            }
-        }
-
-        if(psiFile instanceof XmlFile) {
-            for (DoctrineModelField field : getEntityFields((XmlFile) psiFile)) {
-                if(field.getName().equals(fieldName)) {
-                    psiElements.addAll(field.getTargets());
-                }
-            }
-        }
-
-        // provide fallback on annotations
-        // @TODO: better detect annotation switch; yaml and annotation are valid; need deps on annotation plugin
-        PhpDocComment docComment = phpClass.getDocComment();
-        if(docComment != null) {
-            if(docComment.getText().contains("Entity") || docComment.getText().contains("@ORM") || docComment.getText().contains("repositoryClass")) {
-                for(Field field: phpClass.getFields()) {
-                    if(!field.isConstant() && fieldName.equals(field.getName())) {
-                        psiElements.add(field);
-                    }
-                }
-            }
-        }
-
+        // Fallback: getter method
         String methodName = "get" + StringUtils.camelize(fieldName.toLowerCase(), false);
         Method method = phpClass.findMethodByName(methodName);
         if(method != null) {
-            psiElements.add(method);
+            return new PsiElement[]{method};
         }
 
-        return psiElements.toArray(new PsiElement[psiElements.size()]);
-
-    }
-
-    @Nullable
-    private static PsiFile getEntityMetadataFile(@NotNull Project project, @NotNull SymfonyBundle symfonyBundleUtil, @NotNull String className, @NotNull String modelShortcut) {
-
-        for(String s: new String[] {"yml", "yaml", "xml"}) {
-
-            String entityFile = "Resources/config/doctrine/" + className + String.format(".%s.%s", modelShortcut, s);
-            VirtualFile virtualFile = symfonyBundleUtil.getRelative(entityFile);
-            if(virtualFile != null) {
-                PsiFile psiFile = PsiManager.getInstance(project).findFile(virtualFile);
-                if(psiFile != null) {
-                    return psiFile;
-                }
-            }
-
-        }
-
-        return null;
-    }
-
-    @Nullable
-    public static PsiFile getModelConfigFile(@NotNull PhpClass phpClass) {
-
-        // new code
-        String presentableFQN = phpClass.getPresentableFQN();
-        Collection<VirtualFile> metadataFiles = DoctrineMetadataUtil.findMetadataFiles(phpClass.getProject(), presentableFQN);
-        if(metadataFiles.size() > 0) {
-            PsiFile file = PsiManager.getInstance(phpClass.getProject()).findFile(metadataFiles.iterator().next());
-            if(file != null) {
-                return file;
-            }
-        }
-
-        // @TODO: deprecated code
-        SymfonyBundle symfonyBundle = new SymfonyBundleUtil(phpClass.getProject()).getContainingBundle(phpClass);
-        if(symfonyBundle != null) {
-            for(String modelShortcut: new String[] {"orm", "mongodb", "couchdb"}) {
-                String className = phpClass.getName();
-
-                int n = presentableFQN.indexOf("\\Entity\\");
-                if(n > 0) {
-                    className = presentableFQN.substring(n + 8).replace("\\", ".");
-                }
-
-                PsiFile entityMetadataFile = getEntityMetadataFile(phpClass.getProject(), symfonyBundle, className, modelShortcut);
-                if(entityMetadataFile != null) {
-                    return entityMetadataFile;
-                }
-
-            }
-        }
-
-        return null;
+        return PsiElement.EMPTY_ARRAY;
     }
 
     @NotNull
     public static Collection<DoctrineModelField> getModelFields(@NotNull PhpClass phpClass) {
-
-        // new code
         String presentableFQN = phpClass.getPresentableFQN();
         DoctrineMetadataModel fields = DoctrineMetadataUtil.getModelFields(phpClass.getProject(), presentableFQN);
         if(fields != null) {
             return fields.getFields();
         }
-
-        // @TODO: old deprecated code
-        PsiFile psiFile = getModelConfigFile(phpClass);
-        if(psiFile == null) {
-            Collections.emptyList();
-        }
-
-        if(psiFile instanceof YAMLFile) {
-            List<DoctrineModelField> modelFields = new ArrayList<>();
-
-            PsiElement yamlDocument = psiFile.getFirstChild();
-            if(yamlDocument instanceof YAMLDocument) {
-                PsiElement arrayKeyValue = yamlDocument.getFirstChild();
-                if(arrayKeyValue instanceof YAMLKeyValue) {
-
-                    // first line is class name; check of we are right
-                    String className = YamlHelper.getYamlKeyName(((YAMLKeyValue) arrayKeyValue));
-                    if(PhpElementsUtil.isEqualClassName(phpClass, className)) {
-                        modelFields.addAll(getModelFieldsSet((YAMLKeyValue) arrayKeyValue));
-                    }
-
-                }
-            }
-
-            return modelFields;
-        }
-
-        if(psiFile instanceof XmlFile) {
-            return getEntityFields((XmlFile) psiFile);
-        }
-
-        // provide fallback on annotations
-        List<DoctrineModelField> modelFields = new ArrayList<>();
-
-        PhpDocComment docComment = phpClass.getDocComment();
-        if(docComment != null) {
-            if(AnnotationBackportUtil.hasReference(docComment, "\\Doctrine\\ORM\\Mapping\\Entity")) {
-                for(Field field: phpClass.getFields()) {
-                    if(!field.isConstant()) {
-                        if(AnnotationBackportUtil.hasReference(field.getDocComment(), ANNOTATION_FIELDS)) {
-                            DoctrineModelField modelField = new DoctrineModelField(field.getName());
-                            attachAnnotationInformation(field, modelField.addTarget(field));
-                            modelFields.add(modelField);
-                        }
-                    }
-                }
-            }
-        }
-
-        return modelFields;
+        return Collections.emptyList();
     }
 
     @NotNull
-    public static List<DoctrineModelField> getEntityFields(@NotNull XmlFile psiFile) {
+    public static List<DoctrineModelField> getXmlModelFields(@NotNull XmlTag modelTag) {
 
         List<DoctrineModelField> modelFields = new ArrayList<>();
 
-        XmlTag rootTag = psiFile.getRootTag();
-        if(rootTag == null) {
-            return Collections.emptyList();
-        }
-
-        final XmlTag entity = rootTag.findFirstSubTag("entity");
-        if(entity == null) {
-            return Collections.emptyList();
-        }
-
         for (XmlTag xmlTag : new ArrayList<XmlTag>() {{
-            addAll(Arrays.asList(entity.findSubTags("field")));
-            addAll(Arrays.asList(entity.findSubTags("id")));
+            addAll(Arrays.asList(modelTag.findSubTags("field")));
+            addAll(Arrays.asList(modelTag.findSubTags("id")));
         }}) {
 
             String name = xmlTag.getAttributeValue("name");
-            if(org.apache.commons.lang.StringUtils.isBlank(name)) {
+            if(org.apache.commons.lang3.StringUtils.isBlank(name)) {
                 continue;
             }
 
@@ -464,20 +309,26 @@ public class EntityHelper {
             field.addTarget(xmlTag);
 
             String column = xmlTag.getAttributeValue("column");
-            if(org.apache.commons.lang.StringUtils.isNotBlank(name)) {
+            if(org.apache.commons.lang3.StringUtils.isNotBlank(column)) {
                 field.setColumn(column);
             }
 
             String type = xmlTag.getAttributeValue("type");
-            if(org.apache.commons.lang.StringUtils.isNotBlank(type)) {
+            if(org.apache.commons.lang3.StringUtils.isNotBlank(type)) {
                 field.setTypeName(type);
+            }
+
+            // Enum type
+            String enumType = xmlTag.getAttributeValue("enum-type");
+            if(org.apache.commons.lang3.StringUtils.isNotBlank(enumType)) {
+                field.setEnumType("\\" + org.apache.commons.lang3.StringUtils.stripStart(enumType, "\\"));
             }
 
             modelFields.add(field);
         }
 
         for(String s: new String[] {"one-to-one", "one-to-many", "many-to-many", "many-to-one"}) {
-            for (XmlTag xmlTag : entity.findSubTags(s)) {
+            for (XmlTag xmlTag : modelTag.findSubTags(s)) {
 
                 String targetEntity = xmlTag.getAttributeValue("target-entity");
                 if(targetEntity == null) {
@@ -493,7 +344,7 @@ public class EntityHelper {
                 entityField.addTarget(xmlTag);
 
                 // find namespace
-                entityField.setRelation(getOrmClass(psiFile, targetEntity));
+                entityField.setRelation(getOrmClass(modelTag.getContainingFile(), targetEntity));
 
                 entityField.setRelationType(StringUtils.camelize(s.replace("-", "_")));
                 modelFields.add(entityField);
@@ -625,6 +476,11 @@ public class EntityHelper {
         return null;
     }
 
+    /**
+     * Resolve navigation targets for a Doctrine entity: its repository class, the entity class itself, and any metadata files.
+     *
+     * @param entityName fully qualified class name or bundle shortcut (e.g. "App\Entity\Foo" or "AppBundle:Foo")
+     */
     public static PsiElement[] getModelPsiTargets(Project project, @NotNull String entityName) {
         List<PsiElement> results = new ArrayList<>();
 
@@ -633,24 +489,26 @@ public class EntityHelper {
             results.add(phpClass);
         }
 
-        // search any php model file
         PhpClass entity = EntityHelper.resolveShortcutName(project, entityName);
         if(entity != null) {
             results.add(entity);
 
-            // find model config eg ClassName.orm.yml
-            PsiFile psiFile = EntityHelper.getModelConfigFile(entity);
-            if(psiFile != null) {
-                results.add(psiFile);
+            Collection<VirtualFile> metadataFiles = DoctrineMetadataUtil.findMetadataFiles(
+                project,
+                org.apache.commons.lang3.StringUtils.stripStart(entity.getPresentableFQN(), "\\")
+            );
+            for (VirtualFile metadataFile : metadataFiles) {
+                PsiFile psiFile = PsiManager.getInstance(project).findFile(metadataFile);
+                if(psiFile != null) {
+                    results.add(psiFile);
+                }
             }
-
         }
 
-        return results.toArray(new PsiElement[results.size()]);
+        return results.toArray(new PsiElement[0]);
     }
 
-    public static void attachAnnotationInformation(Field field, DoctrineModelField doctrineModelField) {
-
+    public static void attachAnnotationInformation(@NotNull PhpClass phpClass, @NotNull Field field, @NotNull DoctrineModelField doctrineModelField, @NotNull Map<String, String> useImportMap) {
         // we already have that without regular expression
         // @TODO: de.espend.idea.php.annotation.util.AnnotationUtil.getPhpDocCommentAnnotationContainer()
         // fully require plugin now?
@@ -675,11 +533,10 @@ public class EntityHelper {
         matcher = Pattern.compile("((Many|One)To(Many|One))\\(").matcher(text);
         if (matcher.find()) {
             doctrineModelField.setRelationType(matcher.group(1));
+            String clazz = resolveDoctrineLikePropertyClass(phpClass, text, "targetEntity", aVoid -> useImportMap);
 
-            // targetEntity name
-            matcher = Pattern.compile("targetEntity[\\s]*=[\\s]*[\"|']([\\w_\\\\]+)[\"|']").matcher(text);
-            if (matcher.find()) {
-                doctrineModelField.setRelation(matcher.group(1));
+            if (clazz != null) {
+                doctrineModelField.setRelation(clazz);
             } else {
                 // @TODO: external split
                 // FLOW shortcut:
@@ -687,7 +544,7 @@ public class EntityHelper {
                 PhpDocParamTag varTag = docBlock.getVarTag();
                 if(varTag != null) {
                     String type = varTag.getType().toString();
-                    if(org.apache.commons.lang.StringUtils.isNotBlank(type)) {
+                    if(org.apache.commons.lang3.StringUtils.isNotBlank(type)) {
                         doctrineModelField.setRelation(type);
                     }
                 }
@@ -705,12 +562,11 @@ public class EntityHelper {
 
     }
 
-    /**
-     * One PhpClass can have multiple targets and names @TODO: refactor
-     */
-    public static Collection<DoctrineModel> getModelClasses(final Project project) {
+    private record DoctrineModelCached(@NotNull String phpClass, @Nullable String doctrineShortcut, @Nullable String doctrineNamespace) {
+    }
 
-        HashMap<String, String> shortcutNames = new HashMap<String, String>() {{
+    private static Collection<DoctrineModelCached> getModelClassesInner(final Project project) {
+        HashMap<String, String> shortcutNames = new HashMap<>() {{
             putAll(ServiceXmlParserFactory.getInstance(project, EntityNamesServiceParser.class).getEntityNameMap());
             putAll(ServiceXmlParserFactory.getInstance(project, DocumentNamespacesParser.class).getNamespaceMap());
         }};
@@ -718,7 +574,7 @@ public class EntityHelper {
         for (SymfonyBundle symfonyBundle : new SymfonyBundleUtil(project).getBundles()) {
             for(String s : new String[] {"Entity", "Document", "CouchDocument"}) {
                 String namespace = symfonyBundle.getNamespaceName() + s;
-                if(symfonyBundle.getRelative(s) != null || PhpIndex.getInstance(project).getNamespacesByName(namespace).size() > 0) {
+                if(symfonyBundle.getRelative(s) != null || !PhpIndex.getInstance(project).getNamespacesByName(namespace).isEmpty()) {
                     shortcutNames.put(symfonyBundle.getName(), namespace);
                 }
             }
@@ -727,7 +583,7 @@ public class EntityHelper {
         // class fqn fallback
         Collection<DoctrineModel> doctrineModels = getModelClasses(project, shortcutNames);
         for (PhpClass phpClass : DoctrineMetadataUtil.getModels(project)) {
-            if(containsDoctrineModelClass(doctrineModels, phpClass)) {
+            if (containsDoctrineModelClass(doctrineModels, phpClass)) {
                 continue;
             }
 
@@ -737,6 +593,40 @@ public class EntityHelper {
         DoctrineModelProviderParameter containerLoaderExtensionParameter = new DoctrineModelProviderParameter(project, new ArrayList<>());
         for(DoctrineModelProvider provider : EntityHelper.MODEL_POINT_NAME.getExtensions()) {
             for(DoctrineModelProviderParameter.DoctrineModel doctrineModel: provider.collectModels(containerLoaderExtensionParameter)) {
+                doctrineModels.add(new DoctrineModel(doctrineModel.getPhpClass(), doctrineModel.getName()));
+            }
+        }
+
+        return doctrineModels.stream().map(
+            doctrineModel -> new DoctrineModelCached(doctrineModel.getPhpClass().getFQN(), doctrineModel.getDoctrineShortcut(), doctrineModel.getDoctrineNamespace())
+        ).toList();
+    }
+
+    /**
+     * One PhpClass can have multiple targets and names @TODO: refactor
+     */
+    public static Collection<DoctrineModel> getModelClasses(@NotNull final Project project) {
+        Collection<DoctrineModelCached> modelClasses = CachedValuesManager.getManager(project).getCachedValue(
+            project,
+            SYMFONY_DOCTRINE_MODEL_CACHE,
+            () -> CachedValueProvider.Result.create(getModelClassesInner(project), PsiModificationTracker.MODIFICATION_COUNT),
+            false
+        );
+
+        PhpIndex phpIndex = PhpIndex.getInstance(project);
+        Collection<DoctrineModel> doctrineModels = new ArrayList<>();
+        for (DoctrineModelCached doctrineModelCached : modelClasses) {
+            Collection<PhpClass> classesByFQN = phpIndex.getClassesByFQN(doctrineModelCached.phpClass);
+            if (classesByFQN.isEmpty()) {
+                continue;
+            }
+
+            doctrineModels.add(new DoctrineModel(classesByFQN.iterator().next(), doctrineModelCached.doctrineShortcut, doctrineModelCached.doctrineNamespace));
+        }
+
+        DoctrineModelProviderParameter containerLoaderExtensionParameter = new DoctrineModelProviderParameter(project, new ArrayList<>());
+        for (DoctrineModelProvider provider : EntityHelper.MODEL_POINT_NAME.getExtensions()) {
+            for (DoctrineModelProviderParameter.DoctrineModel doctrineModel: provider.collectModels(containerLoaderExtensionParameter)) {
                 doctrineModels.add(new DoctrineModel(doctrineModel.getPhpClass(), doctrineModel.getName()));
             }
         }
@@ -754,14 +644,17 @@ public class EntityHelper {
         return false;
     }
 
-    public static Collection<DoctrineModel> getModelClasses(Project project, Map<String, String> shortcutNames) {
-
+    public static Collection<DoctrineModel> getModelClasses(@NotNull Project project, @NotNull Map<String, String> shortcutNames) {
         PhpClass repositoryInterface = PhpElementsUtil.getInterface(PhpIndex.getInstance(project), DoctrineTypes.REPOSITORY_INTERFACE);
+
+        if (repositoryInterface == null) {
+            repositoryInterface = PhpElementsUtil.getInterface(PhpIndex.getInstance(project), "\\Doctrine\\Persistence\\ObjectRepository");
+        }
 
         Collection<DoctrineModel> models = new ArrayList<>();
         for (Map.Entry<String, String> entry : shortcutNames.entrySet()) {
-            for(PhpClass phpClass: PhpIndexUtil.getPhpClassInsideNamespace(project, entry.getValue())) {
-                if(repositoryInterface != null && !isEntity(phpClass, repositoryInterface)) {
+            for (PhpClass phpClass: PhpIndexUtil.getPhpClassInsideNamespace(project, entry.getValue(), true)) {
+                if (repositoryInterface != null && !isEntity(phpClass, repositoryInterface)) {
                     continue;
                 }
 
@@ -773,8 +666,7 @@ public class EntityHelper {
     }
 
     public static boolean isEntity(PhpClass entityClass, PhpClass repositoryClass) {
-
-        if(entityClass.isAbstract() || entityClass.isInterface()) {
+        if(entityClass.isAbstract() || entityClass.isInterface() || entityClass.isTrait()) {
             return false;
         }
 
@@ -799,7 +691,7 @@ public class EntityHelper {
 
             // find namepsace on file or class index
             String namespace = symfonyBundle.getNamespaceName() + subFolder;
-            if(symfonyBundle.getRelative(subFolder) != null || PhpIndex.getInstance(project).getNamespacesByName(namespace).size() > 0) {
+            if(symfonyBundle.getRelative(subFolder) != null || !PhpIndex.getInstance(project).getNamespacesByName(namespace).isEmpty()) {
                 missingMap.put(bundleName, namespace);
             }
         }
@@ -807,4 +699,40 @@ public class EntityHelper {
         return missingMap;
     }
 
+    /**
+     * Resolve class instances from annotation based on the class context.
+     *
+     * 'repositoryClass="Foo"', 'repostoryClass=Foo::class'
+     *
+     * - "Foo\Bar" is resolved as a "\Foo\Bar" on Doctrine
+     * - "Bar" append to the namespace name
+     */
+    public static String resolveDoctrineLikePropertyClass(@NotNull PhpClass phpClass, @NotNull String text, @NotNull String propertyName, @NotNull Function<Void, Map<String, String>> useImportMap) {
+        Map<String, Matcher> matches = new HashMap<>() {{
+            put("string", Pattern.compile(propertyName + "\\s*=\\s*\"([^\"]*)\"").matcher(text)); // targetEntity="Foobar"
+            put("class", Pattern.compile(propertyName + "\\s*=\\s*([^\\s:]*)::class").matcher(text));  // targetEntity=Foobar::class
+        }};
+
+        for (Map.Entry<String, Matcher> pair : matches.entrySet()) {
+            Matcher targetEntityMatch = pair.getValue();
+            if (!targetEntityMatch.find()) {
+                continue;
+            }
+
+            String targetEntity = targetEntityMatch.group(1);
+            if (org.apache.commons.lang3.StringUtils.isBlank(targetEntity)) {
+                continue;
+            }
+
+            if ("class".equals(pair.getKey())) {
+                return AnnotationBackportUtil.getFqnClassNameFromScope(phpClass, targetEntity, useImportMap.fun(null));
+            }
+
+            return targetEntity.contains("\\")
+                ? targetEntity // "Foo\Bar" is resolved as a "\Foo\Bar" on Doctrine
+                : phpClass.getNamespaceName() + targetEntity; // "Bar" append to the namespace name
+        }
+
+        return null;
+    }
 }

@@ -1,7 +1,5 @@
 package fr.adrienbrault.idea.symfony2plugin.stubs.indexes;
 
-import com.intellij.ide.highlighter.XmlFileType;
-import com.intellij.openapi.fileTypes.FileType;
 import com.intellij.openapi.vfs.VfsUtil;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiFile;
@@ -11,19 +9,21 @@ import com.intellij.util.indexing.*;
 import com.intellij.util.io.DataExternalizer;
 import com.intellij.util.io.EnumeratorStringDescriptor;
 import com.intellij.util.io.KeyDescriptor;
-import com.jetbrains.php.lang.PhpFileType;
 import com.jetbrains.php.lang.psi.PhpFile;
+import com.jetbrains.php.lang.psi.PhpPsiUtil;
+import com.jetbrains.php.lang.psi.elements.PhpClass;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper;
 import fr.adrienbrault.idea.symfony2plugin.stubs.dict.StubIndexedRoute;
-import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.externalizer.ObjectStreamDataExternalizer;
-import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.visitor.AnnotationRouteElementWalkingVisitor;
-import gnu.trove.THashMap;
+import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.externalizer.StubIndexedRouteExternalizer;
+import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.inputFilter.FileInputFilter;
+import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.visitor.AnnotationRouteElementVisitor;
+import fr.adrienbrault.idea.symfony2plugin.util.ProjectUtil;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.yaml.YAMLFileType;
 import org.jetbrains.yaml.psi.YAMLDocument;
 import org.jetbrains.yaml.psi.YAMLFile;
 
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -33,7 +33,7 @@ public class RoutesStubIndex extends FileBasedIndexExtension<String, StubIndexed
 
     public static final ID<String, StubIndexedRoute> KEY = ID.create("fr.adrienbrault.idea.symfony2plugin.routes_object");
     private final KeyDescriptor<String> myKeyDescriptor = new EnumeratorStringDescriptor();
-    private static ObjectStreamDataExternalizer<StubIndexedRoute> EXTERNALIZER = new ObjectStreamDataExternalizer<>();
+    private static final StubIndexedRouteExternalizer EXTERNALIZER = StubIndexedRouteExternalizer.INSTANCE;
 
     @NotNull
     @Override
@@ -43,9 +43,10 @@ public class RoutesStubIndex extends FileBasedIndexExtension<String, StubIndexed
 
     @NotNull
     @Override
+    // Index-safe only: no PhpIndex/type resolution here.
     public DataIndexer<String, StubIndexedRoute, FileContent> getIndexer() {
         return inputData -> {
-            Map<String, StubIndexedRoute> map = new THashMap<>();
+            Map<String, StubIndexedRoute> map = new HashMap<>();
 
             PsiFile psiFile = inputData.getPsiFile();
             if(!Symfony2ProjectComponent.isEnabledForIndex(psiFile.getProject())) {
@@ -63,21 +64,37 @@ public class RoutesStubIndex extends FileBasedIndexExtension<String, StubIndexed
                 }
 
                 for(StubIndexedRoute indexedRoutes: RouteHelper.getYamlRouteDefinitions(yamlDocument)) {
-                    map.put(indexedRoutes.getName(), indexedRoutes);
+                    String name = indexedRoutes.getName();
+                    if (name.length() < 255) {
+                        map.put(name, indexedRoutes);
+                    }
                 }
 
                 return map;
             } else if(psiFile instanceof XmlFile) {
                 for(StubIndexedRoute indexedRoutes: RouteHelper.getXmlRouteDefinitions((XmlFile) psiFile)) {
-                    map.put(indexedRoutes.getName(), indexedRoutes);
+                    String name = indexedRoutes.getName();
+                    if (name.length() < 255) {
+                        map.put(name, indexedRoutes);
+                    }
                 }
             } else if(psiFile instanceof PhpFile) {
-                // annotations: @Route()
+                // @Route(), #[Route], RoutingConfigurator fluent routes
                 if(!isValidForIndex(inputData, psiFile)) {
                     return map;
                 }
 
-                psiFile.accept(new AnnotationRouteElementWalkingVisitor(map));
+                AnnotationRouteElementVisitor visitor = new AnnotationRouteElementVisitor(map);
+                for (PhpClass phpClass : PhpPsiUtil.findAllClasses((PhpFile) psiFile)) {
+                    visitor.visitFile(phpClass);
+                }
+
+                for (StubIndexedRoute indexedRoutes : RouteHelper.getPhpRouteDefinitions((PhpFile) psiFile)) {
+                    String name = indexedRoutes.getName();
+                    if (name.length() < 255) {
+                        map.put(name, indexedRoutes);
+                    }
+                }
             }
 
             return map;
@@ -100,10 +117,7 @@ public class RoutesStubIndex extends FileBasedIndexExtension<String, StubIndexed
     @NotNull
     @Override
     public FileBasedIndex.InputFilter getInputFilter() {
-        return file -> {
-            FileType fileType = file.getFileType();
-            return fileType == YAMLFileType.YML || fileType == XmlFileType.INSTANCE || fileType == PhpFileType.INSTANCE;
-        };
+        return FileInputFilter.XML_YAML_PHP;
     }
 
     @Override
@@ -113,7 +127,7 @@ public class RoutesStubIndex extends FileBasedIndexExtension<String, StubIndexed
 
     @Override
     public int getVersion() {
-        return 4;
+        return 6;
     }
 
     private static boolean isValidForIndex(FileContent inputData, PsiFile psiFile) {
@@ -123,7 +137,7 @@ public class RoutesStubIndex extends FileBasedIndexExtension<String, StubIndexed
             return false;
         }
 
-        VirtualFile baseDir = inputData.getProject().getBaseDir();
+        VirtualFile baseDir = ProjectUtil.getProjectDir(inputData.getProject());
         if(baseDir == null) {
             return false;
         }
@@ -137,6 +151,5 @@ public class RoutesStubIndex extends FileBasedIndexExtension<String, StubIndexed
         return true;
     }
 }
-
 
 

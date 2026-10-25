@@ -4,7 +4,6 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiDirectory;
 import com.intellij.psi.PsiFile;
-import com.jetbrains.php.PhpIndex;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.SymfonyBundle;
 import org.jetbrains.annotations.NotNull;
@@ -38,9 +37,7 @@ public class SymfonyBundleUtil {
 
         symfonyBundles = new ArrayList<>();
 
-        Collection<PhpClass> phpClasses = PhpIndex.getInstance(project).getAllSubclasses("\\Symfony\\Component\\HttpKernel\\Bundle\\Bundle");
-
-        for (PhpClass phpClass : phpClasses) {
+        for (PhpClass phpClass : PhpIndexUtil.getAllSubclasses(project, "\\Symfony\\Component\\HttpKernel\\Bundle\\Bundle")) {
             symfonyBundles.add(new SymfonyBundle(phpClass));
         }
 

@@ -1,10 +1,13 @@
 package fr.adrienbrault.idea.symfony2plugin.routing;
 
+import com.intellij.codeInsight.daemon.LineMarkerInfo;
 import com.intellij.codeInsight.lookup.LookupElement;
 import com.intellij.codeInsight.lookup.LookupElementBuilder;
+import com.intellij.codeInsight.navigation.NavigationGutterIconBuilder;
 import com.intellij.openapi.extensions.ExtensionPointName;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Key;
+import com.intellij.openapi.util.SimpleModificationTracker;
 import com.intellij.openapi.util.io.FileUtil;
 import com.intellij.openapi.vfs.VfsUtil;
 import com.intellij.openapi.vfs.VirtualFile;
@@ -19,7 +22,9 @@ import com.intellij.psi.xml.XmlFile;
 import com.intellij.psi.xml.XmlTag;
 import com.intellij.util.containers.ContainerUtil;
 import com.intellij.util.indexing.FileBasedIndex;
-import com.jetbrains.php.lang.documentation.phpdoc.psi.PhpDocComment;
+import com.jetbrains.php.config.PhpLanguageLevel;
+import com.jetbrains.php.lang.PhpLanguage;
+import com.jetbrains.php.lang.parser.PhpElementTypes;
 import com.jetbrains.php.lang.psi.PhpFile;
 import com.jetbrains.php.lang.psi.PhpPsiUtil;
 import com.jetbrains.php.lang.psi.elements.*;
@@ -29,45 +34,55 @@ import de.espend.idea.php.annotation.dict.PhpDocTagAnnotation;
 import de.espend.idea.php.annotation.util.AnnotationUtil;
 import fr.adrienbrault.idea.symfony2plugin.Settings;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
-import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.extension.RoutingLoader;
 import fr.adrienbrault.idea.symfony2plugin.extension.RoutingLoaderParameter;
 import fr.adrienbrault.idea.symfony2plugin.routing.dic.ControllerClassOnShortcutReturn;
 import fr.adrienbrault.idea.symfony2plugin.routing.dic.ServiceRouteContainer;
-import fr.adrienbrault.idea.symfony2plugin.routing.dict.RoutesContainer;
 import fr.adrienbrault.idea.symfony2plugin.routing.dict.RoutingFile;
 import fr.adrienbrault.idea.symfony2plugin.stubs.SymfonyProcessors;
+import fr.adrienbrault.idea.symfony2plugin.stubs.cache.FileIndexCaches;
 import fr.adrienbrault.idea.symfony2plugin.stubs.dict.StubIndexedRoute;
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.RoutesStubIndex;
+import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.visitor.AnnotationRouteElementVisitor;
 import fr.adrienbrault.idea.symfony2plugin.util.*;
 import fr.adrienbrault.idea.symfony2plugin.util.controller.ControllerAction;
 import fr.adrienbrault.idea.symfony2plugin.util.controller.ControllerIndex;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.ServiceUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.SymfonyBundle;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
-import org.apache.commons.lang.StringUtils;
+import kotlin.Pair;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.yaml.YAMLUtil;
 import org.jetbrains.yaml.psi.*;
 
 import java.io.File;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.*;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class RouteHelper {
+    private static final String ROUTING_CONFIGURATOR_FQN = "Symfony\\Component\\Routing\\Loader\\Configurator\\RoutingConfigurator";
+    private static final char ROUTE_PATH_PLACEHOLDER_MARKER = '\u009c';
+
+    public static final String[] ROUTE_ANNOTATIONS = new String[] {
+        "\\Symfony\\Component\\Routing\\Annotation\\Route",
+        "\\Sensio\\Bundle\\FrameworkExtraBundle\\Configuration\\Route",
+        "\\Symfony\\Component\\Routing\\Attribute\\Route"
+    };
 
     private static final Key<CachedValue<Map<String, Route>>> ROUTE_CACHE = new Key<>("SYMFONY:ROUTE_CACHE");
+    private static final Key<CachedValue<Map<String, Route>>> ROUTE_UNIQUE_CACHE = new Key<>("SYMFONY:ROUTE_UNIQUE_CACHE");
+    private static final Key<CachedValue<Set<String>>> ROUTE_CONTROLLER_RESOLVED_CACHE = new Key<>("ROUTE_CONTROLLER_RESOLVED_CACHE");
 
-    public static Set<String> ROUTE_CLASSES = new HashSet<>(Arrays.asList(
-        "Sensio\\Bundle\\FrameworkExtraBundle\\Configuration\\Route",
-        "Symfony\\Component\\Routing\\Annotation\\Route"
-    ));
-
-    public static Map<Project, Map<String, RoutesContainer>> COMPILED_CACHE = new HashMap<>();
+    private static final Key<CachedValue<Map<String, Route>>> SYMFONY_COMPILED_CACHE_ROUTES = new Key<>("SYMFONY_COMPILED_CACHE_ROUTES");
 
     private static final ExtensionPointName<RoutingLoader> ROUTING_LOADER = new ExtensionPointName<>(
         "fr.adrienbrault.idea.symfony2plugin.extension.RoutingLoader"
@@ -86,7 +101,7 @@ public class RouteHelper {
             lookupElements.add(LookupElementBuilder.create("_fragment").withIcon(Symfony2Icons.ROUTE));
         }
 
-        return lookupElements.toArray(new LookupElement[lookupElements.size()]);
+        return lookupElements.toArray(new LookupElement[0]);
     }
 
     @NotNull
@@ -106,35 +121,448 @@ public class RouteHelper {
         return routes;
     }
 
-    public static PsiElement[] getRouteParameterPsiElements(Project project, String routeName, String parameterName) {
+    public static boolean isExistingRouteName(@NotNull Project project, @NotNull String routeName) {
+        return getFQCNRoute(project, routeName) != null
+            || !getRoute(project, routeName).isEmpty();
+    }
 
-        List<PsiElement> results = new ArrayList<>();
-
-        for (PsiElement psiElement : RouteHelper.getMethods(project, routeName)) {
-
-            if(psiElement instanceof Method) {
-                for(Parameter parameter: ((Method) psiElement).getParameters()) {
-                    if(parameter.getName().equals(parameterName)) {
-                        results.add(parameter);
-                    }
-                }
-            }
-
+    /**
+     * "App\\Controller\\Car\\ZipController::index" => "App\Controller\Car\ZipController::index"
+     */
+    public static String unescapeRouteName(@NotNull String routeName) {
+        if (routeName.contains("\\")) {
+           return routeName.replace("\\\\", "\\");
         }
 
-        return results.toArray(new PsiElement[results.size()]);
+        return routeName;
+    }
 
+    public static PsiElement[] getRouteParameterPsiElements(@NotNull Project project, @NotNull String routeName, @NotNull String parameterName) {
+        Collection<PsiElement> results = new ArrayList<>();
+
+        for (PsiElement psiElement : RouteHelper.getMethods(project, routeName)) {
+            if (psiElement instanceof Method method) {
+                Parameter parameter = method.getParameter(parameterName);
+                if (parameter != null) {
+                    results.add(parameter);
+                }
+            }
+        }
+
+        return results.toArray(new PsiElement[0]);
     }
 
     @NotNull
     public static PsiElement[] getMethods(@NotNull Project project, @NotNull String routeName) {
-        Collection<PsiElement> targets = new ArrayList<>();
+        Set<PsiElement> targets = new HashSet<>();
+
+        Method fqcnRoute = getFQCNRoute(project, routeName);
+        if (fqcnRoute != null) {
+            targets.add(fqcnRoute);
+        }
 
         for (Route route : getRoute(project, routeName)) {
             targets.addAll(Arrays.asList(getMethodsOnControllerShortcut(project, route.getController())));
         }
 
-        return targets.toArray(new PsiElement[targets.size()]);
+        return targets.toArray(new PsiElement[0]);
+    }
+
+    public static boolean isRouteControllerDeprecated(@NotNull Project project, @NotNull String routeName) {
+        for (PsiElement psiElement : RouteHelper.getMethods(project, routeName)) {
+            if (RouteHelper.isControllerMethodOrClassDeprecated(psiElement)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public static boolean isControllerActionDeprecated(@NotNull Project project, @Nullable String controllerName) {
+        for (PsiElement psiElement : RouteHelper.getMethodsOnControllerShortcut(project, controllerName)) {
+            if (RouteHelper.isControllerMethodOrClassDeprecated(psiElement)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static boolean isControllerMethodOrClassDeprecated(@NotNull PsiElement psiElement) {
+        if (psiElement instanceof Method method && method.isDeprecated()) {
+            return true;
+        }
+
+        if (!(psiElement instanceof PhpClassMember phpClassMember)) {
+            return false;
+        }
+
+        PhpClass containingClass = phpClassMember.getContainingClass();
+        return containingClass != null && containingClass.isDeprecated();
+    }
+
+    /**
+     * "App\Controller\Foo"
+     * "App\Controller\Foo::method"
+     */
+    public static Method getFQCNRoute(@NotNull Project project, @NotNull String routeName) {
+        if (!routeName.contains("\\")) {
+            return null;
+        }
+
+        String className = null;
+        String method = null;
+
+        if (routeName.contains(":")) {
+            String[] split = routeName.split("::");
+            if (split.length == 2) {
+                className = "\\" + StringUtils.stripStart(split[0], "\\");
+                method = split[1];
+            }
+        } else {
+            className = "\\" + StringUtils.stripStart(routeName, "\\");
+            method = "__invoke";
+        }
+
+        return className != null && method != null
+            ? PhpElementsUtil.getClassMethod(project, className, method)
+            : null;
+    }
+
+    public static Collection<Route> findRoutesByPath(@NotNull Project project, @NotNull String path) {
+        return RouteHelper.getAllRoutes(project)
+            .values()
+            .stream()
+            .filter(route -> path.equals(route.getPath()))
+            .collect(Collectors.toList());
+    }
+
+    /**
+     * Reverse routing matching, find any "incomplete" string inside the route pattern
+     *
+     * - "foo/bar" => "/foo/bar"
+     * - "foo/12" => "/foo/{edit}"
+     * - "ar/12/foo" => "/car/{edit}/foobar"
+     * - "https://www.de.test:8664/foo/12?utm=1" => "/foo/{id}"
+     */
+    @NotNull
+    public static Collection<Pair<Route, PsiElement>> getMethodsForPathWithPlaceholderMatchRoutes(@NotNull Project project, @NotNull String searchPath) {
+        Collection<Pair<Route, PsiElement>> targets = new ArrayList<>();
+
+        for (Route route : getRoutesForPathWithPlaceholderMatch(project, searchPath)) {
+            List<Pair<Route, PsiElement>> list = Arrays.stream(getMethodsOnControllerShortcut(project, route.getController()))
+                .map(psiElement -> new Pair<>(route, psiElement))
+                .toList();
+
+            targets.addAll(list);
+        }
+
+        return targets;
+    }
+
+    /**
+     * Reverse routing matching, find any "incomplete" string inside the route pattern
+     *
+     * - "foo/bar" => "/foo/bar"
+     * - "foo/12" => "/foo/{edit}"
+     * - "ar/12/foo" => "/car/{edit}/foobar"
+     * - "https://www.de.test:8664/foo/12?utm=1" => "/foo/{id}"
+     */
+    @NotNull
+    public static PsiElement[] getMethodsForPathWithPlaceholderMatch(@NotNull Project project, @NotNull String searchPath) {
+        Collection<PsiElement> psiElements = new HashSet<>();
+        for (Pair<Route, PsiElement> entry : RouteHelper.getMethodsForPathWithPlaceholderMatchRoutes(project, searchPath)) {
+            psiElements.add(entry.getSecond());
+        }
+
+        return psiElements.toArray(new PsiElement[0]);
+    }
+
+    /**
+     * Normalizes route lookup input before direct and reverse matching.
+     *
+     * - "https://www.de.test:8664/foo?utm=1#details" => "/foo"
+     * - "//www.de.test:8664/foo#details" => "/foo"
+     * - "/foo?utm=1" => "/foo"
+     * - "foo/bar" => "foo/bar"
+     */
+    @NotNull
+    public static String normalizeRouteSearchPath(@NotNull String searchPath) {
+        String normalized = searchPath.trim();
+        boolean hasAuthorityPrefix = normalized.contains("://") || normalized.startsWith("//");
+
+        try {
+            URI uri = new URI(normalized);
+            String rawPath = uri.getRawPath();
+
+            if (hasAuthorityPrefix || uri.getRawAuthority() != null) {
+                if (rawPath == null || rawPath.isBlank()) {
+                    return "/";
+                }
+
+                return rawPath;
+            }
+
+            // Keep opaque route fragments such as "foo:bar" as user input, not as absolute URLs.
+            if (!uri.isAbsolute() && rawPath != null && !rawPath.isBlank()) {
+                return rawPath;
+            }
+        } catch (URISyntaxException ignored) {
+            // Route patterns with placeholders like "{id}" are useful input but invalid URI syntax.
+        }
+
+        return normalizeRouteSearchPathFallback(normalized);
+    }
+
+    /**
+     * Fallback for user input that is useful for route matching but not valid URI syntax.
+     * Mirrors URI normalization by stripping authority, query, and fragment parts.
+     *
+     * - "https://www.de.test:8664/edit/{id}?utm=1" => "/edit/{id}"
+     * - "/edit/{id}?utm=1" => "/edit/{id}"
+     */
+    @NotNull
+    private static String normalizeRouteSearchPathFallback(@NotNull String searchPath) {
+        String normalized = searchPath;
+
+        int pathStart = -1;
+        int schemeSeparator = normalized.indexOf("://");
+        if (schemeSeparator >= 0) {
+            pathStart = normalized.indexOf('/', schemeSeparator + 3);
+        } else if (normalized.startsWith("//")) {
+            pathStart = normalized.indexOf('/', 2);
+        }
+
+        if (pathStart >= 0) {
+            normalized = normalized.substring(pathStart);
+        } else if (schemeSeparator >= 0 || normalized.startsWith("//")) {
+            normalized = "/";
+        }
+
+        int queryIndex = normalized.indexOf('?');
+        int fragmentIndex = normalized.indexOf('#');
+        int pathEnd = queryIndex < 0 ? fragmentIndex : (fragmentIndex < 0 ? queryIndex : Math.min(queryIndex, fragmentIndex));
+
+        return pathEnd >= 0 ? normalized.substring(0, pathEnd) : normalized;
+    }
+
+    /**
+     * Reverse routing matching, find any "incomplete" string inside the route pattern
+     *
+     * - "foo/bar" => "/foo/bar"
+     * - "foo/12" => "/foo/{edit}"
+     * - "ar/12/foo" => "/car/{edit}/foobar"
+     * - "https://www.de.test:8664/foo/12?utm=1" => "/foo/{id}"
+     */
+    @NotNull
+    public static Collection<Route> getRoutesForPathWithPlaceholderMatch(@NotNull Project project, @NotNull String searchPath) {
+        return getRoutesForNormalizedPathWithPlaceholderMatch(project, normalizeRouteSearchPath(searchPath));
+    }
+
+    /**
+     * Reverse route matching for callers that already normalized lookup input.
+     *
+     * - "foo/12" => "/foo/{id}"
+     * - "/foo/{id}" => "/foo/{id}"
+     */
+    @NotNull
+    public static Collection<Route> getRoutesForNormalizedPathWithPlaceholderMatch(@NotNull Project project, @NotNull String normalizedSearchPath) {
+        ReverseRoutePathMatcher matcher = new ReverseRoutePathMatcher(normalizedSearchPath);
+        return new ArrayList<>(RouteHelper.getAllRoutes(project).values())
+            .parallelStream()
+            .filter(Objects::nonNull)
+            .map(route -> {
+                if (matcher.matches(route)) {
+                    return route;
+                }
+                return null;
+            })
+            .filter(Objects::nonNull)
+            .collect(Collectors.toList());
+    }
+
+    /**
+     * Reverse routing matching, find any "incomplete" string inside the route pattern
+     *
+     * - "foo/bar" => "/foo/bar"
+     * - "foo/12" => "/foo/{edit}"
+     * - "ar/12/foo" => "/car/{edit}/foobar"
+     * - "https://www.de.test:8664/foo/12?utm=1" => "/foo/{id}"
+     */
+    public static boolean hasRoutesForPathWithPlaceholderMatch(@NotNull Project project, @NotNull String searchPath) {
+        ReverseRoutePathMatcher matcher = new ReverseRoutePathMatcher(normalizeRouteSearchPath(searchPath));
+        return RouteHelper.getAllRoutes(project).values()
+            .parallelStream()
+            .anyMatch(matcher::matches);
+    }
+
+    /**
+     * Matches a normalized lookup path against route paths while treating route placeholders as one path segment.
+     *
+     * - "foo/12" matches "/foo/{id}"
+     * - "ar/12/foo" matches "/car/{edit}/foobar"
+     */
+    private static final class ReverseRoutePathMatcher {
+        @NotNull
+        private final String searchPath;
+        private final int maxPrefixLength;
+        private final int[] prefixTable;
+
+        private ReverseRoutePathMatcher(@NotNull String searchPath) {
+            this.searchPath = searchPath;
+            // Leave at least two lookup characters after the anchor for placeholder or literal continuation.
+            this.maxPrefixLength = Math.max(0, searchPath.length() - 2);
+            this.prefixTable = buildPrefixTable(searchPath, this.maxPrefixLength);
+        }
+
+        private boolean matches(@NotNull Route route) {
+            String routePath = route.getPath();
+            if (routePath == null) {
+                return false;
+            }
+
+            if (routePath.contains(this.searchPath)) {
+                return true;
+            }
+
+            if (this.maxPrefixLength == 0 || routePath.indexOf('{') < 0) {
+                return false;
+            }
+
+            String normalizedRoutePath = neutralizeRoutePlaceholders(routePath);
+            PrefixMatch prefixMatch = findLongestSearchPrefixMatch(normalizedRoutePath);
+            if (prefixMatch == null) {
+                return false;
+            }
+
+            byte[][] memo = new byte[normalizedRoutePath.length() + 1][this.searchPath.length() + 1];
+            return matchesRoutePrefix(
+                normalizedRoutePath,
+                prefixMatch.routeIndex() + prefixMatch.length(),
+                prefixMatch.length(),
+                memo
+            );
+        }
+
+        @Nullable
+        private PrefixMatch findLongestSearchPrefixMatch(@NotNull String routePath) {
+            int matched = 0;
+            int bestRouteIndex = -1;
+            int bestLength = 0;
+
+            for (int i = 0; i < routePath.length(); i++) {
+                char routeChar = routePath.charAt(i);
+                while (matched > 0 && routeChar != this.searchPath.charAt(matched)) {
+                    matched = this.prefixTable[matched - 1];
+                }
+
+                if (routeChar == this.searchPath.charAt(matched)) {
+                    matched++;
+                    if (matched > bestLength) {
+                        bestLength = matched;
+                        bestRouteIndex = i - matched + 1;
+
+                        if (matched == this.maxPrefixLength) {
+                            break;
+                        }
+                    }
+                }
+            }
+
+            return bestLength > 0 ? new PrefixMatch(bestRouteIndex, bestLength) : null;
+        }
+
+        private boolean matchesRoutePrefix(@NotNull String routePath, int routeIndex, int searchIndex, byte[][] memo) {
+            if (searchIndex == this.searchPath.length()) {
+                return true;
+            }
+
+            if (routeIndex == routePath.length()) {
+                return false;
+            }
+
+            if (memo[routeIndex][searchIndex] != 0) {
+                return memo[routeIndex][searchIndex] == 1;
+            }
+
+            boolean matches;
+            char routeChar = routePath.charAt(routeIndex);
+            if (routeChar == ROUTE_PATH_PLACEHOLDER_MARKER) {
+                matches = matchesPlaceholder(routePath, routeIndex, searchIndex, memo);
+            } else {
+                matches = routeChar == this.searchPath.charAt(searchIndex)
+                    && matchesRoutePrefix(routePath, routeIndex + 1, searchIndex + 1, memo);
+            }
+
+            memo[routeIndex][searchIndex] = (byte) (matches ? 1 : 2);
+            return matches;
+        }
+
+        private boolean matchesPlaceholder(@NotNull String routePath, int routeIndex, int searchIndex, byte[][] memo) {
+            for (int i = searchIndex; i < this.searchPath.length(); i++) {
+                if (!isPlaceholderPathChar(this.searchPath.charAt(i))) {
+                    return false;
+                }
+
+                if (matchesRoutePrefix(routePath, routeIndex + 1, i + 1, memo)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static int[] buildPrefixTable(@NotNull String searchPath, int maxPrefixLength) {
+            int[] prefixTable = new int[maxPrefixLength];
+            int matched = 0;
+
+            for (int i = 1; i < maxPrefixLength; i++) {
+                char c = searchPath.charAt(i);
+                while (matched > 0 && c != searchPath.charAt(matched)) {
+                    matched = prefixTable[matched - 1];
+                }
+
+                if (c == searchPath.charAt(matched)) {
+                    matched++;
+                }
+
+                prefixTable[i] = matched;
+            }
+
+            return prefixTable;
+        }
+
+        @NotNull
+        private static String neutralizeRoutePlaceholders(@NotNull String routePath) {
+            StringBuilder builder = new StringBuilder(routePath.length());
+
+            for (int i = 0; i < routePath.length(); i++) {
+                char c = routePath.charAt(i);
+                if (c != '{') {
+                    builder.append(c);
+                    continue;
+                }
+
+                int endIndex = routePath.indexOf('}', i + 1);
+                if (endIndex == -1) {
+                    builder.append(c);
+                    continue;
+                }
+
+                builder.append(ROUTE_PATH_PLACEHOLDER_MARKER);
+                i = endIndex;
+            }
+
+            return builder.toString();
+        }
+
+        private static boolean isPlaceholderPathChar(char c) {
+            // Symfony placeholders consume one URL path segment by default; requirements can narrow it later.
+            return c != '/' && c != '?' && c != '#';
+        }
+
+        private record PrefixMatch(int routeIndex, int length) {
+        }
     }
 
     /**
@@ -155,22 +583,44 @@ public class RouteHelper {
             return new PsiElement[0];
         }
 
-        if(controllerName.contains("::")) {
+        // escaping
+        // "Foobar\\Test"
+        controllerName = controllerName.replace("\\\\", "\\");
 
+        if(controllerName.contains("::")) {
             // FooBundle\Controller\BarController::fooBarAction
             String className = controllerName.substring(0, controllerName.lastIndexOf("::"));
             String methodName = controllerName.substring(controllerName.lastIndexOf("::") + 2);
 
             Method method = PhpElementsUtil.getClassMethod(project, className, methodName);
-            return method != null ? new PsiElement[] {method} : new PsiElement[0];
 
+            Collection<Method> methods = new HashSet<>();
+            if (method != null) {
+                methods.add(method);
+            }
+
+            if (!methodName.toLowerCase().endsWith("action")) {
+                Method methodAction = PhpElementsUtil.getClassMethod(project, className, methodName + "Action");
+                if (methodAction != null) {
+                    methods.add(methodAction);
+                }
+            }
+
+            // web_profiler.controller.profiler::homeAction
+            // foo_service_bar::fooBar
+            ControllerAction controllerServiceAction = new ControllerIndex(project).getControllerActionOnService(controllerName);
+            if(controllerServiceAction != null) {
+                methods.add(controllerServiceAction.getMethod());
+            }
+
+            return methods.toArray(new PsiElement[0]);
         } else if(controllerName.contains(":")) {
             // AcmeDemoBundle:Demo:hello
             String[] split = controllerName.split(":");
             if(split.length == 3) {
                 Collection<Method> controllerMethod = ControllerIndex.getControllerMethod(project, controllerName);
-                if(controllerMethod.size() > 0) {
-                    return controllerMethod.toArray(new PsiElement[controllerMethod.size()]);
+                if(!controllerMethod.isEmpty()) {
+                    return controllerMethod.toArray(new PsiElement[0]);
                 }
             }
 
@@ -179,8 +629,7 @@ public class RouteHelper {
             if(controllerServiceAction != null) {
                 return new PsiElement[] {controllerServiceAction.getMethod()};
             }
-
-        } else if(PhpNameUtil.isValidNamespaceFullName(controllerName, true)) {
+        } else if(PhpNameUtil.isValidNamespaceFullName(controllerName, true, PhpLanguageLevel.current(project))) {
             // FooBundle\Controller\BarController (__invoke)
             Method invoke = PhpElementsUtil.getClassMethod(project, controllerName, "__invoke");
             if(invoke != null) {
@@ -189,7 +638,13 @@ public class RouteHelper {
 
             // class fallback
             Collection<PhpClass> phpClass = PhpElementsUtil.getClassesInterface(project, controllerName);
-            return phpClass.toArray(new PsiElement[phpClass.size()]);
+            return phpClass.toArray(new PsiElement[0]);
+        } else {
+            // foo_service_bar
+            ControllerAction controllerServiceAction = new ControllerIndex(project).getControllerActionOnService(controllerName);
+            if(controllerServiceAction != null) {
+                return new PsiElement[] {controllerServiceAction.getMethod()};
+            }
         }
 
         return new PsiElement[0];
@@ -207,8 +662,7 @@ public class RouteHelper {
      * @return targets
      */
     @Nullable
-    public static ControllerClassOnShortcutReturn getControllerClassOnShortcut(@NotNull Project project,@NotNull  String controllerName) {
-
+    public static ControllerClassOnShortcutReturn getControllerClassOnShortcut(@NotNull Project project, @NotNull String controllerName) {
         if(controllerName.contains("::")) {
             // FooBundle\Controller\BarController::fooBarAction
 
@@ -243,82 +697,98 @@ public class RouteHelper {
         return null;
     }
 
-    private static <E> ArrayList<E> makeCollection(Iterable<E> iter) {
-        ArrayList<E> list = new ArrayList<>();
-        for (E item : iter) {
-            list.add(item);
-        }
-        return list;
-    }
+    @NotNull
+    private static Collection<VirtualFile> findCompiledRouteFiles(@NotNull Project project) {
+        Collection<VirtualFile> files = new HashSet<>();
 
-    private static String getPath(Project project, String path) {
-        if (!FileUtil.isAbsolute(path)) { // Project relative path
-            path = project.getBasePath() + "/" + path;
+        VirtualFile projectDir = ProjectUtil.getProjectDir(project);
+        if (projectDir == null) {
+            return files;
         }
 
-        return path;
+        // Search var/cache/dev* and app/cache/dev* directories for URL generator files
+        for (String[] root : new String[][]{{"var", "cache"}, {"app", "cache"}}) {
+            VirtualFile cache = VfsUtil.findRelativeFile(projectDir, root);
+            if (cache == null) {
+                continue;
+            }
+
+            for (VirtualFile child : cache.getChildren()) {
+                String filename = child.getName();
+                if (!"dev".equals(filename) && !filename.startsWith("dev_")) {
+                    continue;
+                }
+
+                for (VirtualFile file : child.getChildren()) {
+                    if (file.isDirectory() || !"php".equalsIgnoreCase(file.getExtension())) {
+                        continue;
+                    }
+
+                    // guess a compiled php file by its normalized name
+                    // some common examples, from Symfony 2 to now :)
+                    // appDevDebugProjectContainerUrlGenerator, UrlGenerator
+                    String normalized = file.getNameWithoutExtension().toLowerCase().replace("_", "");
+                    if (normalized.contains("urlgenerator") || normalized.contains("urlgenerating")) {
+                        files.add(file);
+                    }
+                }
+            }
+        }
+
+        // Custom routing files from settings
+        List<RoutingFile> routingFiles = Settings.getInstance(project).routingFiles;
+        if (routingFiles != null) {
+            for (RoutingFile rf : routingFiles) {
+                String path = rf.getPath();
+
+                if (StringUtils.isBlank(path)) {
+                    continue;
+                }
+
+                VirtualFile vf;
+                if (FileUtil.isAbsolute(path)) {
+                    vf = VfsUtil.findFileByIoFile(new File(path), false);
+                } else {
+                    vf = VfsUtil.findRelativeFile(projectDir, path.replace('\\', '/').split("/"));
+                }
+
+                if (vf != null && vf.exists()) {
+                    files.add(vf);
+                }
+            }
+        }
+
+        return files;
     }
 
     @NotNull
-    public static Map<String, Route> getCompiledRoutes(@NotNull Project project) {
-        Set<String> files = new HashSet<>();
+    private static SimpleModificationTracker getCompiledRoutesTracker(@NotNull Project project) {
+        return SymfonyVarDirectoryWatcherKt.getSymfonyVarDirectoryWatcher(project)
+            .getModificationTracker(SymfonyVarDirectoryWatcher.Scope.ROUTES);
+    }
 
-        // add custom routing files on settings
-        List<RoutingFile> routingFiles = Settings.getInstance(project).routingFiles;
-        if(routingFiles != null) {
-            for (RoutingFile routingFile : routingFiles) {
-                String path = routingFile.getPath();
-                if(StringUtils.isNotBlank(path)) {
-                    files.add(path);
-                }
-            }
-        }
+    @NotNull
+    private static Map<String, Route> getCompiledRoutes(@NotNull Project project) {
+        Map<String, Route> routesCache = CachedValuesManager.getManager(project).getCachedValue(
+            project,
+            SYMFONY_COMPILED_CACHE_ROUTES,
+            () -> {
+                Map<String, Route> routesContainerMap = new HashMap<>();
 
-        // add defaults; if user never has changed the settings
-        if(routingFiles == null || routingFiles.size() == 0) {
-            Collections.addAll(files, Settings.DEFAULT_ROUTES);
-        }
-
-        for(String file: files) {
-
-            File urlGeneratorFile = new File(getPath(project, file));
-            VirtualFile virtualUrlGeneratorFile = VfsUtil.findFileByIoFile(urlGeneratorFile, false);
-            if (virtualUrlGeneratorFile == null || !urlGeneratorFile.exists()) {
-
-                // clean file cache
-                if(COMPILED_CACHE.containsKey(project) && COMPILED_CACHE.get(project).containsKey(file)) {
-                    COMPILED_CACHE.get(project).remove(file);
+                for (VirtualFile file : findCompiledRouteFiles(project)) {
+                    routesContainerMap.putAll(RouteHelper.getRoutesInsideUrlGeneratorFile(project, file));
                 }
 
-            } else {
+                return CachedValueProvider.Result.create(
+                    Collections.unmodifiableMap(routesContainerMap),
+                    getCompiledRoutesTracker(project)
+                );
+            },
+            false
+        );
 
-                if(!COMPILED_CACHE.containsKey(project)) {
-                    COMPILED_CACHE.put(project, new HashMap<>());
-                }
-
-                Long routesLastModified = urlGeneratorFile.lastModified();
-                if(!COMPILED_CACHE.get(project).containsKey(file) || !COMPILED_CACHE.get(project).get(file).getLastMod().equals(routesLastModified)) {
-
-                    COMPILED_CACHE.get(project).put(file, new RoutesContainer(
-                        routesLastModified,
-                        RouteHelper.getRoutesInsideUrlGeneratorFile(project, virtualUrlGeneratorFile)
-                    ));
-
-                    Symfony2ProjectComponent.getLogger().info("update routing: " + urlGeneratorFile.toString());
-                }
-            }
-
-        }
-
-        Map<String, Route> routes = new HashMap<>();
-        if(COMPILED_CACHE.containsKey(project)) {
-            for (RoutesContainer container : COMPILED_CACHE.get(project).values()) {
-                routes.putAll(container.getRoutes());
-            }
-        }
-
+        Map<String, Route> routes = new HashMap<>(routesCache);
         RoutingLoaderParameter parameter = null;
-
         for (RoutingLoader routingLoader : ROUTING_LOADER.getExtensions()) {
             if(parameter == null) {
                 parameter = new RoutingLoaderParameter(project, routes);
@@ -339,7 +809,6 @@ public class RouteHelper {
 
         return getRoutesInsideUrlGeneratorFile(psiFile);
     }
-
 
     /**
      * Temporary or remote files dont support "isInstanceOf", check for string implementation first
@@ -364,9 +833,46 @@ public class RouteHelper {
 
     @NotNull
     public static Map<String, Route> getRoutesInsideUrlGeneratorFile(@NotNull PsiFile psiFile) {
-
         Map<String, Route> routes = new HashMap<>();
 
+        // Symfony >= 4
+        // extract the routes on a return statement
+        // return [['route'] => [...]]
+        for (PhpReturn phpReturn : PsiTreeUtil.findChildrenOfType(psiFile, PhpReturn.class)) {
+            PsiElement argument = phpReturn.getArgument();
+            if (!(argument instanceof ArrayCreationExpression)) {
+                continue;
+            }
+
+            // get only the inside arrays
+            // [[..], [..]] => [..], [..]
+            for (Map.Entry<String, PsiElement> routeArray : PhpElementsUtil.getArrayKeyValueMapWithValueAsPsiElement((ArrayCreationExpression) argument).entrySet()) {
+                List<ArrayCreationExpression> routeArrayOptions = new ArrayList<>();
+                for (PhpPsiElement routeOption : PsiTreeUtil.getChildrenOfTypeAsList(routeArray.getValue(), PhpPsiElement.class)) {
+                    routeArrayOptions.add(PsiTreeUtil.getChildOfType(routeOption, ArrayCreationExpression.class));
+                }
+
+                Route route = convertRouteConfigForReturnArray(routeArray.getKey(), routeArrayOptions);
+                routes.put(routeArray.getKey(), route);
+
+                for (ArrayCreationExpression expression : routeArrayOptions) {
+                    for (ArrayHashElement arrayHashElement : expression.getHashElements()) {
+                        if (arrayHashElement.getKey() instanceof StringLiteralExpression stringLiteralExpression && "_canonical_route".equals(stringLiteralExpression.getContents())) {
+                            if (arrayHashElement.getValue() instanceof StringLiteralExpression literalExpression) {
+                                String canonical = literalExpression.getContents();
+                                if (!canonical.isBlank() && !routes.containsKey(canonical)) {
+                                    Route routeCanonical = convertRouteConfigForReturnArray(canonical, routeArrayOptions);
+                                    routes.put(canonical, routeCanonical);
+                                }
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Symfony < 4
         // heavy stuff here, to get nested routing array :)
         // list($variables, $defaults, $requirements, $tokens, $hostTokens)
         Collection<PhpClass> phpClasses = PsiTreeUtil.findChildrenOfType(psiFile, PhpClass.class);
@@ -377,17 +883,17 @@ public class RouteHelper {
 
             // Symfony < 2.8
             // static private $declaredRoutes = array(...)
-            for(Field field: phpClass.getFields()) {
-                if(!field.getName().equals("declaredRoutes")) {
-                    continue;
-                }
+            // only "getOwnFields" is uncached and dont breaks; find* methods are cached resulting in exceptions
+            Field[] ownFields = phpClass.getOwnFields();
+            for (Field ownField : ownFields) {
+                if ("declaredRoutes".equals(ownField.getName())) {
+                    PsiElement defaultValue = ownField.getDefaultValue();
+                    if(!(defaultValue instanceof ArrayCreationExpression)) {
+                        continue;
+                    }
 
-                PsiElement defaultValue = field.getDefaultValue();
-                if(!(defaultValue instanceof ArrayCreationExpression)) {
-                    continue;
+                    collectRoutesOnArrayCreation(routes, (ArrayCreationExpression) defaultValue);
                 }
-
-                collectRoutesOnArrayCreation(routes, (ArrayCreationExpression) defaultValue);
             }
 
             // Symfony >= 2.8
@@ -450,42 +956,67 @@ public class RouteHelper {
         }
     }
 
+    /**
+     * Used in Symfony > 4 where routes are wrapped into a return array
+     */
     @NotNull
-    private static Route convertRouteConfig(@NotNull String routeName, @NotNull ArrayCreationExpression hashValue) {
-        List<ArrayHashElement> hashElementCollection = makeCollection(hashValue.getHashElements());
-
+    private static Route convertRouteConfigForReturnArray(@NotNull String routeName, @NotNull List<ArrayCreationExpression> hashElementCollection) {
         Set<String> variables = new HashSet<>();
-        if(hashElementCollection.size() >= 1 && hashElementCollection.get(0).getValue() instanceof ArrayCreationExpression) {
-            ArrayCreationExpression value = (ArrayCreationExpression) hashElementCollection.get(0).getValue();
+        if(!hashElementCollection.isEmpty() && hashElementCollection.get(0) != null) {
+            ArrayCreationExpression value = hashElementCollection.get(0);
             if(value != null) {
-                variables.addAll(PhpElementsUtil.getArrayKeyValueMap(value).values());
+                variables.addAll(PhpElementsUtil.getArrayValuesAsString(value));
             }
         }
 
         Map<String, String> defaults = new HashMap<>();
-        if(hashElementCollection.size() >= 2 && hashElementCollection.get(1).getValue() instanceof ArrayCreationExpression) {
-            ArrayCreationExpression value = (ArrayCreationExpression) hashElementCollection.get(1).getValue();
+        if(hashElementCollection.size() >= 2 && hashElementCollection.get(1) != null) {
+            ArrayCreationExpression value = hashElementCollection.get(1);
             if(value != null) {
                 defaults = PhpElementsUtil.getArrayKeyValueMap(value);
             }
         }
 
         Map<String, String>requirements = new HashMap<>();
-        if(hashElementCollection.size() >= 3 && hashElementCollection.get(2).getValue() instanceof ArrayCreationExpression) {
-            ArrayCreationExpression value = (ArrayCreationExpression) hashElementCollection.get(2).getValue();
+        if(hashElementCollection.size() >= 3 && hashElementCollection.get(2) != null) {
+            ArrayCreationExpression value = hashElementCollection.get(2);
             if(value != null) {
                 requirements = PhpElementsUtil.getArrayKeyValueMap(value);
             }
         }
 
+        StringBuilder path = new StringBuilder();
         List<Collection<String>> tokens = new ArrayList<>();
-        if(hashElementCollection.size() >= 4 && hashElementCollection.get(3).getValue() instanceof ArrayCreationExpression) {
-            ArrayCreationExpression tokenArray = (ArrayCreationExpression) hashElementCollection.get(3).getValue();
+        if(hashElementCollection.size() >= 4 && hashElementCollection.get(3) != null) {
+            ArrayCreationExpression tokenArray = hashElementCollection.get(3);
             if(tokenArray != null) {
-                for(ArrayHashElement tokenArrayConfig: tokenArray.getHashElements()) {
-                    if(tokenArrayConfig.getValue() instanceof ArrayCreationExpression) {
-                        Map<String, String> arrayKeyValueMap = PhpElementsUtil.getArrayKeyValueMap((ArrayCreationExpression) tokenArrayConfig.getValue());
-                        tokens.add(arrayKeyValueMap.values());
+                List<PsiElement> urlParts = PhpPsiUtil.getChildren(tokenArray, psiElement ->
+                    psiElement.getNode().getElementType() == PhpElementTypes.ARRAY_VALUE
+                );
+
+                Collections.reverse(urlParts);
+
+                for(PsiElement tokenArrayConfig: urlParts) {
+                    PsiElement firstChild = tokenArrayConfig.getFirstChild();
+                    if(firstChild instanceof ArrayCreationExpression) {
+                        List<PsiElement> foo = PhpPsiUtil.getChildren(firstChild, psiElement ->
+                            psiElement.getNode().getElementType() == PhpElementTypes.ARRAY_VALUE
+                        );
+
+                        List<String> collect = foo.stream()
+                            .map(psiElement -> psiElement.getFirstChild() instanceof StringLiteralExpression ? ((StringLiteralExpression) psiElement.getFirstChild()).getContents() : null)
+                            .toList();
+
+                        if (!collect.isEmpty()) {
+                            path.append(collect.get(1));
+                        }
+
+                        if (collect.size() > 2) {
+                            String var = collect.get(3);
+                            if (var != null) {
+                                path.append("{").append(var).append("}");
+                            }
+                        }
                     }
                 }
             }
@@ -493,7 +1024,57 @@ public class RouteHelper {
         }
 
         // hostTokens = 4 need them?
-        return new Route(routeName, variables, defaults, requirements, tokens);
+        return new Route(routeName, variables, defaults, requirements, tokens, (path.isEmpty()) ? null : path.toString());
+    }
+
+    /**
+     * Used in Symfony < 4 where routes are wrapped into a class
+     */
+    @NotNull
+    private static Route convertRouteConfig(@NotNull String routeName, @NotNull ArrayCreationExpression hashValue) {
+        List<ArrayHashElement> hashElementCollection = new ArrayList<>();
+        hashValue.getHashElements().forEach(hashElementCollection::add);
+
+        Set<String> variables = new HashSet<>();
+        if (!hashElementCollection.isEmpty() && hashElementCollection.get(0).getValue() instanceof ArrayCreationExpression value) {
+            variables.addAll(PhpElementsUtil.getArrayKeyValueMap(value).values());
+        }
+
+        Map<String, String> defaults = new HashMap<>();
+        if (hashElementCollection.size() >= 2 && hashElementCollection.get(1).getValue() instanceof ArrayCreationExpression value) {
+            defaults = PhpElementsUtil.getArrayKeyValueMap(value);
+        }
+
+        Map<String, String>requirements = new HashMap<>();
+        if (hashElementCollection.size() >= 3 && hashElementCollection.get(2).getValue() instanceof ArrayCreationExpression value) {
+            requirements = PhpElementsUtil.getArrayKeyValueMap(value);
+        }
+
+        StringBuilder path = new StringBuilder();
+        List<Collection<String>> tokens = new ArrayList<>();
+        if (hashElementCollection.size() >= 4 && hashElementCollection.get(3).getValue() instanceof ArrayCreationExpression tokenArray) {
+            List<ArrayHashElement> result = StreamSupport.stream(tokenArray.getHashElements().spliterator(), false)
+                .collect(Collectors.toList());
+
+            Collections.reverse(result);
+
+            for (ArrayHashElement tokenArrayConfig: result) {
+                if (tokenArrayConfig.getValue() instanceof ArrayCreationExpression) {
+                    Map<String, String> arrayKeyValueMap = PhpElementsUtil.getArrayKeyValueMap((ArrayCreationExpression) tokenArrayConfig.getValue());
+                    path.append(arrayKeyValueMap.getOrDefault("1", null));
+
+                    String var = arrayKeyValueMap.getOrDefault("3", null);
+                    if (var != null) {
+                        path.append("{").append(var).append("}");
+                    }
+
+                    tokens.add(arrayKeyValueMap.values());
+                }
+            }
+        }
+
+        // hostTokens = 4 need them?
+        return new Route(routeName, variables, defaults, requirements, tokens, (path.isEmpty()) ? null : path.toString());
     }
 
     private static boolean isProductionRouteName(String routeName) {
@@ -716,9 +1297,9 @@ public class RouteHelper {
     @Nullable
     public static String getXmlController(@NotNull XmlTag serviceTag) {
         for(XmlTag subTag :serviceTag.getSubTags()) {
-            if("default".equalsIgnoreCase(subTag.getName())) {
+            if ("default".equalsIgnoreCase(subTag.getName())) {
                 String keyValue = subTag.getAttributeValue("key");
-                if(keyValue != null && "_controller".equals(keyValue)) {
+                if ("_controller".equals(keyValue)) {
                     String actionName = subTag.getValue().getTrimmedText();
                     if(StringUtils.isNotBlank(actionName)) {
                         return actionName;
@@ -728,7 +1309,7 @@ public class RouteHelper {
         }
 
         String controller = serviceTag.getAttributeValue("controller");
-        if(controller != null && StringUtils.isNotBlank(controller)) {
+        if (StringUtils.isNotBlank(controller)) {
             return controller;
         }
 
@@ -768,6 +1349,517 @@ public class RouteHelper {
         return null;
     }
 
+    /**
+     * Find controller definition in php function call.
+     * $routes->controller('FooController:method');
+     * $routes->controller([FooController::class, 'method']);
+     * $routes->controller(FooController::class);
+     */
+    @NotNull
+    public static PsiElement[] getPhpController(@NotNull MethodReference methodCall) {
+        String controller = getPhpControllerShortcut(methodCall);
+        if (StringUtils.isBlank(controller)) {
+            return new PsiElement[0];
+        }
+
+        return RouteHelper.getMethodsOnControllerShortcut(methodCall.getProject(), controller);
+    }
+
+    @Nullable
+    public static String getPhpControllerShortcut(@NotNull MethodReference methodCall) {
+        PsiElement[] parameters = methodCall.getParameters();
+        if (parameters.length != 1) {
+            return null;
+        }
+
+        return getPhpControllerShortcut(parameters[0]);
+    }
+
+    @Nullable
+    private static String getPhpControllerShortcut(@Nullable PsiElement parameter) {
+        if (parameter instanceof StringLiteralExpression) {
+            String contents = ((StringLiteralExpression) parameter).getContents();
+            return StringUtils.isNotBlank(contents) ? contents : null;
+        }
+
+        if (parameter instanceof ClassConstantReference) {
+            String classConstantPhpFqn = PhpElementsUtil.getClassConstantPhpFqn((ClassConstantReference) parameter);
+            return StringUtils.isNotBlank(classConstantPhpFqn) ? classConstantPhpFqn : null;
+        }
+
+        if (parameter instanceof ArrayCreationExpression) {
+            PsiElement[] elements = PhpElementsUtil.getArrayValues((ArrayCreationExpression) parameter);
+            if (elements.length == 2) {
+                String className = PhpElementsUtil.getStringValue(elements[0]);
+                String method = PhpElementsUtil.getStringValue(elements[1]);
+                if (StringUtils.isNotBlank(className) && StringUtils.isNotBlank(method)) {
+                    return className + "::" + method;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Extract syntax-only route definitions from Symfony PHP routing configurator files.
+     *
+     * This is intentionally used by {@link fr.adrienbrault.idea.symfony2plugin.stubs.indexes.RoutesStubIndex}
+     * and therefore must stay index-safe:
+     *
+     * - no PhpIndex lookups
+     * - no dynamic type inference
+     * - no service/reference resolution
+     *
+     * Matching is anchored on a declared RoutingConfigurator parameter and local fluent PSI chain walking.
+     */
+    @NotNull
+    public static Collection<StubIndexedRoute> getPhpRouteDefinitions(@NotNull PhpFile psiFile) {
+        Collection<StubIndexedRoute> routes = new ArrayList<>();
+
+        for (PhpFluentRouteDefinition definition : getPhpFluentRouteDefinitions(psiFile)) {
+            routes.add(definition.route);
+        }
+
+        return routes;
+    }
+
+    @Nullable
+    public static PsiElement getPhpRouteNameTarget(@NotNull PhpFile psiFile, @NotNull String routeName) {
+        for (PhpFluentRouteDefinition definition : getPhpFluentRouteDefinitions(psiFile)) {
+            if (routeName.equalsIgnoreCase(definition.route.getName())) {
+                return definition.nameTarget;
+            }
+        }
+
+        return null;
+    }
+
+    @NotNull
+    private static Collection<PhpFluentRouteDefinition> getPhpFluentRouteDefinitions(@NotNull PhpFile psiFile) {
+        Collection<PhpFluentRouteDefinition> routes = new ArrayList<>();
+
+        for (Function function : PsiTreeUtil.findChildrenOfType(psiFile, Function.class)) {
+            Set<String> routingParameters = getRoutingConfiguratorParameterNames(function);
+            if (routingParameters.isEmpty()) {
+                continue;
+            }
+
+            Map<MethodReference, PhpFluentRouteDefinition> definitions = new LinkedHashMap<>();
+            for (MethodReference methodReference : PhpElementsUtil.collectMethodReferencesInsideControlFlow(function, "add")) {
+                PhpFluentRouteDefinition definition = createPhpFluentRouteDefinition(methodReference, function, routingParameters);
+                if (definition != null) {
+                    definitions.put(methodReference, definition);
+                }
+            }
+
+            for (MethodReference methodReference : PhpElementsUtil.collectMethodReferencesInsideControlFlow(function, "controller")) {
+                String controller = getPhpControllerShortcutIndexSafe(methodReference);
+                if (StringUtils.isBlank(controller)) {
+                    continue;
+                }
+
+                PhpFluentRouteDefinition definition = getOrCreatePhpFluentRouteDefinition(methodReference, function, routingParameters, definitions);
+                if (definition == null) {
+                    continue;
+                }
+
+                definition.route.setController(normalizeRouteController(controller));
+            }
+
+            for (MethodReference methodReference : PhpElementsUtil.collectMethodReferencesInsideControlFlow(function, "defaults")) {
+                String controller = getPhpRouteDefaultControllerShortcut(methodReference);
+                if (StringUtils.isBlank(controller)) {
+                    continue;
+                }
+
+                PhpFluentRouteDefinition definition = getOrCreatePhpFluentRouteDefinition(methodReference, function, routingParameters, definitions);
+                if (definition == null) {
+                    continue;
+                }
+
+                definition.route.setController(normalizeRouteController(controller));
+            }
+
+            for (MethodReference methodReference : PhpElementsUtil.collectMethodReferencesInsideControlFlow(function, "methods")) {
+                Collection<String> methods = getPhpRouteMethods(methodReference);
+                if (methods.isEmpty()) {
+                    continue;
+                }
+
+                PhpFluentRouteDefinition definition = getOrCreatePhpFluentRouteDefinition(methodReference, function, routingParameters, definitions);
+                if (definition == null) {
+                    continue;
+                }
+
+                definition.route.setMethods(methods);
+            }
+
+            routes.addAll(definitions.values());
+        }
+
+        return routes;
+    }
+
+    /**
+     * Resolve a fluent route modifier like ->controller(), ->defaults(), or ->methods()
+     * back to the originating ->add('route_name', ...) call.
+     */
+    @Nullable
+    private static PhpFluentRouteDefinition getOrCreatePhpFluentRouteDefinition(
+        @NotNull MethodReference methodReference,
+        @NotNull Function function,
+        @NotNull Set<String> routingParameters,
+        @NotNull Map<MethodReference, PhpFluentRouteDefinition> definitions
+    ) {
+        MethodReference addMethodReference = getRoutingAddMethodReference(methodReference.getClassReference(), function, routingParameters, new HashSet<>());
+        if (addMethodReference == null) {
+            return null;
+        }
+
+        PhpFluentRouteDefinition definition = definitions.get(addMethodReference);
+        if (definition != null) {
+            return definition;
+        }
+
+        definition = createPhpFluentRouteDefinition(addMethodReference, function, routingParameters);
+        if (definition != null) {
+            definitions.put(addMethodReference, definition);
+        }
+
+        return definition;
+    }
+
+    /**
+     * Build one index-safe fluent route definition.
+     *
+     * Supported examples:
+     * $routes->add('dashboard', '/dashboard');
+     * $routes->namePrefix('admin_')->add('dashboard', '/dashboard');
+     * $routes->prefix('/admin')->add('dashboard', '/dashboard');
+     */
+    @Nullable
+    private static PhpFluentRouteDefinition createPhpFluentRouteDefinition(
+        @NotNull MethodReference methodReference,
+        @NotNull Function function,
+        @NotNull Set<String> routingParameters
+    ) {
+        if (!"add".equals(methodReference.getName()) || !isRoutingConfiguratorReference(methodReference.getClassReference(), function, routingParameters, new HashSet<>())) {
+            return null;
+        }
+
+        PsiElement routeNameElement = PsiElementUtils.getMethodParameterPsiElementAt(methodReference, 0);
+        String routeName = getPhpRouteLiteralValue(routeNameElement);
+        if (StringUtils.isBlank(routeName)) {
+            return null;
+        }
+
+        String routeNamePrefix = StringUtils.join(
+            getRoutingConfiguratorChainLiteralValues(methodReference.getClassReference(), function, routingParameters, "namePrefix", new HashSet<>()),
+            ""
+        );
+
+        StubIndexedRoute route = new StubIndexedRoute(routeNamePrefix + routeName);
+
+        String routePath = getPhpRouteLiteralValue(PsiElementUtils.getMethodParameterPsiElementAt(methodReference, 1));
+        List<String> pathPrefixes = getRoutingConfiguratorChainLiteralValues(methodReference.getClassReference(), function, routingParameters, "prefix", new HashSet<>());
+        for (int i = pathPrefixes.size() - 1; i >= 0; i--) {
+            routePath = mergeRoutePaths(routePath, pathPrefixes.get(i));
+        }
+
+        if (StringUtils.isNotBlank(routePath)) {
+            route.setPath(routePath);
+        }
+
+        return new PhpFluentRouteDefinition(route, routeNameElement != null ? routeNameElement : methodReference);
+    }
+
+    @Nullable
+    private static MethodReference getRoutingAddMethodReference(
+        @Nullable PsiElement psiElement,
+        @NotNull Function function,
+        @NotNull Set<String> routingParameters,
+        @NotNull Set<PsiElement> visited
+    ) {
+        if (psiElement == null || !visited.add(psiElement)) {
+            return null;
+        }
+
+        if (psiElement instanceof MethodReference methodReference) {
+            if ("add".equals(methodReference.getName()) && isRoutingConfiguratorReference(methodReference.getClassReference(), function, routingParameters, new HashSet<>())) {
+                return methodReference;
+            }
+
+            return getRoutingAddMethodReference(methodReference.getClassReference(), function, routingParameters, visited);
+        }
+
+        if (psiElement instanceof Variable variable) {
+            PsiElement assignedValue = getPreviousVariableAssignmentValue(variable, function);
+            if (assignedValue != null) {
+                return getRoutingAddMethodReference(assignedValue, function, routingParameters, visited);
+            }
+        }
+
+        return null;
+    }
+
+    private static boolean isRoutingConfiguratorReference(
+        @Nullable PsiElement psiElement,
+        @NotNull Function function,
+        @NotNull Set<String> routingParameters,
+        @NotNull Set<PsiElement> visited
+    ) {
+        if (psiElement == null || !visited.add(psiElement)) {
+            return false;
+        }
+
+        if (psiElement instanceof Variable variable) {
+            if (routingParameters.contains(variable.getName())) {
+                return true;
+            }
+
+            PsiElement assignedValue = getPreviousVariableAssignmentValue(variable, function);
+            return assignedValue != null && isRoutingConfiguratorReference(assignedValue, function, routingParameters, visited);
+        }
+
+        if (psiElement instanceof MethodReference methodReference) {
+            return isRoutingConfiguratorReference(methodReference.getClassReference(), function, routingParameters, visited);
+        }
+
+        return false;
+    }
+
+    @NotNull
+    private static Set<String> getRoutingConfiguratorParameterNames(@NotNull Function function) {
+        Set<String> parameterNames = new HashSet<>();
+        Map<String, String> useImports = AnnotationBackportUtil.getUseImportMap(function);
+
+        for (Parameter parameter : function.getParameters()) {
+            String parameterName = parameter.getName();
+            if (StringUtils.isBlank(parameterName)) {
+                continue;
+            }
+
+            PhpTypeDeclaration typeDeclaration = parameter.getTypeDeclaration();
+            if (typeDeclaration != null && isRoutingConfiguratorType(typeDeclaration.getText(), useImports)) {
+                parameterNames.add(parameterName);
+            }
+        }
+
+        return parameterNames;
+    }
+
+    private static boolean isRoutingConfiguratorType(@Nullable String type, @NotNull Map<String, String> useImports) {
+        if (StringUtils.isBlank(type)) {
+            return false;
+        }
+
+        String normalizedType = StringUtils.stripStart(type, "\\?");
+        if (ROUTING_CONFIGURATOR_FQN.equals(normalizedType) || "RoutingConfigurator".equals(normalizedType)) {
+            return true;
+        }
+
+        String importedType = useImports.get(normalizedType);
+        return importedType != null && ROUTING_CONFIGURATOR_FQN.equals(StringUtils.stripStart(importedType, "\\"));
+    }
+
+    @Nullable
+    private static PsiElement getPreviousVariableAssignmentValue(@NotNull Variable variable, @NotNull Function scope) {
+        String variableName = variable.getName();
+        if (StringUtils.isBlank(variableName)) {
+            return null;
+        }
+
+        AssignmentExpression latestAssignment = null;
+        int variableOffset = variable.getTextOffset();
+
+        for (AssignmentExpression assignmentExpression : PsiTreeUtil.collectElementsOfType(scope, AssignmentExpression.class)) {
+            if (assignmentExpression.getTextOffset() >= variableOffset) {
+                continue;
+            }
+
+            if (!(assignmentExpression.getVariable() instanceof Variable assignedVariable) || !variableName.equals(assignedVariable.getName())) {
+                continue;
+            }
+
+            latestAssignment = assignmentExpression;
+        }
+
+        return latestAssignment != null ? latestAssignment.getValue() : null;
+    }
+
+    @Nullable
+    private static String getPhpRouteLiteralValue(@Nullable PsiElement psiElement) {
+        if (psiElement instanceof StringLiteralExpression) {
+            String contents = ((StringLiteralExpression) psiElement).getContents();
+            return StringUtils.isNotBlank(contents) ? contents : null;
+        }
+
+        return null;
+    }
+
+    /**
+     * Extract a controller shortcut from defaults([...]).
+     *
+     * Example:
+     * $routes->add('blog_show', '/blog/{id}')
+     *     ->defaults(['_controller' => [BlogController::class, 'show']]);
+     */
+    @Nullable
+    private static String getPhpRouteDefaultControllerShortcut(@NotNull MethodReference methodReference) {
+        PsiElement[] parameters = methodReference.getParameters();
+        if (parameters.length != 1 || !(parameters[0] instanceof ArrayCreationExpression arrayCreationExpression)) {
+            return null;
+        }
+
+        return getPhpControllerShortcutIndexSafe(PhpElementsUtil.getArrayValue(arrayCreationExpression, "_controller"));
+    }
+
+    @Nullable
+    private static String getPhpControllerShortcutIndexSafe(@NotNull MethodReference methodCall) {
+        PsiElement[] parameters = methodCall.getParameters();
+        if (parameters.length != 1) {
+            return null;
+        }
+
+        return getPhpControllerShortcutIndexSafe(parameters[0]);
+    }
+
+    @Nullable
+    private static String getPhpControllerShortcutIndexSafe(@Nullable PsiElement parameter) {
+        String controller = PhpElementsUtil.getStringValueIndexSafe(parameter);
+        if (StringUtils.isNotBlank(controller)) {
+            return controller;
+        }
+
+        if (parameter instanceof ArrayCreationExpression arrayCreationExpression) {
+            PsiElement[] elements = PhpElementsUtil.getArrayValues(arrayCreationExpression);
+            if (elements.length == 2) {
+                String className = getPhpControllerClassShortcutIndexSafe(elements[0]);
+                String method = getPhpRouteLiteralValue(elements[1]);
+                if (StringUtils.isNotBlank(className) && StringUtils.isNotBlank(method)) {
+                    return className + "::" + method;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    @Nullable
+    private static String getPhpControllerClassShortcutIndexSafe(@Nullable PsiElement parameter) {
+        return PhpElementsUtil.getStringValueIndexSafe(parameter);
+    }
+
+    /**
+     * Extract normalized HTTP methods from ->methods(...).
+     *
+     * ->methods(['GET', 'HEAD'])
+     */
+    @NotNull
+    private static Collection<String> getPhpRouteMethods(@NotNull MethodReference methodReference) {
+        PsiElement[] parameters = methodReference.getParameters();
+        if (parameters.length != 1 || !(parameters[0] instanceof ArrayCreationExpression arrayCreationExpression)) {
+            return Collections.emptyList();
+        }
+
+        Set<String> methods = new LinkedHashSet<>();
+        for (PsiElement methodParameter : PhpElementsUtil.getArrayValues(arrayCreationExpression)) {
+            if (!(methodParameter instanceof StringLiteralExpression stringLiteralExpression)) {
+                continue;
+            }
+
+            String method = stringLiteralExpression.getContents();
+            if (StringUtils.isNotBlank(method)) {
+                methods.add(method.toLowerCase(Locale.ROOT));
+            }
+        }
+
+        return methods;
+    }
+
+    /**
+     * Walk back through a configurator chain and local variable assignments.
+     *
+     * Example:
+     * $group = $routes->namePrefix('admin_')->prefix('/admin');
+     * $group->namePrefix('api_')->add('dashboard', '/dashboard');
+     */
+    @NotNull
+    private static List<String> getRoutingConfiguratorChainLiteralValues(
+        @Nullable PsiElement psiElement,
+        @NotNull Function function,
+        @NotNull Set<String> routingParameters,
+        @NotNull String methodName,
+        @NotNull Set<PsiElement> visited
+    ) {
+        if (psiElement == null || !visited.add(psiElement)) {
+            return Collections.emptyList();
+        }
+
+        if (psiElement instanceof Variable variable) {
+            PsiElement assignedValue = getPreviousVariableAssignmentValue(variable, function);
+            return assignedValue != null
+                ? getRoutingConfiguratorChainLiteralValues(assignedValue, function, routingParameters, methodName, visited)
+                : Collections.emptyList();
+        }
+
+        if (!(psiElement instanceof MethodReference methodReference)) {
+            return Collections.emptyList();
+        }
+
+        List<String> values = new ArrayList<>(
+            getRoutingConfiguratorChainLiteralValues(methodReference.getClassReference(), function, routingParameters, methodName, visited)
+        );
+
+        if (methodName.equals(methodReference.getName()) && isRoutingConfiguratorReference(methodReference.getClassReference(), function, routingParameters, new HashSet<>())) {
+            String value = getPhpRouteLiteralValue(PsiElementUtils.getMethodParameterPsiElementAt(methodReference, 0));
+            if (StringUtils.isNotBlank(value)) {
+                values.add(value);
+            }
+        }
+
+        return values;
+    }
+
+    /**
+     * Merge one collected prefix into the current route path.
+     * Prefixes are applied by the caller from inner to outer so '/admin', '/api', '/posts'
+     * becomes '/admin/api/posts'.
+     */
+    @Nullable
+    private static String mergeRoutePaths(@Nullable String routePath, @NotNull String pathPrefix) {
+        if (StringUtils.isBlank(pathPrefix)) {
+            return routePath;
+        }
+
+        if (StringUtils.isBlank(routePath)) {
+            return pathPrefix;
+        }
+
+        if (routePath.startsWith("/") && pathPrefix.endsWith("/")) {
+            return pathPrefix.substring(0, pathPrefix.length() - 1) + routePath;
+        }
+
+        if (!routePath.startsWith("/") && !pathPrefix.endsWith("/")) {
+            return pathPrefix + "/" + routePath;
+        }
+
+        return pathPrefix + routePath;
+    }
+
+    private static class PhpFluentRouteDefinition {
+        @NotNull
+        private final StubIndexedRoute route;
+        @NotNull
+        private final PsiElement nameTarget;
+
+        private PhpFluentRouteDefinition(@NotNull StubIndexedRoute route, @NotNull PsiElement nameTarget) {
+            this.route = route;
+            this.nameTarget = nameTarget;
+        }
+    }
+
     @Nullable
     public static PsiElement getXmlRouteNameTarget(@NotNull XmlFile psiFile,@NotNull String routeName) {
 
@@ -795,8 +1887,38 @@ public class RouteHelper {
         return null;
     }
 
+    /**
+     * Determines whether the given shortcut name represents a service controller.
+     * A valid service controller format must consist of exactly two parts separated by a single colon (":"),
+     * or a double colon ("::") with no additional colons present.
+     *
+     * Performance hot path
+     */
     public static boolean isServiceController(@NotNull String shortcutName) {
-        return !shortcutName.contains("::") && shortcutName.contains(":") && shortcutName.split(":").length == 2;
+        // After normalizing "::" to ":", must have exactly 2 parts
+        // Valid: "service:method", "service::method"
+        // Invalid: "service", "a:b:c"
+        int len = shortcutName.length();
+        if (len < 3) return false; // minimum is "a:b"
+
+        int firstColon = shortcutName.indexOf(':');
+        if (firstColon <= 0) return false;
+
+        // Check if it's "::" (double colon) - valid single separator
+        if (firstColon + 1 < len && shortcutName.charAt(firstColon + 1) == ':') {
+            // Double colon case: "service::method"
+            // After the "::" there should be no more colons
+            int afterDouble = firstColon + 2;
+            return afterDouble < len && shortcutName.indexOf(':', afterDouble) < 0;
+        }
+
+        // Single colon case: "service:method"
+        // After the ":" there should be no more colons
+        return firstColon + 1 < len && shortcutName.indexOf(':', firstColon + 1) < 0;
+    }
+
+    public static boolean isServiceControllerInvoke(@NotNull String shortcutName) {
+        return !shortcutName.contains(":");
     }
 
     @NotNull
@@ -806,21 +1928,20 @@ public class RouteHelper {
         ContainerUtil.addIfNotNull(routeNames, RouteHelper.convertMethodToRouteControllerName(method));
         ContainerUtil.addIfNotNull(routeNames, RouteHelper.convertMethodToRouteShortcutControllerName(method));
 
-        Map<String, Route> allRoutes = getAllRoutes(method.getProject());
+        Project project = method.getProject();
+        Map<String, Route> allRoutes = getAllRoutes(project);
         List<Route> routes = new ArrayList<>();
 
         // resolve indexed routes
-        if(routeNames.size() > 0) {
+        if(!routeNames.isEmpty()) {
             routes.addAll(allRoutes.values().stream()
                 .filter(route -> route.getController() != null && routeNames.contains(route.getController()))
-                .collect(Collectors.toList())
+                .toList()
             );
         }
 
         // search for services
-        routes.addAll(
-            ServiceRouteContainer.build(allRoutes).getMethodMatches(method)
-        );
+        routes.addAll(ServiceRouteContainer.getMethodMatchesForRouteController(method));
 
         return routes;
     }
@@ -828,60 +1949,52 @@ public class RouteHelper {
     /**
      * Find every possible route name declaration inside yaml, xml or @Route annotation
      */
-    @Nullable
-    public static PsiElement getRouteNameTarget(@NotNull Project project, @NotNull String routeName) {
+    @NotNull
+    public static Collection<PsiElement> getRouteNameTarget(@NotNull Project project, @NotNull String routeName) {
+        Collection<PsiElement> routeTargets = new ArrayList<>();
+
         for(VirtualFile virtualFile: RouteHelper.getRouteDefinitionInsideFile(project, routeName)) {
             PsiFile psiFile = PsiManager.getInstance(project).findFile(virtualFile);
 
             if(psiFile instanceof YAMLFile) {
-                return YAMLUtil.getQualifiedKeyInFile((YAMLFile) psiFile, routeName);
+                YAMLKeyValue qualifiedKeyInFile = YAMLUtil.getQualifiedKeyInFile((YAMLFile) psiFile, routeName);
+                if (qualifiedKeyInFile != null) {
+                    routeTargets.add(qualifiedKeyInFile);
+                }
             } else if(psiFile instanceof XmlFile) {
                 PsiElement target = RouteHelper.getXmlRouteNameTarget((XmlFile) psiFile, routeName);
                 if(target != null) {
-                    return target;
+                    routeTargets.add(target);
                 }
             } else if(psiFile instanceof PhpFile) {
-                // find on @Route annotation
+                Collection<PsiElement> targets = new ArrayList<>();
+
                 for (PhpClass phpClass : PhpPsiUtil.findAllClasses((PhpFile) psiFile)) {
-                    // get prefix by PhpClass
-                    String prefix = getRouteNamePrefix(phpClass);
-
-                    for (Method method : phpClass.getOwnMethods()) {
-                        PhpDocComment docComment = method.getDocComment();
-                        if(docComment == null) {
-                            continue;
-                        }
-
-                        PhpDocCommentAnnotation container = AnnotationUtil.getPhpDocCommentAnnotationContainer(docComment);
-                        if(container == null) {
-                            continue;
-                        }
-
-                        // multiple @Route annotation in bundles are allowed
-                        for (String routeClass : ROUTE_CLASSES) {
-                            PhpDocTagAnnotation phpDocTagAnnotation = container.getPhpDocBlock(routeClass);
-                            if(phpDocTagAnnotation != null) {
-                                String annotationRouteName = phpDocTagAnnotation.getPropertyValue("name");
-                                if(annotationRouteName != null) {
-                                    // name provided @Route(name="foobar")
-                                    if(routeName.equals(prefix + annotationRouteName)) {
-                                        return phpDocTagAnnotation.getPropertyValuePsi("name");
-                                    }
-                                } else {
-                                    // just @Route() without name provided
-                                    String routeByMethod = AnnotationBackportUtil.getRouteByMethod(phpDocTagAnnotation.getPhpDocTag());
-                                    if(routeName.equals(prefix + routeByMethod)) {
-                                        return phpDocTagAnnotation.getPhpDocTag();
-                                    }
+                    new AnnotationRouteElementVisitor(pair -> {
+                        if (routeName.equalsIgnoreCase(pair.getFirst())) {
+                            PsiElement target = pair.getSecond();
+                            if (target instanceof PhpAttribute attribute) {
+                                PsiElement namePsi = PhpPsiAttributesUtil.getAttributeValuePsiElement(attribute, 1, "name");
+                                if (namePsi != null) {
+                                    target = namePsi;
                                 }
                             }
+
+                            targets.add(target);
                         }
-                    }
+                    }).visitFile(phpClass);
                 }
+
+                PsiElement target = RouteHelper.getPhpRouteNameTarget((PhpFile) psiFile, routeName);
+                if (target != null) {
+                    targets.add(target);
+                }
+
+                routeTargets.addAll(targets);
             }
         }
 
-        return null;
+        return routeTargets;
     }
 
     /**
@@ -892,7 +2005,7 @@ public class RouteHelper {
     private static String getRouteNamePrefix(@NotNull  PhpClass phpClass) {
         PhpDocCommentAnnotation phpClassContainer = AnnotationUtil.getPhpDocCommentAnnotationContainer(phpClass.getDocComment());
         if(phpClassContainer != null) {
-            PhpDocTagAnnotation firstPhpDocBlock = phpClassContainer.getFirstPhpDocBlock(ROUTE_CLASSES.toArray(new String[ROUTE_CLASSES.size()]));
+            PhpDocTagAnnotation firstPhpDocBlock = phpClassContainer.getFirstPhpDocBlock(ROUTE_ANNOTATIONS);
             if(firstPhpDocBlock != null) {
                 String name = firstPhpDocBlock.getPropertyValue("name");
                 if(name != null && StringUtils.isNotBlank(name)) {
@@ -932,34 +2045,46 @@ public class RouteHelper {
 
         }
 
-        return url.length() == 0 ? null : url;
+        return url.isEmpty() ? null : url;
     }
 
-    public static List<LookupElement> getRoutesLookupElements(final @NotNull Project project) {
-
+    public static List<LookupElement> getRoutesLookupElements(final @NotNull Project project, boolean escapeRouteName) {
         Map<String, Route> routes = RouteHelper.getCompiledRoutes(project);
 
         final List<LookupElement> lookupElements = new ArrayList<>();
 
         final Set<String> uniqueSet = new HashSet<>();
         for (Route route : routes.values()) {
-            lookupElements.add(new RouteLookupElement(route));
+            RouteLookupElement lookupElement = new RouteLookupElement(route);
+            if (escapeRouteName) {
+                lookupElement.withEscape();
+            }
+
+            lookupElements.add(lookupElement);
             uniqueSet.add(route.getName());
         }
 
-        for(String routeName: SymfonyProcessors.createResult(project, RoutesStubIndex.KEY, uniqueSet)) {
-            if(uniqueSet.contains(routeName)) {
+        for(String routeName: SymfonyProcessors.createResult(project, RoutesStubIndex.KEY)) {
+            if (uniqueSet.contains(routeName)) {
                 continue;
             }
 
-            for(StubIndexedRoute route: FileBasedIndex.getInstance().getValues(RoutesStubIndex.KEY, routeName, GlobalSearchScope.allScope(project))) {
-                lookupElements.add(new RouteLookupElement(new Route(route), true));
+            for (StubIndexedRoute route: FileBasedIndex.getInstance().getValues(RoutesStubIndex.KEY, routeName, GlobalSearchScope.allScope(project))) {
+                RouteLookupElement lookupElement = new RouteLookupElement(new Route(route), true);
+                if (escapeRouteName) {
+                    lookupElement.withEscape();
+                }
+
+                lookupElements.add(lookupElement);
                 uniqueSet.add(routeName);
             }
         }
 
         return lookupElements;
+    }
 
+    public static List<LookupElement> getRoutesLookupElements(final @NotNull Project project) {
+        return getRoutesLookupElements(project, false);
     }
 
     @NotNull
@@ -967,50 +2092,161 @@ public class RouteHelper {
 
         List<PsiElement> targets = new ArrayList<>();
         Collections.addAll(targets, RouteHelper.getMethods(project, routeName));
-
-        PsiElement yamlKey = RouteHelper.getRouteNameTarget(project, routeName);
-        if(yamlKey != null) {
-            targets.add(yamlKey);
-        }
-
+        targets.addAll(RouteHelper.getRouteNameTarget(project, routeName));
         return targets;
     }
 
-    @NotNull
-    synchronized public static Map<String, Route> getAllRoutes(final @NotNull Project project) {
-        CachedValue<Map<String, Route>> cache = project.getUserData(ROUTE_CACHE);
+    public static boolean isRouteExistingForMethod(final @NotNull Method method) {
+        Project project = method.getProject();
 
-        if (cache == null) {
-            cache = CachedValuesManager.getManager(project).createCachedValue(() ->
-                CachedValueProvider.Result.create(getAllRoutesProxy(project), PsiModificationTracker.MODIFICATION_COUNT),
-                false
-            );
-            project.putUserData(ROUTE_CACHE, cache);
+        Set<String> cachedValue = CachedValuesManager.getManager(project).getCachedValue(
+            project,
+            ROUTE_CONTROLLER_RESOLVED_CACHE,
+            () -> {
+                Set<String> items = new HashSet<>();
+
+                for (Map.Entry<String, Route> pair : RouteHelper.getAllRoutes(project).entrySet()) {
+                    String controller = pair.getValue().getController();
+                    if (controller != null) {
+                        for (PsiElement psiElement : RouteHelper.getMethodsOnControllerShortcut(project, controller)) {
+                            if (psiElement instanceof Method) {
+                                items.add(((Method) psiElement).getFQN());
+                            }
+                        }
+                    }
+                }
+
+                return CachedValueProvider.Result.create(
+                    items,
+                    FileIndexCaches.getModificationTrackerForIndexId(project, RoutesStubIndex.KEY),
+                    PsiModificationTracker.getInstance(project).forLanguage(PhpLanguage.INSTANCE)
+                );
+            },
+            false
+        );
+
+        String fqn = method.getFQN();
+        if (fqn.toLowerCase().endsWith("action")) {
+            String substring = fqn.substring(0, fqn .length() - "action".length());
+            if (cachedValue.contains(substring)) {
+                return true;
+            }
         }
 
-        return cache.getValue();
+        return cachedValue.contains(fqn);
     }
 
     @NotNull
-    private static Map<String, Route> getAllRoutesProxy(@NotNull Project project) {
+    public static Map<String, Route> getAllRoutes(final @NotNull Project project) {
+        return CachedValuesManager.getManager(project).getCachedValue(
+            project,
+            ROUTE_CACHE,
+            () -> {
+                Map<String, Route> routes = new HashMap<>(RouteHelper.getCompiledRoutes(project));
+                Set<String> uniqueKeySet = new HashSet<>(routes.keySet());
 
-        Map<String, Route> routes = new HashMap<>();
-        routes.putAll(RouteHelper.getCompiledRoutes(project));
+                for (String routeName: SymfonyProcessors.createResult(project, RoutesStubIndex.KEY)) {
+                    if (uniqueKeySet.contains(routeName)) {
+                        continue;
+                    }
 
-        Set<String> uniqueKeySet = new HashSet<>(routes.keySet());
+                    for (StubIndexedRoute route: FileBasedIndex.getInstance().getValues(RoutesStubIndex.KEY, routeName, GlobalSearchScope.allScope(project))) {
+                        uniqueKeySet.add(routeName);
+                        routes.put(routeName, new Route(route));
+                    }
+                }
 
-        for(String routeName: SymfonyProcessors.createResult(project, RoutesStubIndex.KEY, uniqueKeySet)) {
-            if(uniqueKeySet.contains(routeName)) {
+                return CachedValueProvider.Result.create(
+                    Collections.unmodifiableMap(routes),
+                    FileIndexCaches.getModificationTrackerForIndexId(project, RoutesStubIndex.KEY), // index
+                    getCompiledRoutesTracker(project) // compiled route file changes
+                );
+            },
+            false
+        );
+    }
+
+    /**
+     * Returns routes deduplicated by path + controller identity.
+     * If both a named route and an FQCN-style route name point to the same endpoint, the named route wins.
+     */
+    @NotNull
+    public static Map<String, Route> getAllRoutesUnique(final @NotNull Project project) {
+        return CachedValuesManager.getManager(project).getCachedValue(
+            project,
+            ROUTE_UNIQUE_CACHE,
+            () -> {
+                Map<String, Route> routes = deduplicateRoutesPreferNamed(RouteHelper.getAllRoutes(project));
+
+                return CachedValueProvider.Result.create(
+                    Collections.unmodifiableMap(routes),
+                    FileIndexCaches.getModificationTrackerForIndexId(project, RoutesStubIndex.KEY), // index
+                    getCompiledRoutesTracker(project) // compiled route file changes
+                );
+            },
+            false
+        );
+    }
+
+    @NotNull
+    private static Map<String, Route> deduplicateRoutesPreferNamed(@NotNull Map<String, Route> routes) {
+        Map<String, Route> deduplicated = new LinkedHashMap<>();
+        Map<String, String> identityToRouteName = new HashMap<>();
+
+        for (Map.Entry<String, Route> entry : routes.entrySet()) {
+            String routeName = entry.getKey();
+            Route route = entry.getValue();
+            String routeIdentity = getRouteIdentity(routeName, route);
+
+            String existingRouteName = identityToRouteName.get(routeIdentity);
+            if (existingRouteName == null) {
+                identityToRouteName.put(routeIdentity, routeName);
+                deduplicated.put(routeName, route);
                 continue;
             }
 
-            for(StubIndexedRoute route: FileBasedIndex.getInstance().getValues(RoutesStubIndex.KEY, routeName, GlobalSearchScope.allScope(project))) {
-                uniqueKeySet.add(routeName);
-                routes.put(routeName, new Route(route));
+            if (isFqcnRouteName(existingRouteName) && !isFqcnRouteName(routeName)) {
+                deduplicated.remove(existingRouteName);
+                deduplicated.put(routeName, route);
+                identityToRouteName.put(routeIdentity, routeName);
             }
         }
 
-        return routes;
+        return deduplicated;
+    }
+
+    @NotNull
+    private static String getRouteIdentity(@NotNull String routeName, @NotNull Route route) {
+        String path = StringUtils.trimToEmpty(route.getPath());
+        String controller = StringUtils.trimToEmpty(route.getController());
+
+        if (path.isEmpty() && controller.isEmpty()) {
+            return "name:" + routeName;
+        }
+
+        return "path:" + path + "|controller:" + controller;
+    }
+
+    private static boolean isFqcnRouteName(@NotNull String routeName) {
+        return routeName.contains("\\");
+    }
+
+    @NotNull
+    public static Collection<LookupElement> getRoutesPathLookupElements(final @NotNull Project project) {
+        Collection<LookupElement> lookupElements = new ArrayList<>();
+
+        for (Route route : RouteHelper.getAllRoutes(project).values()) {
+            String path = route.getPath();
+            if (path != null && !route.getName().startsWith("_")) {
+                LookupElementBuilder element = LookupElementBuilder.create(path)
+                    .withTypeText(route.getName())
+                    .withIcon(Symfony2Icons.ROUTE_WEAK);
+
+                lookupElements.add(element);
+            }
+        }
+
+        return lookupElements;
     }
 
     /**
@@ -1029,7 +2265,23 @@ public class RouteHelper {
      * Support "use Symfony\Component\Routing\Annotation\Route as BaseRoute;"
      */
     public static boolean isRouteClassAnnotation(@NotNull String clazz) {
-        String myClazz = StringUtils.stripStart(clazz, "\\");
-        return ROUTE_CLASSES.stream().anyMatch(s -> s.equalsIgnoreCase(myClazz));
+        String myClazz = "\\" + StringUtils.stripStart(clazz, "\\");
+        return Arrays.stream(ROUTE_ANNOTATIONS).anyMatch(s -> s.equalsIgnoreCase(myClazz));
     }
+
+    /**
+     * Builds a controller action gutter icon and adds it to the given line marker collection.
+     */
+    public static void addControllerLineMarker(
+        @NotNull Collection<? super LineMarkerInfo<?>> lineMarkerInfos,
+        @NotNull PsiElement[] methods,
+        @NotNull PsiElement anchor
+    ) {
+        NavigationGutterIconBuilder<PsiElement> builder = NavigationGutterIconBuilder.create(Symfony2Icons.TWIG_CONTROLLER_LINE_MARKER)
+            .setTargets(methods)
+            .setTooltipText("Navigate to action");
+
+        lineMarkerInfos.add(builder.createLineMarkerInfo(anchor));
+    }
+
 }

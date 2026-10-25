@@ -1,5 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.action.ui;
 
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.ComboBox;
 import com.intellij.ui.ToolbarDecorator;
@@ -8,7 +9,7 @@ import com.intellij.util.ui.ColumnInfo;
 import com.intellij.util.ui.ListTableModel;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
@@ -16,6 +17,7 @@ import javax.swing.table.TableCellEditor;
 import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -25,7 +27,7 @@ import java.util.Set;
 public class ServiceArgumentSelectionDialog extends JDialog {
 
     private final Project project;
-    private final Map<String, Set<String>> arguments;
+    private final Map<String, Set<String>> arguments = new HashMap<>();
     private final Callback callback;
     private JPanel panel1;
     private JButton generateButton;
@@ -37,14 +39,18 @@ public class ServiceArgumentSelectionDialog extends JDialog {
 
     public ServiceArgumentSelectionDialog(Project project, Map<String, Set<String>> arguments, Callback callback) {
         this.project = project;
-        this.arguments = arguments;
+        this.arguments.putAll(arguments);
         this.callback = callback;
     }
 
     public void init() {
 
+        createUIComponents();
         setContentPane(panel1);
         setModal(true);
+
+        // Populate model after constructor has completed and arguments are initialized
+        populateModel();
 
         generateButton.addActionListener(e -> {
             setEnabled(false);
@@ -55,7 +61,7 @@ public class ServiceArgumentSelectionDialog extends JDialog {
                 items.add(serviceParameter.getCurrentService());
             }
 
-            callback.onOk(items);
+            ApplicationManager.getApplication().runWriteAction(() -> callback.onOk(items));
 
             dispose();
         });
@@ -66,7 +72,7 @@ public class ServiceArgumentSelectionDialog extends JDialog {
         this.closeButton.addActionListener(e -> onCancel());
 
         this.getRootPane().registerKeyboardAction(e ->
-            onCancel(),
+                onCancel(),
             KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0),
             JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT
         );
@@ -78,9 +84,10 @@ public class ServiceArgumentSelectionDialog extends JDialog {
     }
 
     private void createUIComponents() {
-        mainPanel = new JPanel();
+        generateButton = new JButton("Generate");
+        closeButton = new JButton("Close");
 
-        mainPanel.setLayout(new GridLayout(0, 1));
+        mainPanel = new JPanel(new GridLayout(0, 1));
 
         this.modelList = new ListTableModel<>(
             new IconColumn(),
@@ -88,21 +95,35 @@ public class ServiceArgumentSelectionDialog extends JDialog {
             new ServiceColumn()
         );
 
-        for (Map.Entry<String, Set<String>> entry : this.arguments.entrySet()) {
-            this.modelList.addRow(new ServiceParameter(entry.getKey(), entry.getValue()));
-        }
-
         this.tableView = new TableView<>();
         this.tableView.setModelAndUpdateColumns(this.modelList);
 
         mainPanel.add(ToolbarDecorator.createDecorator(this.tableView)
-                .disableAddAction()
-                .disableDownAction()
-                .disableRemoveAction()
-                .disableUpDownActions()
-                .createPanel()
+            .disableAddAction()
+            .disableDownAction()
+            .disableRemoveAction()
+            .disableUpDownActions()
+            .createPanel()
         );
 
+        JPanel buttonsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
+        buttonsPanel.add(closeButton);
+        buttonsPanel.add(generateButton);
+
+        panel1 = new JPanel(new BorderLayout(0, 5));
+        panel1.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
+        panel1.add(mainPanel, BorderLayout.CENTER);
+        panel1.add(buttonsPanel, BorderLayout.SOUTH);
+    }
+
+    /**
+     * Populates the model with argument data.
+     * Must be called after constructor completion to ensure arguments are initialized.
+     */
+    private void populateModel() {
+        for (Map.Entry<String, Set<String>> entry : this.arguments.entrySet()) {
+            this.modelList.addRow(new ServiceParameter(entry.getKey(), entry.getValue()));
+        }
     }
 
     private static class ServiceParameter {
@@ -116,7 +137,7 @@ public class ServiceArgumentSelectionDialog extends JDialog {
             this.classFqn = classFqn;
             this.possibleServices = possibleServices;
 
-            if(possibleServices.size() > 0) {
+            if (!possibleServices.isEmpty()) {
                 currentService = possibleServices.iterator().next();
             }
 
@@ -147,7 +168,7 @@ public class ServiceArgumentSelectionDialog extends JDialog {
     }
 
 
-    private class NamespaceColumn extends ColumnInfo<ServiceParameter, String> {
+    private static class NamespaceColumn extends ColumnInfo<ServiceParameter, String> {
 
         public NamespaceColumn() {
             super("Class");
@@ -158,18 +179,18 @@ public class ServiceArgumentSelectionDialog extends JDialog {
         public String valueOf(ServiceParameter modelParameter) {
 
             String classFqn = modelParameter.getClassFqn();
-            if(StringUtils.isBlank(classFqn)) {
+            if (StringUtils.isBlank(classFqn)) {
                 return "unknown";
             }
 
-            if(classFqn.startsWith("\\")) {
+            if (classFqn.startsWith("\\")) {
                 classFqn = classFqn.substring(1);
             }
 
             int i = classFqn.lastIndexOf("\\");
-            if(i > 0) {
+            if (i > 0) {
                 String ns = classFqn.substring(0, i);
-                String clazz = classFqn.substring(i + 1, classFqn.length());
+                String clazz = classFqn.substring(i + 1);
                 classFqn = String.format("%s [%s]", clazz, ns);
             }
 
@@ -190,7 +211,7 @@ public class ServiceArgumentSelectionDialog extends JDialog {
             return modelParameter.getCurrentService();
         }
 
-        public void setValue(ServiceParameter modelParameter, String value){
+        public void setValue(ServiceParameter modelParameter, String value) {
             modelParameter.setCurrentService(value);
             tableView.getListTableModel().fireTableDataChanged();
         }
@@ -205,7 +226,7 @@ public class ServiceArgumentSelectionDialog extends JDialog {
         public TableCellEditor getEditor(ServiceParameter modelParameter) {
 
             Set<String> sorted = modelParameter.getPossibleServices();
-            ComboBox comboBox = new ComboBox(sorted.toArray(new String[sorted.size()] ), 200);
+            ComboBox<String> comboBox = new ComboBox<>(sorted.toArray(new String[0]), 200);
             comboBox.setEditable(true);
 
             return new DefaultCellEditor(comboBox);
@@ -224,7 +245,7 @@ public class ServiceArgumentSelectionDialog extends JDialog {
             return classInterface != null ? classInterface.getIcon() : null;
         }
 
-        public java.lang.Class getColumnClass() {
+        public Class getColumnClass() {
             return ImageIcon.class;
         }
 

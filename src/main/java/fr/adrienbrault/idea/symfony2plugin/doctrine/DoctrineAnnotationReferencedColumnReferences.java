@@ -35,6 +35,7 @@ public class DoctrineAnnotationReferencedColumnReferences implements PhpAnnotati
     public PsiReference[] getPropertyReferences(AnnotationPropertyParameter annotationPropertyParameter, PhpAnnotationReferenceProviderParameter phpAnnotationReferenceProviderParameter) {
 
         PsiElement element = annotationPropertyParameter.getElement();
+
         if(!Symfony2ProjectComponent.isEnabled(annotationPropertyParameter.getProject()) ||
             !(element instanceof StringLiteralExpression) ||
             !PhpElementsUtil.isEqualClassName(annotationPropertyParameter.getPhpClass(), "\\Doctrine\\ORM\\Mapping\\JoinColumn")
@@ -49,51 +50,42 @@ public class DoctrineAnnotationReferencedColumnReferences implements PhpAnnotati
             PhpDocComment phpDocComment = PsiTreeUtil.getParentOfType(element, PhpDocComment.class);
             if(phpDocComment != null) {
                 PhpDocCommentAnnotation phpDocCommentAnnotationContainer = AnnotationUtil.getPhpDocCommentAnnotationContainer(phpDocComment);
+                PhpDocTagAnnotation phpDocTagAnnotation = phpDocCommentAnnotationContainer.getFirstPhpDocBlock(
+                    "\\Doctrine\\ORM\\Mapping\\ManyToOne",
+                    "\\Doctrine\\ORM\\Mapping\\ManyToMany",
+                    "\\Doctrine\\ORM\\Mapping\\OneToOne",
+                    "\\Doctrine\\ORM\\Mapping\\OneToMany"
+                );
 
-                if(phpDocCommentAnnotationContainer != null) {
+                if(phpDocTagAnnotation != null) {
 
-                    PhpDocTagAnnotation phpDocTagAnnotation = phpDocCommentAnnotationContainer.getFirstPhpDocBlock(
-                        "\\Doctrine\\ORM\\Mapping\\ManyToOne",
-                        "\\Doctrine\\ORM\\Mapping\\ManyToMany",
-                        "\\Doctrine\\ORM\\Mapping\\OneToOne",
-                        "\\Doctrine\\ORM\\Mapping\\OneToMany"
-                    );
+                    PhpPsiElement phpDocAttrList = phpDocTagAnnotation.getPhpDocTag().getFirstPsiChild();
 
-                    if(phpDocTagAnnotation != null) {
-
-                        PhpPsiElement phpDocAttrList = phpDocTagAnnotation.getPhpDocTag().getFirstPsiChild();
-
-                        // @TODO: remove nested on Annotation plugin update
-                        if(phpDocAttrList != null) {
-                            if(phpDocAttrList.getNode().getElementType() == PhpDocElementTypes.phpDocAttributeList) {
-                                PhpPsiElement phpPsiElement = phpDocAttrList.getFirstPsiChild();
-                                if(phpPsiElement instanceof StringLiteralExpression) {
-                                    PhpClass phpClass = de.espend.idea.php.annotation.util.PhpElementsUtil.getClassInsideAnnotation(((StringLiteralExpression) phpPsiElement));
-                                    if(phpClass != null) {
-                                        Collection<DoctrineModelField> lists = EntityHelper.getModelFields(phpClass);
-                                        if(lists.size() > 0) {
-                                            return new PsiReference[] {
-                                                new EntityReference((StringLiteralExpression) element, lists)
-                                            };
-                                        }
+                    // @TODO: remove nested on Annotation plugin update
+                    if(phpDocAttrList != null) {
+                        if(phpDocAttrList.getNode().getElementType() == PhpDocElementTypes.phpDocAttributeList) {
+                            PhpPsiElement phpPsiElement = phpDocAttrList.getFirstPsiChild();
+                            if(phpPsiElement instanceof StringLiteralExpression) {
+                                PhpClass phpClass = de.espend.idea.php.annotation.util.PhpElementsUtil.getClassInsideAnnotation(((StringLiteralExpression) phpPsiElement));
+                                if(phpClass != null) {
+                                    Collection<DoctrineModelField> lists = EntityHelper.getModelFields(phpClass);
+                                    if(!lists.isEmpty()) {
+                                        return new PsiReference[] {
+                                            new EntityReference((StringLiteralExpression) element, lists)
+                                        };
                                     }
                                 }
                             }
                         }
-
-
                     }
-
                 }
-
             }
-
         }
 
         return new PsiReference[0];
     }
 
-    public class EntityReference extends PsiPolyVariantReferenceBase<PsiElement> {
+    public static class EntityReference extends PsiPolyVariantReferenceBase<PsiElement> {
 
         final private Collection<DoctrineModelField> doctrineModelField;
         final private String content;

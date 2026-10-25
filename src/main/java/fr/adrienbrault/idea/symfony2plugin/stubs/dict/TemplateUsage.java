@@ -1,6 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.stubs.dict;
 
-import org.apache.commons.lang.builder.HashCodeBuilder;
+import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.Serializable;
@@ -13,10 +13,10 @@ import java.util.Objects;
   */
 public class TemplateUsage implements Serializable {
     @NotNull
-    private String template;
+    private final String template;
 
     @NotNull
-    private Collection<String> scopes = new HashSet<>();
+    private Collection<String> scopes;
 
     public TemplateUsage(@NotNull String template, @NotNull Collection<String> scopes) {
         this.template = template;

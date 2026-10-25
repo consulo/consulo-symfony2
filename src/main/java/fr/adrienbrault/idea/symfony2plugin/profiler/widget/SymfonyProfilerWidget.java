@@ -1,213 +1,182 @@
 package fr.adrienbrault.idea.symfony2plugin.profiler.widget;
 
-import com.intellij.openapi.actionSystem.ActionGroup;
-import com.intellij.openapi.actionSystem.AnAction;
-import com.intellij.openapi.actionSystem.DefaultActionGroup;
-import com.intellij.openapi.actionSystem.impl.SimpleDataContext;
-import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.fileEditor.FileEditorManager;
-import com.intellij.openapi.fileEditor.FileEditorManagerEvent;
+import com.intellij.openapi.actionSystem.*;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.ui.popup.JBPopupFactory;
 import com.intellij.openapi.ui.popup.ListPopup;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.wm.StatusBarWidget;
-import com.intellij.openapi.wm.impl.status.EditorBasedWidget;
-import com.intellij.ui.popup.PopupFactoryImpl;
-import com.intellij.util.Consumer;
+import com.intellij.openapi.wm.impl.status.EditorBasedStatusBarPopup;
+import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
 import fr.adrienbrault.idea.symfony2plugin.profiler.ProfilerIndexInterface;
 import fr.adrienbrault.idea.symfony2plugin.profiler.collector.DefaultDataCollectorInterface;
+import fr.adrienbrault.idea.symfony2plugin.profiler.collector.MailCollectorInterface;
+import fr.adrienbrault.idea.symfony2plugin.profiler.collector.TwigComponentDataCollectorInterface;
+import fr.adrienbrault.idea.symfony2plugin.profiler.dict.MailMessage;
 import fr.adrienbrault.idea.symfony2plugin.profiler.dict.ProfilerRequestInterface;
+import fr.adrienbrault.idea.symfony2plugin.profiler.dict.ProfilerTwigComponent;
 import fr.adrienbrault.idea.symfony2plugin.profiler.factory.ProfilerFactoryUtil;
 import fr.adrienbrault.idea.symfony2plugin.profiler.widget.action.SymfonyProfilerWidgetActions;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.awt.event.MouseEvent;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
-public class SymfonyProfilerWidget extends EditorBasedWidget implements StatusBarWidget.MultipleTextValuesPresentation,  StatusBarWidget.Multiframe {
-    public static String ID = "symfony2.profiler";
+public class SymfonyProfilerWidget extends EditorBasedStatusBarPopup {
+    public static final String ID = "symfony2.profiler";
 
     public SymfonyProfilerWidget(@NotNull Project project) {
-        super(project);
+        super(project, false);
     }
 
     @Override
-    public StatusBarWidget copy() {
-        return new SymfonyProfilerWidget(getProject());
+    protected @NotNull WidgetState getWidgetState(@Nullable VirtualFile file) {
+        return new WidgetState("Symfony Profiler", "Symfony", true);
     }
 
-    private enum ProfilerTarget {
-        TEMPLATE, ROUTE, CONTROLLER
+    @Override
+    protected @NotNull StatusBarWidget createInstance(@NotNull Project project) {
+        return new SymfonyProfilerWidget(project);
+    }
+
+    @Override
+    protected @Nullable ListPopup createPopup(@NotNull DataContext context) {
+        ActionGroup actionGroup = getActions();
+        return JBPopupFactory.getInstance()
+                .createActionGroupPopup("Symfony Profiler", actionGroup, context,
+                        JBPopupFactory.ActionSelectionAid.SPEEDSEARCH, false);
     }
 
     //constructs the actions for the widget popup
-    public DefaultActionGroup getActions(){
-        DefaultActionGroup actionGroup = new DefaultActionGroup(null, false);
-
+    private DefaultActionGroup getActions() {
         ProfilerIndexInterface index = ProfilerFactoryUtil.createIndex(getProject());
         if(index == null) {
-            return actionGroup;
+            return new DefaultActionGroup("Symfony.Profiler", false);
         }
 
-        List<ProfilerRequestInterface> requests = index.getRequests();
+        return buildActions(getProject(), index, index.getRequests());
+    }
 
-        Collection<AnAction> templateActions = new ArrayList<>();
-        Map<String, Integer> templateActionsMap = new HashMap<>();
+    static DefaultActionGroup buildActions(@NotNull Project project, @NotNull ProfilerIndexInterface index, @NotNull Collection<ProfilerRequestInterface> requests) {
+        DefaultActionGroup actionGroup = new DefaultActionGroup("Symfony.Profiler", false);
 
-        Collection<AnAction> routeActions = new ArrayList<>();
-        Map<String, Integer> routeActionsMap = new HashMap<>();
+        Collection<AnAction> urlActions = new ConcurrentLinkedQueue<>();
+        Collection<AnAction> mailActions = new ConcurrentLinkedQueue<>();
 
-        Collection<AnAction> controllerActions = new ArrayList<>();
-        Map<String, Integer> controllerActionsMap = new HashMap<>();
+        Map<String, AnAction> knownFormTypes = new ConcurrentHashMap<>();
+        Map<String, AnAction> knownController = new ConcurrentHashMap<>();
+        Map<String, AnAction> knownRoutes = new ConcurrentHashMap<>();
+        Map<String, AnAction> knownTemplates = new ConcurrentHashMap<>();
+        Map<String, ProfilerTwigComponent> knownComponents = new ConcurrentHashMap<>();
 
-        Collection<AnAction> urlActions = new ArrayList<>();
-        Collection<AnAction> mailActions = new ArrayList<>();
-
-        for(ProfilerRequestInterface profilerRequest : requests) {
+        requests.parallelStream().forEach(profilerRequest -> {
             urlActions.add(new SymfonyProfilerWidgetActions.UrlAction(index, profilerRequest));
-
             DefaultDataCollectorInterface collector = profilerRequest.getCollector(DefaultDataCollectorInterface.class);
-            if(collector != null) {
-                attachProfileItem(templateActions, templateActionsMap, collector.getTemplate(), ProfilerTarget.TEMPLATE);
-                attachProfileItem(routeActions, routeActionsMap, collector.getRoute(), ProfilerTarget.ROUTE);
-                attachProfileItem(controllerActions, controllerActionsMap, collector.getController(), ProfilerTarget.CONTROLLER);
+            if (collector != null) {
+                String route = collector.getRoute();
+                if (route != null) {
+                    knownRoutes.putIfAbsent(route, new SymfonyProfilerWidgetActions.RouteAction(project, route));
+                }
+
+                String template = collector.getTemplate();
+                if (template != null) {
+                    knownTemplates.putIfAbsent(template, new SymfonyProfilerWidgetActions.TemplateAction(project, template));
+                }
+
+                String controller = collector.getController();
+                if (controller != null) {
+                    knownController.putIfAbsent(controller, new SymfonyProfilerWidgetActions.MethodAction(project, controller));
+                }
+
+                Collection<String> formTypes = collector.getFormTypes();
+                if (formTypes != null) {
+                    for (String formType : formTypes) {
+                        if (formType == null || knownFormTypes.containsKey(formType)) {
+                            continue;
+                        }
+
+                        knownFormTypes.putIfAbsent(formType, new SymfonyProfilerWidgetActions.FormTypeAction(project, formType));
+                    }
+                }
             }
 
-            // @TODO: use collector
-            //String content = profilerRequest.getContent();
-            //if(content != null && content.contains("Swift_Mime_Headers_MailboxHeader")) {
-            //    mailActions.add(new SymfonyProfilerWidgetActions.UrlAction(getProject(), profilerRequest, statusCode).withPanel("swiftmailer").withIcon(Symfony2Icons.MAIL));
-            //}
-        }
+            TwigComponentDataCollectorInterface componentCollector = profilerRequest.getCollector(TwigComponentDataCollectorInterface.class);
+            if (componentCollector != null) {
+                for (ProfilerTwigComponent component : componentCollector.getComponents()) {
+                    knownComponents.merge(component.name(), component, ProfilerTwigComponent::merge);
+                }
+            }
+
+            MailCollectorInterface collectorMail = profilerRequest.getCollector(MailCollectorInterface.class);
+            if (collectorMail != null) {
+                for (MailMessage message : collectorMail.getMessages()) {
+                    String title = message.title();
+                    if (title != null && !title.isBlank()) {
+                        mailActions.add(new SymfonyProfilerWidgetActions.UrlAction(index, profilerRequest, message.panel())
+                            .withIcon(Symfony2Icons.MAIL)
+                            .withText(String.format("(%s) %s", profilerRequest.getHash(), StringUtils.abbreviate(title, 40))));
+                    }
+                }
+            }
+        });
 
         // routes
-        if(urlActions.size() > 0) {
+        if(!urlActions.isEmpty()) {
             actionGroup.addSeparator("Debug-Url");
             actionGroup.addAll(urlActions);
         }
 
         // mails send by request
-        if(mailActions.size() > 0) {
+        if(!mailActions.isEmpty()) {
             actionGroup.addSeparator("E-Mail");
             actionGroup.addAll(mailActions);
         }
 
+        // form types
+        if(!knownFormTypes.isEmpty()) {
+            actionGroup.addSeparator("Forms");
+            actionGroup.addAll(knownFormTypes.values());
+        }
+
         // routes
-        if(routeActions.size() > 0) {
+        if(!knownRoutes.isEmpty()) {
             actionGroup.addSeparator("Routes");
-            actionGroup.addAll(routeActions);
+            actionGroup.addAll(knownRoutes.values());
         }
 
         // controller methods
-        if(controllerActions.size() > 0) {
+        if(!knownController.isEmpty()) {
             actionGroup.addSeparator("Controller");
-            actionGroup.addAll(controllerActions);
+            actionGroup.addAll(knownController.values());
+        }
+
+        if(!knownComponents.isEmpty()) {
+            actionGroup.addSeparator("Components");
+            actionGroup.addAll(knownComponents.values().stream()
+                .sorted(Comparator.comparingInt(ProfilerTwigComponent::renderCount).reversed()
+                    .thenComparing(ProfilerTwigComponent::name, String.CASE_INSENSITIVE_ORDER))
+                .map(component -> new SymfonyProfilerWidgetActions.TwigComponentAction(project, component))
+                .toList());
         }
 
         // template should be most use case; so keep it in cursor range
-        if(templateActions.size() > 0) {
+        if(!knownTemplates.isEmpty()) {
             actionGroup.addSeparator("Template");
-            actionGroup.addAll(templateActions);
+            actionGroup.addAll(knownTemplates.values());
         }
 
         return actionGroup;
-    }
-
-    private void attachProfileItem(Collection<AnAction> controllerActions, Map<String, Integer> controllerActionsMap, @Nullable String collectString, ProfilerTarget profilerTarget) {
-        if(collectString == null) {
-            return;
-        }
-
-        if(controllerActionsMap.containsKey(collectString)) {
-            controllerActionsMap.put(collectString, controllerActionsMap.get(collectString));
-        } else {
-            controllerActionsMap.put(collectString, 0);
-
-            if(profilerTarget == ProfilerTarget.CONTROLLER) {
-                controllerActions.add(new SymfonyProfilerWidgetActions.MethodAction(getProject(), collectString));
-            }
-
-            if(profilerTarget == ProfilerTarget.ROUTE) {
-                controllerActions.add(new SymfonyProfilerWidgetActions.RouteAction(getProject(), collectString));
-            }
-
-            if(profilerTarget == ProfilerTarget.TEMPLATE) {
-                controllerActions.add(new SymfonyProfilerWidgetActions.TemplateAction(getProject(), collectString));
-            }
-        }
-    }
-
-    @Nullable
-    @Override
-    public ListPopup getPopupStep() {
-        ActionGroup popupGroup = getActions();
-        return new PopupFactoryImpl.ActionGroupPopup("Symfony Profiler", popupGroup, SimpleDataContext.getProjectContext(getProject()), false, false, false, true, null, -1, null, null);
-    }
-
-    @Nullable
-    @Override
-    public String getSelectedValue() {
-        return "Symfony";
-    }
-
-    @NotNull
-    @Override
-    public String getMaxValue() {
-        return "";
     }
 
     @NotNull
     @Override
     public String ID() {
         return ID;
-    }
-
-    @Nullable
-    @Override
-    public WidgetPresentation getPresentation(@NotNull PlatformType platformType) {
-        return this;
-    }
-
-    @Nullable
-    @Override
-    public String getTooltipText() {
-        return "Symfony Profiler";
-    }
-
-    @Nullable
-    @Override
-    public Consumer<MouseEvent> getClickConsumer() {
-        return null;
-    }
-
-    @Override
-    public void selectionChanged(@NotNull FileEditorManagerEvent event) {
-        update(event.getManager().getProject());
-    }
-
-    @Override
-    public void fileOpened(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
-        update(source.getProject());
-    }
-
-    @Override
-    public void fileClosed(@NotNull FileEditorManager source, @NotNull VirtualFile file) {
-        update(source.getProject());
-    }
-
-    public void update(final Project project) {
-        ApplicationManager.getApplication().invokeLater(() -> {
-            if ((getProject() == null) || getProject().isDisposed()) {
-                return;
-            }
-
-            if (!isDisposed() && myStatusBar != null) {
-                myStatusBar.updateWidget(ID());
-            }
-        });
     }
 }

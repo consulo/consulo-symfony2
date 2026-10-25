@@ -1,10 +1,10 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.variable.dict;
 
-import com.intellij.psi.PsiElement;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
+import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Set;
 
 /**
@@ -14,20 +14,24 @@ public class PsiVariable {
     @NotNull
     final private Set<String> types;
 
-    @Nullable
-    private PsiElement psiElement;
+    @NotNull
+    final private Set<String> formTypeFqns;
 
-    public PsiVariable(@NotNull Set<String> types, @Nullable PsiElement psiElement) {
-        this.types = types;
-        this.psiElement = psiElement;
+    public PsiVariable(@NotNull Set<String> types, @NotNull Collection<String> formTypeFqns) {
+        this.types = Collections.unmodifiableSet(new HashSet<>(types));
+        this.formTypeFqns = Collections.unmodifiableSet(new HashSet<>(formTypeFqns));
     }
 
     public PsiVariable(@NotNull Set<String> types) {
-        this.types = types;
+        this(types, Collections.emptySet());
     }
 
     public PsiVariable(@NotNull String type) {
-        this.types = Collections.singleton(type);;
+        this(Collections.singleton(type));
+    }
+
+    public PsiVariable() {
+        this(Collections.emptySet());
     }
 
     @NotNull
@@ -35,8 +39,8 @@ public class PsiVariable {
         return types;
     }
 
-    @Nullable
-    public PsiElement getElement() {
-        return psiElement;
+    @NotNull
+    public Set<String> getFormTypeFqns() {
+        return formTypeFqns;
     }
 }

@@ -16,7 +16,7 @@ import java.util.List;
 public class ReverseFileLineReader {
     private static final int BUFFER_SIZE = 8192;
     private int limit;
-    private FileChannel channel;
+    private final FileChannel channel;
     private final String encoding;
     private long filePos;
     private MappedByteBuffer buf;
@@ -44,7 +44,7 @@ public class ReverseFileLineReader {
         channel.close();
         raf.close();
 
-        return lines.toArray(new String[lines.size()]);
+        return lines.toArray(new String[0]);
     }
 
     private String readLine() throws IOException {

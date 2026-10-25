@@ -1,6 +1,5 @@
 package fr.adrienbrault.idea.symfony2plugin.stubs.indexes;
 
-import com.intellij.ide.highlighter.XmlFileType;
 import com.intellij.psi.PsiFile;
 import com.intellij.util.indexing.*;
 import com.intellij.util.io.DataExternalizer;
@@ -8,13 +7,13 @@ import com.intellij.util.io.EnumeratorStringDescriptor;
 import com.intellij.util.io.KeyDescriptor;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.stubs.dict.FileResource;
-import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.externalizer.ObjectStreamDataExternalizer;
+import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.externalizer.FileResourceExternalizer;
+import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.inputFilter.FileInputFilter;
 import fr.adrienbrault.idea.symfony2plugin.util.FileResourceVisitorUtil;
-import gnu.trove.THashMap;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.yaml.YAMLFileType;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -22,8 +21,8 @@ import java.util.Map;
  */
 public class FileResourcesIndex extends FileBasedIndexExtension<String, FileResource> {
 
-    private static int MAX_FILE_BYTE_SIZE = 1048576;
-    private static ObjectStreamDataExternalizer<FileResource> EXTERNALIZER = new ObjectStreamDataExternalizer<>();
+    private static final int MAX_FILE_BYTE_SIZE = 1048576;
+    private static final FileResourceExternalizer EXTERNALIZER = FileResourceExternalizer.INSTANCE;
 
     public static final ID<String, FileResource> KEY = ID.create("fr.adrienbrault.idea.symfony2plugin.file_resources");
     private final KeyDescriptor<String> myKeyDescriptor = new EnumeratorStringDescriptor();
@@ -36,6 +35,7 @@ public class FileResourcesIndex extends FileBasedIndexExtension<String, FileReso
 
     @NotNull
     @Override
+    // Index-safe only: no PhpIndex/type resolution here.
     public DataIndexer<String, FileResource, FileContent> getIndexer() {
         return inputData -> {
             PsiFile psiFile = inputData.getPsiFile();
@@ -43,11 +43,14 @@ public class FileResourcesIndex extends FileBasedIndexExtension<String, FileReso
                 return Collections.emptyMap();
             }
 
-            final Map<String, FileResource> items = new THashMap<>();
+            final Map<String, FileResource> items = new HashMap<>();
 
-            FileResourceVisitorUtil.visitFile(psiFile, consumer ->
-                items.put(consumer.getResource(), consumer.createFileResource())
-            );
+            FileResourceVisitorUtil.visitFile(psiFile, consumer -> {
+                String resource = consumer.getResource();
+                if (resource.length() < 255) {
+                    items.put(resource, consumer.createFileResource());
+                }
+            });
 
             return items;
         };
@@ -68,8 +71,7 @@ public class FileResourcesIndex extends FileBasedIndexExtension<String, FileReso
     @NotNull
     @Override
     public FileBasedIndex.InputFilter getInputFilter() {
-        return virtualFile ->
-            virtualFile.getFileType() == XmlFileType.INSTANCE || virtualFile.getFileType() == YAMLFileType.YML;
+        return FileInputFilter.XML_YAML;
     }
 
     @Override
@@ -79,7 +81,7 @@ public class FileResourcesIndex extends FileBasedIndexExtension<String, FileReso
 
     @Override
     public int getVersion() {
-        return 2;
+        return 4;
     }
 
     public static boolean isValidForIndex(FileContent inputData, PsiFile psiFile) {

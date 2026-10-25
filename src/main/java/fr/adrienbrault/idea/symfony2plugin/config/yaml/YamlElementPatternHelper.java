@@ -2,6 +2,7 @@ package fr.adrienbrault.idea.symfony2plugin.config.yaml;
 
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.patterns.*;
+import com.intellij.psi.PsiDirectory;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiWhiteSpace;
@@ -10,8 +11,7 @@ import com.intellij.util.ProcessingContext;
 import com.jetbrains.twig.TwigTokenTypes;
 import fr.adrienbrault.idea.symfony2plugin.util.VfsExUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.psi.ParentPathPatternCondition;
-import org.apache.commons.lang.ArrayUtils;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.ArrayUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.yaml.YAMLElementTypes;
 import org.jetbrains.yaml.YAMLFileType;
@@ -19,6 +19,8 @@ import org.jetbrains.yaml.YAMLLanguage;
 import org.jetbrains.yaml.YAMLTokenTypes;
 import org.jetbrains.yaml.psi.*;
 import org.jetbrains.yaml.psi.impl.YAMLPlainTextImpl;
+
+import java.util.Arrays;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -35,7 +37,7 @@ public class YamlElementPatternHelper {
     /**
      * services: ~
      */
-    private static PatternCondition<YAMLKeyValue> YAML_KEY_SERVICES = new YAMLKeyValuePatternCondition("services");
+    private static final PatternCondition<YAMLKeyValue> YAML_KEY_SERVICES = new YAMLKeyValuePatternCondition("services", "_instanceof");
 
     /**
      * config.yml, config_dev.yml,
@@ -43,8 +45,10 @@ public class YamlElementPatternHelper {
      *
      * /../config/packages/doctrine.yml
      * /../config/packages/test/doctrine.yml
+     *
+     * /../config/packages/doctrine.yaml
      */
-    private static final PatternCondition<PsiFile> CONFIG_YAML_PATTERN = new PatternCondition<PsiFile>("Yaml Configuration") {
+    private static final PatternCondition<PsiFile> CONFIG_YAML_PATTERN = new PatternCondition<>("Yaml Configuration") {
         @Override
         public boolean accepts(@NotNull PsiFile psiFile, ProcessingContext processingContext) {
             if (psiFile.getFileType() != YAMLFileType.YML) {
@@ -55,12 +59,19 @@ public class YamlElementPatternHelper {
                 return true;
             }
 
-            VirtualFile virtualFile = psiFile.getVirtualFile();
-            if(virtualFile == null) {
+            // psiFile.virtualFile is empty; check via folder structure
+            PsiDirectory containingDirectory = psiFile.getContainingDirectory();
+            if (containingDirectory == null) {
                 return false;
             }
 
-            String relativePath = VfsExUtil.getRelativeProjectPath(psiFile.getProject(), virtualFile);
+            if ("packages".equals(containingDirectory.getName())) {
+                return true;
+            }
+
+            VirtualFile virtualDirectoryFile = containingDirectory.getVirtualFile();
+
+            String relativePath = VfsExUtil.getRelativeProjectPath(psiFile.getProject(), virtualDirectoryFile);
             return relativePath != null && relativePath.contains("config/packages/");
         }
     };
@@ -110,6 +121,54 @@ public class YamlElementPatternHelper {
                                             PlatformPatterns.string().oneOf(keyName)
                                     )
                             ))
+                .withLanguage(YAMLLanguage.INSTANCE)
+        );
+    }
+
+    public static ElementPattern<PsiElement> getNamedArgumentPattern() {
+        return PlatformPatterns
+            .psiElement(YAMLTokenTypes.SCALAR_KEY).withText(PlatformPatterns.string().startsWith("$"))
+            .withParent(
+                PlatformPatterns.psiElement(YAMLKeyValue.class)
+                    .withParent(PlatformPatterns.psiElement(YAMLMapping.class)
+                        .withParent(PlatformPatterns.psiElement(YAMLKeyValue.class).with(new PatternCondition<>("YAMLKeyValue: with key 'arguments'") {
+                            @Override
+                            public boolean accepts(@NotNull YAMLKeyValue yamlKeyValue, ProcessingContext context) {
+                                return "arguments".equals(yamlKeyValue.getKeyText());
+                            }
+                        }))
+                    )
+            )
+            .withLanguage(YAMLLanguage.INSTANCE);
+    }
+
+    public static ElementPattern<PsiElement> getSingleLineText() {
+        return
+            PlatformPatterns
+                .psiElement(YAMLTokenTypes.TEXT)
+                .withParent(PlatformPatterns.psiElement(YAMLScalar.class)
+                    .withParent(PlatformPatterns.or(
+                        PlatformPatterns.psiElement(YAMLKeyValue.class),
+                        PlatformPatterns.psiElement(YAMLSequenceItem.class)
+                        )
+                    )
+                )
+                .withLanguage(YAMLLanguage.INSTANCE)
+        ;
+    }
+
+    public static ElementPattern<PsiElement> getSingleLineTextOrTag() {
+        return PlatformPatterns.or(
+            PlatformPatterns
+                .psiElement(YAMLTokenTypes.TEXT)
+                .withParent(PlatformPatterns.psiElement(YAMLScalar.class)
+//                    .withParent(PlatformPatterns
+//                            .psiElement(YAMLKeyValue.class)
+//                    )
+                )
+                .withLanguage(YAMLLanguage.INSTANCE),
+            PlatformPatterns
+                .psiElement(YAMLTokenTypes.TAG)
                 .withLanguage(YAMLLanguage.INSTANCE)
         );
     }
@@ -256,7 +315,7 @@ public class YamlElementPatternHelper {
      * Proxy for getWithFirstRootKey to filter with file name condition
      */
     public static ElementPattern<? extends PsiElement> getOrmRoot() {
-        return PlatformPatterns.and(PlatformPatterns.psiElement().with(new PatternCondition<PsiElement>("Doctrine file") {
+        return PlatformPatterns.and(PlatformPatterns.psiElement().with(new PatternCondition<>("Doctrine file") {
             @Override
             public boolean accepts(@NotNull PsiElement psiElement, ProcessingContext processingContext) {
                 return getOrmFilePattern().accepts(psiElement.getContainingFile());
@@ -667,12 +726,12 @@ public class YamlElementPatternHelper {
     /**
      * tags: [ foobar ]
      */
-    public static PsiElementPattern.Capture<PsiElement> getTagsAsSequencePattern() {
+    public static PsiElementPattern.Capture<PsiElement> getSequenceValueWithArrayKeyPattern(@NotNull String... keys) {
         return PlatformPatterns.psiElement().withParent(
             PlatformPatterns.psiElement(YAMLScalar.class).withParent(
                 PlatformPatterns.psiElement(YAMLSequenceItem.class).withParent(
                     PlatformPatterns.psiElement(YAMLSequence.class).withParent(
-                        PlatformPatterns.psiElement(YAMLKeyValue.class).withName("tags")
+                        PlatformPatterns.psiElement(YAMLKeyValue.class).withName(keys)
                     )
                 )
             )
@@ -712,6 +771,25 @@ public class YamlElementPatternHelper {
     }
 
     /**
+     * !php/const <caret>
+     */
+    public static ElementPattern<PsiElement> getPhpConstPattern() {
+        return
+            PlatformPatterns
+                .psiElement()
+                .afterLeafSkipping(
+                    PlatformPatterns.or(
+                        PlatformPatterns.psiElement(PsiWhiteSpace.class),
+                        PlatformPatterns.psiElement(YAMLTokenTypes.WHITESPACE)
+                    ),
+                    PlatformPatterns.or(
+                        PlatformPatterns.psiElement().withText("!php/const"),
+                        PlatformPatterns.psiElement().withText("!php/const:")
+                    )
+                );
+    }
+
+    /**
      * services:
      *  _defaults:
      *      bind:
@@ -720,10 +798,14 @@ public class YamlElementPatternHelper {
      *  _defaults:
      *      bind:
      *          $<caret>
+     *
+     *  my.service:
+     *      arguments:
+     *          $<caret>
      */
-    static ElementPattern<PsiElement> getNamedDefaultBindPattern() {
+    public static ElementPattern<PsiElement> getNamedDefaultBindPattern() {
         // "__defaults" key
-        PsiElementPattern.Capture<YAMLMapping> defaultsKey = PlatformPatterns.psiElement(YAMLMapping.class).withParent(PlatformPatterns.psiElement(YAMLKeyValue.class).with(new PatternCondition<YAMLKeyValue>("KeyText") {
+        PsiElementPattern.Capture<YAMLMapping> defaultsKey = PlatformPatterns.psiElement(YAMLMapping.class).withParent(PlatformPatterns.psiElement(YAMLKeyValue.class).with(new PatternCondition<>("KeyText") {
             @Override
             public boolean accepts(@NotNull YAMLKeyValue yamlKeyValue, ProcessingContext context) {
                 return "_defaults".equals(yamlKeyValue.getKeyText());
@@ -731,28 +813,54 @@ public class YamlElementPatternHelper {
         }));
 
         // "bind" bind
-        PsiElementPattern.Capture<YAMLMapping> bindKey = PlatformPatterns.psiElement(YAMLMapping.class).withParent(PlatformPatterns.psiElement(YAMLKeyValue.class).with(new PatternCondition<YAMLKeyValue>("KeyText") {
+        PsiElementPattern.Capture<YAMLMapping> bindKey = PlatformPatterns.psiElement(YAMLMapping.class).withParent(PlatformPatterns.psiElement(YAMLKeyValue.class).with(new PatternCondition<>("KeyText") {
             @Override
             public boolean accepts(@NotNull YAMLKeyValue yamlKeyValue, ProcessingContext context) {
                 return "bind".equals(yamlKeyValue.getKeyText());
             }
         }).withParent(defaultsKey));
 
+        // "arguments" bind
+        PsiElementPattern.Capture<YAMLMapping> argumentsKey = PlatformPatterns.psiElement(YAMLMapping.class).withParent(PlatformPatterns.psiElement(YAMLKeyValue.class).with(new PatternCondition<>("KeyText") {
+            @Override
+            public boolean accepts(@NotNull YAMLKeyValue yamlKeyValue, ProcessingContext context) {
+                return "arguments".equals(yamlKeyValue.getKeyText());
+            }
+        }));
+
         // complete code
         // bind:
         // $<caret>: ''
         PsiElementPattern.Capture<PsiElement> argumentPattern = PlatformPatterns.psiElement(YAMLTokenTypes.SCALAR_KEY).withText(PlatformPatterns.string().startsWith("$")).withParent(
-            PlatformPatterns.psiElement(YAMLKeyValue.class).withParent(bindKey)
+            PlatformPatterns.psiElement(YAMLKeyValue.class).withParent(PlatformPatterns.or(bindKey, argumentsKey))
         );
 
         // incomplete code
         // bind:
         // $<caret>
         PsiElementPattern.Capture<PsiElement> incompleteCodePattern = PlatformPatterns.psiElement(YAMLTokenTypes.TEXT).withText(PlatformPatterns.string().startsWith("$")).withParent(
-            PlatformPatterns.psiElement(YAMLScalar.class).withParent(bindKey)
+            PlatformPatterns.psiElement(YAMLScalar.class).withParent(PlatformPatterns.or(bindKey, argumentsKey))
         );
 
-        return PlatformPatterns.or(argumentPattern, incompleteCodePattern);
+        // incomplete code 2.0 for new phpstorm version.
+        // bind:
+        // $<caret>
+        PsiElementPattern.Capture<PsiElement> incompleteCodePattern2 = PlatformPatterns.psiElement(YAMLTokenTypes.TEXT).withText(PlatformPatterns.string().startsWith("$")).withParent(PlatformPatterns.psiElement(YAMLScalar.class).withParent(PlatformPatterns.psiElement(YAMLKeyValue.class).with(new PatternCondition<>("KeyText") {
+            @Override
+            public boolean accepts(@NotNull YAMLKeyValue yamlKeyValue, ProcessingContext context) {
+                String keyText = yamlKeyValue.getKeyText();
+                return "arguments".equals(keyText) || "bind".equals(keyText);
+            }
+        })));
+
+        return PlatformPatterns.or(argumentPattern, incompleteCodePattern, incompleteCodePattern2);
+    }
+
+    public static ElementPattern<PsiElement> getTaggedIteratorTagNamePattern() {
+        return PlatformPatterns.psiElement().afterLeafSkipping(
+            PlatformPatterns.psiElement(PsiWhiteSpace.class),
+            PlatformPatterns.psiElement().withElementType(YAMLTokenTypes.TAG).withText("!tagged_iterator")
+        );
     }
 
     /**
@@ -783,22 +891,23 @@ public class YamlElementPatternHelper {
 
         @Override
         public boolean accepts(@NotNull YAMLScalar yamlScalar, ProcessingContext processingContext) {
-            return StringUtils.startsWith(yamlScalar.getTextValue(), value);
+            return yamlScalar.getTextValue().startsWith(value);
         }
     }
 
     private static class YAMLKeyValuePatternCondition extends PatternCondition<YAMLKeyValue> {
         @NotNull
-        private final String keyText;
+        private final String[] keyText;
 
-        YAMLKeyValuePatternCondition(@NotNull String keyText) {
-            super("yaml " + keyText +" key");
+        YAMLKeyValuePatternCondition(@NotNull String... keyText) {
+            super("yaml " + Arrays.toString(keyText) +" key");
             this.keyText = keyText;
         }
 
         @Override
         public boolean accepts(@NotNull YAMLKeyValue yamlKeyValue, ProcessingContext processingContext) {
-            return this.keyText.equals(yamlKeyValue.getKeyText());
+            return Arrays.stream(this.keyText)
+                .anyMatch(s -> s.equals(yamlKeyValue.getKeyText()));
         }
     }
 }

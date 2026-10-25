@@ -32,7 +32,7 @@ public class DocHashTagReferenceContributor extends PsiReferenceContributor {
             new PsiReferenceProvider() {
                 @NotNull
                 @Override
-                public PsiReference[] getReferencesByElement(@NotNull PsiElement psiElement, @NotNull ProcessingContext processingContext) {
+                public PsiReference @NotNull [] getReferencesByElement(@NotNull PsiElement psiElement, @NotNull ProcessingContext processingContext) {
 
                     if (!Symfony2ProjectComponent.isEnabled(psiElement)) {
                         return new PsiReference[0];
@@ -52,8 +52,12 @@ public class DocHashTagReferenceContributor extends PsiReferenceContributor {
                         this.attachReferences((StringLiteralExpression) psiElement, phpDocParamTag, docTagHashing.getParameters().get(i++), docTagHashing.getParameterList() , psiReferences);
                     }
 
-                    return psiReferences.toArray(new PsiReference[psiReferences.size()]);
+                    return psiReferences.toArray(new PsiReference[0]);
+                }
 
+                @Override
+                public boolean acceptsTarget(@NotNull PsiElement target) {
+                    return Symfony2ProjectComponent.isEnabled(target);
                 }
 
                 private void attachReferences(StringLiteralExpression psiElement, PhpDocParamTag phpDocParamTag, Parameter[] parameters, ParameterList parameterList, ArrayList<PsiReference> psiReferences) {
@@ -142,12 +146,12 @@ public class DocHashTagReferenceContributor extends PsiReferenceContributor {
         );
     }
 
-    public class DocTagHashing {
+    public static class DocTagHashing {
 
-        private PsiElement psiElement;
+        private final PsiElement psiElement;
         private ArrayList<PhpDocParamTag> phpDocParamTags;
 
-        private ArrayList<Parameter[]> parameters = new ArrayList<>();
+        private final ArrayList<Parameter[]> parameters = new ArrayList<>();
         private ParameterList parameterList;
 
         public DocTagHashing(PsiElement psiElement) {
@@ -196,11 +200,10 @@ public class DocHashTagReferenceContributor extends PsiReferenceContributor {
             }
 
             PsiElement resolvedReference = psiReference.resolve();
-            if (!(resolvedReference instanceof Method)) {
+            if (!(resolvedReference instanceof Method method)) {
                 return false;
             }
 
-            Method method = (Method) resolvedReference;
             Parameter[] methodParameter = method.getParameters();
             if(methodParameter.length -1 < currentIndex.getIndex()) {
                 return false;
@@ -227,7 +230,7 @@ public class DocHashTagReferenceContributor extends PsiReferenceContributor {
                 }
             }
 
-            return phpDocParamTags.size() > 0;
+            return !phpDocParamTags.isEmpty();
         }
 
     }

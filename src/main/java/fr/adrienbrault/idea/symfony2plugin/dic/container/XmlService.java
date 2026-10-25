@@ -1,9 +1,15 @@
 package fr.adrienbrault.idea.symfony2plugin.dic.container;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
+
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Create a service definition on a compiled debug xml file
@@ -19,11 +25,22 @@ public class XmlService implements ServiceInterface {
     private String className = null;
 
     private boolean isPublic = true;
+    private boolean lazy = false;
+    private boolean isAbstract = false;
+    private boolean autowire = false;
+    private boolean autoconfigure = false;
+    private boolean deprecated = false;
 
     private String alias = null;
+    private String parent = null;
+    private String decorates = null;
+    private String decorationInnerName = null;
+
+    private Collection<String> tags;
 
     private XmlService(@NotNull String id) {
         this.id = id;
+        this.tags = Collections.emptyList();
     }
 
     @NotNull
@@ -40,22 +57,27 @@ public class XmlService implements ServiceInterface {
 
     @Override
     public boolean isLazy() {
-        return false;
+        return lazy;
     }
 
     @Override
     public boolean isAbstract() {
-        return false;
+        return isAbstract;
     }
 
     @Override
     public boolean isAutowire() {
-        return false;
+        return autowire;
+    }
+
+    @Override
+    public boolean isAutoconfigure() {
+        return autoconfigure;
     }
 
     @Override
     public boolean isDeprecated() {
-        return false;
+        return deprecated;
     }
 
     @Override
@@ -72,19 +94,37 @@ public class XmlService implements ServiceInterface {
     @Nullable
     @Override
     public String getParent() {
-        return null;
+        return parent;
     }
 
     @Nullable
     @Override
     public String getDecorates() {
-        return null;
+        return decorates;
     }
 
     @Nullable
     @Override
     public String getDecorationInnerName() {
-        return null;
+        return decorationInnerName;
+    }
+
+    @NotNull
+    @Override
+    public Collection<String> getResource() {
+        return Collections.emptyList();
+    }
+
+    @NotNull
+    @Override
+    public Collection<String> getExclude() {
+        return Collections.emptyList();
+    }
+
+    @NotNull
+    @Override
+    public Collection<String> getTags() {
+        return this.tags;
     }
 
     @Nullable
@@ -95,6 +135,25 @@ public class XmlService implements ServiceInterface {
             return null;
         }
 
+        // <service id="Psr\Log\LoggerInterface $securityLogger" alias="monolog.logger.security"/>
+        if (id.contains(" $") && id.matches("^.*\\s\\$.*$")) {
+            return null;
+        }
+
+        if (id.startsWith(".")) {
+            // <service id=".service_locator.XSes1R5" class="Symfony\Component\DependencyInjection\ServiceLocator" public="false">
+            // <service id=".service_locator.tHpW6v3" alias=".service_locator.Y7gDuDN" public="false"/>
+            if (id.startsWith(".service_locator.") || id.startsWith(".abstract.") || id.startsWith(".instanceof.") || id.startsWith(".debug.") || id.startsWith(".errored.")) {
+                return null;
+            }
+
+            // <service id=".1_ArrayCache~kSL.YwK" class="Doctrine\Common\Cache\ArrayCache" public="false"/>
+            // <service id=".2_~NpzP6Xn" public="false">
+            if (id.matches("^\\.[\\w-]+~.*$")) {
+                return null;
+            }
+        }
+
         XmlService xmlService = new XmlService(id);
 
         String aClass = node.getAttribute("class");
@@ -103,24 +162,66 @@ public class XmlService implements ServiceInterface {
         }
 
         String isPublic = node.getAttribute("public");
-        if(isPublic != null && "false".equalsIgnoreCase(isPublic)) {
+        if("false".equalsIgnoreCase(isPublic)) {
             xmlService.isPublic = false;
         }
+
+        xmlService.lazy = "true".equalsIgnoreCase(node.getAttribute("lazy"));
+        xmlService.isAbstract = "true".equalsIgnoreCase(node.getAttribute("abstract"));
+        xmlService.autowire = "true".equalsIgnoreCase(node.getAttribute("autowire"));
+        xmlService.autoconfigure = "true".equalsIgnoreCase(node.getAttribute("autoconfigure"));
+        xmlService.deprecated = "true".equalsIgnoreCase(node.getAttribute("deprecated"));
 
         String alias = node.getAttribute("alias");
         if(StringUtils.isNotBlank(alias)) {
             xmlService.alias = alias;
         }
 
+        String parent = node.getAttribute("parent");
+        if (StringUtils.isNotBlank(parent)) {
+            xmlService.parent = parent;
+        }
+
+        String decorates = node.getAttribute("decorates");
+        if (StringUtils.isNotBlank(decorates)) {
+            xmlService.decorates = decorates;
+        }
+
+        String decorationInnerName = node.getAttribute("decoration-inner-name");
+        if (StringUtils.isNotBlank(decorationInnerName)) {
+            xmlService.decorationInnerName = decorationInnerName;
+        }
+
+        // <tag name="xml_type_tag"/>
+        Set<String> myTags = new HashSet<>();
+        NodeList tags = node.getElementsByTagName("tag");
+        int numTags = tags.getLength();
+        for (int i = 0; i < numTags; i++) {
+            Element section = (Element) tags.item(i);
+
+            String name = section.getAttribute("name");
+            if (StringUtils.isNotBlank(name)) {
+                myTags.add(name);
+            }
+        }
+
+        if (!myTags.isEmpty()) {
+            xmlService.tags = Collections.unmodifiableSet(myTags);
+        }
+
         return xmlService;
     }
 
     @NotNull
-    public static XmlService create(@NotNull String id, @NotNull String className, boolean isPublic) {
+    public static XmlService create(@NotNull String id, @NotNull String className, boolean isPublic, boolean lazy, boolean anAbstract, boolean autowire, boolean autoconfigure) {
         XmlService xmlService = new XmlService(id);
 
         xmlService.className = className;
         xmlService.isPublic = isPublic;
+        xmlService.lazy = lazy;
+        xmlService.isAbstract = anAbstract;
+        xmlService.autowire = autowire;
+        xmlService.autoconfigure = autoconfigure;
 
         return xmlService;
     }

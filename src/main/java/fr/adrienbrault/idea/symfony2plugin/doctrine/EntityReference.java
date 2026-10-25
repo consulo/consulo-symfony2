@@ -23,9 +23,9 @@ import java.util.*;
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class EntityReference extends PsiPolyVariantReferenceBase<PsiElement> {
-    private String entityName;
+    private final String entityName;
     private boolean useClassNameAsLookupString = false;
-    private List<DoctrineTypes.Manager> doctrineManagers;
+    private final List<DoctrineTypes.Manager> doctrineManagers;
 
     public EntityReference(@NotNull StringLiteralExpression element, boolean useClassNameAsLookupString) {
         this(element);
@@ -57,8 +57,7 @@ public class EntityReference extends PsiPolyVariantReferenceBase<PsiElement> {
     @NotNull
     @Override
     public Object[] getVariants() {
-        List<LookupElement> results = new ArrayList<>();
-        results.addAll(getModelLookupElements(getElement().getProject(), this.useClassNameAsLookupString, this.doctrineManagers.toArray(new DoctrineTypes.Manager[this.doctrineManagers.size()])));
+        List<LookupElement> results = new ArrayList<>(getModelLookupElements(getElement().getProject(), this.useClassNameAsLookupString, this.doctrineManagers.toArray(new DoctrineTypes.Manager[0])));
         return results.toArray();
     }
 

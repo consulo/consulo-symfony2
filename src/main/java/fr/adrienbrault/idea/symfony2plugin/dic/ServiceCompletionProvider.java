@@ -6,10 +6,7 @@ import com.intellij.codeInsight.lookup.LookupElementWeigher;
 import com.intellij.psi.PsiElement;
 import com.intellij.util.ProcessingContext;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
-import fr.adrienbrault.idea.symfony2plugin.dic.container.suggestion.ServiceSuggestionCollector;
-import fr.adrienbrault.idea.symfony2plugin.dic.container.suggestion.XmlCallServiceSuggestionCollector;
-import fr.adrienbrault.idea.symfony2plugin.dic.container.suggestion.XmlConstructServiceSuggestionCollector;
-import fr.adrienbrault.idea.symfony2plugin.dic.container.suggestion.YamlConstructServiceSuggestionCollector;
+import fr.adrienbrault.idea.symfony2plugin.dic.container.suggestion.*;
 import fr.adrienbrault.idea.symfony2plugin.dic.container.util.ServiceContainerUtil;
 import fr.adrienbrault.idea.symfony2plugin.stubs.ContainerCollectionResolver;
 import org.jetbrains.annotations.NotNull;
@@ -24,10 +21,13 @@ import java.util.stream.Collectors;
  */
 public class ServiceCompletionProvider extends CompletionProvider<CompletionParameters> {
 
-    private static ServiceSuggestionCollector[] COLLECTORS = new ServiceSuggestionCollector[] {
+    private static final ServiceSuggestionCollector[] COLLECTORS = new ServiceSuggestionCollector[] {
         new XmlConstructServiceSuggestionCollector(),
         new YamlConstructServiceSuggestionCollector(),
         new XmlCallServiceSuggestionCollector(),
+        new PhpAttributeServiceSuggestionCollector(),
+        new PhpArrayArgumentServiceSuggestionCollector(),
+        new PhpFluentArgumentServiceSuggestionCollector(),
     };
 
     public void addCompletions(@NotNull CompletionParameters parameters, ProcessingContext context, @NotNull CompletionResultSet resultSet) {
@@ -39,7 +39,8 @@ public class ServiceCompletionProvider extends CompletionProvider<CompletionPara
         PsiElement element = parameters.getPosition();
 
         PrioritizedLookupResult result = getLookupElements(
-            element, ContainerCollectionResolver.getServices(element.getProject()).values()
+            element,
+            ContainerCollectionResolver.getServices(element.getProject()).values()
         );
 
         addPrioritizedServiceLookupElements(parameters, resultSet, result);
@@ -47,7 +48,7 @@ public class ServiceCompletionProvider extends CompletionProvider<CompletionPara
 
     public static void addPrioritizedServiceLookupElements(@NotNull CompletionParameters parameters, @NotNull CompletionResultSet resultSet, @NotNull PrioritizedLookupResult result) {
         // move known elements to top
-        if(result.getTopStrings().size() > 0) {
+        if(!result.getTopStrings().isEmpty()) {
             CompletionSorter completionSorter = CompletionService.getCompletionService()
                 .defaultSorter(parameters, resultSet.getPrefixMatcher())
                 .weighBefore("priority", new MyLookupElementWeigher(result.getTopStrings()));
@@ -107,11 +108,11 @@ public class ServiceCompletionProvider extends CompletionProvider<CompletionPara
         }
     }
 
-    private static class MyLookupElementWeigher extends LookupElementWeigher {
+    public static class MyLookupElementWeigher extends LookupElementWeigher {
         @NotNull
         private final List<String> elements;
 
-        MyLookupElementWeigher(@NotNull List<String> elements) {
+        public MyLookupElementWeigher(@NotNull List<String> elements) {
             super("topElement");
             this.elements = elements;
 

@@ -6,7 +6,7 @@ import com.jetbrains.php.lang.parser.PhpElementTypes;
 import com.jetbrains.php.lang.psi.elements.*;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.EntityHelper;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -46,7 +46,7 @@ public class FormQueryBuilderRepositoryDetector implements QueryBuilderRepositor
                         PsiElement arrayCreation = arrayHash.getParent();
                         if(arrayCreation instanceof ArrayCreationExpression) {
                             String aClass = PhpElementsUtil.getArrayValueString((ArrayCreationExpression) arrayCreation, "class");
-                            if(aClass != null && StringUtils.isNotBlank(aClass)) {
+                            if(StringUtils.isNotBlank(aClass)) {
 
                                 // finally we found our class key
                                 PhpClass phpClass = EntityHelper.resolveShortcutName(parameter.getProject(), aClass);

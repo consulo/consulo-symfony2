@@ -3,7 +3,7 @@ package fr.adrienbrault.idea.symfony2plugin.profiler;
 import com.intellij.openapi.project.Project;
 import fr.adrienbrault.idea.symfony2plugin.profiler.dict.ProfilerRequestInterface;
 import fr.adrienbrault.idea.symfony2plugin.profiler.utils.ProfilerUtil;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -18,7 +18,7 @@ public class HttpProfilerIndex implements ProfilerIndexInterface {
     /**
      * http://127.0.0.1:8080/_profiler
      */
-    private static String PROFILER_PATH = "_profiler";
+    private static final String PROFILER_PATH = "_profiler";
 
     @NotNull
     private final Project project;
@@ -34,7 +34,7 @@ public class HttpProfilerIndex implements ProfilerIndexInterface {
     @NotNull
     @Override
     public List<ProfilerRequestInterface> getRequests() {
-        String content = ProfilerUtil.getProfilerUrlContent(String.format("%s/%s/empty/search/results?ip=&limit=10", this.url, PROFILER_PATH));
+        String content = ProfilerUtil.getProfilerUrlContent(String.format("%s/%s/empty/search/results?ip=&limit=25", this.url, PROFILER_PATH));
         if(content == null) {
             return Collections.emptyList();
         }

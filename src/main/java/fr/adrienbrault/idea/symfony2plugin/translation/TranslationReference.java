@@ -16,8 +16,8 @@ import java.util.List;
  */
 public class TranslationReference extends PsiPolyVariantReferenceBase<PsiElement> {
 
-    private String domainName = null;
-    private StringLiteralExpression element;
+    private String domainName;
+    private final StringLiteralExpression element;
 
     public TranslationReference(@NotNull StringLiteralExpression element, String domain) {
         super(element);
@@ -35,7 +35,7 @@ public class TranslationReference extends PsiPolyVariantReferenceBase<PsiElement
             results.add(new PsiElementResolveResult(psiElement));
         }
 
-        return results.toArray(new ResolveResult[results.size()]);
+        return results.toArray(new ResolveResult[0]);
     }
 
     @NotNull

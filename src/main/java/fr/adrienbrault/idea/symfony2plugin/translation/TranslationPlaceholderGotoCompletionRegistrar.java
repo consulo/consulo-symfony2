@@ -1,28 +1,32 @@
 package fr.adrienbrault.idea.symfony2plugin.translation;
 
+import com.intellij.codeInsight.completion.CompletionResultSet;
 import com.intellij.codeInsight.lookup.LookupElement;
 import com.intellij.codeInsight.lookup.LookupElementBuilder;
 import com.intellij.patterns.PlatformPatterns;
 import com.intellij.psi.PsiElement;
-import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
+import com.jetbrains.php.lang.psi.elements.*;
 import com.jetbrains.twig.elements.TwigElementTypes;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
 import fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionContributor;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionProvider;
+import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionProviderLookupArguments;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionRegistrar;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionRegistrarParameter;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
 import fr.adrienbrault.idea.symfony2plugin.translation.dict.TranslationUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.MethodMatcher;
+import fr.adrienbrault.idea.symfony2plugin.util.ParameterBag;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 /**
@@ -54,6 +58,18 @@ public class TranslationPlaceholderGotoCompletionRegistrar implements GotoComple
             PlatformPatterns.psiElement().withParent(StringLiteralExpression.class),
             new MyPhpTranslationCompletionContributor("transChoice", 2, 3)
         );
+
+        // new \Symfony\Component\Translation\TranslatableMessage('symfony.great', ['test' => '%fo<caret>obar%'], 'symfony');
+        registrar.register(
+            PlatformPatterns.psiElement().withParent(StringLiteralExpression.class),
+            new MyPhpTranslatableMessageCompletionContributor()
+        );
+
+        // t('symfony.great', ['test' => '%fo<caret>obar%'], 'symfony');
+        registrar.register(
+            PlatformPatterns.psiElement().withParent(StringLiteralExpression.class),
+            new MyPhpTranslatableMessageCompletionViaTFunctionContributor()
+        );
     }
 
     private static class MyTranslationPlaceholderGotoCompletionProvider extends GotoCompletionProvider {
@@ -69,12 +85,14 @@ public class TranslationPlaceholderGotoCompletionRegistrar implements GotoComple
             this.domain = domain;
         }
 
-        @NotNull
         @Override
-        public Collection<LookupElement> getLookupElements() {
-            return TranslationUtil.getPlaceholderFromTranslation(getProject(), key, domain).stream()
+        public void getLookupElements(@NotNull GotoCompletionProviderLookupArguments arguments) {
+            Collection<LookupElement> lookupElements = TranslationUtil.getPlaceholderFromTranslation(getProject(), key, domain).stream()
                 .map(s -> LookupElementBuilder.create(s).withIcon(Symfony2Icons.TRANSLATION))
                 .collect(Collectors.toList());
+
+            CompletionResultSet completionResultSet = TwigUtil.withCompletionPrefix(arguments.getParameters(), arguments.getResultSet());
+            completionResultSet.addAllElements(lookupElements);
         }
 
         @NotNull
@@ -86,9 +104,9 @@ public class TranslationPlaceholderGotoCompletionRegistrar implements GotoComple
 
     private static class MyPhpTranslationCompletionContributor implements GotoCompletionContributor {
         @NotNull
-        private String method;
-        private int placeHolderParameter;
-        private int domainParameter;
+        private final String method;
+        private final int placeHolderParameter;
+        private final int domainParameter;
 
         private MyPhpTranslationCompletionContributor(@NotNull String method, int placeHolderParameter, int domainParameter) {
             this.method = method;
@@ -106,6 +124,7 @@ public class TranslationPlaceholderGotoCompletionRegistrar implements GotoComple
 
             MethodMatcher.MethodMatchParameter match = new MethodMatcher.ArrayParameterMatcher(context, placeHolderParameter)
                 .withSignature("Symfony\\Component\\Translation\\TranslatorInterface", method)
+                .withSignature("Symfony\\Contracts\\Translation\\TranslatorInterface", method)
                 .match();
 
             if (match == null) {
@@ -131,42 +150,118 @@ public class TranslationPlaceholderGotoCompletionRegistrar implements GotoComple
     }
 
     /**
-     * {{ 'symfony.great'|trans({'fo<caret>f'}, 'symfony')) }}
+     * new \Symfony\Component\Translation\TranslatableMessage('symfony.great', ['test' => '%fo<caret>obar%'], 'symfony');
+     * new \Symfony\Component\Translation\TranslatableMessage('symfony.great', ['%fo<caret>obar%', null], 'symfony');
      */
-    private static class MyTwigTransFilterCompletionContributor implements GotoCompletionContributor {
-        @NotNull
-        private final String filter;
+    private static class MyPhpTranslatableMessageCompletionContributor implements GotoCompletionContributor {
+        @Nullable
+        @Override
+        public GotoCompletionProvider getProvider(@NotNull PsiElement psiElement) {
+            return getTranslatableMessageProvider(psiElement, newEx ->
+                newEx instanceof NewExpression newExpression
+                    && PhpElementsUtil.isNewExpressionPhpClassWithInstance(newExpression, TranslationUtil.PHP_TRANSLATION_TRANSLATABLE_MESSAGE)
+            );
+        }
+    }
 
-        MyTwigTransFilterCompletionContributor(@NotNull String filter) {
-            this.filter = filter;
+    /**
+     * t('symfony.great', ['test' => '%fo<caret>obar%'], 'symfony');
+     * t('symfony.great', ['%fo<caret>obar%', null], 'symfony');
+     */
+    private static class MyPhpTranslatableMessageCompletionViaTFunctionContributor implements GotoCompletionContributor {
+        @Nullable
+        @Override
+        public GotoCompletionProvider getProvider(@NotNull PsiElement psiElement) {
+            return getTranslatableMessageProvider(psiElement, newEx ->
+                newEx instanceof FunctionReference functionReference
+                    && TranslationUtil.isFunctionReferenceTranslationTFunction(functionReference)
+            );
+        }
+    }
+
+    @Nullable
+    private static GotoCompletionProvider getTranslatableMessageProvider(
+        @NotNull PsiElement psiElement,
+        @NotNull Predicate<PsiElement> newExValidator
+    ) {
+        PsiElement context = psiElement.getContext();
+        if (!(context instanceof StringLiteralExpression)) {
+            return null;
         }
 
+        ArrayCreationExpression arrayCreationExpression = PhpElementsUtil.getCompletableArrayCreationElement(context);
+        if (arrayCreationExpression == null) {
+            return null;
+        }
+
+        PsiElement parameterList = arrayCreationExpression.getContext();
+        if (!(parameterList instanceof ParameterList)) {
+            return null;
+        }
+
+        PsiElement[] parameters = ((ParameterList) parameterList).getParameters();
+        int placeHolderParameter = 1;
+        if (parameters.length < placeHolderParameter) {
+            return null;
+        }
+
+        PsiElement newEx = parameterList.getContext();
+        if (!newExValidator.test(newEx)) {
+            return null;
+        }
+
+        ParameterBag currentIndex = PsiElementUtils.getCurrentParameterIndex(arrayCreationExpression);
+        if (currentIndex == null || currentIndex.getIndex() != placeHolderParameter) {
+            return null;
+        }
+
+        String key = PhpElementsUtil.getStringValue(parameters[0]);
+        if (key == null) {
+            return null;
+        }
+
+        String domain = "messages";
+        int domainParameter = 2;
+        if (parameters.length > domainParameter) {
+            domain = PhpElementsUtil.getStringValue(parameters[domainParameter]);
+            if (domain == null) {
+                return null;
+            }
+        }
+
+        return new MyTranslationPlaceholderGotoCompletionProvider(psiElement, key, domain);
+    }
+
+    /**
+     * {{ 'symfony.great'|trans({'fo<caret>f'}, 'symfony')) }}
+     */
+    private record MyTwigTransFilterCompletionContributor(@NotNull String filter) implements GotoCompletionContributor {
         @Nullable
         @Override
         public GotoCompletionProvider getProvider(@NotNull PsiElement psiElement) {
             PsiElement parent = psiElement.getParent();
-            if(parent.getNode().getElementType() != TwigElementTypes.LITERAL) {
+            if (parent.getNode().getElementType() != TwigElementTypes.LITERAL) {
                 return null;
             }
 
             PsiElement functionCall = parent.getParent();
-            if(functionCall.getNode().getElementType() != TwigElementTypes.FUNCTION_CALL) {
+            if (functionCall.getNode().getElementType() != TwigElementTypes.FUNCTION_CALL) {
                 return null;
             }
 
             // find translation key: 'symfony.great'
             PsiElement function = PsiElementUtils.getPrevSiblingOfType(functionCall, TwigPattern.getTranslationKeyPattern(this.filter));
-            if(function == null) {
+            if (function == null) {
                 return null;
             }
 
             String key = function.getText();
-            if(StringUtils.isBlank(key)) {
+            if (StringUtils.isBlank(key)) {
                 return null;
             }
 
             String domain = TwigUtil.getPsiElementTranslationDomain(function);
-            if(StringUtils.isBlank(domain)) {
+            if (StringUtils.isBlank(domain)) {
                 return null;
             }
 

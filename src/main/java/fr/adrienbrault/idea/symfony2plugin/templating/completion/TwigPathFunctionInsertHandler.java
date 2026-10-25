@@ -4,7 +4,7 @@ import com.intellij.codeInsight.completion.InsertHandler;
 import com.intellij.codeInsight.completion.InsertionContext;
 import com.jetbrains.php.completion.insert.PhpInsertHandlerUtil;
 import fr.adrienbrault.idea.symfony2plugin.routing.RouteLookupElement;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
@@ -25,7 +25,7 @@ public class TwigPathFunctionInsertHandler implements InsertHandler<RouteLookupE
         stringBuilder.append("'");
 
         Set<String> vars = lookupElement.getRoute().getVariables();
-        if(vars.size() > 0) {
+        if(!vars.isEmpty()) {
             List<String> items = new ArrayList<>();
             for(String var: vars) {
                 items.add(String.format("'%s': '%s'", var, "x"));

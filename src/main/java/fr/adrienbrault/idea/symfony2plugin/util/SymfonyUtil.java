@@ -8,6 +8,7 @@ import com.intellij.psi.util.CachedValueProvider;
 import com.intellij.psi.util.CachedValuesManager;
 import com.intellij.psi.util.PsiModificationTracker;
 import com.intellij.util.text.VersionComparatorUtil;
+import com.jetbrains.php.lang.PhpLanguage;
 import com.jetbrains.php.lang.psi.elements.Field;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
 import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
@@ -16,7 +17,7 @@ import org.jetbrains.annotations.NotNull;
 import java.util.HashSet;
 import java.util.Set;
 
-import static org.apache.commons.lang.StringUtils.isBlank;
+import static org.apache.commons.lang3.StringUtils.isBlank;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -26,17 +27,14 @@ public class SymfonyUtil {
     private static final Key<CachedValue<Set<String>>> CACHE = new Key<>("SYMFONY_VERSION_CACHE");
 
     private static boolean compare(@NotNull Project project, @NotNull String version, @NotNull Comparator comparator) {
+        Set<String> cache = CachedValuesManager.getManager(project).getCachedValue(
+            project,
+            CACHE,
+            () -> CachedValueProvider.Result.create(getVersions(project), PsiModificationTracker.getInstance(project).forLanguage(PhpLanguage.INSTANCE)),
+            false
+        );
 
-        CachedValue<Set<String>> cache = project.getUserData(CACHE);
-        if (cache == null) {
-            cache = CachedValuesManager.getManager(project).createCachedValue(() ->
-                CachedValueProvider.Result.create(getVersions(project), PsiModificationTracker.MODIFICATION_COUNT),
-                false
-            );
-            project.putUserData(CACHE, cache);
-        }
-
-        for (String s : cache.getValue()) {
+        for (String s : cache) {
             if(comparator.accepts(s)) {
                 return true;
             }
@@ -46,7 +44,7 @@ public class SymfonyUtil {
     }
 
     @NotNull
-    private static Set<String> getVersions(@NotNull Project project) {
+    public static Set<String> getVersions(@NotNull Project project) {
         Set<String> versions = new HashSet<>();
 
         for (PhpClass phpClass : PhpElementsUtil.getClassesInterface(project, "Symfony\\Component\\HttpKernel\\Kernel")) {

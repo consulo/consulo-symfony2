@@ -4,17 +4,21 @@ import com.intellij.openapi.fileChooser.FileChooser;
 import com.intellij.openapi.fileChooser.FileChooserDescriptor;
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.ui.TextBrowseFolderListener;
 import com.intellij.openapi.ui.TextFieldWithBrowseButton;
 import com.intellij.openapi.vfs.VfsUtil;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.ui.table.TableView;
 import fr.adrienbrault.idea.symfony2plugin.templating.path.TwigPath;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
-import org.apache.commons.lang.StringUtils;
+import fr.adrienbrault.idea.symfony2plugin.util.ProjectUtil;
+import com.intellij.openapi.ui.Messages;
+import org.apache.commons.lang3.StringUtils;
 
 import javax.swing.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import java.awt.*;
 import java.awt.event.*;
 
 /**
@@ -28,8 +32,8 @@ public class TwigNamespaceDialog extends JDialog {
     private TextFieldWithBrowseButton namespacePath;
     private JCheckBox chkboxEnabled;
     private JTextField name;
-    private TableView<TwigPath> tableView;
-    private Project project;
+    private final TableView<TwigPath> tableView;
+    private final Project project;
     private TwigPath twigPath;
 
     public TwigNamespaceDialog(Project project, TableView<TwigPath> tableView, TwigPath twigPath) {
@@ -46,6 +50,7 @@ public class TwigNamespaceDialog extends JDialog {
         this.tableView = tableView;
         this.project = project;
 
+        createUIComponents();
         setContentPane(contentPane);
         setModal(true);
         getRootPane().setDefaultButton(buttonOK);
@@ -58,7 +63,7 @@ public class TwigNamespaceDialog extends JDialog {
 
         buttonCancel.addActionListener(e -> onCancel());
 
-        namespacePath.getButton().addMouseListener(createPathButtonMouseListener(namespacePath.getTextField(), FileChooserDescriptorFactory.createSingleFolderDescriptor()));
+        namespacePath.addBrowseFolderListener(createBrowseFolderListener(namespacePath.getTextField(), FileChooserDescriptorFactory.createSingleFolderDescriptor()));
 
         setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
         addWindowListener(new WindowAdapter() {
@@ -70,30 +75,76 @@ public class TwigNamespaceDialog extends JDialog {
         contentPane.registerKeyboardAction(e -> onCancel(), KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
     }
 
+    private void createUIComponents() {
+        contentPane = new JPanel(new BorderLayout(0, 5));
+        contentPane.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
+
+        // Form fields
+        name = new JTextField(20);
+        namespacePath = new TextFieldWithBrowseButton();
+        namespaceType = new JComboBox<>(new String[]{"ADD_PATH", "BUNDLE"});
+        chkboxEnabled = new JCheckBox("Enabled");
+        chkboxEnabled.setSelected(true);
+
+        JPanel fieldsPanel = new JPanel(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(2, 2, 2, 2);
+        gbc.anchor = GridBagConstraints.WEST;
+
+        gbc.gridx = 0; gbc.gridy = 0; gbc.fill = GridBagConstraints.NONE; gbc.weightx = 0;
+        fieldsPanel.add(new JLabel("Namespace"), gbc);
+        gbc.gridx = 1; gbc.fill = GridBagConstraints.HORIZONTAL; gbc.weightx = 1.0;
+        fieldsPanel.add(name, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 1; gbc.fill = GridBagConstraints.NONE; gbc.weightx = 0;
+        fieldsPanel.add(new JLabel("Path (relative to project)"), gbc);
+        gbc.gridx = 1; gbc.fill = GridBagConstraints.HORIZONTAL; gbc.weightx = 1.0;
+        fieldsPanel.add(namespacePath, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 2; gbc.fill = GridBagConstraints.NONE; gbc.weightx = 0;
+        fieldsPanel.add(new JLabel("Type"), gbc);
+        gbc.gridx = 1; gbc.fill = GridBagConstraints.HORIZONTAL; gbc.weightx = 1.0;
+        fieldsPanel.add(namespaceType, gbc);
+
+        gbc.gridx = 1; gbc.gridy = 3; gbc.fill = GridBagConstraints.NONE; gbc.weightx = 0;
+        fieldsPanel.add(chkboxEnabled, gbc);
+
+        // Buttons
+        buttonOK = new JButton("OK");
+        buttonCancel = new JButton("Cancel");
+
+        JPanel buttonsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
+        buttonsPanel.add(buttonOK);
+        buttonsPanel.add(buttonCancel);
+
+        contentPane.add(fieldsPanel, BorderLayout.CENTER);
+        contentPane.add(buttonsPanel, BorderLayout.SOUTH);
+    }
+
     private void setOkState() {
         TwigNamespaceDialog.this.buttonOK.setEnabled(
-            TwigNamespaceDialog.this.namespacePath.getText().length() > 0
+            !TwigNamespaceDialog.this.namespacePath.getText().isEmpty()
         );
     }
 
     private void onOK() {
         // empty namespace use "__main__", as this is same as Twig internals does
         String namespace = this.name.getText();
-        if(StringUtils.isBlank(namespace)) {
+        if (StringUtils.isBlank(namespace)) {
             namespace = "__main__";
         }
 
         String namespacePath = this.namespacePath.getText();
 
-        TwigPath twigPath = new TwigPath(namespacePath, namespace, TwigUtil.NamespaceType.valueOf((String) this.namespaceType.getSelectedItem()), true);
-        if(namespacePath.length() == 0) {
+        TwigPath twigPath = TwigPath.createTwigPath(namespacePath, namespace, TwigUtil.NamespaceType.valueOf((String) this.namespaceType.getSelectedItem()), true, this.chkboxEnabled.isSelected());
+        if (namespacePath.isEmpty()) {
             dispose();
             return;
         }
 
         // re-add old item to not use public setter wor twigpaths
         // update ?
-        if(this.twigPath != null) {
+        if (this.twigPath != null) {
             int row = this.tableView.getSelectedRows()[0];
             this.tableView.getListTableModel().removeRow(row);
             this.tableView.getListTableModel().insertRow(row, twigPath);
@@ -104,7 +155,6 @@ public class TwigNamespaceDialog extends JDialog {
             this.tableView.setRowSelectionInterval(row, row);
         }
 
-        twigPath.setEnabled(this.chkboxEnabled.isSelected());
         dispose();
     }
 
@@ -112,15 +162,11 @@ public class TwigNamespaceDialog extends JDialog {
         dispose();
     }
 
-    private MouseListener createPathButtonMouseListener(final JTextField textField, final FileChooserDescriptor fileChooserDescriptor) {
-        return new MouseListener() {
+    private TextBrowseFolderListener createBrowseFolderListener(final JTextField textField, final FileChooserDescriptor fileChooserDescriptor) {
+        return new TextBrowseFolderListener(fileChooserDescriptor) {
             @Override
-            public void mouseClicked(MouseEvent mouseEvent) {
-            }
-
-            @Override
-            public void mousePressed(MouseEvent mouseEvent) {
-                VirtualFile projectDirectory = project.getBaseDir();
+            public void actionPerformed(ActionEvent e) {
+                VirtualFile projectDirectory = ProjectUtil.getProjectDir(project);
                 VirtualFile selectedFile = FileChooser.chooseFile(
                     fileChooserDescriptor,
                     project,
@@ -133,26 +179,18 @@ public class TwigNamespaceDialog extends JDialog {
 
                 String path = VfsUtil.getRelativePath(selectedFile, projectDirectory, '/');
                 if (null == path) {
-                    path = selectedFile.getPath();
+                    Messages.showErrorDialog(
+                        contentPane,
+                        "Selected directory is outside the project root. Please select a directory within the project.",
+                        "Invalid Path"
+                    );
+                    return;
                 }
 
                 textField.setText(path);
             }
-
-            @Override
-            public void mouseReleased(MouseEvent mouseEvent) {
-            }
-
-            @Override
-            public void mouseEntered(MouseEvent mouseEvent) {
-            }
-
-            @Override
-            public void mouseExited(MouseEvent mouseEvent) {
-            }
         };
     }
-
 
     private class ChangeDocumentListener implements DocumentListener {
         @Override

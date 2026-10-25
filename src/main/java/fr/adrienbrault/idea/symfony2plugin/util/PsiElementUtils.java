@@ -1,5 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.util;
 
+import com.intellij.lang.ASTNode;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.patterns.ElementPattern;
@@ -8,11 +9,14 @@ import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiManager;
 import com.intellij.psi.PsiWhiteSpace;
+import com.intellij.psi.formatter.FormatterUtil;
 import com.intellij.psi.tree.IElementType;
 import com.intellij.psi.util.PsiTreeUtil;
 import com.intellij.util.Processor;
 import com.jetbrains.php.lang.PhpLanguage;
+import com.jetbrains.php.lang.lexer.PhpTokenTypes;
 import com.jetbrains.php.lang.psi.elements.*;
+import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -24,11 +28,9 @@ import java.util.*;
 public class PsiElementUtils {
     public static String getMethodParameter(PsiElement parameter) {
 
-        if (!(parameter instanceof StringLiteralExpression)) {
+        if (!(parameter instanceof StringLiteralExpression stringLiteralExpression)) {
             return null;
         }
-
-        StringLiteralExpression stringLiteralExpression = (StringLiteralExpression) parameter;
 
         String stringValue = stringLiteralExpression.getText();
         String value = stringValue.substring(stringLiteralExpression.getValueRange().getStartOffset(), stringLiteralExpression.getValueRange().getEndOffset());
@@ -57,7 +59,7 @@ public class PsiElementUtils {
     public static String getMethodParameterAt(@NotNull ParameterList parameterList, int index) {
         PsiElement[] parameters = parameterList.getParameters();
 
-        if(parameters.length < index + 1) {
+        if(index < 0 || parameters.length < index + 1) {
             return null;
         }
 
@@ -81,13 +83,36 @@ public class PsiElementUtils {
             return null;
         }
 
-        PsiElement[] parameters = parameterList.getParameters();
+        return getParameterPsiElementAt(parameterList.getParameters(), index);
+    }
 
-        if(parameters.length < index + 1) {
+    @Nullable
+    public static PsiElement getParameterPsiElementAt(@NotNull PsiElement[] parameters, int index) {
+
+        if(index < 0 || parameters.length < index + 1) {
             return null;
         }
 
         return parameters[index];
+    }
+
+    /**
+     * Resolves "foo($value)" by index first, then falls back to "foo(named: $value)".
+     */
+    @Nullable
+    public static PsiElement getParameterOrNamedArgument(@NotNull PsiElement[] parameters, @NotNull String namedArgument, int parameterIndex) {
+        PsiElement indexedParameter = getParameterPsiElementAt(parameters, parameterIndex);
+        if (indexedParameter != null && !isNamedArgument(indexedParameter)) {
+            return indexedParameter;
+        }
+
+        for (PsiElement parameter : parameters) {
+            if (isNamedArgument(parameter, namedArgument)) {
+                return parameter;
+            }
+        }
+
+        return getParameterPsiElementAt(parameters, parameterIndex);
     }
 
     @Nullable
@@ -115,17 +140,53 @@ public class PsiElementUtils {
 
     @Nullable
     public static ParameterBag getCurrentParameterIndex(PsiElement psiElement) {
-
-        if (!(psiElement.getContext() instanceof ParameterList)) {
+        PsiElement parameterList = psiElement.getContext();
+        if (!(parameterList instanceof ParameterList)) {
             return null;
         }
 
-        ParameterList parameterList = (ParameterList) psiElement.getContext();
-        if (!(parameterList.getContext() instanceof ParameterListOwner)) {
+        return getCurrentParameterIndex(((ParameterList) parameterList).getParameters(), psiElement);
+    }
+
+    public static boolean isCurrentParameter(@NotNull PsiElement psiElement, @NotNull String namedParameter, int index) {
+        PsiElement parameterList = psiElement.getContext();
+        if (!(parameterList instanceof ParameterList)) {
+            return false;
+        }
+
+        if (isNamedArgument(psiElement, namedParameter)) {
+            return true;
+        }
+
+        ParameterBag currentParameterIndex = getCurrentParameterIndex(((ParameterList) parameterList).getParameters(), psiElement);
+        return currentParameterIndex != null && currentParameterIndex.getIndex() == index;
+    }
+
+    private static boolean isNamedArgument(@NotNull PsiElement psiElement, @NotNull String namedArgument) {
+        return namedArgument.equals(getNamedArgumentName(psiElement));
+    }
+
+    public static boolean isNamedArgument(@NotNull PsiElement psiElement) {
+        return getNamedArgumentName(psiElement) != null;
+    }
+
+    /**
+     * Extracts "name" from a PHP named argument value:
+     * foo(name: $value)
+     */
+    @Nullable
+    public static String getNamedArgumentName(@NotNull PsiElement psiElement) {
+        ASTNode previousNonWhitespaceSibling = FormatterUtil.getPreviousNonWhitespaceSibling(psiElement.getNode());
+        if (previousNonWhitespaceSibling == null || previousNonWhitespaceSibling.getElementType() != PhpTokenTypes.opCOLON) {
             return null;
         }
 
-        return getCurrentParameterIndex(parameterList.getParameters(), psiElement);
+        ASTNode previousNonWhitespaceSibling1 = FormatterUtil.getPreviousNonWhitespaceSibling(previousNonWhitespaceSibling);
+        if (previousNonWhitespaceSibling1 == null || previousNonWhitespaceSibling1.getElementType() != PhpTokenTypes.IDENTIFIER) {
+            return null;
+        }
+
+        return previousNonWhitespaceSibling1.getText();
     }
 
     public static int getParameterIndexValue(@Nullable PsiElement parameterListChild) {
@@ -143,6 +204,7 @@ public class PsiElementUtils {
     }
 
     @Nullable
+    @SuppressWarnings("unchecked")
     public static <T extends PsiElement> T getNextSiblingOfType(@Nullable PsiElement sibling, ElementPattern<PsiElement> pattern) {
         if (sibling == null) return null;
         for (PsiElement child = sibling.getNextSibling(); child != null; child = child.getNextSibling()) {
@@ -155,6 +217,7 @@ public class PsiElementUtils {
     }
 
     @NotNull
+    @SuppressWarnings("unchecked")
     public static <T extends PsiElement> Collection<T> getNextSiblingOfTypes(@Nullable PsiElement sibling, ElementPattern<PsiElement> pattern) {
         if (sibling == null) return Collections.emptySet();
 
@@ -168,7 +231,24 @@ public class PsiElementUtils {
         return foo;
     }
 
+    @NotNull
+    @SuppressWarnings("unchecked")
+    public static <T extends PsiElement> Collection<T> getNextSiblingOfTypes(@Nullable PsiElement sibling, Class<T> pattern) {
+        if (sibling == null) return Collections.emptySet();
+
+        Collection<T> results = new ArrayList<>();
+        for (PsiElement child = sibling.getNextSibling(); child != null; child = child.getNextSibling()) {
+            if (pattern.isInstance(child)) {
+                //noinspection unchecked
+                results.add((T)child);
+            }
+        }
+
+        return results;
+    }
+
     @Nullable
+    @SuppressWarnings("unchecked")
     public static <T extends PsiElement> T getPrevSiblingOfType(@Nullable PsiElement sibling, ElementPattern<T> pattern) {
         if (sibling == null) return null;
         for (PsiElement child = sibling.getPrevSibling(); child != null; child = child.getPrevSibling()) {
@@ -191,6 +271,7 @@ public class PsiElementUtils {
     }
 
     @Nullable
+    @SuppressWarnings("unchecked")
     public static <T extends PsiElement> T getChildrenOfType(@Nullable PsiElement element, ElementPattern<T> pattern) {
         if (element == null) return null;
 
@@ -205,6 +286,7 @@ public class PsiElementUtils {
     }
 
     @NotNull
+    @SuppressWarnings("unchecked")
     public static <T extends PsiElement> Collection<T> getChildrenOfTypeAsList(@Nullable PsiElement element, ElementPattern<T> pattern) {
 
         Collection<T> collection = new ArrayList<>();
@@ -224,6 +306,7 @@ public class PsiElementUtils {
     }
 
     @Nullable
+    @Deprecated
     public static MethodReference getMethodReferenceWithFirstStringParameter(PsiElement psiElement) {
         if(!PlatformPatterns.psiElement()
             .withParent(StringLiteralExpression.class).inside(ParameterList.class)
@@ -242,6 +325,26 @@ public class PsiElementUtils {
         }
 
         return (MethodReference) parameterList.getContext();
+    }
+
+    @Nullable
+    public static MethodReference getMethodReferenceWithFirstStringParameter(@NotNull StringLiteralExpression stringLiteralExpression) {
+        ParameterBag parameterBag = PsiElementUtils.getCurrentParameterIndex(stringLiteralExpression);
+        if(parameterBag == null || parameterBag.getIndex() != 0) {
+            return null;
+        }
+
+        PsiElement parameterList = stringLiteralExpression.getParent();
+        if (!(parameterList instanceof ParameterList)) {
+            return null;
+        }
+
+        PsiElement methodReference = parameterList.getParent();
+        if (!(methodReference instanceof MethodReference)) {
+            return null;
+        }
+
+        return (MethodReference) parameterList.getParent();
     }
 
     public static String trimQuote(String text) {
@@ -268,7 +371,6 @@ public class PsiElementUtils {
         while (element != null) {
 
             if (aClass.isInstance(element)) {
-                //noinspection unchecked
                 return lastElement;
             }
 
@@ -287,12 +389,9 @@ public class PsiElementUtils {
     public static PsiElement getParentOfType(@Nullable PsiElement element, @NotNull IElementType iElementType) {
         if (element == null) return null;
 
-        PsiElement lastElement = null;
         while (element != null) {
-
             IElementType elementType = element.getNode().getElementType();
             if (elementType == iElementType) {
-                //noinspection unchecked
                 return element;
             }
 
@@ -300,13 +399,13 @@ public class PsiElementUtils {
                 return null;
             }
 
-            lastElement = element;
             element = element.getParent();
         }
 
         return null;
     }
 
+    @SuppressWarnings("unchecked")
     public static <T extends PsiElement> List<T> getPrevSiblingsOfType(@Nullable PsiElement sibling, ElementPattern<T> pattern) {
 
         List<T> elements = new ArrayList<>();
@@ -351,6 +450,14 @@ public class PsiElementUtils {
 
         String content = literal.getContents();
         return content.length() >= cursorOffsetClean ? content.substring(0, cursorOffsetClean) : null;
+    }
+
+    @Nullable
+    public static PsiElement getTextLeafElementFromStringLiteralExpression(@NotNull StringLiteralExpression psiElement) {
+        return Arrays.stream(YamlHelper.getChildrenFix(psiElement))
+            .filter(p -> p.getNode().getElementType() == PhpTokenTypes.STRING_LITERAL_SINGLE_QUOTE || p.getNode().getElementType() == PhpTokenTypes.STRING_LITERAL)
+            .findFirst()
+            .orElse(null);
     }
 
     @NotNull

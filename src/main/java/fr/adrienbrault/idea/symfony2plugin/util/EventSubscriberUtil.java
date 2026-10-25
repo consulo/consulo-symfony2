@@ -16,11 +16,12 @@ import fr.adrienbrault.idea.symfony2plugin.stubs.ServiceIndexUtil;
 import fr.adrienbrault.idea.symfony2plugin.stubs.dict.DispatcherEvent;
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.EventAnnotationStubIndex;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.ServiceUtil;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.Collection;
+import java.util.Collections;
+import java.util.stream.Collectors;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -49,12 +50,12 @@ public class EventSubscriberUtil {
     /**
      * @TODO: implement collection with prio
      */
-    @Nullable
-    public static String getTaggedEventMethodParameter(@NotNull Project project, @NotNull String eventName) {
+    @NotNull
+    public static Collection<String> getTaggedEventMethodParameter(@NotNull Project project, @NotNull String eventName) {
 
         // Static list
         if(ServiceUtil.TAGS.containsKey(eventName)) {
-            return ServiceUtil.TAGS.get(eventName);
+            return Collections.singletonList(ServiceUtil.TAGS.get(eventName));
         }
 
         // @Event annotation
@@ -65,7 +66,7 @@ public class EventSubscriberUtil {
         );
 
         if(dispatcherEvent != null && StringUtils.isNotBlank(dispatcherEvent.getInstance())) {
-            return dispatcherEvent.getInstance();
+            return normalizeFqns(Collections.singletonList(dispatcherEvent.getInstance()));
         }
 
         // Extract from directly from EventSubscriberInterface
@@ -77,9 +78,9 @@ public class EventSubscriberUtil {
 
             Method method = PhpElementsUtil.getClassMethod(project, event.getFqnClassName(), methodName);
             if(method != null) {
-                String methodParameterClassHint = PhpElementsUtil.getMethodParameterTypeHint(method);
-                if(methodParameterClassHint != null) {
-                    return methodParameterClassHint;
+                Collection<String> methodParameterClassHints = PhpElementsUtil.getMethodParameterTypeHints(method);
+                if(!methodParameterClassHints.isEmpty()) {
+                    return methodParameterClassHints;
                 }
             }
         }
@@ -109,9 +110,9 @@ public class EventSubscriberUtil {
                     if(phpClass != null) {
                         Method method = phpClass.findMethodByName(methodName);
                         if(method != null) {
-                            String methodParameterTypeHint = PhpElementsUtil.getMethodParameterTypeHint(method);
-                            if(methodParameterTypeHint != null) {
-                                return methodParameterTypeHint;
+                            Collection<String> methodParameterTypeHints = PhpElementsUtil.getMethodParameterTypeHints(method);
+                            if(!methodParameterTypeHints.isEmpty()) {
+                                return methodParameterTypeHints;
                             }
                         }
 
@@ -121,6 +122,14 @@ public class EventSubscriberUtil {
             }
         }
 
-        return null;
+        return Collections.emptyList();
+    }
+
+    @NotNull
+    private static Collection<String> normalizeFqns(@NotNull Collection<String> values) {
+        return values.stream()
+            .filter(StringUtils::isNotBlank)
+            .map(value -> value.startsWith("\\") ? value : "\\" + value)
+            .collect(Collectors.toList());
     }
 }

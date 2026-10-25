@@ -2,7 +2,7 @@ package fr.adrienbrault.idea.symfony2plugin.action.ui;
 
 import com.jetbrains.php.lang.psi.elements.Method;
 import com.jetbrains.php.lang.psi.elements.Parameter;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import java.io.Serializable;
 import java.util.Set;
@@ -13,10 +13,10 @@ import java.util.Set;
 public class MethodParameter implements Serializable {
     public static class MethodModelParameter {
 
-        private Method method;
-        private Parameter parameter;
-        private int index;
-        private Set<String> possibleServices;
+        private final Method method;
+        private final Parameter parameter;
+        private final int index;
+        private final Set<String> possibleServices;
         private boolean isPossibleService = false;
         private String currentService;
 

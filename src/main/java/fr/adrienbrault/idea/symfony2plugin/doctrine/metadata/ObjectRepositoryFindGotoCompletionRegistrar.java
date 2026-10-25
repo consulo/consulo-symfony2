@@ -1,6 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.doctrine.metadata;
 
 import com.intellij.codeInsight.lookup.LookupElement;
+import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiElement;
 import com.jetbrains.php.lang.psi.elements.MethodReference;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
@@ -22,7 +23,6 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -41,18 +41,23 @@ public class ObjectRepositoryFindGotoCompletionRegistrar implements GotoCompleti
             MethodMatcher.MethodMatchParameter methodMatchParameter = new MethodMatcher.ArrayParameterMatcher(context, 0)
                 .withSignature("\\Doctrine\\Common\\Persistence\\ObjectRepository", "findOneBy")
                 .withSignature("\\Doctrine\\Common\\Persistence\\ObjectRepository", "findBy")
+                .withSignature("\\Doctrine\\Common\\Persistence\\ObjectRepository", "count")
+                .withSignature("\\Doctrine\\Persistence\\ObjectRepository", "findOneBy")
+                .withSignature("\\Doctrine\\Persistence\\ObjectRepository", "findBy")
+                .withSignature("\\Doctrine\\Persistence\\ObjectRepository", "count")
                 .match();
 
             if(methodMatchParameter != null) {
                 MethodReference methodReference = methodMatchParameter.getMethodReference();
+                Project project = psiElement.getProject();
 
                 // extract from type provide on completion:
                 // $foo->getRepository('MODEL')->findBy()
-                Collection<PhpClass> phpClasses = PhpElementsUtil.getClassFromPhpTypeSetArrayClean(psiElement.getProject(), methodReference.getType().getTypes());
+                Collection<PhpClass> phpClasses = PhpElementsUtil.getClassFromPhpTypeSetArrayClean(project, methodReference.getType().getTypes());
 
                 // resolve every direct repository instance $this->findBy()
                 // or direct repository instance $repository->findBy()
-                if(phpClasses.size() == 0) {
+                if(phpClasses.isEmpty()) {
                     PhpExpression classReference = methodReference.getClassReference();
                     if(classReference != null) {
                         PhpType type = classReference.getType();
@@ -62,14 +67,14 @@ public class ObjectRepositoryFindGotoCompletionRegistrar implements GotoCompleti
                                 continue;
                             }
 
-                            for (DoctrineModelInterface doctrineModel : DoctrineMetadataUtil.findMetadataModelForRepositoryClass(psiElement.getProject(), s)) {
-                                phpClasses.addAll(PhpElementsUtil.getClassesInterface(psiElement.getProject(), doctrineModel.getClassName()));
+                            for (DoctrineModelInterface doctrineModel : DoctrineMetadataUtil.findMetadataModelForRepositoryClass(project, s)) {
+                                phpClasses.addAll(PhpElementsUtil.getClassesInterface(project, doctrineModel.getClassName()));
                             }
                         }
                     }
                 }
 
-                if(phpClasses.size() == 0) {
+                if(phpClasses.isEmpty()) {
                     return null;
                 }
 
@@ -97,7 +102,7 @@ public class ObjectRepositoryFindGotoCompletionRegistrar implements GotoCompleti
             phpClasses.forEach(phpClass ->
                 results.addAll(EntityHelper.getModelFields(phpClass).stream()
                     .map((Function<DoctrineModelField, LookupElement>) DoctrineModelFieldLookupElement::new)
-                    .collect(Collectors.toList())
+                    .toList()
                 )
             );
 

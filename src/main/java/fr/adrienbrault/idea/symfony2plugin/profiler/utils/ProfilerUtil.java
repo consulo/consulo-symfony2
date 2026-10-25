@@ -14,15 +14,16 @@ import com.intellij.psi.xml.XmlTagValue;
 import fr.adrienbrault.idea.symfony2plugin.profiler.collector.HttpDefaultDataCollector;
 import fr.adrienbrault.idea.symfony2plugin.profiler.dict.HttpProfilerRequest;
 import fr.adrienbrault.idea.symfony2plugin.profiler.dict.ProfilerRequestInterface;
-import org.apache.commons.lang.ArrayUtils;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.net.MalformedURLException;
+import java.net.HttpURLConnection;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.charset.StandardCharsets;
@@ -31,21 +32,27 @@ import java.util.concurrent.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.zip.GZIPInputStream;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class ProfilerUtil {
+    private static final long MAX_PROFILER_FILE_BYTES = 10L * 1024 * 1024;
+    private static final int MAX_PROFILER_CONTENT_CHARS = 5 * 1024 * 1024;
+    private static final int MAX_PROFILER_HTTP_CHARS = 2 * 1024 * 1024;
+    private static final int PROFILER_CONNECT_TIMEOUT_MS = 3000;
+    private static final int PROFILER_READ_TIMEOUT_MS = 5000;
 
     /**
      * Cache for url content
      */
-    private static Cache<String, String> REQUEST_CACHE = CacheBuilder.newBuilder()
+    private static final Cache<String, String> REQUEST_CACHE = CacheBuilder.newBuilder()
         .maximumSize(50)
         .expireAfterWrite(5, TimeUnit.MINUTES)
         .build();
 
-    private static Cache<String, ProfilerRequestInterface> PROFILER_REQUEST_CACHE = CacheBuilder.newBuilder()
+    private static final Cache<String, ProfilerRequestInterface> PROFILER_REQUEST_CACHE = CacheBuilder.newBuilder()
         .maximumSize(15)
         .expireAfterWrite(5, TimeUnit.MINUTES)
         .build();
@@ -90,7 +97,7 @@ public class ProfilerUtil {
         }
 
         // we need at least this fields
-        if(!header.containsAll(Arrays.asList("token", "url"))) {
+        if(!new HashSet<>(header).containsAll(Arrays.asList("token", "url"))) {
             return Collections.emptyList();
         }
 
@@ -128,7 +135,7 @@ public class ProfilerUtil {
             if(tokenLink != null) {
                 String href = tokenLink.getAttributeValue("href");
                 if(StringUtils.isNotBlank(href)) {
-                    profilerUrl = StringUtils.stripEnd(baseUrl, "/") + href;
+                    profilerUrl = getProfilerAbsoluteUrl(baseUrl, href);
                 }
             }
 
@@ -136,7 +143,7 @@ public class ProfilerUtil {
             int statusCode = 0;
             if(row.containsKey("status")) {
                 try {
-                    statusCode = Integer.valueOf(row.get("status").getSecond());
+                    statusCode = Integer.parseInt(row.get("status").getSecond());
                 } catch (NumberFormatException ignored) {
                 }
             }
@@ -151,6 +158,11 @@ public class ProfilerUtil {
         }
 
         return requests;
+    }
+
+    @NotNull
+    private static String getProfilerAbsoluteUrl(@NotNull String baseUrl, @NotNull String href) {
+        return StringUtils.stripEnd(baseUrl, "/") + href.substring(href.indexOf("/_profiler/"));
     }
 
     @NotNull
@@ -252,7 +264,7 @@ public class ProfilerUtil {
             return Collections.emptyMap();
         }
 
-        Map<String, Integer> templates = new HashMap<>();
+        Map<String, Integer> templates = new LinkedHashMap<>();
 
         for (XmlTag tag : PsiTreeUtil.getChildrenOfTypeAsList(tbody, XmlTag.class)) {
             if(!"tr".equals(tag.getName())) {
@@ -269,9 +281,9 @@ public class ProfilerUtil {
                 continue;
             }
 
-            Integer count;
+            int count;
             try {
-                count = Integer.valueOf(stripHtmlTags(StringUtils.trim(tds[1].getValue().getText())));
+                count = Integer.parseInt(stripHtmlTags(StringUtils.trim(tds[1].getValue().getText())));
             } catch (NumberFormatException e) {
                 count = 0;
             }
@@ -283,6 +295,11 @@ public class ProfilerUtil {
     }
 
     @NotNull
+    public static List<String> getRenderedElementTwigTemplateNames(@NotNull Project project, @NotNull String html) {
+        return new ArrayList<>(getRenderedElementTwigTemplates(project, html).keySet());
+    }
+
+    @NotNull
     private static String stripHtmlTags(@NotNull String text)
     {
         return text.replaceAll("<[^>]*>", "");
@@ -290,19 +307,62 @@ public class ProfilerUtil {
 
     @Nullable
     public static String getProfilerUrlContent(@NotNull String url) {
+        URI uri = createHttpProfilerUri(url);
+        if (uri == null) {
+            return null;
+        }
+
         URLConnection conn;
         try {
-            conn = new URL(url).openConnection();
-        } catch (IOException e) {
-            e.printStackTrace();
+            conn = uri.toURL().openConnection();
+            conn.setConnectTimeout(PROFILER_CONNECT_TIMEOUT_MS);
+            conn.setReadTimeout(PROFILER_READ_TIMEOUT_MS);
+
+            if (conn instanceof HttpURLConnection httpURLConnection) {
+                httpURLConnection.setInstanceFollowRedirects(false);
+            }
+        } catch (IOException | IllegalArgumentException e) {
             return null;
         }
 
         try {
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
-                return reader.lines().collect(Collectors.joining("\n"));
+                return readHttpLimited(reader);
             }
         } catch (IOException e) {
+            return null;
+        }
+    }
+
+    @Nullable
+    public static String normalizeHttpProfilerBaseUrl(@Nullable String url) {
+        if (StringUtils.isBlank(url)) {
+            return null;
+        }
+
+        URI uri = createHttpProfilerUri(StringUtils.stripEnd(url, "/"));
+        if (uri == null) {
+            return null;
+        }
+
+        return StringUtils.stripEnd(uri.toString(), "/");
+    }
+
+    @Nullable
+    private static URI createHttpProfilerUri(@NotNull String url) {
+        try {
+            URI uri = new URI(url);
+            String scheme = uri.getScheme();
+            if (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme)) {
+                return null;
+            }
+
+            if (StringUtils.isBlank(uri.getHost()) || StringUtils.isNotBlank(uri.getUserInfo())) {
+                return null;
+            }
+
+            return uri;
+        } catch (URISyntaxException | IllegalArgumentException e) {
             return null;
         }
     }
@@ -330,9 +390,12 @@ public class ProfilerUtil {
                 return requestCache;
             }
 
+            Map<String, String> requestAttributes = new HashMap<>();
+            List<String> renderedTemplates = getRenderedTemplates(requestAttributes);
+
             ProfilerRequestInterface httpProfilerRequest = new HttpProfilerRequest(
                 request,
-                new HttpDefaultDataCollector(getRequestAttributes())
+                new HttpDefaultDataCollector(requestAttributes, renderedTemplates)
             );
 
             PROFILER_REQUEST_CACHE.put(profilerUrl, httpProfilerRequest);
@@ -341,9 +404,7 @@ public class ProfilerUtil {
         }
 
         @NotNull
-        private Map<String, String> getRequestAttributes() {
-            Map<String, String> requestAttributes = new HashMap<>();
-
+        private List<String> getRenderedTemplates(@NotNull Map<String, String> requestAttributes) {
             String requestContent = getUrlContent(profilerUrl + "?panel=request");
             String twigContent = getUrlContent(profilerUrl + "?panel=twig");
 
@@ -354,15 +415,22 @@ public class ProfilerUtil {
             }
 
             if(twigContent != null) {
+                List<String> templates = new ArrayList<>();
                 ApplicationManager.getApplication().runReadAction(() -> {
-                    Map<String, Integer> templates = getRenderedElementTwigTemplates(project, twigContent);
-                    if(templates.size() > 0) {
-                        requestAttributes.put("_template", templates.keySet().iterator().next());
+                    templates.addAll(getRenderedElementTwigTemplateNames(project, twigContent));
+                    if(!templates.isEmpty()) {
+                        String entryView = templates.stream()
+                            .filter(template -> !template.startsWith("@WebProfiler"))
+                            .findFirst()
+                            .orElse(templates.get(0));
+                        requestAttributes.put("_template", entryView);
                     }
                 });
+
+                return templates;
             }
 
-            return requestAttributes;
+            return Collections.emptyList();
         }
 
         private String getUrlContent(@NotNull String url) {
@@ -370,7 +438,9 @@ public class ProfilerUtil {
 
             if(contents == null) {
                 contents = ProfilerUtil.getProfilerUrlContent(url);
-                REQUEST_CACHE.put(url, contents);
+                if (contents != null) {
+                    REQUEST_CACHE.put(url, contents);
+                }
             }
 
             return contents;
@@ -419,11 +489,18 @@ public class ProfilerUtil {
      * https://127.0.0.1:8000/app_dev.php
      */
     @Nullable
-    public static String getBaseProfilerUrlFromRequest(@NotNull String requestUrl) {
-        URL url;
+    public static String getBaseProfilerUrlFromRequest(@NotNull ProfilerRequestInterface request) {
+        URL url = null;
         try {
-            url = new URL(requestUrl);
-        } catch (MalformedURLException e) {
+            url = URI.create(request.getProfilerUrl()).toURL();
+        } catch (MalformedURLException | IllegalArgumentException e) {
+            try {
+                url = URI.create(request.getUrl()).toURL();
+            } catch (MalformedURLException | IllegalArgumentException ignored) {
+            }
+        }
+
+        if (url == null) {
             return null;
         }
 
@@ -450,7 +527,7 @@ public class ProfilerUtil {
         String path = profilerRequest.getUrl();
 
         try {
-            URL url = new URL(profilerRequest.getUrl());
+            URL url = URI.create(profilerRequest.getUrl()).toURL();
             path = url.getPath();
 
             Matcher matcher = Pattern.compile(".*(/app_[\\w]{2,6}.php)/").matcher(path);
@@ -458,10 +535,93 @@ public class ProfilerUtil {
                 path = "/" + path.substring(matcher.end());
             }
 
-        } catch (MalformedURLException ignored) {
+        } catch (MalformedURLException | IllegalArgumentException ignored) {
         }
 
         return String.format("(%s) %s", statusCode == 0 ? "n/a" : statusCode, StringUtils.abbreviate(path, 35));
     }
-}
 
+    @Nullable
+    public static String getContentForFile(@NotNull File file) {
+        if (!file.isFile() || file.length() > MAX_PROFILER_FILE_BYTES) {
+            return null;
+        }
+
+        boolean isGzipFile;
+
+        try (InputStream is = new FileInputStream(file)) {
+            byte[] buffer = new byte[3];
+
+            int bytesRead = is.read(buffer);
+
+            // check gzip header
+            isGzipFile = bytesRead == 3
+                && buffer[0] == 31
+                && buffer[1] == -117
+                && buffer[2] == 8;
+        } catch (IOException e) {
+            return null;
+        }
+
+        if (isGzipFile) {
+            return getProfilerContentGzdecode(file);
+        }
+
+        return getContentForRaw(file);
+    }
+
+    @Nullable
+    private static String getContentForRaw(@NotNull File file) {
+        try (BufferedReader in = new BufferedReader(new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8))) {
+            return readLimited(in);
+        } catch (IOException ignored) {
+            return null;
+        }
+    }
+
+    @Nullable
+    private static String getProfilerContentGzdecode(File file) {
+        try (
+            InputStream in = new FileInputStream(file);
+            BufferedReader reader = new BufferedReader(new InputStreamReader(new GZIPInputStream(in), StandardCharsets.UTF_8))
+        ) {
+            return readLimited(reader);
+        } catch (IOException ignored) {
+        }
+
+        return null;
+    }
+
+    @Nullable
+    private static String readLimited(@NotNull BufferedReader reader) throws IOException {
+        StringBuilder content = new StringBuilder();
+        String line;
+
+        while ((line = reader.readLine()) != null) {
+            if (content.length() + line.length() > MAX_PROFILER_CONTENT_CHARS) {
+                return null;
+            }
+
+            content.append(line);
+        }
+
+        return content.toString();
+    }
+
+    @Nullable
+    private static String readHttpLimited(@NotNull Reader reader) throws IOException {
+        StringBuilder content = new StringBuilder();
+        char[] buffer = new char[8192];
+        int read;
+
+        while ((read = reader.read(buffer)) != -1) {
+            if (content.length() + read > MAX_PROFILER_HTTP_CHARS) {
+                return null;
+            }
+
+            content.append(buffer, 0, read);
+        }
+
+        return content.toString();
+    }
+}

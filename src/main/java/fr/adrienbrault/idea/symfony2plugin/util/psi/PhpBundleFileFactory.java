@@ -1,19 +1,8 @@
 package fr.adrienbrault.idea.symfony2plugin.util.psi;
 
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.Map;
-
-import javax.swing.JOptionPane;
-
-import org.apache.commons.lang.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import com.intellij.codeInsight.hint.HintManager;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
-import com.intellij.openapi.util.io.StreamUtil;
 import com.intellij.openapi.vfs.VfsUtil;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.PsiElement;
@@ -30,9 +19,18 @@ import com.jetbrains.php.lang.psi.PhpPsiUtil;
 import com.jetbrains.php.lang.psi.elements.*;
 import com.jetbrains.php.refactoring.PhpAliasImporter;
 import com.jetbrains.php.refactoring.PhpNameUtil;
-import consulo.php.lang.psi.PhpClass;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
+import fr.adrienbrault.idea.symfony2plugin.action.NewFileActionUtil;
+import fr.adrienbrault.idea.symfony2plugin.util.IdeHelper;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
+import org.apache.commons.lang3.StringUtils;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
+import javax.swing.*;
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Map;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -54,7 +52,7 @@ public class PhpBundleFileFactory {
             return PhpBundleFileFactory.createCompilerPass(bundleClass, className);
         } catch (Exception e) {
             if(editor != null) {
-                HintManager.getInstance().showErrorHint(editor, "Error:" + e.getMessage());
+                IdeHelper.showErrorHintIfAvailable(editor, "Error:" + e.getMessage());
             } else {
                 JOptionPane.showMessageDialog(null, "Error:" + e.getMessage());
             }
@@ -72,7 +70,7 @@ public class PhpBundleFileFactory {
         }
 
         String COMPILER_TEMPLATE = "/fileTemplates/" + template + ".php";
-        String fileTemplateContent = getFileTemplateContent(COMPILER_TEMPLATE);
+        String fileTemplateContent = NewFileActionUtil.getFileTemplateContent(COMPILER_TEMPLATE);
         if(fileTemplateContent == null) {
             throw new Exception("Template content error");
         }
@@ -97,6 +95,22 @@ public class PhpBundleFileFactory {
         PsiFile fileFromText = PsiFileFactory.getInstance(project).createFileFromText(split[split.length - 1] + ".php", PhpFileType.INSTANCE, fileTemplateContent);
         CodeStyleManager.getInstance(project).reformat(fileFromText);
         return PsiDirectoryFactory.getInstance(project).createDirectory(compilerDirectory).add(fileFromText);
+    }
+
+    public static PsiElement createFile(@NotNull Project project, @NotNull VirtualFile parentDirectory, @NotNull String template, @NotNull String filename, @NotNull Map<String, String> vars) {
+        String COMPILER_TEMPLATE = "/fileTemplates/" + template + ".php";
+        String fileTemplateContent = NewFileActionUtil.getFileTemplateContent(COMPILER_TEMPLATE);
+        if(fileTemplateContent == null) {
+            throw new RuntimeException("Template content error");
+        }
+
+        for (Map.Entry<String, String> entry : vars.entrySet()) {
+            fileTemplateContent = fileTemplateContent.replace("{{ " + entry.getKey() + " }}", entry.getValue());
+        }
+
+        PsiFile fileFromText = PsiFileFactory.getInstance(project).createFileFromText(filename + ".php", PhpFileType.INSTANCE, fileTemplateContent);
+        CodeStyleManager.getInstance(project).reformat(fileFromText);
+        return PsiDirectoryFactory.getInstance(project).createDirectory(parentDirectory).add(fileFromText);
     }
 
     @NotNull
@@ -157,7 +171,7 @@ public class PhpBundleFileFactory {
         }
 
         String COMPILER_TEMPLATE = "/fileTemplates/compiler_pass.php";
-        String fileTemplateContent = getFileTemplateContent(COMPILER_TEMPLATE);
+        String fileTemplateContent = NewFileActionUtil.getFileTemplateContent(COMPILER_TEMPLATE);
         if(fileTemplateContent == null) {
             throw new Exception("Template content error");
         }
@@ -185,8 +199,7 @@ public class PhpBundleFileFactory {
 
     @Nullable
     public static PhpClass getPhpClassForCreateCompilerScope(@NotNull Editor editor, @Nullable PsiFile file) {
-
-        if(file == null || !(file instanceof PhpFile)) {
+        if(!(file instanceof PhpFile)) {
             return null;
         }
 
@@ -194,7 +207,7 @@ public class PhpBundleFileFactory {
     }
 
     private static void insertUseIfNecessary(PhpPsiElement scopeForUseOperator, String nsClass) {
-        if(!PhpCodeInsightUtil.getAliasesInScope(scopeForUseOperator).values().contains(nsClass)) {
+        if(!PhpCodeInsightUtil.getAliasesInScope(scopeForUseOperator).containsValue(nsClass)) {
             PhpAliasImporter.insertUseStatement(nsClass, scopeForUseOperator);
         }
     }
@@ -248,16 +261,6 @@ public class PhpBundleFileFactory {
         }
 
         return null;
-    }
-
-    @Nullable
-    private static String getFileTemplateContent(@NotNull String filename) {
-        try {
-            // replace on windows, just for secure reasons
-            return StreamUtil.readText(PhpBundleFileFactory.class.getResourceAsStream(filename), "UTF-8").replace("\r\n", "\n");
-        } catch (IOException e) {
-            return null;
-        }
     }
 
 }

@@ -5,6 +5,8 @@ import org.jetbrains.annotations.Nullable;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
+import com.intellij.openapi.project.Project;
+import com.intellij.openapi.vfs.VirtualFile;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -17,15 +19,15 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class XmlTagParser extends AbstractServiceParser {
 
-    protected Set<String> list = new HashSet<>();
-    protected Map<String, ArrayList<String>> taggedClasses = new ConcurrentHashMap<>();
+    protected final Set<String> list = new HashSet<>();
+    protected final Map<String, ArrayList<String>> taggedClasses = new ConcurrentHashMap<>();
 
     @Override
     public String getXPathFilter() {
         return "/container/services/service[@id]/tag[@name]";
     }
 
-    public void parser(InputStream file) {
+    public void parser(InputStream file, VirtualFile sourceFile, Project project) {
         NodeList nodeList = this.parserer(file);
 
         if(nodeList == null) {

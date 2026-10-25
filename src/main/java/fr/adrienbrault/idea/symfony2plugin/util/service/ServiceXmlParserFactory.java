@@ -1,149 +1,76 @@
 package fr.adrienbrault.idea.symfony2plugin.util.service;
 
-import com.intellij.openapi.extensions.ExtensionPointName;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.util.Key;
+import com.intellij.openapi.vfs.VfsUtil;
+import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.psi.util.CachedValue;
+import com.intellij.psi.util.CachedValueProvider;
+import com.intellij.psi.util.CachedValuesManager;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
-import fr.adrienbrault.idea.symfony2plugin.extension.CompiledServiceBuilderArguments;
-import fr.adrienbrault.idea.symfony2plugin.extension.CompiledServiceBuilderFactory;
-import org.jetbrains.annotations.Nullable;
+import fr.adrienbrault.idea.symfony2plugin.util.SymfonyVarDirectoryWatcher;
+import fr.adrienbrault.idea.symfony2plugin.util.SymfonyVarDirectoryWatcherKt;
+import org.jetbrains.annotations.NotNull;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.InputStream;
-import java.util.*;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.Collection;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class ServiceXmlParserFactory {
+    private static final Key<CachedValue<Map<Class<?>, ServiceParserInterface>>> CACHED_PARSERS = new Key<>("SYMFONY_SERVICE_XML_PARSERS");
 
-    protected static Map<Project, Map<Class, ServiceXmlParserFactory>> instance = new HashMap<>();
+    @SuppressWarnings("unchecked")
+    private static <T extends ServiceParserInterface> T getCachedParser(@NotNull Project project, Class<T> serviceParser) {
+        Map<Class<?>, ServiceParserInterface> parsers = CachedValuesManager.getManager(project).getCachedValue(
+            project,
+            CACHED_PARSERS,
+            () -> CachedValueProvider.Result.create(
+                new ConcurrentHashMap<>(),
+                SymfonyVarDirectoryWatcherKt.getSymfonyVarDirectoryWatcher(project)
+                    .getModificationTracker(SymfonyVarDirectoryWatcher.Scope.CONTAINER)
+            ),
+            false
+        );
 
-    private Project project;
-    private ServiceParserInterface serviceParserInstance;
-
-    private HashMap<String, Long> serviceFiles = new HashMap<>();
-
-    private Collection<CompiledServiceBuilderFactory.Builder> extensions = new ArrayList<>();
-    private static final ExtensionPointName<CompiledServiceBuilderFactory> EXTENSIONS = new ExtensionPointName<>(
-        "fr.adrienbrault.idea.symfony2plugin.extension.CompiledServiceBuilderFactory"
-    );
-
-    public ServiceXmlParserFactory(Project project) {
-        this.project = project;
+        return (T) parsers.computeIfAbsent(serviceParser, parserClass -> buildParserUnchecked(project, parserClass));
     }
 
-    private boolean isModified(Collection<File> serviceFiles) {
-        if(this.serviceFiles.size() != serviceFiles.size()) {
-            return true;
-        }
-
-        for(File serviceFile: serviceFiles) {
-            if(serviceFile.exists()) {
-                if(!this.serviceFiles.containsKey(serviceFile.getAbsolutePath())) {
-                    return true;
-                }
-                if(!this.serviceFiles.get(serviceFile.getAbsolutePath()).equals(serviceFile.lastModified())) {
-                    return true;
-                }
-            } else {
-                Symfony2ProjectComponent.getLogger().warn("file not found: " + serviceFiles.toString());
-            }
-        }
-
-        if(this.extensions.size() > 0) {
-            for (CompiledServiceBuilderFactory.Builder builder : this.extensions) {
-                if(builder.isModified(project)) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
+    @SuppressWarnings("unchecked")
+    private static ServiceParserInterface buildParserUnchecked(@NotNull Project project, Class<?> serviceParser) {
+        return buildParser(project, (Class<? extends ServiceParserInterface>) serviceParser);
     }
 
-    @Nullable
-    synchronized public <T extends ServiceParserInterface> T parser(Class<T> serviceParser) {
-
-        Symfony2ProjectComponent symfony2ProjectComponent = this.project.getComponent(Symfony2ProjectComponent.class);
-
-        Collection<File> settingsServiceFiles = symfony2ProjectComponent.getContainerFiles();
-
-        if (this.serviceParserInstance != null && !this.isModified(settingsServiceFiles)) {
-            return (T) this.serviceParserInstance;
-        }
-
+    private static <T extends ServiceParserInterface> T buildParser(@NotNull Project project, Class<T> serviceParser) {
+        T parserInstance;
         try {
-            this.serviceParserInstance = serviceParser.newInstance();
-            Symfony2ProjectComponent.getLogger().info("new instance: " + serviceParser.getName());
-        } catch (InstantiationException | IllegalAccessException ignored) {
+            parserInstance = serviceParser.getDeclaredConstructor().newInstance();
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to instantiate service parser: " + serviceParser.getName(), e);
         }
 
-        if (this.serviceParserInstance != null) {
-
-            // extensions
-            if(this.extensions.size() > 0) {
-                CompiledServiceBuilderArguments args = new CompiledServiceBuilderArguments(project);
-                for (CompiledServiceBuilderFactory.Builder builder : this.extensions) {
-                    builder.build(args);
-                }
-
-                for (InputStream inputStream : args.getStreams()) {
-                    this.serviceParserInstance.parser(inputStream);
-                }
+        Collection<VirtualFile> settingsServiceFiles = Symfony2ProjectComponent.getContainerFiles(project);
+        for (VirtualFile vf : new ArrayList<>(settingsServiceFiles).stream().sorted(Comparator.comparing(VirtualFile::getPath)).toList()) {
+            if (vf == null || !vf.exists()) {
+                continue;
             }
 
-            this.serviceFiles = new HashMap<>();
-            for(File settingsServiceFile: settingsServiceFiles) {
-                if(!settingsServiceFile.exists()) {
-                    continue;
-                }
-
-                try {
-                    this.serviceParserInstance.parser(new FileInputStream(settingsServiceFile));
-                } catch (FileNotFoundException e) {
-                    continue;
-                }
-
-                serviceFiles.put(settingsServiceFile.getAbsolutePath(), settingsServiceFile.lastModified());
+            try {
+                parserInstance.parser(new ByteArrayInputStream(vf.contentsToByteArray()), vf, project);
+            } catch (IOException ignored) {
             }
         }
 
-        Symfony2ProjectComponent.getLogger().info("update: " + serviceParser.getName());
-
-        return (T) this.serviceParserInstance;
+        return parserInstance;
     }
 
-    public void setCacheInvalid() {
-        this.serviceFiles = new HashMap<>();
+    public static <T extends ServiceParserInterface> T getInstance(Project project, Class<T> serviceParser) {
+        return getCachedParser(project, serviceParser);
     }
-
-    synchronized public static <T extends ServiceParserInterface> T getInstance(Project project, Class<T> serviceParser){
-
-        Map<Class, ServiceXmlParserFactory> projectInstance = instance.computeIfAbsent(project, k -> new HashMap<>());
-
-        ServiceXmlParserFactory serviceXmlParserFactory = projectInstance.get(serviceParser);
-        if(serviceXmlParserFactory == null) {
-            serviceXmlParserFactory = new ServiceXmlParserFactory(project);
-
-            // add extension for new instance
-            for (CompiledServiceBuilderFactory ext : EXTENSIONS.getExtensions()) {
-                serviceXmlParserFactory.extensions.add(ext.create());
-            }
-
-            projectInstance.put(serviceParser, serviceXmlParserFactory);
-        }
-
-        return serviceXmlParserFactory.parser(serviceParser);
-
-    }
-
-    synchronized public static void cleanInstance(Project project){
-        if(instance.containsKey(project)) {
-            Symfony2ProjectComponent.getLogger().info("clean ServiceXmlParserFactory for " + project.getName());
-            instance.remove(project);
-        }
-    }
-
 }

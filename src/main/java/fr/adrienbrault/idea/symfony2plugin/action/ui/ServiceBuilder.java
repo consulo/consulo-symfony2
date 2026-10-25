@@ -2,13 +2,21 @@ package fr.adrienbrault.idea.symfony2plugin.action.ui;
 
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiFile;
+import com.jetbrains.php.PhpIndex;
+import com.jetbrains.php.lang.psi.elements.ClassReference;
 import com.jetbrains.php.lang.psi.elements.Method;
+import com.jetbrains.php.lang.psi.elements.Parameter;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
+import com.jetbrains.php.lang.psi.resolve.types.PhpType;
+import fr.adrienbrault.idea.symfony2plugin.action.ServiceActionUtil;
+import fr.adrienbrault.idea.symfony2plugin.dic.ContainerService;
+import fr.adrienbrault.idea.symfony2plugin.stubs.ContainerCollectionResolver;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.ServiceTag;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.ServiceUtil;
+import fr.adrienbrault.idea.symfony2plugin.util.xml.SecureXmlUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.yaml.psi.YAMLFile;
@@ -17,7 +25,6 @@ import org.w3c.dom.Element;
 import org.xml.sax.SAXException;
 
 import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.OutputKeys;
 import javax.xml.transform.Transformer;
@@ -28,6 +35,7 @@ import javax.xml.transform.stream.StreamResult;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 /**
@@ -35,12 +43,35 @@ import java.util.*;
  */
 public class ServiceBuilder {
 
-    public enum OutputType {
-        Yaml, XML,
+    /**
+     * Shared model used by the dialog and MCP generator so both paths start from the same inferred service data.
+     */
+    public static class ServiceDefinitionModel {
+        private final String serviceName;
+        private final List<MethodParameter.MethodModelParameter> modelParameters;
+
+        public ServiceDefinitionModel(@NotNull String serviceName, @NotNull List<MethodParameter.MethodModelParameter> modelParameters) {
+            this.serviceName = serviceName;
+            this.modelParameters = modelParameters;
+        }
+
+        @NotNull
+        public String getServiceName() {
+            return serviceName;
+        }
+
+        @NotNull
+        public List<MethodParameter.MethodModelParameter> getModelParameters() {
+            return modelParameters;
+        }
     }
 
-    private List<MethodParameter.MethodModelParameter>  methodModelParameter;
-    private Project project;
+    public enum OutputType {
+        Yaml, XML, Fluent, PhpArray,
+    }
+
+    private final List<MethodParameter.MethodModelParameter>  methodModelParameter;
+    private final Project project;
 
     /**
      * Symfony 3.3 class name can be id attribute for services
@@ -89,6 +120,149 @@ public class ServiceBuilder {
             return buildXml(methods, className, serviceName);
         }
 
+        if(outputType == OutputType.Fluent) {
+            return buildFluent(methods, className, serviceName);
+        }
+
+        if(outputType == OutputType.PhpArray) {
+            return buildPhpArray(methods, className, serviceName);
+        }
+
+        return null;
+    }
+
+    /**
+     * Resolves the target class and pre-fills the default service id plus constructor/setter argument suggestions.
+     */
+    @Nullable
+    public static ServiceDefinitionModel createModel(@NotNull Project project, @NotNull String className) {
+        String normalizedClassName = StringUtils.stripStart(className, "\\");
+
+        PhpClass phpClass = PhpElementsUtil.getClass(project, normalizedClassName);
+        if (phpClass == null) {
+            return null;
+        }
+
+        String serviceName = ServiceUtil.getServiceNameForClass(project, normalizedClassName);
+
+        Map<String, ContainerService> serviceClass = ContainerCollectionResolver.getServices(project);
+
+        SortedSet<String> serviceSetComplete = new TreeSet<>();
+        serviceSetComplete.add("");
+        serviceSetComplete.addAll(serviceClass.keySet());
+
+        List<MethodParameter.MethodModelParameter> modelParameters = collectMethodParameters(project, phpClass, serviceClass, serviceSetComplete);
+        modelParameters.sort(
+            Comparator
+                .comparing(MethodParameter.MethodModelParameter::getName)
+                .thenComparingInt(MethodParameter.MethodModelParameter::getIndex)
+        );
+
+        return new ServiceDefinitionModel(serviceName, modelParameters);
+    }
+
+    /**
+     * Collects public method parameters and attaches either guessed service matches or the full service list for manual selection.
+     */
+    @NotNull
+    private static List<MethodParameter.MethodModelParameter> collectMethodParameters(
+        @NotNull Project project,
+        @NotNull PhpClass phpClass,
+        @NotNull Map<String, ContainerService> serviceClass,
+        @NotNull Set<String> serviceSetComplete
+    ) {
+        List<MethodParameter.MethodModelParameter> modelParameters = new ArrayList<>();
+
+        for (Method method : phpClass.getMethods()) {
+            if (!method.getModifier().isPublic()) {
+                continue;
+            }
+
+            Parameter[] parameters = method.getParameters();
+            for (int i = 0; i < parameters.length; i++) {
+                Set<String> possibleServices = getPossibleServices(project, parameters[i], serviceClass);
+                if (!possibleServices.isEmpty()) {
+                    String serviceName = getServiceName(possibleServices);
+                    modelParameters.add(new MethodParameter.MethodModelParameter(method, parameters[i], i, possibleServices, serviceName));
+                } else {
+                    modelParameters.add(new MethodParameter.MethodModelParameter(method, parameters[i], i, serviceSetComplete));
+                }
+            }
+        }
+
+        return modelParameters;
+    }
+
+    /**
+     * Guesses matching container services for a parameter by first checking explicit class references and then declared PHP types.
+     */
+    @NotNull
+    public static Set<String> getPossibleServices(
+        @NotNull Project project,
+        @NotNull Parameter parameter,
+        @NotNull Map<String, ContainerService> serviceClass
+    ) {
+        Set<String> possibleServices = new LinkedHashSet<>();
+
+        if (parameter.getFirstPsiChild() instanceof ClassReference classReference) {
+            String type = classReference.getFQN();
+            if (type != null) {
+                possibleServices.addAll(ServiceActionUtil.getPossibleServices(project, type, serviceClass));
+            }
+        }
+
+        for (String type : parameter.getDeclaredType().getTypes()) {
+            if (PhpType.isPrimitiveType(type)) {
+                continue;
+            }
+
+            possibleServices.addAll(ServiceActionUtil.getPossibleServices(project, StringUtils.stripStart(type, "\\"), serviceClass));
+        }
+
+        return possibleServices;
+    }
+
+    /**
+     * Picks the default service id from the available matches while preserving the sorted priority of the incoming set.
+     */
+    @Nullable
+    public static String getServiceName(@NotNull Set<String> services) {
+        if (services.isEmpty()) {
+            return null;
+        }
+
+        return services.iterator().next();
+    }
+
+    /**
+     * Resolves the preferred service id for a parameter and falls back to the parameter type's conventional service name.
+     */
+    @Nullable
+    public static String resolveServiceName(
+        @NotNull Project project,
+        @NotNull Parameter parameter,
+        @NotNull Map<String, ContainerService> serviceClass
+    ) {
+        Set<String> possibleServices = getPossibleServices(project, parameter, serviceClass);
+        if (!possibleServices.isEmpty()) {
+            return getServiceName(possibleServices);
+        }
+
+        if (parameter.getFirstPsiChild() instanceof ClassReference classReference) {
+            String fqn = classReference.getFQN();
+            if (fqn != null) {
+                return ServiceUtil.getServiceNameForClass(project, StringUtils.stripStart(fqn, "\\"));
+            }
+        }
+
+        for (String type : parameter.getDeclaredType().getTypes()) {
+            if (PhpType.isPrimitiveType(type)) {
+                continue;
+            }
+
+            return ServiceUtil.getServiceNameForClass(project, StringUtils.stripStart(type, "\\"));
+        }
+
         return null;
     }
 
@@ -98,7 +272,7 @@ public class ServiceBuilder {
         List<String> methodCalls = new ArrayList<>();
 
         // sort by indexes parameter
-        methodModelParameters.sort((o1, o2) -> ((Integer) o1.getIndex()).compareTo(o2.getIndex()));
+        methodModelParameters.sort(Comparator.comparingInt(MethodParameter.MethodModelParameter::getIndex));
 
         for(MethodParameter.MethodModelParameter methodModelParameter: methodModelParameters) {
 
@@ -117,7 +291,7 @@ public class ServiceBuilder {
 
         }
 
-        if(!hasCall || methodCalls.size() == 0) {
+        if(!hasCall) {
             return null;
         }
 
@@ -126,10 +300,9 @@ public class ServiceBuilder {
 
     @Nullable
     private String buildXml(Map<String, List<MethodParameter.MethodModelParameter>> methods, String className, String serviceName) {
-        DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
         DocumentBuilder docBuilder;
         try {
-            docBuilder = docFactory.newDocumentBuilder();
+            docBuilder = SecureXmlUtil.createDocumentBuilder();
         } catch (ParserConfigurationException e) {
             return null;
         }
@@ -171,10 +344,9 @@ public class ServiceBuilder {
             for (ServiceTag serviceTag : serviceTags) {
                 try {
                     // convert string to node
-                    Element node = DocumentBuilderFactory
-                        .newInstance()
-                        .newDocumentBuilder()
-                        .parse(new ByteArrayInputStream(serviceTag.toXmlString().getBytes()))
+                    Element node = SecureXmlUtil
+                        .createDocumentBuilder()
+                        .parse(new ByteArrayInputStream(serviceTag.toXmlString().getBytes(StandardCharsets.UTF_8)))
                         .getDocumentElement();
 
                     rootElement.appendChild(doc.importNode(node, true));
@@ -257,7 +429,7 @@ public class ServiceBuilder {
             }
         }
 
-        if(calls.size() > 0) {
+        if(!calls.isEmpty()) {
             lines.add(indent + "calls:");
             lines.addAll(calls);
         }
@@ -290,11 +462,29 @@ public class ServiceBuilder {
             serviceTags.add(serviceTag);
         }
 
-        if(serviceTags.size() == 0) {
+        if(serviceTags.isEmpty()) {
             return;
         }
 
         callback.onTags(serviceTags);
+    }
+
+    private boolean isPhpClassFqn(@NotNull String serviceId) {
+        // Only query PhpIndex if the serviceId looks like a possible PHP FQN:
+        // it must contain a namespace separator to be considered a class candidate
+        if (!serviceId.contains("\\")) {
+            return false;
+        }
+
+        PhpIndex phpIndex = PhpIndex.getInstance(this.project);
+        return !phpIndex.getClassesByFQN(serviceId).isEmpty();
+    }
+
+    private String formatPhpServiceArgument(@NotNull String serviceId) {
+        if (isPhpClassFqn(serviceId)) {
+            return "\\" + serviceId + "::class";
+        }
+        return String.format("service('%s')", serviceId);
     }
 
     private List<String> formatYamlService(List<String> parameters) {
@@ -306,6 +496,113 @@ public class ServiceBuilder {
         }
 
         return yamlSyntaxParameters;
+    }
+
+    private String buildFluent(Map<String, List<MethodParameter.MethodModelParameter>> methods, String className, String serviceName) {
+        String serviceId = this.isClassAsIdAttribute ? "\\" + className + "::class" : "'" + serviceName + "'";
+        String classArg = this.isClassAsIdAttribute ? null : "\\" + className + "::class";
+
+        List<String> lines = new ArrayList<>();
+        if (classArg != null) {
+            lines.add(String.format("$services->set(%s, %s)", serviceId, classArg));
+        } else {
+            lines.add(String.format("$services->set(%s)", serviceId));
+        }
+
+        if(methods.containsKey("__construct")) {
+            List<String> parameters = getParameters(methods.get("__construct"));
+            if(parameters != null) {
+                lines.add("    ->args([");
+                for(String parameter: parameters) {
+                    lines.add(String.format("        %s,", formatPhpServiceArgument(parameter)));
+                }
+                lines.add("    ])");
+            }
+
+            methods.remove("__construct");
+        }
+
+        for(Map.Entry<String, List<MethodParameter.MethodModelParameter>> entry: methods.entrySet()) {
+            List<String> parameters = getParameters(entry.getValue());
+            if(parameters != null) {
+                lines.add(String.format("    ->call('%s', [", entry.getKey()));
+                for(String parameter: parameters) {
+                    lines.add(String.format("        %s,", formatPhpServiceArgument(parameter)));
+                }
+                lines.add("    ])");
+            }
+        }
+
+        serviceTagCallback(className, serviceTags -> {
+            for (ServiceTag serviceTag : serviceTags) {
+                lines.add(String.format("    ->tag('%s')", serviceTag.getTagName()));
+            }
+        });
+
+        // Join lines and append semicolon to the last line instead of on its own line
+        if (!lines.isEmpty()) {
+            String lastLine = lines.get(lines.size() - 1);
+            lines.set(lines.size() - 1, lastLine + ";");
+        }
+
+        return StringUtils.join(lines, "\n");
+    }
+
+    private String buildPhpArray(Map<String, List<MethodParameter.MethodModelParameter>> methods, String className, String serviceName) {
+        String serviceId = this.isClassAsIdAttribute ? "\\" + className + "::class" : "'" + serviceName + "'";
+
+        List<String> lines = new ArrayList<>();
+        lines.add(serviceId + " => [");
+
+        if(!this.isClassAsIdAttribute) {
+            lines.add("    'class' => \\" + className + "::class,");
+        }
+
+        if(methods.containsKey("__construct")) {
+            List<String> parameters = getParameters(methods.get("__construct"));
+            if(parameters != null) {
+                lines.add("    'arguments' => [");
+                for(String parameter: parameters) {
+                    lines.add(String.format("        %s,", formatPhpServiceArgument(parameter)));
+                }
+                lines.add("    ],");
+            }
+
+            methods.remove("__construct");
+        }
+
+        List<String> calls = new ArrayList<>();
+        for(Map.Entry<String, List<MethodParameter.MethodModelParameter>> entry: methods.entrySet()) {
+            List<String> parameters = getParameters(entry.getValue());
+            if(parameters != null) {
+                calls.add("        [");
+                calls.add(String.format("            '%s',", entry.getKey()));
+                calls.add("            [");
+                for(String parameter: parameters) {
+                    calls.add(String.format("                %s,", formatPhpServiceArgument(parameter)));
+                }
+                calls.add("            ],");
+                calls.add("        ],");
+            }
+        }
+
+        if(!calls.isEmpty()) {
+            lines.add("    'calls' => [");
+            lines.addAll(calls);
+            lines.add("    ],");
+        }
+
+        serviceTagCallback(className, serviceTags -> {
+            lines.add("    'tags' => [");
+            for (ServiceTag serviceTag : serviceTags) {
+                lines.add(String.format("        '%s',", serviceTag.getTagName()));
+            }
+            lines.add("    ],");
+        });
+
+        lines.add("],");
+
+        return StringUtils.join(lines, "\n");
     }
 
     public interface TagCallbackInterface {

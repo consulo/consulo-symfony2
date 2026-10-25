@@ -11,6 +11,7 @@ import javax.swing.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.text.JTextComponent;
+import java.awt.*;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.event.WindowAdapter;
@@ -23,16 +24,16 @@ public class MethodSignatureTypeDialog extends JDialog {
     private JPanel contentPane;
     private JButton buttonOK;
     private JButton buttonCancel;
-    private JComboBox comboProvider;
+    private JComboBox<String> comboProvider;
     private JTextField textCallTo;
     private JTextField textMethodName;
     private JTextField textIndex;
     private MethodSignatureSetting methodParameterSetting;
-    private TableView<MethodSignatureSetting> tableView;
+    private final TableView<MethodSignatureSetting> tableView;
 
-    private Project project;
+    private final Project project;
 
-    class ComboBoxRenderer extends ColoredListCellRenderer {
+    static class ComboBoxRenderer extends ColoredListCellRenderer {
         @Override
         protected void customizeCellRenderer(JList list, Object value, int index, boolean selected, boolean hasFocus) {
             append((String) value);
@@ -43,6 +44,7 @@ public class MethodSignatureTypeDialog extends JDialog {
         this.tableView = tableView;
         this.project = project;
 
+        createUIComponents();
         setContentPane(contentPane);
         setModal(true);
         getRootPane().setDefaultButton(buttonOK);
@@ -69,7 +71,7 @@ public class MethodSignatureTypeDialog extends JDialog {
         // allow only number values to indexes
         // simple?
         this.textIndex.addKeyListener(new KeyAdapter() {
-            private String allowedRegex = "[^0-9]";
+            private final String allowedRegex = "[^0-9]";
 
             @Override
             public void keyReleased(KeyEvent e) {
@@ -84,7 +86,7 @@ public class MethodSignatureTypeDialog extends JDialog {
     }
 
     private void attachComboBoxValues(Project project) {
-        for(PhpTypeSignatureInterface provider: PhpTypeSignatureTypes.DEFAULT_PROVIDER) {
+        for (PhpTypeSignatureInterface provider : PhpTypeSignatureTypes.DEFAULT_PROVIDER) {
             comboProvider.addItem(provider.getName());
         }
     }
@@ -97,10 +99,45 @@ public class MethodSignatureTypeDialog extends JDialog {
         this.textIndex.setText(String.valueOf(methodParameterSetting.getIndexParameter()));
         this.methodParameterSetting = methodParameterSetting;
 
-        if(methodParameterSetting.getReferenceProviderName() != null) {
+        if (methodParameterSetting.getReferenceProviderName() != null) {
             this.comboProvider.setSelectedItem(methodParameterSetting.getReferenceProviderName());
         }
 
+    }
+
+    private void createUIComponents() {
+        contentPane = new JPanel(new BorderLayout(0, 5));
+        contentPane.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+        textCallTo = new JTextField(20);
+        textMethodName = new JTextField(20);
+        textIndex = new JTextField(20);
+        comboProvider = new JComboBox<>();
+
+        JPanel fieldsPanel = new JPanel(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(2, 2, 2, 2);
+        gbc.anchor = GridBagConstraints.WEST;
+
+        String[] labels = {"CallTo", "Method", "Index", "Provider"};
+        JComponent[] fields = {textCallTo, textMethodName, textIndex, comboProvider};
+
+        for (int i = 0; i < labels.length; i++) {
+            gbc.gridx = 0; gbc.gridy = i; gbc.fill = GridBagConstraints.NONE; gbc.weightx = 0;
+            fieldsPanel.add(new JLabel(labels[i]), gbc);
+            gbc.gridx = 1; gbc.fill = GridBagConstraints.HORIZONTAL; gbc.weightx = 1.0;
+            fieldsPanel.add(fields[i], gbc);
+        }
+
+        buttonOK = new JButton("OK");
+        buttonCancel = new JButton("Cancel");
+
+        JPanel buttonsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
+        buttonsPanel.add(buttonOK);
+        buttonsPanel.add(buttonCancel);
+
+        contentPane.add(fieldsPanel, BorderLayout.CENTER);
+        contentPane.add(buttonsPanel, BorderLayout.SOUTH);
     }
 
     private void onOK() {
@@ -116,7 +153,7 @@ public class MethodSignatureTypeDialog extends JDialog {
 
         // re-add old item to not use public setter wor twigpaths
         // update ?
-        if(this.methodParameterSetting != null) {
+        if (this.methodParameterSetting != null) {
             int row = this.tableView.getSelectedRows()[0];
             this.tableView.getListTableModel().removeRow(row);
             this.tableView.getListTableModel().insertRow(row, twigPath);
@@ -132,9 +169,9 @@ public class MethodSignatureTypeDialog extends JDialog {
 
     private void setOkState() {
         this.buttonOK.setEnabled(
-            this.textCallTo.getText().length() > 0 &&
-            this.textMethodName.getText().length() > 0 &&
-            this.textIndex.getText().length() > 0
+            !this.textCallTo.getText().isEmpty() &&
+                !this.textMethodName.getText().isEmpty() &&
+                !this.textIndex.getText().isEmpty()
         );
     }
 

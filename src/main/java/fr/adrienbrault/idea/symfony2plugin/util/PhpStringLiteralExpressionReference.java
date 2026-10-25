@@ -19,8 +19,8 @@ import java.util.ArrayList;
  */
 public class PhpStringLiteralExpressionReference extends PsiReferenceProvider {
 
-    private ArrayList<Call> oneOfCall = new ArrayList<>();
-    private Class referenceClass;
+    private final ArrayList<Call> oneOfCall = new ArrayList<>();
+    private final Class referenceClass;
 
     public PhpStringLiteralExpressionReference(Class referenceClass) {
         this.referenceClass = referenceClass;
@@ -39,11 +39,10 @@ public class PhpStringLiteralExpressionReference extends PsiReferenceProvider {
     @NotNull
     @Override
     public PsiReference[] getReferencesByElement(@NotNull PsiElement psiElement, @NotNull ProcessingContext processingContext) {
-        if (!Symfony2ProjectComponent.isEnabled(psiElement) || !(psiElement.getContext() instanceof ParameterList)) {
+        if (!Symfony2ProjectComponent.isEnabled(psiElement) || !(psiElement.getContext() instanceof ParameterList parameterList)) {
             return new PsiReference[0];
         }
 
-        ParameterList parameterList = (ParameterList) psiElement.getContext();
         PsiElement methodReference = parameterList.getContext();
         if (!(methodReference instanceof MethodReference)) {
             return new PsiReference[0];
@@ -58,10 +57,11 @@ public class PhpStringLiteralExpressionReference extends PsiReferenceProvider {
         return new PsiReference[0];
     }
 
+    @SuppressWarnings("unchecked")
     private PsiReference[] getPsiReferenceBase(PsiElement psiElement) {
 
         try {
-            PsiReferenceBase referenceClassInstance = (PsiReferenceBase) this.referenceClass.getDeclaredConstructor(StringLiteralExpression.class).newInstance((StringLiteralExpression) psiElement);
+            PsiReferenceBase referenceClassInstance = (PsiReferenceBase) this.referenceClass.getDeclaredConstructor(StringLiteralExpression.class).newInstance(psiElement);
             return new PsiReference[]{  referenceClassInstance };
         } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException ignored) {
         }
@@ -69,9 +69,9 @@ public class PhpStringLiteralExpressionReference extends PsiReferenceProvider {
         return new PsiReference[0];
     }
 
-    private class Call {
-        private String className;
-        private String methodName;
+    private static class Call {
+        private final String className;
+        private final String methodName;
         private int index = 0;
 
         public Call(String className, String methodName) {
@@ -95,5 +95,9 @@ public class PhpStringLiteralExpressionReference extends PsiReferenceProvider {
         private String getMethodName() {
             return methodName;
         }
+    }
+
+    public boolean acceptsTarget(@NotNull PsiElement target) {
+        return Symfony2ProjectComponent.isEnabled(target);
     }
 }

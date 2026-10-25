@@ -1,34 +1,36 @@
 package fr.adrienbrault.idea.symfony2plugin.util;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
-import org.apache.commons.lang.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import com.intellij.codeInsight.completion.CompletionResultSet;
+import com.intellij.lang.ASTNode;
+import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.util.Key;
+import com.intellij.openapi.util.Ref;
 import com.intellij.patterns.ElementPattern;
+import com.intellij.patterns.PatternCondition;
 import com.intellij.patterns.PlatformPatterns;
 import com.intellij.patterns.PsiElementPattern;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiPolyVariantReference;
-import com.intellij.psi.PsiRecursiveElementVisitor;
-import com.intellij.psi.PsiRecursiveElementWalkingVisitor;
-import com.intellij.psi.PsiReference;
-import com.intellij.psi.PsiWhiteSpace;
-import com.intellij.psi.ResolveResult;
+import com.intellij.psi.*;
+import com.intellij.psi.codeStyle.CodeStyleManager;
+import com.intellij.psi.formatter.FormatterUtil;
+import com.intellij.psi.search.GlobalSearchScope;
+import com.intellij.psi.util.CachedValue;
+import com.intellij.psi.util.CachedValueProvider;
+import com.intellij.psi.util.CachedValuesManager;
 import com.intellij.psi.util.PsiTreeUtil;
+import com.intellij.util.ProcessingContext;
 import com.intellij.util.Processor;
+import com.intellij.util.indexing.FileBasedIndex;
+import com.jetbrains.php.PhpClassHierarchyUtils;
 import com.jetbrains.php.PhpIndex;
 import com.jetbrains.php.codeInsight.PhpCodeInsightUtil;
+import com.jetbrains.php.codeInsight.PhpScopeHolder;
+import com.jetbrains.php.codeInsight.controlFlow.PhpControlFlowUtil;
+import com.jetbrains.php.codeInsight.controlFlow.PhpInstructionProcessor;
+import com.jetbrains.php.codeInsight.controlFlow.instructions.PhpAccessVariableInstruction;
+import com.jetbrains.php.codeInsight.controlFlow.instructions.PhpCallInstruction;
+import com.jetbrains.php.codeInsight.controlFlow.instructions.PhpConstructorCallInstruction;
+import com.jetbrains.php.codeInsight.controlFlow.instructions.PhpReturnInstruction;
 import com.jetbrains.php.completion.PhpLookupElement;
 import com.jetbrains.php.lang.PhpLangUtil;
 import com.jetbrains.php.lang.PhpLanguage;
@@ -39,17 +41,53 @@ import com.jetbrains.php.lang.psi.PhpFile;
 import com.jetbrains.php.lang.psi.PhpPsiElementFactory;
 import com.jetbrains.php.lang.psi.PhpPsiUtil;
 import com.jetbrains.php.lang.psi.elements.*;
+import com.jetbrains.php.lang.psi.elements.impl.ClassConstImpl;
+import com.jetbrains.php.lang.psi.elements.impl.ConstantImpl;
+import com.jetbrains.php.lang.psi.elements.impl.PhpDefineImpl;
 import com.jetbrains.php.lang.psi.resolve.types.PhpType;
+import com.jetbrains.php.lang.psi.stubs.indexes.PhpClassFqnIndex;
+import com.jetbrains.php.lang.psi.stubs.indexes.PhpInterfaceFqnIndex;
+import com.jetbrains.php.lang.psi.stubs.indexes.expectedArguments.PhpExpectedFunctionArgument;
+import com.jetbrains.php.lang.psi.stubs.indexes.expectedArguments.PhpExpectedFunctionClassConstantArgument;
+import com.jetbrains.php.lang.psi.stubs.indexes.expectedArguments.PhpExpectedFunctionScalarArgument;
 import com.jetbrains.php.phpunit.PhpUnitUtil;
 import com.jetbrains.php.refactoring.PhpAliasImporter;
-import consulo.php.lang.psi.PhpClass;
 import fr.adrienbrault.idea.symfony2plugin.dic.MethodReferenceBag;
+import fr.adrienbrault.idea.symfony2plugin.stubs.cache.FileIndexCaches;
 import fr.adrienbrault.idea.symfony2plugin.util.psi.PsiElementAssertUtil;
+import kotlin.Pair;
+import org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
+import static fr.adrienbrault.idea.symfony2plugin.util.StringUtils.startWithEqualClassname;
+
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class PhpElementsUtil {
+
+    /**
+     * Cache for class/interface existence checks to avoid repeated PhpIndex queries
+     */
+    private static final Key<CachedValue<Map<String, Boolean>>> CLASS_EXISTS_CACHE = new Key<>("SYMFONY_PHP_CLASS_EXISTS_CACHE");
+
+    /**
+     * Only parameter on first index or named: "a('caret'), a(test: 'caret')"
+     */
+    private static final PatternCondition<StringLiteralExpression> WITH_PREVIOUS_WHITESPACE_OR_COLON = new PatternCondition<>("whitespace or colon") {
+        @Override
+        public boolean accepts(@NotNull StringLiteralExpression element, ProcessingContext context) {
+            ASTNode previousNonWhitespaceSibling = FormatterUtil.getPreviousNonWhitespaceSibling(element.getNode());
+            return previousNonWhitespaceSibling == null || previousNonWhitespaceSibling.getElementType() == PhpTokenTypes.opCOLON;
+        }
+    };
+
     /**
      * Gets all array keys as string of an ArrayCreationExpression
      *
@@ -73,6 +111,30 @@ public class PhpElementsUtil {
             PhpPsiElement child = arrayHashElement.getKey();
             if(child instanceof StringLiteralExpression) {
                 keys.put(((StringLiteralExpression) child).getContents(), child);
+            }
+            if(child instanceof ClassConstantReference) {
+                PsiElement val = ((ClassConstantReference) child).resolve();
+                if (val instanceof ClassConstImpl) {
+                    PsiElement value = ((ClassConstImpl) val).getDefaultValue();
+                    if (value != null && value.getText() != null) {
+                        keys.put(value.getText().replace("\"", "").replace("\'", ""), child);
+                    }
+                }
+            }
+            if(child instanceof ConstantReference) {
+                PsiElement val = ((ConstantReference) child).resolve();
+                if(val instanceof PhpDefine) {
+                    PhpPsiElement value = ((PhpDefineImpl) val).getValue();
+                    if (value != null) {
+                        keys.put(value.getText().replace("\"", "").replace("\'", ""), child);
+                    }
+                }
+                if(val instanceof ConstantImpl) {
+                    PsiElement value = ((ConstantImpl) val).getValue();
+                    if (value != null && value.getText() != null) {
+                        keys.put(value.getText().replace("\"", "").replace("\'", ""), child);
+                    }
+                }
             }
         }
 
@@ -103,8 +165,93 @@ public class PhpElementsUtil {
         Map<String, PsiElement> keys = new HashMap<>();
         for (PsiElement child : arrayValues) {
             String stringValue = PhpElementsUtil.getStringValue(child.getFirstChild());
-            if(stringValue != null && StringUtils.isNotBlank(stringValue)) {
+            if(StringUtils.isNotBlank(stringValue)) {
                 keys.put(stringValue, child);
+            }
+        }
+
+        return keys;
+    }
+
+    /**
+     * Get array values
+     *
+     * ["value", FOO::class] but not [$foo . $foo, $foo]
+     */
+    @NotNull
+    static public PsiElement[] getArrayValues(@NotNull ArrayCreationExpression arrayCreationExpression) {
+        Collection<PsiElement> arrayValues = PhpPsiUtil.getChildren(arrayCreationExpression, psiElement ->
+            psiElement.getNode().getElementType() == PhpElementTypes.ARRAY_VALUE
+        );
+
+        List<PsiElement> items = new ArrayList<>();
+        for (PsiElement child : arrayValues) {
+            if (child instanceof PhpPsiElement) {
+                PsiElement[] children = child.getChildren();
+                if (children.length == 1) {
+                    items.add(children[0]);
+                } else {
+                    // inalid for use: [$foo . $foo]
+                    return new PsiElement[0];
+                }
+            }
+        }
+
+        return items.toArray(new PsiElement[0]);
+    }
+
+    /**
+     * array('foo' => FOO.class, 'foo1' => 'bar', 1 => 'foo')
+     */
+    @NotNull
+    static public Map<String, PsiElement> getArrayKeyValueMapWithValueAsPsiElement(@NotNull ArrayCreationExpression arrayCreationExpression) {
+        HashMap<String, PsiElement> keys = new HashMap<>();
+
+        for(ArrayHashElement arrayHashElement: arrayCreationExpression.getHashElements()) {
+            PhpPsiElement child = arrayHashElement.getKey();
+            if(child != null && ((child instanceof StringLiteralExpression) || PhpPatterns.psiElement(PhpElementTypes.NUMBER).accepts(child))) {
+
+                String key;
+                if(child instanceof StringLiteralExpression) {
+                    key = ((StringLiteralExpression) child).getContents();
+                } else {
+                    key = child.getText();
+                }
+
+                if(key == null || StringUtils.isBlank(key)) {
+                    continue;
+                }
+
+                keys.put(key, arrayHashElement.getValue());
+            }
+        }
+
+        return keys;
+    }
+
+    /**
+     * array('foo' => FOO.class, 'foo1' => 'bar', 1 => 'foo')
+     */
+    @NotNull
+    static public Map<String, Pair<PsiElement, PsiElement>> getArrayKeyValueMapWithKeyAndValueElement(@NotNull ArrayCreationExpression arrayCreationExpression) {
+        HashMap<String, Pair<PsiElement, PsiElement>> keys = new HashMap<>();
+
+        for(ArrayHashElement arrayHashElement: arrayCreationExpression.getHashElements()) {
+            PhpPsiElement child = arrayHashElement.getKey();
+            if(child != null && ((child instanceof StringLiteralExpression) || PhpPatterns.psiElement(PhpElementTypes.NUMBER).accepts(child))) {
+
+                String key;
+                if(child instanceof StringLiteralExpression) {
+                    key = ((StringLiteralExpression) child).getContents();
+                } else {
+                    key = child.getText();
+                }
+
+                if(key == null || StringUtils.isBlank(key)) {
+                    continue;
+                }
+
+                keys.put(key, new Pair<>(arrayHashElement.getKey(), arrayHashElement.getValue()));
             }
         }
 
@@ -179,19 +326,38 @@ public class PhpElementsUtil {
         return null;
     }
 
-    static public PsiElement[] getPsiElementsBySignature(@NotNull Project project, @Nullable String signature) {
+    @Nullable
+    static public Boolean getArrayValueBool(@NotNull ArrayCreationExpression arrayCreationExpression, @NotNull String name) {
+        PhpPsiElement phpPsiElement = getArrayValue(arrayCreationExpression, name);
+        if(phpPsiElement == null) {
+            return null;
+        }
+
+        if (phpPsiElement instanceof ConstantReference) {
+            String lowerCase = phpPsiElement.getText().toLowerCase();
+            if (lowerCase.equals("true")) {
+                return true;
+            } else if (lowerCase.equals("false")) {
+                return false;
+            }
+        }
+
+        return null;
+    }
+
+    static public PhpNamedElement[] getPsiElementsBySignature(@NotNull Project project, @Nullable String signature) {
 
         if(signature == null) {
-            return new PsiElement[0];
+            return new PhpNamedElement[0];
         }
 
         Collection<? extends PhpNamedElement> phpNamedElementCollections = PhpIndex.getInstance(project).getBySignature(signature, null, 0);
-        return phpNamedElementCollections.toArray(new PsiElement[phpNamedElementCollections.size()]);
+        return phpNamedElementCollections.toArray(new PhpNamedElement[0]);
     }
 
     @Nullable
-    static public PsiElement getPsiElementsBySignatureSingle(Project project, @Nullable String signature) {
-        PsiElement[] psiElements = getPsiElementsBySignature(project, signature);
+    static public PhpNamedElement getPsiElementsBySignatureSingle(Project project, @Nullable String signature) {
+        PhpNamedElement[] psiElements = getPsiElementsBySignature(project, signature);
         if(psiElements.length == 0) {
             return null;
         }
@@ -240,6 +406,11 @@ public class PhpElementsUtil {
         return null != methodRefName && Arrays.asList(methodName).contains(methodRefName);
     }
 
+    /**
+     *
+     * @deprecated use getMethodWithFirstStringOrNamedArgumentPattern
+     */
+    @Deprecated
     static public PsiElementPattern.Capture<StringLiteralExpression> getMethodWithFirstStringPattern() {
         return PlatformPatterns
             .psiElement(StringLiteralExpression.class)
@@ -253,6 +424,221 @@ public class PhpElementsUtil {
                     )
             )
             .withLanguage(PhpLanguage.INSTANCE);
+    }
+
+    /**
+     * "$var->format(x: 'te<caret>st')"
+     * "$var->format($x, 'te<caret>st')"
+     * "$var->format('te<caret>st')"
+     *
+     * "not $var->format('', 'te<caret>st')"
+     */
+    static public PsiElementPattern.Capture<StringLiteralExpression> getMethodWithFirstStringOrNamedArgumentPattern() {
+        return PlatformPatterns
+            .psiElement(StringLiteralExpression.class)
+            .withParent(
+                PlatformPatterns.psiElement(PhpElementTypes.PARAMETER_LIST)
+            )
+            .with(WITH_PREVIOUS_WHITESPACE_OR_COLON)
+            .withLanguage(PhpLanguage.INSTANCE);
+    }
+
+    /**
+     * "$var->format(x: 'te<caret>st')"
+     * "$var->format($x, 'te<caret>st')"
+     * "$var->format('te<caret>st')"
+     */
+    static public PsiElementPattern.Capture<StringLiteralExpression> getMethodParameterListStringPattern() {
+        return PlatformPatterns
+            .psiElement(StringLiteralExpression.class)
+            .withParent(
+                PlatformPatterns.psiElement(PhpElementTypes.PARAMETER_LIST).withParent(
+                    PlatformPatterns.psiElement(PhpElementTypes.METHOD_REFERENCE)
+                )
+            )
+            .withLanguage(PhpLanguage.INSTANCE);
+    }
+
+    static public PsiElementPattern.Capture<StringLiteralExpression> getFunctionWithFirstStringPattern(@NotNull String... functionName) {
+        return PlatformPatterns
+            .psiElement(StringLiteralExpression.class)
+            .withParent(
+                PlatformPatterns.psiElement(ParameterList.class)
+                    .withFirstChild(
+                        PlatformPatterns.psiElement(PhpElementTypes.STRING)
+                    )
+                    .withParent(
+                        PlatformPatterns.psiElement(FunctionReference.class).with(new PatternCondition<>("function match") {
+                            @Override
+                            public boolean accepts(@NotNull FunctionReference functionReference, ProcessingContext processingContext) {
+                                return ArrayUtils.contains(functionName, functionReference.getName());
+                            }
+                        })
+                    )
+            )
+            .withLanguage(PhpLanguage.INSTANCE);
+    }
+
+    public static final PatternCondition<PsiElement> EMPTY_PREVIOUS_LEAF = new PatternCondition<>("previous leaf empty") {
+        @Override
+        public boolean accepts(@NotNull PsiElement stringLiteralExpression, ProcessingContext context) {
+            return stringLiteralExpression.getPrevSibling() == null;
+        }
+    };
+
+    /**
+     * #[Security("is_granted('POST_SHOW')")]
+     */
+    @NotNull
+    public static PsiElementPattern.Capture<PsiElement> getFirstAttributeStringPattern(@NotNull String clazz) {
+        return PlatformPatterns.psiElement().withElementType(PlatformPatterns.elementType().or(
+                PhpTokenTypes.STRING_LITERAL_SINGLE_QUOTE,
+                PhpTokenTypes.STRING_LITERAL
+            ))
+            .withParent(PlatformPatterns.psiElement(StringLiteralExpression.class)
+                .with(EMPTY_PREVIOUS_LEAF)
+                .withParent(PlatformPatterns.psiElement(ParameterList.class)
+                    .withParent(PlatformPatterns.psiElement(PhpAttribute.class)
+                        .with(new AttributeInstancePatternCondition(clazz))
+                    )
+                )
+            );
+    }
+
+    /**
+     * #[Security("is_granted(['POST_SHOW'])")]
+     */
+    @NotNull
+    public static PsiElementPattern.Capture<PsiElement> getFirstAttributeArrayStringPattern(@NotNull String clazz) {
+        return PlatformPatterns.psiElement().withElementType(PlatformPatterns.elementType().or(
+                PhpTokenTypes.STRING_LITERAL_SINGLE_QUOTE,
+                PhpTokenTypes.STRING_LITERAL
+            ))
+            .withParent(PlatformPatterns.psiElement(StringLiteralExpression.class)
+                .withParent(PlatformPatterns.psiElement(PhpElementTypes.ARRAY_VALUE).withParent(
+                    PlatformPatterns.psiElement(ArrayCreationExpression.class).with(EMPTY_PREVIOUS_LEAF).withParent(PlatformPatterns.psiElement(ParameterList.class)
+                        .withParent(PlatformPatterns.psiElement(PhpAttribute.class)
+                            .with(new AttributeInstancePatternCondition(clazz))
+                        )
+                    )
+                ))
+            );
+    }
+
+    /**
+     * #[Security(foobar: "is_granted('POST_SHOW')")]
+     */
+    @NotNull
+    public static PsiElementPattern.Capture<PsiElement> getAttributeNamedArgumentStringPattern(@NotNull String clazz, @NotNull String namedArgument) {
+        return PlatformPatterns.psiElement().withElementType(PlatformPatterns.elementType().or(
+                PhpTokenTypes.STRING_LITERAL_SINGLE_QUOTE,
+                PhpTokenTypes.STRING_LITERAL
+            ))
+            .withParent(getAttributeNamedArgumentStringLiteralPattern(clazz, namedArgument));
+    }
+
+    /**
+     * #[Security(foobar: "is_granted('POST_SHOW')")]
+     */
+    public static PsiElementPattern.@NotNull Capture<StringLiteralExpression> getAttributeNamedArgumentStringLiteralPattern(@NotNull String clazz, @NotNull String namedArgument) {
+        return PlatformPatterns.psiElement(StringLiteralExpression.class)
+                .afterLeafSkipping(
+                    PlatformPatterns.psiElement(PsiWhiteSpace.class),
+                    PlatformPatterns.psiElement(PhpTokenTypes.opCOLON).afterLeafSkipping(
+                        PlatformPatterns.psiElement(PsiWhiteSpace.class),
+                        PlatformPatterns.psiElement(PhpTokenTypes.IDENTIFIER).withText(namedArgument)
+                    )
+                )
+                .withParent(PlatformPatterns.psiElement(ParameterList.class)
+                    .withParent(PlatformPatterns.psiElement(PhpAttribute.class)
+                        .with(new AttributeInstancePatternCondition(clazz))
+                    )
+                );
+    }
+
+    /**
+     * "#[FOO(namedArgument: '<caret>'])]"
+     */
+    public static PsiElementPattern.@NotNull Capture<StringLiteralExpression> getAttributeNamedArgumentStringLiteralPattern(@NotNull String namedArgument) {
+        return PlatformPatterns.psiElement(StringLiteralExpression.class)
+            .afterLeafSkipping(
+                PlatformPatterns.psiElement(PsiWhiteSpace.class),
+                PlatformPatterns.psiElement(PhpTokenTypes.opCOLON).afterLeafSkipping(
+                    PlatformPatterns.psiElement(PsiWhiteSpace.class),
+                    PlatformPatterns.psiElement(PhpTokenTypes.IDENTIFIER).withText(namedArgument)
+                )
+            )
+            .withParent(PlatformPatterns.psiElement(ParameterList.class)
+                .withParent(PlatformPatterns.psiElement(PhpAttribute.class))
+            );
+    }
+
+    /**
+     * #[Security(tags: ['foobar']])]
+     */
+    @NotNull
+    public static PsiElementPattern.Capture<PsiElement> getAttributeNamedArgumentArrayStringPattern(@NotNull String clazz, @NotNull String namedArgument) {
+        return PlatformPatterns.psiElement().withElementType(PlatformPatterns.elementType().or(
+                PhpTokenTypes.STRING_LITERAL_SINGLE_QUOTE,
+                PhpTokenTypes.STRING_LITERAL
+            ))
+            .withParent(PlatformPatterns.psiElement(StringLiteralExpression.class)
+                .withParent(PlatformPatterns.psiElement(PhpElementTypes.ARRAY_VALUE).withParent(
+                    PlatformPatterns.psiElement(ArrayCreationExpression.class).afterLeafSkipping(
+                            PlatformPatterns.psiElement(PsiWhiteSpace.class),
+                            PlatformPatterns.psiElement(PhpTokenTypes.opCOLON).afterLeafSkipping(
+                                PlatformPatterns.psiElement(PsiWhiteSpace.class),
+                                PlatformPatterns.psiElement(PhpTokenTypes.IDENTIFIER).withText(namedArgument)
+                            )
+                        )
+                        .withParent(PlatformPatterns.psiElement(ParameterList.class)
+                            .withParent(PlatformPatterns.psiElement(PhpAttribute.class)
+                                .with(new AttributeInstancePatternCondition(clazz))
+                            )
+                        )
+                ))
+            );
+    }
+
+    /**
+     * Collect all function references with the given name(s) inside a control flow
+     *
+     * @param phpScopeHolder the scope holder (method, function, etc.)
+     * @param functionName   the function name(s) to search for
+     * @return collection of function references found
+     */
+    @NotNull
+    public static Collection<FunctionReference> collectFunctionReferencesInsideControlFlow(@NotNull PhpScopeHolder phpScopeHolder, @NotNull String... functionName) {
+        Collection<FunctionReference> functionReferences = new ArrayList<>();
+
+        PhpControlFlowUtil.processFlow(phpScopeHolder.getControlFlow(), new PhpInstructionProcessor() {
+            @Override
+            public boolean processPhpCallInstruction(PhpCallInstruction instruction) {
+                if (instruction.getFunctionReference() instanceof FunctionReference funcReference && Arrays.stream(functionName).anyMatch(s -> s.equals(funcReference.getName()))) {
+                    functionReferences.add(funcReference);
+                }
+                return super.processPhpCallInstruction(instruction);
+            }
+        });
+
+        return functionReferences;
+    }
+
+    /**
+     * Check if given Attribute
+     */
+    private static class AttributeInstancePatternCondition extends PatternCondition<PsiElement> {
+        private final String clazz;
+
+        AttributeInstancePatternCondition(@NotNull String clazz) {
+            super("Attribute Instance");
+            this.clazz = clazz;
+        }
+
+        @Override
+        public boolean accepts(@NotNull PsiElement psiElement, ProcessingContext processingContext) {
+            return clazz.equals(((PhpAttribute) psiElement).getFQN());
+        }
     }
 
     /**
@@ -273,6 +659,36 @@ public class PhpElementsUtil {
             .withLanguage(PhpLanguage.INSTANCE);
     }
 
+    static public PsiElementPattern.Capture<PsiElement> getParameterInsideNewExpressionPattern() {
+        return PlatformPatterns
+            .psiElement()
+            .withParent(
+                PlatformPatterns.psiElement(StringLiteralExpression.class)
+                    .withParent(
+                        PlatformPatterns.psiElement(ParameterList.class)
+                            .withParent(
+                                PlatformPatterns.psiElement(NewExpression.class)
+                            )
+                    )
+            )
+            .withLanguage(PhpLanguage.INSTANCE);
+    }
+
+    static public PsiElementPattern.Capture<PsiElement> getParameterInsideFunctionReferencePattern() {
+        return PlatformPatterns
+            .psiElement()
+            .withParent(
+                PlatformPatterns.psiElement(StringLiteralExpression.class)
+                    .withParent(
+                        PlatformPatterns.psiElement(ParameterList.class)
+                            .withParent(
+                                PlatformPatterns.psiElement(FunctionReference.class)
+                            )
+                    )
+            )
+            .withLanguage(PhpLanguage.INSTANCE);
+    }
+
     /**
      * class "Foo" extends
      */
@@ -284,6 +700,20 @@ public class PhpElementsUtil {
                 PlatformPatterns.psiElement(PhpTokenTypes.kwCLASS)
             )
             .withParent(PhpClass.class)
+            .withLanguage(PhpLanguage.INSTANCE);
+    }
+
+    /**
+     * class Foo { function "test" {} }
+     */
+    static public PsiElementPattern.Capture<PsiElement> getClassMethodNamePattern() {
+        return PlatformPatterns
+            .psiElement(PhpTokenTypes.IDENTIFIER)
+            .afterLeafSkipping(
+                PlatformPatterns.psiElement(PsiWhiteSpace.class),
+                PlatformPatterns.psiElement(PhpTokenTypes.kwFUNCTION)
+            )
+            .withParent(Method.class)
             .withLanguage(PhpLanguage.INSTANCE);
     }
 
@@ -308,7 +738,7 @@ public class PhpElementsUtil {
     @Nullable
     static public String getMethodReturnAsString(@NotNull PhpClass phpClass, @NotNull String methodName) {
         final Collection<String> values = getMethodReturnAsStrings(phpClass, methodName);
-        if(values.size() == 0) {
+        if(values.isEmpty()) {
             return null;
         }
 
@@ -320,26 +750,27 @@ public class PhpElementsUtil {
      * Find a string return value of a method context "function() { return 'foo'}"
      */
     @NotNull
-    static public Collection<String> getMethodReturnAsStrings(@NotNull PhpClass phpClass, @NotNull String methodName) {
-
+    public static Collection<String> getMethodReturnAsStrings(@NotNull PhpClass phpClass, @NotNull String methodName) {
         Method method = phpClass.findMethodByName(methodName);
         if(method == null) {
             return Collections.emptyList();
         }
 
-        final Set<String> values = new HashSet<>();
-        method.acceptChildren(new PsiRecursiveElementWalkingVisitor() {
-            @Override
-            public void visitElement(PsiElement element) {
+        Set<String> values = new HashSet<>();
 
+        PhpControlFlowUtil.processFlow(method.getControlFlow(), new PhpInstructionProcessor() {
+            @Override
+            public boolean processReturnInstruction(PhpReturnInstruction instruction) {
+                PsiElement element = instruction.getArgument();
+                
                 if(PhpElementsUtil.getMethodReturnPattern().accepts(element)) {
                     String value = PhpElementsUtil.getStringValue(element);
-                    if(value != null && StringUtils.isNotBlank(value)) {
+                    if(StringUtils.isNotBlank(value)) {
                         values.add(value);
                     }
                 }
 
-                super.visitElement(element);
+                return super.processReturnInstruction(instruction);
             }
         });
 
@@ -366,7 +797,46 @@ public class PhpElementsUtil {
     @Nullable
     static public PhpClass getClassInterface(Project project, @NotNull String className) {
         Collection<PhpClass> phpClasses = PhpIndex.getInstance(project).getAnyByFQN(className);
-        return phpClasses.size() == 0 ? null : phpClasses.iterator().next();
+        return phpClasses.isEmpty() ? null : phpClasses.iterator().next();
+    }
+
+    static public boolean hasClassOrInterface(@NotNull Project project, @NotNull String classFqnName) {
+        // Normalize FQN to start with backslash (index convention)
+        if (!classFqnName.startsWith("\\")) {
+            classFqnName = "\\" + classFqnName;
+        }
+
+        final String normalizedFqn = classFqnName;
+
+        // Get or create the cached map.
+        // Only invalidate when PHP class/interface definitions change,
+        // not on any PSI modification (YAML, XML, Twig, etc.).
+        // The provider lambda captures only `project` (stable per-project), so the
+        // captured context stays identical across repeated calls for the same project.
+        Map<String, Boolean> cache = CachedValuesManager.getManager(project).getCachedValue(
+            project,
+            CLASS_EXISTS_CACHE,
+            () -> CachedValueProvider.Result.create(
+                new ConcurrentHashMap<>(),
+                FileIndexCaches.getModificationTrackerForIndexId(project, PhpClassFqnIndex.KEY),
+                FileIndexCaches.getModificationTrackerForIndexId(project, PhpInterfaceFqnIndex.KEY)
+            ),
+            false
+        );
+
+        // Check the cache first, compute and store if missing
+        return cache.computeIfAbsent(normalizedFqn, fqn -> {
+            FileBasedIndex index = FileBasedIndex.getInstance();
+            GlobalSearchScope scope = GlobalSearchScope.allScope(project);
+
+            // Check class FQN index (lightweight - no PhpClass loading)
+            if (!index.getValues(PhpClassFqnIndex.KEY, fqn, scope).isEmpty()) {
+                return true;
+            }
+
+            // Check interface FQN index (lightweight - no PhpClass loading)
+            return !index.getValues(PhpInterfaceFqnIndex.KEY, fqn, scope).isEmpty();
+        });
     }
 
     /**
@@ -374,27 +844,78 @@ public class PhpElementsUtil {
      * @param expectedClass eg DateTimeInterface
      */
     public static boolean isInstanceOf(@NotNull PhpClass subjectClass, @NotNull PhpClass expectedClass) {
-        return new PhpType().add(expectedClass).isConvertibleFrom(new PhpType().add(subjectClass), PhpIndex.getInstance(subjectClass.getProject()));
+        if (PhpLangUtil.equalsClassNames(subjectClass.getFQN(), expectedClass.getFQN())) {
+            return true;
+        }
+
+        Ref<Boolean> ref = new Ref<>(false);
+        PhpClassHierarchyUtils.processSupers(subjectClass, false, true, curClass -> {
+            ref.set(PhpLangUtil.equalsClassNames(curClass.getFQN(), expectedClass.getFQN()));
+            return !(Boolean) ref.get();
+        });
+
+        return ref.get();
     }
 
     /**
      * @param subjectClass eg DateTime
-     * @param expectedClass eg DateTimeInterface
+     * @param expectedClassAsString eg DateTimeInterface
      */
-    public static boolean isInstanceOf(@NotNull PhpClass subjectClass, @NotNull String expectedClass) {
-        return new PhpType().add(expectedClass).isConvertibleFrom(new PhpType().add(subjectClass), PhpIndex.getInstance(subjectClass.getProject()));
+    public static boolean isInstanceOf(@NotNull PhpClass subjectClass, @NotNull String expectedClassAsString) {
+        if (("\\" + StringUtils.stripStart(expectedClassAsString, "\\")).equals(subjectClass.getFQN())) {
+            return true;
+        }
+
+        for (PhpClass expectedClass : PhpIndex.getInstance(subjectClass.getProject()).getAnyByFQN(expectedClassAsString)) {
+            if (isInstanceOf(subjectClass, expectedClass)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public static boolean isInstanceOf(@NotNull PhpClass subjectClass, @NotNull String ...expectedClassAsString) {
+        return Arrays.stream(expectedClassAsString).anyMatch(clazz -> isInstanceOf(subjectClass, clazz));
     }
 
     /**
-     * @param subjectClass eg DateTime
+     * @param subjectClassAsString eg DateTime
      * @param expectedClass eg DateTimeInterface
      */
-    public static boolean isInstanceOf(@NotNull Project project, @NotNull String subjectClass, @NotNull String expectedClass) {
-        return new PhpType().add(expectedClass).isConvertibleFrom(new PhpType().add(subjectClass), PhpIndex.getInstance(project));
+    public static boolean isInstanceOf(@NotNull Project project, @NotNull String subjectClassAsString, @NotNull String expectedClass) {
+        if (("\\" + StringUtils.stripStart(subjectClassAsString, "\\")).equals(("\\" + StringUtils.stripStart(expectedClass, "\\")))) {
+            return true;
+        }
+
+        for (PhpClass subjectClass : PhpIndex.getInstance(project).getAnyByFQN(subjectClassAsString)) {
+            if (isInstanceOf(subjectClass, expectedClass)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     static public Collection<PhpClass> getClassesInterface(Project project, @NotNull String className) {
         return PhpIndex.getInstance(project).getAnyByFQN(className);
+    }
+
+    @NotNull
+    public static Collection<PhpClass> getClassesByClassFqn(@NotNull Project project, @NotNull String classFqn) {
+        return PhpIndex.getInstance(project).getClassesByFQN(classFqn);
+    }
+
+    @NotNull
+    public static Collection<PhpClass> getClassesByClassFqn(@NotNull Project project, @NotNull Collection<String> classFqns) {
+        Collection<PhpClass> phpClasses = new HashSet<>();
+        PhpIndex phpIndex = PhpIndex.getInstance(project);
+
+        for (String classFqn : classFqns) {
+            phpClasses.addAll(phpIndex.getClassesByFQN(classFqn));
+        }
+
+        return phpClasses;
     }
 
     static public void addClassPublicMethodCompletion(CompletionResultSet completionResultSet, PhpClass phpClass) {
@@ -415,6 +936,10 @@ public class PhpElementsUtil {
         return methods;
     }
 
+    static public boolean hasClassConstantFields(@NotNull PhpClass phpClass) {
+        return phpClass.getFields().stream().anyMatch(Field::isConstant);
+    }
+
     @Nullable
     static public String getArrayHashValue(ArrayCreationExpression arrayCreationExpression, String keyName) {
         ArrayHashElement translationArrayHashElement = PsiElementUtils.getChildrenOfType(arrayCreationExpression, PlatformPatterns.psiElement(ArrayHashElement.class)
@@ -429,17 +954,11 @@ public class PhpElementsUtil {
             return null;
         }
 
-        if(!(translationArrayHashElement.getValue() instanceof StringLiteralExpression)) {
-            return null;
-        }
-
-        StringLiteralExpression valueString = (StringLiteralExpression) translationArrayHashElement.getValue();
-        if(valueString == null) {
+        if(!(translationArrayHashElement.getValue() instanceof StringLiteralExpression valueString)) {
             return null;
         }
 
         return valueString.getContents();
-
     }
 
     static public boolean isEqualMethodReferenceName(MethodReference methodReference, String methodName) {
@@ -448,42 +967,28 @@ public class PhpElementsUtil {
     }
 
     @Nullable
-    static public PsiElement getArrayKeyValueInsideSignaturePsi(PsiElement psiElementInsideClass, String callTo[], String methodName, String keyName) {
+    static public String getArrayKeyValueInsideSignature(PsiElement psiElementInsideClass, String[] insideMethods, String methodName, String keyName) {
         PhpClass phpClass = PsiTreeUtil.getParentOfType(psiElementInsideClass, PhpClass.class);
-        if(phpClass == null) {
+        if (phpClass == null) {
             return null;
         }
 
-        String className = phpClass.getPresentableFQN();
-        for (String s : callTo) {
-            // @TODO: replace signature
-            PsiElement arrayKeyValueInsideSignature = PhpElementsUtil.getArrayKeyValueInsideSignaturePsi(psiElementInsideClass.getProject(), "#M#C\\" + className + "." + s, methodName, keyName);
-            if(arrayKeyValueInsideSignature != null) {
-                return arrayKeyValueInsideSignature;
+        for (String insideMethod : insideMethods) {
+            Method method = phpClass.findMethodByName(insideMethod);
+            if (method == null) {
+                continue;
             }
-        }
 
-        return null;
-    }
-
-    @Nullable
-    static public String getArrayKeyValueInsideSignature(PsiElement psiElementInsideClass, String callTo[], String methodName, String keyName) {
-        return getStringValue(getArrayKeyValueInsideSignaturePsi(psiElementInsideClass, callTo, methodName, keyName));
-    }
-
-    @Nullable
-    static private PsiElement getArrayKeyValueInsideSignaturePsi(Project project, String signature, String methodName, String keyName) {
-        PsiElement psiElement = PhpElementsUtil.getPsiElementsBySignatureSingle(project, signature);
-
-        if(psiElement == null) {
-            return null;
-        }
-
-        for(MethodReference methodReference: PsiTreeUtil.findChildrenOfType(psiElement, MethodReference.class)) {
-            if(PhpElementsUtil.isEqualMethodReferenceName(methodReference, methodName)) {
+            for (MethodReference methodReference : collectMethodReferencesInsideControlFlow(method, methodName)) {
                 PsiElement[] parameters = methodReference.getParameters();
-                if(parameters.length > 0 && parameters[0] instanceof ArrayCreationExpression) {
-                    return PhpElementsUtil.getArrayValue((ArrayCreationExpression) parameters[0], keyName);
+                if (parameters.length > 0 && parameters[0] instanceof ArrayCreationExpression) {
+                    PhpPsiElement arrayValue = PhpElementsUtil.getArrayValue((ArrayCreationExpression) parameters[0], keyName);
+                    if (arrayValue != null) {
+                        String stringValue = getStringValue(arrayValue);
+                        if (stringValue != null && !stringValue.isBlank()) {
+                            return stringValue;
+                        }
+                    }
                 }
             }
         }
@@ -492,14 +997,16 @@ public class PhpElementsUtil {
     }
 
     public static Method[] getImplementedMethods(@NotNull Method method) {
-        ArrayList<Method> items = getImplementedMethods(method.getContainingClass(), method, new ArrayList<>());
-        return items.toArray(new Method[items.size()]);
+        ArrayList<Method> items = getImplementedMethods(method.getContainingClass(), method, new ArrayList<>(), new HashSet<>());
+        return items.toArray(new Method[0]);
     }
 
-    private static ArrayList<Method> getImplementedMethods(@Nullable PhpClass phpClass, @NotNull Method method, ArrayList<Method> implementedMethods) {
-        if (phpClass == null) {
+    private static ArrayList<Method> getImplementedMethods(@Nullable PhpClass phpClass, @NotNull Method method, ArrayList<Method> implementedMethods, Set<PhpClass> visitedClasses) {
+        if (phpClass == null || visitedClasses.contains(phpClass)) {
             return implementedMethods;
         }
+
+        visitedClasses.add(phpClass);
 
         Method[] methods = phpClass.getOwnMethods();
         for (Method ownMethod : methods) {
@@ -509,10 +1016,10 @@ public class PhpElementsUtil {
         }
 
         for(PhpClass interfaceClass: phpClass.getImplementedInterfaces()) {
-            getImplementedMethods(interfaceClass, method, implementedMethods);
+            getImplementedMethods(interfaceClass, method, implementedMethods, visitedClasses);
         }
 
-        getImplementedMethods(phpClass.getSuperClass(), method, implementedMethods);
+        getImplementedMethods(phpClass.getSuperClass(), method, implementedMethods, visitedClasses);
 
         return implementedMethods;
     }
@@ -527,6 +1034,26 @@ public class PhpElementsUtil {
     @Nullable
     public static String getStringValue(@Nullable PsiElement psiElement) {
         return getStringValue(psiElement, 0);
+    }
+
+    /**
+     * Resolve only syntax-local string values.
+     *
+     * This variant is safe for FileBasedIndex indexers because it never resolves references
+     * or asks PhpIndex/stub indexes for non-indexed file data.
+     */
+    @Nullable
+    public static String getStringValueIndexSafe(@Nullable PsiElement psiElement) {
+        if (psiElement instanceof StringLiteralExpression) {
+            String resolvedString = ((StringLiteralExpression) psiElement).getContents();
+            return StringUtils.isEmpty(resolvedString) ? null : resolvedString;
+        }
+
+        if (psiElement instanceof ClassConstantReference classConstantReference && "class".equals(classConstantReference.getName())) {
+            return getClassConstantPhpFqn(classConstantReference);
+        }
+
+        return null;
     }
 
     @Nullable
@@ -567,20 +1094,20 @@ public class PhpElementsUtil {
     }
 
     public static String getPrevSiblingAsTextUntil(PsiElement psiElement, ElementPattern pattern, boolean includeMatching) {
-        String prevText = "";
+        StringBuilder prevText = new StringBuilder();
 
         for (PsiElement child = psiElement.getPrevSibling(); child != null; child = child.getPrevSibling()) {
             if(pattern.accepts(child)) {
                 if(includeMatching) {
                     return child.getText() + prevText;
                 }
-                return prevText;
+                return prevText.toString();
             } else {
-                prevText = child.getText() + prevText;
+                prevText.insert(0, child.getText());
             }
         }
 
-        return prevText;
+        return prevText.toString();
     }
 
     public static String getPrevSiblingAsTextUntil(PsiElement psiElement, ElementPattern pattern) {
@@ -620,6 +1147,21 @@ public class PhpElementsUtil {
         }
 
         return null;
+    }
+
+    static public PsiElementPattern.Capture<StringLiteralExpression> getPar() {
+        return PlatformPatterns
+            .psiElement(StringLiteralExpression.class)
+            .withParent(
+                PlatformPatterns.psiElement(PhpElementTypes.PARAMETER_LIST)
+                    .withFirstChild(
+                        PlatformPatterns.psiElement(PhpElementTypes.STRING)
+                    )
+                    .withParent(
+                        PlatformPatterns.psiElement(PhpElementTypes.METHOD_REFERENCE)
+                    )
+            )
+            .withLanguage(PhpLanguage.INSTANCE);
     }
 
     public static Collection<PhpClass> getClassFromPhpTypeSet(Project project, Set<String> types) {
@@ -672,8 +1214,13 @@ public class PhpElementsUtil {
 
     @Nullable
     public static PhpClass getFirstClassFromFile(PhpFile phpFile) {
-        Collection<PhpClass> phpClasses = PsiTreeUtil.collectElementsOfType(phpFile, PhpClass.class);
-        return phpClasses.size() == 0 ? null : phpClasses.iterator().next();
+        for (PhpNamedElement topLevelElement : phpFile.getTopLevelDefs().values()) {
+            if (topLevelElement instanceof PhpClass clazz) {
+                return clazz;
+            }
+        }
+
+        return null;
     }
 
     public static boolean isEqualClassName(@Nullable PhpClass phpClass, @Nullable String... compareClassNames) {
@@ -700,6 +1247,16 @@ public class PhpElementsUtil {
             .equals(StringUtils.stripStart(compareClassName, "\\"));
     }
 
+    public static boolean isEqualClassName(@NotNull String phpClass, @NotNull String ...compareClassNames) {
+        for (String compareClassName : compareClassNames) {
+            if (Objects.equals(StringUtils.stripStart(phpClass, "\\"), StringUtils.stripStart(compareClassName, "\\"))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     @NotNull
     public static PsiElement[] getMethodParameterReferences(@NotNull Method method, int parameterIndex) {
         // we dont have a parameter on resolved method
@@ -711,20 +1268,30 @@ public class PhpElementsUtil {
 
         String tempVariableName = parameters[parameterIndex].getName();
 
-        return PsiTreeUtil.collectElements(method.getLastChild(), element ->
-            element instanceof Variable && tempVariableName.equals(((Variable) element).getName())
-        );
+        Collection<PsiElement> psiElements = new ArrayList<>();
+
+        PhpControlFlowUtil.processFlow(method.getControlFlow(), new PhpInstructionProcessor() {
+            @Override
+            public boolean processAccessVariableInstruction(PhpAccessVariableInstruction instruction) {
+                if (tempVariableName.contentEquals(instruction.getVariableName())) {
+                    psiElements.add(instruction.getAnchor());
+                }
+
+                return super.processAccessVariableInstruction(instruction);
+            }
+        });
+
+        return psiElements.toArray(new PsiElement[0]);
     }
 
     @Nullable
     public static MethodReferenceBag getMethodParameterReferenceBag(PsiElement psiElement, int wantIndex) {
 
         PsiElement variableContext = psiElement.getContext();
-        if(!(variableContext instanceof ParameterList)) {
+        if(!(variableContext instanceof ParameterList parameterList)) {
             return null;
         }
 
-        ParameterList parameterList = (ParameterList) variableContext;
         if (!(parameterList.getContext() instanceof MethodReference)) {
             return null;
         }
@@ -775,7 +1342,7 @@ public class PhpElementsUtil {
 
         final List<Variable> variables = new ArrayList<>();
 
-        for (Variable variableRef : PhpElementsUtil.getVariablesInScope(function, variableDecl)) {
+        for (Variable variableRef : PhpElementsUtil.getVariablesInScopeByName(function, variableDecl.getName())) {
             if (!variableRef.equals(variable)) {
                 variables.add(variableRef);
             }
@@ -836,7 +1403,7 @@ public class PhpElementsUtil {
         // search classes in current namespace and child namespaces
         for(PhpClass phpClass: PhpIndexUtil.getPhpClassInsideNamespace(psiElement.getProject(), namespace)) {
             String presentableFQN = phpClass.getPresentableFQN();
-            if(fr.adrienbrault.idea.symfony2plugin.util.StringUtils.startWithEqualClassname(presentableFQN, beforeCursor)) {
+            if(startWithEqualClassname(presentableFQN, beforeCursor)) {
                 visitor.visit(phpClass, presentableFQN, prefix);
             }
 
@@ -852,26 +1419,36 @@ public class PhpElementsUtil {
      * new FooClass()
      */
     @Nullable
-    private static PhpClass getNewExpressionPhpClass(@NotNull NewExpression newExpression) {
-        ClassReference classReference = newExpression.getClassReference();
-        if(classReference != null) {
-            String fqn = classReference.getFQN();
-            if(fqn != null) {
-                return PhpElementsUtil.getClass(newExpression.getProject(), fqn);
-            }
+    @Deprecated
+    public static PhpClass getNewExpressionPhpClass(@NotNull NewExpression newExpression) {
+        Collection<PhpClass> newExpressionPhpClasses = getNewExpressionPhpClasses(newExpression);
+        if (!newExpressionPhpClasses.isEmpty()) {
+            return newExpressionPhpClasses.iterator().next();
         }
 
         return null;
+    }
+
+    @NotNull
+    public static Collection<PhpClass> getNewExpressionPhpClasses(@NotNull NewExpression newExpression) {
+        PhpIndex instance = PhpIndex.getInstance(newExpression.getProject());
+        PhpType classType = (new PhpType()).add(newExpression.getClassReference()).global(newExpression.getProject());
+
+        return classType.getTypes()
+            .stream()
+            .flatMap((fqn) -> instance.getAnyByFQN(fqn).stream())
+            .filter(Objects::nonNull)
+            .collect(Collectors.toSet());
     }
 
     /**
      * Get PhpClass from "new FooClass()" only if match instance condition
      */
     public static PhpClass getNewExpressionPhpClassWithInstance(@NotNull NewExpression newExpression, @NotNull String instance) {
-
-        PhpClass phpClass = getNewExpressionPhpClass(newExpression);
-        if(phpClass != null && PhpElementsUtil.isInstanceOf(phpClass, instance)) {
-            return phpClass;
+        for (PhpClass phpClass : getNewExpressionPhpClasses(newExpression)) {
+            if (PhpElementsUtil.isInstanceOf(phpClass, instance)) {
+                return phpClass;
+            }
         }
 
         return null;
@@ -883,7 +1460,7 @@ public class PhpElementsUtil {
     public static boolean isNewExpressionPhpClassWithInstance(@NotNull NewExpression newExpression, @NotNull String... instances) {
         for (String instance : instances) {
             PhpClass phpClass = getNewExpressionPhpClassWithInstance(newExpression, instance);
-            if(phpClass != null) {
+            if (phpClass != null) {
                 return true;
             }
         }
@@ -968,24 +1545,23 @@ public class PhpElementsUtil {
      *
      * function foo(\FooClass $class)
      */
-    @Nullable
-    public static String getMethodParameterTypeHint(@NotNull Method method) {
+    @NotNull
+    public static Collection<String> getMethodParameterTypeHints(@NotNull Method method) {
         ParameterList childOfType = PsiTreeUtil.getChildOfType(method, ParameterList.class);
         if(childOfType == null) {
-            return null;
+            return Collections.emptyList();
         }
 
         PsiElement[] parameters = childOfType.getParameters();
         if(parameters.length == 0) {
-            return null;
+            return Collections.emptyList();
         }
-
-        ClassReference classReference = PsiTreeUtil.getChildOfType(parameters[0], ClassReference.class);
-        if(classReference == null) {
-            return null;
-        }
-
-        return classReference.getFQN();
+        
+        PhpTypeDeclaration typeDeclaration = PsiTreeUtil.getChildOfType(parameters[0], PhpTypeDeclaration.class);
+        if (typeDeclaration == null) return Collections.emptyList();
+        return typeDeclaration.getClassReferences().stream()
+            .map(PhpReference::getFQN)
+            .collect(Collectors.toList());
     }
 
     /**
@@ -998,27 +1574,20 @@ public class PhpElementsUtil {
      */
     @Nullable
     public static String getFirstVariableTypeInScope(@NotNull Variable variable) {
-
         // parent search scope, eg Method else fallback to a grouped statement
-        PsiElement searchScope = PsiTreeUtil.getParentOfType(variable, Function.class);
-        if(searchScope == null) {
-            searchScope = PsiTreeUtil.getParentOfType(variable, GroupStatement.class);
-        }
-
+        PhpScopeHolder searchScope = PsiTreeUtil.getParentOfType(variable, PhpScopeHolder.class);
         if(searchScope == null) {
             return null;
         }
 
         final String name = variable.getName();
-        if(name == null) {
-            return null;
-        }
-
         final String[] result = {null};
-        searchScope.acceptChildren(new PsiRecursiveElementVisitor() {
+
+        PhpControlFlowUtil.processFlow(searchScope.getControlFlow(), new PhpInstructionProcessor() {
             @Override
-            public void visitElement(PsiElement element) {
-                if(element instanceof Variable && name.equals(((Variable) element).getName())) {
+            public boolean processAccessVariableInstruction(PhpAccessVariableInstruction instruction) {
+                PhpPsiElement element = instruction.getAnchor();
+                if (name.contentEquals(instruction.getVariableName()) && element instanceof Variable) {
                     PsiElement assignmentExpression = element.getParent();
                     if(assignmentExpression instanceof AssignmentExpression) {
                         PhpPsiElement value = ((AssignmentExpression) assignmentExpression).getValue();
@@ -1034,7 +1603,7 @@ public class PhpElementsUtil {
                     }
                 }
 
-                super.visitElement(element);
+                return super.processAccessVariableInstruction(instruction);
             }
         });
 
@@ -1075,14 +1644,23 @@ public class PhpElementsUtil {
      * Resolves MethodReference and compare containing class against implementations instances
      */
     public static boolean isMethodReferenceInstanceOf(@NotNull MethodReference methodReference, @NotNull String expectedClassName) {
-        for (ResolveResult resolveResult : methodReference.multiResolve(false)) {
-            PsiElement resolve = resolveResult.getElement();
+        PhpIndex instance = PhpIndex.getInstance(methodReference.getProject());
+        PhpType classType = (new PhpType()).add(methodReference.getClassReference()).global(methodReference.getProject());
 
-            if(!(resolve instanceof Method)) {
+        Collection<PhpClass> instanceClasses = classType.getTypes()
+            .stream()
+            .flatMap((fqn) -> instance.getAnyByFQN(fqn).stream())
+            .distinct()
+            .toList();
+
+        for (PhpClass phpClass : instanceClasses) {
+            Method method = phpClass.findMethodByName(methodReference.getName());
+            if (method == null) {
                 continue;
             }
 
-            PhpClass containingClass = ((Method) resolve).getContainingClass();
+            // different class possible
+            PhpClass containingClass = method.getContainingClass();
             if(containingClass == null) {
                 continue;
             }
@@ -1158,7 +1736,7 @@ public class PhpElementsUtil {
             throw new Exception("Class fqn error");
         }
 
-        if(!PhpCodeInsightUtil.getAliasesInScope(scopeForUseOperator).values().contains(fqn)) {
+        if(!PhpCodeInsightUtil.getAliasesInScope(scopeForUseOperator).containsValue(fqn)) {
             PhpAliasImporter.insertUseStatement(fqn, scopeForUseOperator);
         }
 
@@ -1231,6 +1809,24 @@ public class PhpElementsUtil {
         return PhpElementsUtil.getClassInterface(method.getProject(), className);
     }
 
+    /**
+     * Inserts a use statement with an alias if the alias is not already present.
+     */
+    public static void insertUseIfNecessary(@NotNull PhpPsiElement scopeForUseOperator, @NotNull String nsClass, @Nullable String alias) {
+        if (!nsClass.startsWith("\\")) {
+            nsClass = "\\" + nsClass;
+        }
+
+        if (!PhpCodeInsightUtil.getAliasesInScope(scopeForUseOperator).containsKey(alias)) {
+            PhpAliasImporter.insertUseStatement(nsClass, alias, scopeForUseOperator);
+        }
+    }
+
+    /**
+     * Inserts a use statement if not already present and returns the short class name.
+     *
+     * @return The short class name (alias) or null if insertion failed
+     */
     @Nullable
     public static String insertUseIfNecessary(@NotNull PsiElement phpClass, @NotNull String fqnClasName) {
         if(!fqnClasName.startsWith("\\")) {
@@ -1242,7 +1838,7 @@ public class PhpElementsUtil {
             return null;
         }
 
-        if(!PhpCodeInsightUtil.getAliasesInScope(scopeForUseOperator).values().contains(fqnClasName)) {
+        if(!PhpCodeInsightUtil.getAliasesInScope(scopeForUseOperator).containsValue(fqnClasName)) {
             PhpAliasImporter.insertUseStatement(fqnClasName, scopeForUseOperator);
         }
 
@@ -1256,12 +1852,54 @@ public class PhpElementsUtil {
     }
 
     /**
+     * #[AsEventListener(method:'onBarEvent')]
+     */
+    public static boolean isAttributeNamedArgumentString(@NotNull StringLiteralExpression element, @NotNull String fqn, @NotNull String namedArgument) {
+        PsiElement colon = PsiTreeUtil.prevCodeLeaf(element);
+        if (colon == null || colon.getNode().getElementType() != PhpTokenTypes.opCOLON) {
+            return false;
+        }
+
+        PsiElement argumentName = PsiTreeUtil.prevCodeLeaf(colon);
+        if (argumentName == null || argumentName.getNode().getElementType() != PhpTokenTypes.IDENTIFIER || !namedArgument.equals(argumentName.getText())) {
+            return false;
+        }
+
+
+        if (element.getParent() instanceof ParameterList parameterList) {
+            if (parameterList.getParent() instanceof PhpAttribute phpAttribute) {
+                String attributeFqn = phpAttribute.getFQN();
+                return fqn.equals(attributeFqn);
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Collects all variables in a given scope.
      * Eg find all variables usages in a given method
      */
     @NotNull
     public static Set<Variable> getVariablesInScope(@NotNull PsiElement psiElement, @NotNull PhpNamedElement variable) {
         return MyVariableRecursiveElementVisitor.visit(psiElement, variable.getName());
+    }
+
+    public static Set<Variable> getVariablesInScopeByName(@NotNull PhpScopeHolder phpScopeHolder, @NotNull String name) {
+        Set<Variable> variables = new HashSet<>();
+
+        PhpControlFlowUtil.processFlow(phpScopeHolder.getControlFlow(), new PhpInstructionProcessor() {
+            @Override
+            public boolean processAccessVariableInstruction(PhpAccessVariableInstruction instruction) {
+                if (name.contentEquals(instruction.getVariableName()) && instruction.getAnchor() instanceof Variable variable) {
+                    variables.add(variable);
+                }
+
+                return super.processAccessVariableInstruction(instruction);
+            }
+        });
+
+        return variables;
     }
 
     /**
@@ -1356,35 +1994,26 @@ public class PhpElementsUtil {
         return -1;
     }
 
-    /**
-     * Single resolve doesnt work if we have non unique class names in project context,
-     * so try a multiResolve
-     */
     @NotNull
-    public static Method[] getMultiResolvedMethod(@NotNull PsiReference psiReference) {
-        // class be unique in normal case, so try this first
-        PsiElement resolvedReference = psiReference.resolve();
-        if (resolvedReference instanceof Method) {
-            return new Method[] { (Method) resolvedReference };
+    public static Collection<Method> getMultiResolvedMethod(@NotNull MethodReference methodReference) {
+        PhpIndex instance = PhpIndex.getInstance(methodReference.getProject());
+        PhpType classType = (new PhpType()).add(methodReference.getClassReference()).global(methodReference.getProject());
+
+        Collection<PhpClass> instanceClasses = classType.getTypes()
+            .stream()
+            .flatMap((fqn) -> instance.getAnyByFQN(fqn).stream())
+            .distinct()
+            .toList();
+
+        Set<Method> methods = new HashSet<>();
+        for (PhpClass phpClass : instanceClasses) {
+            Method method = phpClass.findMethodByName(methodReference.getName());
+            if (method != null) {
+                methods.add(method);
+            }
         }
 
-        // try multiResolve if class exists twice in project
-        if(psiReference instanceof PsiPolyVariantReference) {
-            Collection<Method> methods = new HashSet<>();
-            for(ResolveResult resolveResult : ((PsiPolyVariantReference) psiReference).multiResolve(false)) {
-                PsiElement element = resolveResult.getElement();
-                if(element instanceof Method) {
-                    methods.add((Method) element);
-                }
-            }
-
-            if(methods.size() > 0) {
-                return methods.toArray(new Method[methods.size()]);
-            }
-
-        }
-
-        return new Method[0];
+        return methods;
     }
 
     /**
@@ -1418,6 +2047,192 @@ public class PhpElementsUtil {
         return null;
     }
 
+    @NotNull
+    public static Collection<NewExpression> collectNewExpressionsInsideControlFlow(@NotNull PhpScopeHolder phpScopeHolder) {
+        Collection<NewExpression> newExpressions = new ArrayList<>();
+
+        PhpControlFlowUtil.processFlow(phpScopeHolder.getControlFlow(), new PhpInstructionProcessor() {
+            @Override
+            public boolean processConstructorCallInstruction(PhpConstructorCallInstruction instruction) {
+                newExpressions.add(instruction.getNewExpression());
+                return super.processConstructorCallInstruction(instruction);
+            }
+        });
+
+        return newExpressions;
+    }
+
+    public static Collection<PsiElement> collectPhpReturnArgumentsInsideControlFlow(@NotNull PhpScopeHolder phpScopeHolder) {
+        Collection<PsiElement> elements = new ArrayList<>();
+
+        PhpControlFlowUtil.processFlow(phpScopeHolder.getControlFlow(), new PhpInstructionProcessor() {
+            @Override
+            public boolean processReturnInstruction(PhpReturnInstruction instruction) {
+                PsiElement argument = instruction.getArgument();
+                if (argument != null) {
+                    elements.add(argument);
+                }
+
+                return super.processReturnInstruction(instruction);
+            }
+        });
+
+        return elements;
+    }
+
+    public static Collection<MethodReference> collectMethodReferencesInsideControlFlow(@NotNull PhpScopeHolder phpScopeHolder) {
+        Collection<MethodReference> methodReferences = new ArrayList<>();
+
+        PhpControlFlowUtil.processFlow(phpScopeHolder.getControlFlow(), new PhpInstructionProcessor() {
+            public boolean processPhpCallInstruction(PhpCallInstruction instruction) {
+                if (instruction.getFunctionReference() instanceof MethodReference methodReference) {
+                    methodReferences.add(methodReference);
+                }
+                return super.processPhpCallInstruction(instruction);
+            }
+        });
+
+        return methodReferences;
+    }
+
+    public static Collection<MethodReference> collectMethodReferencesInsideControlFlow(@NotNull PhpScopeHolder phpScopeHolder, @NotNull String... methodName) {
+        Collection<MethodReference> methodReferences = new ArrayList<>();
+
+        PhpControlFlowUtil.processFlow(phpScopeHolder.getControlFlow(), new PhpInstructionProcessor() {
+            public boolean processPhpCallInstruction(PhpCallInstruction instruction) {
+                if (instruction.getFunctionReference() instanceof MethodReference methodReference && Arrays.stream(methodName).anyMatch(s -> s.equals(methodReference.getName()))) {
+                    methodReferences.add(methodReference);
+                }
+                return super.processPhpCallInstruction(instruction);
+            }
+        });
+
+        return methodReferences;
+    }
+
+    @NotNull
+    public static Collection<Function> getMethodReferenceMethods(@NotNull MethodReference methodReference) {
+        PhpIndex instance = PhpIndex.getInstance(methodReference.getProject());
+        PhpType classType = (new PhpType()).add(methodReference.getClassReference()).global(methodReference.getProject());
+
+        Set<PhpClass> collect = classType.getTypes()
+            .stream()
+            .flatMap((fqn) -> instance.getAnyByFQN(fqn).stream())
+            .filter(Objects::nonNull)
+            .collect(Collectors.toSet());
+
+        return collect
+            .stream()
+            .map((java.util.function.Function<PhpClass, Function>) phpClass -> phpClass.findMethodByName(methodReference.getName()))
+            .filter(Objects::nonNull)
+            .collect(Collectors.toSet());
+    }
+
+    public static PhpExpectedFunctionArgument findAttributeArgumentByName(@NotNull String attributeName, @NotNull PhpAttribute phpAttribute) {
+        for (PhpAttribute.PhpAttributeArgument argument : phpAttribute.getArguments()) {
+            String name = argument.getName();
+            if (!attributeName.equals(name)) {
+                continue;
+            }
+
+            return argument.getArgument();
+        }
+
+        return null;
+    }
+
+    @Nullable
+    public static String getAttributeArgumentStringByName(@NotNull PhpAttribute phpAttribute, @NotNull String attributeName) {
+        for (PhpAttribute.PhpAttributeArgument argument : phpAttribute.getArguments()) {
+            if (!attributeName.equals(argument.getName())) {
+                continue;
+            }
+
+            if (argument.getArgument() instanceof PhpExpectedFunctionClassConstantArgument phpExpectedFunctionClassConstantArgument) {
+                return phpExpectedFunctionClassConstantArgument.getClassFqn();
+            }
+
+            if (argument.getArgument() instanceof PhpExpectedFunctionScalarArgument phpExpectedFunctionScalarArgument) {
+                return PsiElementUtils.trimQuote(phpExpectedFunctionScalarArgument.getNormalizedValue());
+            }
+        }
+
+        return null;
+    }
+
+    @Nullable
+    public static String findAttributeArgumentByNameAsString(@NotNull String attributeName, @NotNull PhpAttribute phpAttribute) {
+        PhpExpectedFunctionArgument attributeArgumentByName = findAttributeArgumentByName(attributeName, phpAttribute);
+        if (attributeArgumentByName instanceof PhpExpectedFunctionScalarArgument) {
+            String value = PsiElementUtils.trimQuote(attributeArgumentByName.getValue());
+            if (StringUtils.isNotBlank(value)) {
+                return value;
+            }
+        }
+
+        return null;
+    }
+
+    @Nullable
+    public static Boolean findAttributeArgumentByNameAsBoolean(@NotNull String attributeName, @NotNull PhpAttribute phpAttribute) {
+        for (PhpAttribute.PhpAttributeArgument argument : phpAttribute.getArguments()) {
+            if (!attributeName.equals(argument.getName())) {
+                continue;
+            }
+
+            PhpExpectedFunctionArgument arg = argument.getArgument();
+            if (arg != null) {
+                String value = arg.getValue();
+                if (value != null) {
+                    if ("true".equalsIgnoreCase(value.trim())) {
+                        return Boolean.TRUE;
+                    } else if ("false".equalsIgnoreCase(value.trim())) {
+                        return Boolean.FALSE;
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    @Nullable
+    public static Integer findAttributeArgumentByNameAsInt(@NotNull String attributeName, @NotNull PhpAttribute phpAttribute) {
+        for (PhpAttribute.PhpAttributeArgument argument : phpAttribute.getArguments()) {
+            if (!attributeName.equals(argument.getName())) {
+                continue;
+            }
+
+            PhpExpectedFunctionArgument arg = argument.getArgument();
+            if (arg != null) {
+                String value = arg.getValue();
+                if (value != null) {
+                    try {
+                        return Integer.parseInt(value.trim());
+                    } catch (NumberFormatException e) {
+                        return null;
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    @Nullable
+    public static String findAttributeArgumentByNameAsClassFqn(@NotNull String attributeName, @NotNull PhpAttribute phpAttribute) {
+        for (PhpAttribute.PhpAttributeArgument argument : phpAttribute.getArguments()) {
+            if (!attributeName.equals(argument.getName())) {
+                continue;
+            }
+
+            if (argument.getArgument() instanceof PhpExpectedFunctionClassConstantArgument phpExpectedFunctionClassConstantArgument) {
+                return phpExpectedFunctionClassConstantArgument.getClassFqn();
+            }
+        }
+
+        return null;
+    }
     /**
      * Visit and collect all variables in given scope
      */
@@ -1444,6 +2259,219 @@ public class PhpElementsUtil {
             MyVariableRecursiveElementVisitor visitor = new MyVariableRecursiveElementVisitor(name);
             scope.acceptChildren(visitor);
             return visitor.variables;
+        }
+    }
+
+
+    /**
+     * Find string values based on a given PsiElement and its references
+     *
+     * - render(true === true ? 'foo.twig.html' : 'foobar.twig.html')
+     * - foo(self::foo), foo($var), foo($this->foo), ...
+     * - render($foo ?? 'foo.twig.html')
+     */
+    public static class StringResolver {
+        public static Collection<String> findStringValues(@NotNull PsiElement psiElement) {
+            Collection<String> strings = new HashSet<>();
+
+            if (psiElement instanceof StringLiteralExpression) {
+                strings.add(resolveString((StringLiteralExpression) psiElement));
+            } else if(psiElement instanceof TernaryExpression) {
+                // render(true === true ? 'foo.twig.html' : 'foobar.twig.html')
+                for (PhpPsiElement phpPsiElement : new PhpPsiElement[]{((TernaryExpression) psiElement).getTrueVariant(), ((TernaryExpression) psiElement).getFalseVariant()}) {
+                    if (phpPsiElement == null) {
+                        continue;
+                    }
+
+                    if (phpPsiElement instanceof StringLiteralExpression) {
+                        strings.add(resolveString((StringLiteralExpression) phpPsiElement));
+                    } else if(phpPsiElement instanceof PhpReference) {
+                        strings.add(resolvePhpReference((PhpReference) phpPsiElement));
+                    }
+                }
+            } else if(psiElement instanceof PhpReference) {
+                // foo(self::foo)
+                // foo($this->foo)
+                // foo($var)
+                strings.add(resolvePhpReference((PhpReference) psiElement));
+            } else if(psiElement instanceof BinaryExpression) {
+                // render($foo ?? 'foo.twig.html')
+                PsiElement phpPsiElement = ((BinaryExpression) psiElement).getRightOperand();
+
+                if (phpPsiElement instanceof StringLiteralExpression) {
+                    strings.add(resolveString((StringLiteralExpression) phpPsiElement));
+                } else if(phpPsiElement instanceof PhpReference) {
+                    strings.add(resolvePhpReference((PhpReference) phpPsiElement));
+                }
+            }
+
+            return strings;
+        }
+
+        @Nullable
+        private static String resolveString(@NotNull StringLiteralExpression parameter) {
+            String contents = parameter.getContents();
+            return StringUtils.isBlank(contents) ? null : contents;
+        }
+
+        @Nullable
+        private static String resolvePhpReference(@NotNull PhpReference parameter) {
+            for (PhpNamedElement phpNamedElement : parameter.resolveLocal()) {
+                // foo(self::foo)
+                // foo($this->foo)
+                if (phpNamedElement instanceof Field) {
+                    PsiElement defaultValue = ((Field) phpNamedElement).getDefaultValue();
+                    if (defaultValue instanceof StringLiteralExpression) {
+                        return resolveString((StringLiteralExpression) defaultValue);
+                    }
+                }
+
+                // foo($var) => $var = 'test.html.twig'
+                if (phpNamedElement instanceof Variable) {
+                    PsiElement assignmentExpression = phpNamedElement.getParent();
+                    if (assignmentExpression instanceof AssignmentExpression) {
+                        PhpPsiElement value = ((AssignmentExpression) assignmentExpression).getValue();
+                        if (value instanceof StringLiteralExpression) {
+                            return resolveString((StringLiteralExpression) value);
+                        }
+                    }
+                }
+            }
+
+            return null;
+        }
+    }
+
+    /**
+     * Adds a parameter with the given fully qualified class name and variable name to a method.
+     * This method handles use statement insertion and parameter list modification with reformatting.
+     * The parameter is inserted before any optional parameters to maintain valid PHP syntax.
+     *
+     * @param method The method to add the parameter to
+     * @param fqn The fully qualified class name for the parameter type (e.g., "\\Symfony\\Component\\Console\\Style\\SymfonyStyle")
+     * @param variableName The variable name for the parameter (e.g., "io")
+     */
+    public static void addParameterToMethod(@NotNull Method method, @NotNull String fqn, @NotNull String variableName) {
+        PhpClass phpClass = method.getContainingClass();
+        if (phpClass == null) {
+            return;
+        }
+
+        Project project = method.getProject();
+
+        String shortName = insertUseIfNecessary(phpClass, fqn);
+
+        PsiFile file = method.getContainingFile();
+        Document document = PsiDocumentManager.getInstance(project).getDocument(file);
+        if (document == null) {
+            return;
+        }
+
+        PsiDocumentManager psiDocManager = PsiDocumentManager.getInstance(project);
+        psiDocManager.doPostponedOperationsAndUnblockDocument(document);
+
+        String newParameter = shortName + " $" + variableName;
+
+        Parameter[] existingParams = method.getParameters();
+        int insertOffset;
+        String textToInsert;
+
+        if (existingParams.length > 0) {
+            // Find the first optional parameter (has default value)
+            Parameter firstOptionalParam = null;
+            Parameter lastRequiredParam = null;
+
+            for (Parameter param : existingParams) {
+                if (param.getDefaultValue() != null) {
+                    if (firstOptionalParam == null) {
+                        firstOptionalParam = param;
+                    }
+                } else {
+                    lastRequiredParam = param;
+                }
+            }
+
+            if (firstOptionalParam != null && lastRequiredParam == null) {
+                // All existing parameters are optional, insert at the beginning
+                insertOffset = existingParams[0].getTextRange().getStartOffset();
+                textToInsert = newParameter + ", ";
+            } else if (firstOptionalParam != null) {
+                // Insert after the last required parameter
+                insertOffset = lastRequiredParam.getTextRange().getEndOffset();
+                textToInsert = ", " + newParameter;
+            } else {
+                // No optional parameters, append at the end
+                Parameter lastParam = existingParams[existingParams.length - 1];
+                insertOffset = lastParam.getTextRange().getEndOffset();
+                textToInsert = ", " + newParameter;
+            }
+        } else {
+            // Find the opening parenthesis after the method name, not in attributes
+            PsiElement nameIdentifier = method.getNameIdentifier();
+            if (nameIdentifier == null) {
+                return;
+            }
+
+            // Search for '(' starting from after the method name
+            PsiElement current = nameIdentifier.getNextSibling();
+            int openParenOffset = -1;
+            while (current != null) {
+                if (current.getText().contains("(")) {
+                    String text = current.getText();
+                    int parenIndex = text.indexOf('(');
+                    openParenOffset = current.getTextRange().getStartOffset() + parenIndex;
+                    break;
+                }
+                current = current.getNextSibling();
+            }
+
+            if (openParenOffset == -1) {
+                return;
+            }
+
+            insertOffset = openParenOffset + 1;
+            textToInsert = newParameter;
+        }
+
+        document.insertString(insertOffset, textToInsert);
+
+        psiDocManager.commitDocument(document);
+        psiDocManager.doPostponedOperationsAndUnblockDocument(document);
+
+        PsiFile freshFile = PsiDocumentManager.getInstance(project).getPsiFile(document);
+        if (freshFile != null) {
+            PhpClass freshPhpClass = PsiTreeUtil.findChildOfType(freshFile, PhpClass.class);
+            if (freshPhpClass != null) {
+                Method freshMethod = freshPhpClass.findOwnMethodByName(method.getName());
+                if (freshMethod != null) {
+                    reformatMethodSignature(project, freshMethod);
+                }
+            }
+        }
+    }
+
+    /**
+     * Reformats the method signature (from method start to body start).
+     *
+     * @param project The project
+     * @param method The method to reformat
+     */
+    public static void reformatMethodSignature(@NotNull Project project, @NotNull Method method) {
+        PsiFile containingFile = method.getContainingFile();
+
+        GroupStatement body = PsiTreeUtil.findChildOfType(method, GroupStatement.class);
+        if (body == null) {
+            return;
+        }
+
+        int startOffset = method.getTextRange().getStartOffset();
+        int endOffset = body.getTextRange().getStartOffset();
+
+        CodeStyleManager codeStyleManager = CodeStyleManager.getInstance(project);
+        try {
+            codeStyleManager.reformatRange(containingFile, startOffset, endOffset);
+        } catch (com.intellij.util.IncorrectOperationException e) {
+            // Ignore formatting errors
         }
     }
 }

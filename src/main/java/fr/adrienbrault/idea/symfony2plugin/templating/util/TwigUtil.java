@@ -1,7 +1,11 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.util;
 
+import com.intellij.codeInsight.completion.CompletionInitializationContext;
+import com.intellij.codeInsight.completion.CompletionParameters;
+import com.intellij.codeInsight.completion.CompletionResultSet;
 import com.intellij.codeInsight.lookup.LookupElement;
 import com.intellij.codeInsight.lookup.LookupElementBuilder;
+import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.extensions.ExtensionPointName;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Key;
@@ -9,11 +13,13 @@ import com.intellij.openapi.util.Pair;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.openapi.vfs.VfsUtil;
 import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.openapi.vfs.VirtualFileVisitor;
+import com.intellij.openapi.vfs.VirtualFileManager;
 import com.intellij.patterns.ElementPattern;
 import com.intellij.patterns.PlatformPatterns;
 import com.intellij.psi.*;
+import com.intellij.psi.search.FileTypeIndex;
 import com.intellij.psi.search.GlobalSearchScope;
+import com.intellij.psi.search.GlobalSearchScopesCore;
 import com.intellij.psi.tree.IElementType;
 import com.intellij.psi.util.*;
 import com.intellij.util.Consumer;
@@ -23,9 +29,18 @@ import com.intellij.util.containers.ContainerUtil;
 import com.intellij.util.indexing.FileBasedIndex;
 import com.jetbrains.php.PhpIndex;
 import com.jetbrains.php.lang.PhpFileType;
+import com.jetbrains.php.lang.PhpLanguage;
+import com.jetbrains.php.lang.documentation.PhpNamedElementDocSource;
 import com.jetbrains.php.lang.documentation.phpdoc.psi.PhpDocComment;
 import com.jetbrains.php.lang.documentation.phpdoc.psi.tags.PhpDocTag;
-import com.jetbrains.php.lang.psi.elements.*;
+import com.jetbrains.php.lang.psi.PhpPsiUtil;
+import com.jetbrains.php.lang.psi.elements.Function;
+import com.jetbrains.php.lang.psi.elements.FunctionReference;
+import com.jetbrains.php.lang.psi.elements.Method;
+import com.jetbrains.php.lang.psi.elements.MethodReference;
+import com.jetbrains.php.lang.psi.elements.PhpClass;
+import com.jetbrains.php.lang.psi.elements.PhpNamedElement;
+import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
 import com.jetbrains.php.phpunit.PhpUnitUtil;
 import com.jetbrains.twig.TwigFile;
 import com.jetbrains.twig.TwigFileType;
@@ -39,11 +54,10 @@ import fr.adrienbrault.idea.symfony2plugin.asset.AssetDirectoryReader;
 import fr.adrienbrault.idea.symfony2plugin.extension.TwigNamespaceExtension;
 import fr.adrienbrault.idea.symfony2plugin.extension.TwigNamespaceExtensionParameter;
 import fr.adrienbrault.idea.symfony2plugin.stubs.SymfonyProcessors;
+import fr.adrienbrault.idea.symfony2plugin.stubs.cache.FileIndexCaches;
 import fr.adrienbrault.idea.symfony2plugin.stubs.dict.TemplateUsage;
-import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.PhpTwigTemplateUsageStubIndex;
-import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.TwigBlockIndexExtension;
-import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.TwigExtendsStubIndex;
-import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.TwigMacroFunctionStubIndex;
+import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.*;
+import fr.adrienbrault.idea.symfony2plugin.stubs.util.IndexUtil;
 import fr.adrienbrault.idea.symfony2plugin.templating.TemplateLookupElement;
 import fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern;
 import fr.adrienbrault.idea.symfony2plugin.templating.dict.*;
@@ -51,16 +65,14 @@ import fr.adrienbrault.idea.symfony2plugin.templating.path.TwigNamespaceSetting;
 import fr.adrienbrault.idea.symfony2plugin.templating.path.TwigPath;
 import fr.adrienbrault.idea.symfony2plugin.templating.variable.dict.PsiVariable;
 import fr.adrienbrault.idea.symfony2plugin.twig.assets.TwigNamedAssetsServiceParser;
-import fr.adrienbrault.idea.symfony2plugin.util.FilesystemUtil;
-import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
-import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
-import fr.adrienbrault.idea.symfony2plugin.util.SymfonyBundleUtil;
+import fr.adrienbrault.idea.symfony2plugin.util.*;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.SymfonyBundle;
 import fr.adrienbrault.idea.symfony2plugin.util.psi.PsiElementAssertUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.service.ServiceXmlParserFactory;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
 import icons.TwigIcons;
-import org.apache.commons.lang.StringUtils;
+import kotlin.Triple;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.yaml.YAMLTokenTypes;
@@ -68,22 +80,53 @@ import org.jetbrains.yaml.YAMLUtil;
 import org.jetbrains.yaml.psi.*;
 
 import java.io.File;
+import java.text.Collator;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+
+import static fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern.captureVariableOrField;
+import static fr.adrienbrault.idea.symfony2plugin.util.StringUtils.removeEnd;
+import static fr.adrienbrault.idea.symfony2plugin.util.StringUtils.underscore;
 
 /**
  * @author Adrien Brault <adrien.brault@gmail.com>
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class TwigUtil {
-    public static final String DOC_SEE_REGEX_WITHOUT_SEE  = "\\{#[\\s]+([-@\\./\\:\\w\\\\\\[\\]]+)[\\s]*#}";
+    public static final String DOC_SEE_REGEX_WITHOUT_SEE  = "([-@\\./\\:\\w\\\\\\[\\]]+)[\\s]*";
+    private static final Pattern MULTIPLE_SLASHES = Pattern.compile("/+");
 
     /**
      * Twig namespace for "non namespace"; its also a reserved value in Twig library
      */
     public static final String MAIN = "__main__";
+
+    /**
+     * Fixes the Twig prefix in 2026.2; for example, {@code path('<caret>')} must use an empty prefix instead of {@code path('}.
+     */
+    @NotNull
+    public static CompletionResultSet withCompletionPrefix(@NotNull CompletionParameters parameters, @NotNull CompletionResultSet resultSet) {
+        PsiElement position = parameters.getPosition();
+        if (position.getNode() == null || !position.getLanguage().isKindOf(TwigLanguage.INSTANCE)) {
+            return resultSet;
+        }
+
+        String text = position.getText();
+        int dummyIdentifierOffset = text.indexOf(CompletionInitializationContext.DUMMY_IDENTIFIER_TRIMMED);
+        if (dummyIdentifierOffset < 0) {
+            return resultSet;
+        }
+
+        String prefix = text.substring(0, dummyIdentifierOffset);
+        if (prefix.equals(resultSet.getPrefixMatcher().getPrefix())) {
+            return resultSet;
+        }
+
+        return resultSet.withPrefixMatcher(prefix);
+    }
 
     /**
      * Twig namespace types; mainly switch for its prefix
@@ -92,21 +135,48 @@ public class TwigUtil {
         BUNDLE, ADD_PATH
     }
 
-    private static final ExtensionPointName<TwigNamespaceExtension> EXTENSIONS = new ExtensionPointName<>(
+    private static final ExtensionPointName<TwigNamespaceExtension> TWIG_NAMESPACE_EXTENSIONS = new ExtensionPointName<>(
         "fr.adrienbrault.idea.symfony2plugin.extension.TwigNamespaceExtension"
     );
 
     private static final Key<CachedValue<Map<String, Set<VirtualFile>>>> TEMPLATE_CACHE_TWIG = new Key<>("TEMPLATE_CACHE_TWIG");
 
     private static final Key<CachedValue<Map<String, Set<VirtualFile>>>> TEMPLATE_CACHE_ALL = new Key<>("TEMPLATE_CACHE_ALL");
+    private static final Key<CachedValue<Map<String, Map<String, PsiVariable>>>> CONTROLLER_TEMPLATE_VARIABLES_CACHE = new Key<>("TWIG_CONTROLLER_TEMPLATE_VARIABLES_CACHE");
+    private static final Key<CachedValue<List<String>>> SYMFONY_TEMPLATE_INCLUDE_LIST = new Key<>("SYMFONY_TEMPLATE_INCLUDE_LIST");
+    private static final Key<CachedValue<List<String>>> SYMFONY_TEMPLATE_EMBED_LIST = new Key<>("SYMFONY_TEMPLATE_EMBED_LIST");
+    private static final Key<CachedValue<List<String>>> SYMFONY_TEMPLATE_EXTENDS_LIST = new Key<>("SYMFONY_TEMPLATE_EXTENDS_LIST");
+    // File-held cache for trans_default_domain lookups; TextRange separates file and embed scopes.
+    private static final Key<CachedValue<Map<TextRange, Optional<String>>>> TWIG_TRANS_DEFAULT_DOMAIN_ON_SCOPE = new Key<>("TWIG_TRANS_DEFAULT_DOMAIN_ON_SCOPE");
 
-    public static String[] CSS_FILES_EXTENSIONS = new String[] { "css", "less", "sass", "scss" };
+    private static final Key<CachedValue<List<String>>> SYMFONY_TEMPLATE_FORM_THEME_LIST = new Key<>("SYMFONY_TEMPLATE_FORM_THEME_LIST");
 
-    public static String[] JS_FILES_EXTENSIONS = new String[] { "js", "dart", "coffee" };
+    private static final Key<CachedValue<Set<String>>> SYMFONY_NAMED_TOKEN_TAGS = new Key<>("SYMFONY_NAMED_TOKEN_TAGS");
+    private static final Key<CachedValue<Map<String, String>>> SYMFONY_DEPRECATED_NAMED_TOKEN_TAGS = new Key<>("SYMFONY_DEPRECATED_NAMED_TOKEN_TAGS");
+    private static final Key<CachedValue<Set<String>>> SYMFONY_DEPRECATED_FILTERS = new Key<>("SYMFONY_DEPRECATED_FILTERS");
+    private static final Key<CachedValue<Set<String>>> SYMFONY_DEPRECATED_FUNCTIONS = new Key<>("SYMFONY_DEPRECATED_FUNCTIONS");
 
-    public static String[] IMG_FILES_EXTENSIONS = new String[] { "png", "jpg", "jpeg", "gif", "svg"};
+    private static final Key<CachedValue<List<TwigPath>>> TWIG_NAMESPACES_WITH_SETTINGS = new Key<>("TWIG_NAMESPACES_WITH_SETTINGS");
 
-    public static String TEMPLATE_ANNOTATION_CLASS = "\\Sensio\\Bundle\\FrameworkExtraBundle\\Configuration\\Template";
+    public static final String[] CSS_FILES_EXTENSIONS = new String[] { "css", "less", "sass", "scss" };
+
+    public static final String[] JS_FILES_EXTENSIONS = new String[] { "js", "dart", "coffee" };
+
+    public static final String[] IMG_FILES_EXTENSIONS = new String[] { "png", "jpg", "jpeg", "gif", "svg"};
+
+    public static final String[] TEMPLATE_ANNOTATION_CLASS = new String[] {
+        "\\Sensio\\Bundle\\FrameworkExtraBundle\\Configuration\\Template",
+        "\\Symfony\\Bridge\\Twig\\Attribute\\Template",
+    };
+
+    public static class TwigPathNamespaceComparator implements Comparator<TwigPath> {
+        @Override
+        public int compare(TwigPath o1, TwigPath o2) {
+            Collator collator = Collator.getInstance();
+            collator.setStrength(Collator.SECONDARY);
+            return collator.compare(o1.getNamespace(), o2.getNamespace());
+        }
+    }
 
     @NotNull
     public static String[] getControllerMethodShortcut(@NotNull Method method) {
@@ -125,47 +195,93 @@ public class TwigUtil {
             return new String[0];
         }
 
+        String shortcutName = null;
+        String shortcutNameForOldNotation = null;
+
         SymfonyBundleUtil symfonyBundleUtil = new SymfonyBundleUtil(method.getProject());
         SymfonyBundle symfonyBundle = symfonyBundleUtil.getContainingBundle(phpClass);
-        if(symfonyBundle == null) {
-            return new String[0];
-        }
+        if(symfonyBundle != null) {
+            // check if files is in <Bundle>/Controller/*
+            PhpClass bundleClass = symfonyBundle.getPhpClass();
+            if(!phpClass.getNamespaceName().startsWith(bundleClass.getNamespaceName() + "Controller\\")) {
+                return new String[0];
+            }
 
-        // check if files is in <Bundle>/Controller/*
-        PhpClass bundleClass = symfonyBundle.getPhpClass();
-        if(!phpClass.getNamespaceName().startsWith(bundleClass.getNamespaceName() + "Controller\\")) {
-            return new String[0];
-        }
+            // strip the controller folder name
+            String templateFolderName = phpClass.getNamespaceName().substring(bundleClass.getNamespaceName().length() + 11);
 
-        // strip the controller folder name
-        String templateFolderName = phpClass.getNamespaceName().substring(bundleClass.getNamespaceName().length() + 11);
+            // HomeBundle:default:indexes
+            // HomeBundle:default/Test:indexes
+            templateFolderName = templateFolderName.replace("\\", "/");
 
-        // HomeBundle:default:indexes
-        // HomeBundle:default/Test:indexes
-        templateFolderName = templateFolderName.replace("\\", "/");
+            // Foobar without (.html.twig)
+            String templateName = className.substring(0, className.lastIndexOf("Controller"));
 
-        String shortcutName;
+            if(methodName.equals("__invoke")) {
+                // AppBundle::foo_bar.html.twig
+                shortcutName = String.format(
+                    "%s::%s%s",
+                    symfonyBundle.getName(),
+                    underscore(templateFolderName),
+                    underscore(templateName)
+                );
 
-        // Foobar without (.html.twig)
-        String templateName = className.substring(0, className.lastIndexOf("Controller"));
+                // AppBundle::FooBar.html.twig
+                shortcutNameForOldNotation = String.format(
+                    "%s::%s%s",
+                    symfonyBundle.getName(),
+                    templateFolderName,
+                    templateName
+                );
+            } else {
+                // FooBundle:foo_bar:foo_bar.html.twig
+                shortcutName = String.format(
+                    "%s:%s%s:%s",
+                    symfonyBundle.getName(),
+                    underscore(templateFolderName),
+                    underscore(templateName),
+                    underscore(removeEnd(methodName, "Action"))
+                );
 
-        if(methodName.equals("__invoke")) {
-            // AppBundle::Foobar.html.twig
-            shortcutName = String.format(
-                "%s::%s%s",
-                symfonyBundle.getName(),
-                templateFolderName,
-                templateName
-            );
+                // FooBundle:FooBar:fooBar.html.twig
+                shortcutNameForOldNotation = String.format(
+                    "%s:%s%s:%s",
+                    symfonyBundle.getName(),
+                    templateFolderName,
+                    templateName,
+                    removeEnd(methodName, "Action")
+                );
+            }
         } else {
-            // FooBundle:Foobar:foobar.html.twig
-            shortcutName = String.format(
-                "%s:%s%s:%s",
-                symfonyBundle.getName(),
-                templateFolderName,
-                templateName,
-                StringUtils.removeEnd(methodName, "Action")
-            );
+            // https://github.com/sensiolabs/SensioFrameworkExtraBundle/blob/master/src/Templating/TemplateGuesser.php
+            String fqn = phpClass.getFQN();
+            Matcher matcher = Pattern.compile("Controller\\\\(.+)Controller$").matcher(fqn);
+            if(matcher.find()) {
+                String domain = matcher.group(1);
+
+                String matchController = domain.replaceAll("\\\\", "/");
+
+                String matchAction = null;
+                if (!"__invoke".equals(methodName)) {
+                    matchAction = methodName.replaceAll("Action$", "");
+                    matchAction = matchAction;
+                }
+
+                List<String> parts = new ArrayList<>(
+                    Arrays.asList(matchController.split("/"))
+                );
+
+                if (matchAction != null) {
+                    parts.add(matchAction);
+                }
+
+                shortcutNameForOldNotation = String.join("/", parts);
+                shortcutName = underscore(String.join("/", parts));
+            }
+        }
+
+        if (shortcutName == null || shortcutNameForOldNotation == null) {
+            return new String[0];
         }
 
         // @TODO: we should support types later on; but nicer
@@ -174,6 +290,11 @@ public class TwigUtil {
             shortcutName + ".html.twig",
             shortcutName + ".json.twig",
             shortcutName + ".xml.twig",
+            shortcutName + ".text.twig", // emails
+            shortcutNameForOldNotation + ".html.twig",
+            shortcutNameForOldNotation + ".json.twig",
+            shortcutNameForOldNotation + ".xml.twig",
+            shortcutNameForOldNotation + ".text.twig",  // emails
         };
     }
 
@@ -233,15 +354,15 @@ public class TwigUtil {
     public static String getTransDefaultDomainOnScope(@NotNull PsiElement position) {
         // {% embed 'foo.html.twig' with { foo: '<caret>'|trans } %}
         PsiElement parent = position.getParent();
-        if(parent != null && parent.getNode().getElementType() == TwigElementTypes.LITERAL) {
+        if (parent != null && parent.getNode().getElementType() == TwigElementTypes.LITERAL) {
             PsiElement parent2 = parent.getParent();
-            if(parent2 != null && parent2.getNode().getElementType() == TwigElementTypes.EMBED_TAG) {
+            if (parent2 != null && parent2.getNode().getElementType() == TwigElementTypes.EMBED_TAG) {
                 PsiElement firstParent = PsiTreeUtil.findFirstParent(parent, true, psiElement -> {
                     IElementType elementType = psiElement.getNode().getElementType();
                     return elementType != TwigElementTypes.EMBED_TAG && elementType != TwigElementTypes.EMBED_STATEMENT;
                 });
 
-                if(firstParent != null) {
+                if (firstParent != null) {
                     position = firstParent;
                 }
             }
@@ -249,22 +370,50 @@ public class TwigUtil {
 
         // find embed or file scope
         PsiElement scope = getTransDefaultDomainScope(position);
-        if(scope == null) {
+        if (scope == null) {
             return null;
         }
 
+        // Store one cache map on the file; a file may contain multiple embed scopes.
+        PsiFile containingFile = scope.getContainingFile();
+        Project project = scope.getProject();
+        Map<TextRange, Optional<String>> cachedDomains = CachedValuesManager.getManager(project)
+            .getCachedValue(
+                containingFile,
+                TWIG_TRANS_DEFAULT_DOMAIN_ON_SCOPE,
+                () -> CachedValueProvider.Result.create(
+                    new ConcurrentHashMap<>(),
+                    PsiModificationTracker.getInstance(project).forLanguage(TwigLanguage.INSTANCE)
+                ),
+                false
+            );
+
+        // Use the scope range as key, so the file scope and each embed block can cache different domains.
+        Optional<String> cachedDomain = cachedDomains.computeIfAbsent(
+            scope.getTextRange(),
+            ignored -> Optional.ofNullable(computeTransDefaultDomainOnScope(scope))
+        );
+
+        return cachedDomain.orElse(null);
+    }
+
+    /**
+     * Fetches the first default translation domain in a Twig file/embed scope.
+     * Example: {% trans_default_domain "validators" %} resolves to "validators".
+     * Embed: {% embed "card.html.twig" %}{% trans_default_domain "admin" %}{% endembed %} resolves to "admin" inside the embed block.
+     */
+    @Nullable
+    private static String computeTransDefaultDomainOnScope(@NotNull PsiElement scope) {
         for (PsiElement psiElement : scope.getChildren()) {
-
             // filter parent trans_default_domain, it should be in file context
-            if(psiElement instanceof TwigCompositeElement && psiElement.getNode().getElementType() == TwigElementTypes.TAG) {
-
+            if (psiElement instanceof TwigCompositeElement && psiElement.getNode().getElementType() == TwigElementTypes.TAG) {
                 final String[] fileTransDomain = {null};
                 psiElement.acceptChildren(new PsiRecursiveElementWalkingVisitor() {
                     @Override
                     public void visitElement(PsiElement element) {
-                        if(TwigPattern.getTransDefaultDomainPattern().accepts(element)) {
+                        if (TwigPattern.getTransDefaultDomainPattern().accepts(element)) {
                             String text = PsiElementUtils.trimQuote(element.getText());
-                            if(StringUtils.isNotBlank(text)) {
+                            if (StringUtils.isNotBlank(text)) {
                                 fileTransDomain[0] = text;
                             }
                         }
@@ -272,10 +421,9 @@ public class TwigUtil {
                     }
                 });
 
-                if(fileTransDomain[0] != null) {
+                if (fileTransDomain[0] != null) {
                     return fileTransDomain[0];
                 }
-
             }
         }
 
@@ -283,17 +431,80 @@ public class TwigUtil {
     }
 
     /**
-     * Search Twig element to find use trans_default_domain and returns given string parameter
+     * "form(form.name)" => "form"
      */
     @Nullable
-    public static String getTransDefaultDomainOnScopeOrInjectedElement(@NotNull PsiElement position) {
-        if(position.getContainingFile().getContainingFile() == TwigFileType.INSTANCE) {
-            return getTransDefaultDomainOnScope(position);
+    public static PsiElement getTwigFunctionParameterIdentifierPsi(@NotNull PsiElement psiElement) {
+        // "form(form.name)" => "form"
+        TwigFieldReference childOfType = PsiTreeUtil.findChildOfType(psiElement, TwigFieldReference.class);
+        if (childOfType != null) {
+            TwigPsiReference owner = childOfType.getOwner();
+            if (owner != null) {
+                return owner.getFirstChild();
+            }
         }
 
-        PsiElement element = getElementOnTwigViewProvider(position);
-        if(element != null) {
-            return getTransDefaultDomainOnScope(element);
+        // "form(form)" => "form"
+        TwigVariableReference childOfType1 = PsiTreeUtil.findChildOfType(psiElement, TwigVariableReference.class);
+        if (childOfType1 != null) {
+            return childOfType1.getFirstChild();
+        }
+
+        return null;
+    }
+
+    /**
+     * Returns the final path leaf of a simple Twig function second argument.
+     * Example: <code>constant('CLUBS', order.suite)</code> returns <code>suite</code>.
+     * Dynamic expressions such as {@code factory()} are intentionally ignored.
+     */
+    @Nullable
+    public static PsiElement findTwigFunctionSecondArgumentPathLeaf(@NotNull PsiElement firstArgumentElement) {
+        PsiElement comma = findNextTwigFunctionArgumentComma(firstArgumentElement);
+        if (comma == null) {
+            return null;
+        }
+
+        PsiElement lastPathElement = null;
+        for (PsiElement current = PsiTreeUtil.nextVisibleLeaf(comma); current != null; current = PsiTreeUtil.nextVisibleLeaf(current)) {
+            IElementType elementType = current.getNode().getElementType();
+            if (elementType == TwigTokenTypes.COMMA || elementType == TwigTokenTypes.RBRACE) {
+                break;
+            }
+
+            // Twig path parts like "suite" or "order.suite".
+            if (elementType == TwigTokenTypes.IDENTIFIER ||
+                elementType == TwigTokenTypes.TAG_NAME ||
+                elementType == TwigElementTypes.VARIABLE_REFERENCE ||
+                elementType == TwigElementTypes.FIELD_REFERENCE
+            ) {
+                lastPathElement = current;
+                continue;
+            }
+
+            // Dynamic expressions like "factory()" are not simple paths.
+            if (elementType == TwigTokenTypes.LBRACE ||
+                elementType == TwigTokenTypes.LBRACE_SQ ||
+                elementType == TwigTokenTypes.LBRACE_CURL
+            ) {
+                return null;
+            }
+        }
+
+        return lastPathElement;
+    }
+
+    @Nullable
+    private static PsiElement findNextTwigFunctionArgumentComma(@NotNull PsiElement from) {
+        for (PsiElement current = PsiTreeUtil.nextVisibleLeaf(from); current != null; current = PsiTreeUtil.nextVisibleLeaf(current)) {
+            IElementType elementType = current.getNode().getElementType();
+            if (elementType == TwigTokenTypes.COMMA) {
+                return current;
+            }
+
+            if (elementType == TwigTokenTypes.RBRACE) {
+                return null;
+            }
         }
 
         return null;
@@ -311,6 +522,42 @@ public class TwigUtil {
         return PsiTreeUtil.findFirstParent(psiElement, psiElement1 ->
             psiElement1 instanceof PsiFile ||
             (psiElement1 instanceof TwigCompositeElement && psiElement1.getNode().getElementType() == TwigElementTypes.EMBED_STATEMENT)
+        );
+    }
+
+    /**
+     * File Scope:
+     * {% trans_default_domain "foo" %}
+     *
+     * Embed:
+     * {embed 'foo.html.twig'}{% trans_default_domain "foo" %}{% endembed %}
+     */
+    @Nullable
+    public static PsiElement getBlockExtendsScope(@NotNull PsiElement psiElement) {
+        return PsiTreeUtil.findFirstParent(psiElement, psiElement1 -> {
+                if (psiElement1 instanceof PsiFile) {
+                    return true;
+                }
+
+                // {% embed "test.html.twig" %}
+                if (psiElement1 instanceof TwigCompositeElement && psiElement1.getNode().getElementType() == TwigElementTypes.EMBED_STATEMENT) {
+                    return true;
+                }
+
+                // {% component DataTable with
+                if (psiElement1 instanceof TwigStatement && psiElement1.getNode().getElementType() instanceof TwigTag) {
+                    PsiElement firstChild = psiElement1.getFirstChild();
+                    if (firstChild != null && firstChild.getNode().getElementType() == TwigElementTypes.TAG) {
+                        PsiElement firstChild1 = firstChild.getFirstChild();
+                        if (firstChild1 != null) {
+                            PsiElement tagName = PsiElementUtils.getNextSiblingAndSkip(firstChild1, TwigTokenTypes.TAG_NAME);
+                            return tagName != null && "component".equals(tagName.getText());
+                        }
+                    }
+                }
+
+                return false;
+            }
         );
     }
 
@@ -349,7 +596,8 @@ public class TwigUtil {
 
         // Elements that match a simple parameter foo(<caret>,)
         IElementType[] skipArrayElements = {
-            TwigElementTypes.LITERAL, TwigTokenTypes.LBRACE_SQ, TwigTokenTypes.RBRACE_SQ, TwigTokenTypes.IDENTIFIER
+            TwigElementTypes.LITERAL, TwigTokenTypes.LBRACE_SQ, TwigTokenTypes.RBRACE_SQ, TwigTokenTypes.IDENTIFIER,
+            TwigElementTypes.VARIABLE_REFERENCE, TwigElementTypes.FIELD_REFERENCE, TwigElementTypes.ARRAY_LITERAL
         };
 
         String filterNameText = filterName.getText();
@@ -364,6 +612,10 @@ public class TwigUtil {
                     }
                 }
             }
+
+            if (brace != null) {
+                return extractDomainFromNamedParameter(brace);
+            }
         } else if ("transchoice".equalsIgnoreCase(filterNameText)) {
             PsiElement brace = PsiTreeUtil.nextVisibleLeaf(filterName);
             if (PsiElementAssertUtil.isNotNullAndIsElementType(brace, TwigTokenTypes.LBRACE)) {
@@ -371,6 +623,7 @@ public class TwigUtil {
                 IElementType[] skipElements = {
                     TwigTokenTypes.SINGLE_QUOTE, TwigTokenTypes.DOUBLE_QUOTE, TwigTokenTypes.NUMBER,
                     TwigTokenTypes.STRING_TEXT, TwigTokenTypes.DOT, TwigTokenTypes.IDENTIFIER,
+                    TwigElementTypes.VARIABLE_REFERENCE, TwigElementTypes.FIELD_REFERENCE,
                     TwigTokenTypes.CONCAT, TwigTokenTypes.PLUS, TwigTokenTypes.MINUS,
                 };
 
@@ -384,6 +637,10 @@ public class TwigUtil {
                         }
                     }
                 }
+            }
+
+            if (brace != null) {
+                return extractDomainFromNamedParameter(brace);
             }
         }
 
@@ -402,6 +659,36 @@ public class TwigUtil {
                 if (text != null && TwigPattern.getParameterAsStringPattern().accepts(text)) {
                     return text.getText();
                 }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * ('aaa', name: "foobar", )
+     * ('aaa', name= "foobar", )
+     */
+    @Nullable
+    private static String extractDomainFromNamedParameter(@NotNull PsiElement psiElement) {
+        for (TwigVariableReference variableReference : PsiElementUtils.getNextSiblingOfTypes(psiElement, TwigVariableReference.class)) {
+            if (!"domain".equals(variableReference.getName())) {
+                continue;
+            }
+
+            PsiElement parameterValue = PsiElementUtils.getNextSiblingAndSkip(
+                variableReference,
+                TwigTokenTypes.STRING_TEXT,
+                TwigTokenTypes.EQ, TwigTokenTypes.COLON, TwigTokenTypes.WHITE_SPACE, TwigTokenTypes.SINGLE_QUOTE, TwigTokenTypes.DOUBLE_QUOTE
+            );
+
+            if (parameterValue == null) {
+                continue;
+            }
+
+            String text = parameterValue.getText();
+            if (!text.isBlank()) {
+                return text;
             }
         }
 
@@ -530,7 +817,7 @@ public class TwigUtil {
 
             for (PsiFile file : foreignPsiFile) {
                 visitMacros(file, pair -> {
-                    if(macroName.equals(pair.getFirst().getName())) {
+                    if(macroName.equals(pair.getFirst().name())) {
                         psiElements.add(pair.getSecond());
                     }
                 });
@@ -598,8 +885,8 @@ public class TwigUtil {
                 continue;
             }
 
-            PsiElement asVariable = PsiElementUtils.getNextSiblingAndSkip(pair.getSecond(), TwigTokenTypes.IDENTIFIER);
-            if(asVariable == null) {
+            PsiElement asVariable = PhpPsiUtil.getNextSiblingIgnoreWhitespace(pair.getSecond(), true);
+            if(!(asVariable instanceof TwigPsiReference)) {
                 continue;
             }
 
@@ -613,10 +900,10 @@ public class TwigUtil {
                 macroFiles.addAll(getTemplatePsiElements(psiFile.getProject(), template));
             }
 
-            if(macroFiles.size() > 0) {
+            if(!macroFiles.isEmpty()) {
                 for (PsiFile macroFile : macroFiles) {
                     TwigUtil.visitMacros(macroFile, tagPair -> consumer.consume(Pair.create(
-                        new TwigMacro(asName + '.' + tagPair.getFirst().getName(), template).withParameter(tagPair.getFirst().getParameters()),
+                        new TwigMacro(asName + '.' + tagPair.getFirst().name(), template).withParameter(tagPair.getFirst().parameters()),
                         tagPair.getSecond()
                     )));
                 }
@@ -649,8 +936,8 @@ public class TwigUtil {
                 continue;
             }
 
-            PsiElement setVariable = PsiElementUtils.getNextSiblingAndSkip(tagName, TwigTokenTypes.IDENTIFIER);
-            if(setVariable == null) {
+            PsiElement setVariable = PhpPsiUtil.getNextSiblingIgnoreWhitespace(tagName, true);
+            if(!(setVariable instanceof TwigPsiReference)) {
                 continue;
             }
 
@@ -715,7 +1002,7 @@ public class TwigUtil {
         }
 
         // found not valid template name pattern
-        if(className == null || methodNames.size() == 0) {
+        if(className == null || methodNames.isEmpty()) {
             return Collections.emptyList();
         }
 
@@ -731,15 +1018,39 @@ public class TwigUtil {
         return methods;
     }
 
+    @NotNull
     public static Map<String, PsiVariable> collectControllerTemplateVariables(@NotNull TwigFile twigFile) {
-        Map<String, PsiVariable> vars = new HashMap<>();
-
-        for (Method method : findTwigFileController(twigFile)) {
-            vars.putAll(PhpMethodVariableResolveUtil.collectMethodVariables(method));
+        VirtualFile virtualFile = twigFile.getVirtualFile();
+        if (virtualFile == null) {
+            return collectControllerTemplateVariablesInner(twigFile);
         }
 
-        for(Function methodIndex : getTwigFileMethodUsageOnIndex(twigFile)) {
-            vars.putAll(PhpMethodVariableResolveUtil.collectMethodVariables(methodIndex));
+        Project project = twigFile.getProject();
+        Map<String, Map<String, PsiVariable>> cache = CachedValuesManager.getManager(project).getCachedValue(
+            project,
+            CONTROLLER_TEMPLATE_VARIABLES_CACHE,
+            () -> CachedValueProvider.Result.create(
+                new ConcurrentHashMap<>(),
+                PsiModificationTracker.getInstance(project).forLanguage(PhpLanguage.INSTANCE),
+                FileIndexCaches.getModificationTrackerForIndexId(project, PhpTwigTemplateUsageStubIndex.KEY)
+            ),
+            false
+        );
+
+        return cache.computeIfAbsent(virtualFile.getUrl(), ignored -> Collections.unmodifiableMap(collectControllerTemplateVariablesInner(twigFile)));
+    }
+
+    @NotNull
+    private static Map<String, PsiVariable> collectControllerTemplateVariablesInner(@NotNull TwigFile twigFile) {
+        Map<String, PsiVariable> vars = new HashMap<>();
+        Collection<String> templateNames = getTemplateNamesForFile(twigFile);
+
+        for (Method method : findTwigFileController(twigFile)) {
+            vars.putAll(PhpMethodVariableResolveUtil.collectMethodVariables(method, templateNames));
+        }
+
+        for(Function methodIndex : getTwigFileMethodUsageOnIndex(twigFile.getProject(), templateNames)) {
+            vars.putAll(PhpMethodVariableResolveUtil.collectMethodVariables(methodIndex, templateNames));
         }
 
         return vars;
@@ -755,17 +1066,20 @@ public class TwigUtil {
     }
 
     /**
-     * Collect function scopes to search for Twig variable of given template names: "foo.html.twig"
+     * Collect function scopes (controller methods/functions) that are indexed as rendering the given Twig templates.
+     *
+     * @param templateNames normalized template names; usually the result of {@link #getTemplateNamesForFile(PsiFile)}
+     *                      (for example: "foo.html.twig", "@App/foo.html.twig", "App:Foo:bar.html.twig")
      */
     @NotNull
-    public static Set<Function> getTwigFileMethodUsageOnIndex(@NotNull Project project, @NotNull Collection<String> keys) {
-        if(keys.size() == 0) {
+    public static Set<Function> getTwigFileMethodUsageOnIndex(@NotNull Project project, @NotNull Collection<String> templateNames) {
+        if(templateNames.isEmpty()) {
             return Collections.emptySet();
         }
 
         final Set<String> fqn = new HashSet<>();
-        for(String key: keys) {
-            for (TemplateUsage usage : FileBasedIndex.getInstance().getValues(PhpTwigTemplateUsageStubIndex.KEY, key, GlobalSearchScope.allScope(project))) {
+        for(String templateName: templateNames) {
+            for (TemplateUsage usage : FileBasedIndex.getInstance().getValues(PhpTwigTemplateUsageStubIndex.KEY, templateName, GlobalSearchScope.allScope(project))) {
                 fqn.addAll(usage.getScopes());
             }
         }
@@ -804,7 +1118,7 @@ public class TwigUtil {
 
     @Nullable
     public static String getFoldingTemplateName(@Nullable String content) {
-        if(content == null || content.length() == 0) return null;
+        if(content == null || content.isEmpty()) return null;
 
         String templateShortcutName = null;
         if(content.endsWith(".html.twig") && content.length() > 10) {
@@ -813,7 +1127,7 @@ public class TwigUtil {
             templateShortcutName = content.substring(0, content.length() - 9);
         }
 
-        if(templateShortcutName == null || templateShortcutName.length() == 0) {
+        if(templateShortcutName == null || templateShortcutName.isEmpty()) {
             return null;
         }
 
@@ -838,7 +1152,7 @@ public class TwigUtil {
             getTemplateNamesForFile(psiElement.getProject(), currentFile)
         );
 
-        if(templateNames.size() > 0) {
+        if(!templateNames.isEmpty()) {
 
             // bundle names wins
             if(templateNames.size() > 1) {
@@ -856,7 +1170,7 @@ public class TwigUtil {
             return templateName;
         }
 
-        String relativePath = VfsUtil.getRelativePath(currentFile, psiElement.getProject().getBaseDir(), '/');
+        String relativePath = VfsUtil.getRelativePath(currentFile, ProjectUtil.getProjectDir(psiElement), '/');
         return relativePath != null ? relativePath : currentFile.getPath();
 
     }
@@ -878,31 +1192,12 @@ public class TwigUtil {
      */
     @NotNull
     public static synchronized Map<String, Set<VirtualFile>> getTemplateMap(@NotNull Project project, boolean usePhp) {
-        Map<String, Set<VirtualFile>> templateMapProxy;
-
-        // cache twig and all files,
-        // only PHP files we dont need to cache
-        if(!usePhp) {
-            // cache twig files only, most use case
-            CachedValue<Map<String, Set<VirtualFile>>> cache = project.getUserData(TEMPLATE_CACHE_TWIG);
-            if (cache == null) {
-                cache = CachedValuesManager.getManager(project).createCachedValue(new MyAllTemplateFileMapCachedValueProvider(project), false);
-                project.putUserData(TEMPLATE_CACHE_TWIG, cache);
-            }
-
-            templateMapProxy = cache.getValue();
-        } else {
-            // cache all files
-            CachedValue<Map<String, Set<VirtualFile>>> cache = project.getUserData(TEMPLATE_CACHE_ALL);
-            if (cache == null) {
-                cache = CachedValuesManager.getManager(project).createCachedValue(new MyAllTemplateFileMapCachedValueProvider(project, true), false);
-                project.putUserData(TEMPLATE_CACHE_ALL, cache);
-            }
-
-            templateMapProxy = cache.getValue();
-        }
-
-        return templateMapProxy;
+        return CachedValuesManager.getManager(project).getCachedValue(
+            project,
+            usePhp ? TEMPLATE_CACHE_ALL : TEMPLATE_CACHE_TWIG,
+            () -> CachedValueProvider.Result.create(getTemplateMapProxy(project, usePhp), VirtualFileManager.VFS_STRUCTURE_MODIFICATIONS),
+            false
+        );
     }
 
     /**
@@ -911,7 +1206,7 @@ public class TwigUtil {
     @NotNull
     private static Map<String, Set<VirtualFile>> getTemplateMapProxy(@NotNull Project project, boolean usePhp) {
         List<TwigPath> twigPaths = new ArrayList<>(getTwigNamespaces(project));
-        if(twigPaths.size() == 0) {
+        if(twigPaths.isEmpty()) {
             return Collections.emptyMap();
         }
 
@@ -927,19 +1222,22 @@ public class TwigUtil {
                 continue;
             }
 
-            Map<String, VirtualFile> visitor = MyLimitedVirtualFileVisitor.createResult(
-                virtualDirectoryFile,
-                project,
-                twigPath,
-                usePhp
-            );
+            GlobalSearchScope dirScope = GlobalSearchScopesCore.directoriesScope(project, true, virtualDirectoryFile);
 
-            for (Map.Entry<String, VirtualFile> entry : visitor.entrySet()) {
-                if(!templateNames.containsKey(entry.getKey())) {
-                    templateNames.put(entry.getKey(), new HashSet<>());
+            for (VirtualFile file : FileTypeIndex.getFiles(TwigFileType.INSTANCE, dirScope)) {
+                String templateName = getTemplateNameForTwigPath(project, twigPath, file);
+                if(templateName != null) {
+                    templateNames.computeIfAbsent(templateName, k -> new HashSet<>()).add(file);
                 }
+            }
 
-                templateNames.get(entry.getKey()).add(entry.getValue());
+            if(usePhp) {
+                for (VirtualFile file : FileTypeIndex.getFiles(PhpFileType.INSTANCE, dirScope)) {
+                    String templateName = getTemplateNameForTwigPath(project, twigPath, file);
+                    if(templateName != null) {
+                        templateNames.computeIfAbsent(templateName, k -> new HashSet<>()).add(file);
+                    }
+                }
             }
         }
 
@@ -995,6 +1293,42 @@ public class TwigUtil {
         String file = templateName.substring(templateName.lastIndexOf("/") + 1);
 
         return String.format("%s:%s:%s", bundle, StringUtils.strip(subFolder, "/"), file);
+    }
+
+    /**
+     * Matches static Twig string leaves that are known template references.
+     *
+     * <pre>{@code
+     * {% include 'base.html.twig' %}
+     * {{ include('base.html.twig') }}
+     * }</pre>
+     *
+     * Dynamic strings such as {@code {% include 'base/' ~ name ~ '.html.twig' %}} are ignored.
+     *
+     * @see #isTemplateUsage(PsiElement)
+     */
+    public static boolean isStaticTemplateUsage(@NotNull PsiElement element) {
+        return isValidStringWithoutInterpolatedOrConcat(element) && isTemplateUsage(element);
+    }
+
+    /**
+     * Matches Twig string leaves that are template references from built-in Twig patterns.
+     *
+     * <pre>{@code
+     * {% extends 'layout.html.twig' %}
+     * {{ source('snippet.html.twig') }}
+     * }</pre>
+     *
+     * This method only checks whether the leaf is a template usage. Use {@link #isStaticTemplateUsage(PsiElement)}
+     * when interpolated or concatenated strings must be filtered out.
+     */
+    public static boolean isTemplateUsage(@NotNull PsiElement element) {
+        if (element.getNode() == null || element.getNode().getElementType() != TwigTokenTypes.STRING_TEXT) {
+            return false;
+        }
+
+        return TwigPattern.getTemplateFileReferenceTagPattern().accepts(element)
+            || TwigPattern.getIncludeSourcePrintBlockOrTagFunctionPattern().accepts(element);
     }
 
     /**
@@ -1099,7 +1433,7 @@ public class TwigUtil {
         }
 
         // full filepath fallback: "foo/foo<caret>.html.twig"
-        if(files.size() == 0) {
+        if(files.isEmpty()) {
             files.addAll(getTemplatePsiElements(project, templateName));
         }
 
@@ -1242,7 +1576,7 @@ public class TwigUtil {
         List<TwigPath> collect = getTwigNamespaces(project, true)
             .stream()
             .filter(TwigPath::isEnabled)
-            .collect(Collectors.toList());
+            .toList();
 
         return collect.stream()
             .map(twigPath -> getTemplateNameForTwigPath(project, twigPath, virtualFile))
@@ -1307,20 +1641,57 @@ public class TwigUtil {
     }
 
     @NotNull
+    private static List<TwigPath> getTwigNamespacesWithSettings(@NotNull Project project) {
+        return CachedValuesManager.getManager(project).getCachedValue(project, TWIG_NAMESPACES_WITH_SETTINGS, () -> {
+            List<TwigPath> result = getTwigNamespacesRaw(project, true);
+            return CachedValueProvider.Result.create(result, PsiModificationTracker.getInstance(project));
+        }, false);
+    }
+
+    @NotNull
     public static List<TwigPath> getTwigNamespaces(@NotNull Project project, boolean includeSettings) {
+        if (includeSettings) {
+            return getTwigNamespacesWithSettings(project);
+        }
+        return getTwigNamespacesRaw(project, false);
+    }
+
+    @NotNull
+    private static List<TwigPath> getTwigNamespacesRaw(@NotNull Project project, boolean includeSettings) {
         List<TwigPath> twigPaths = new ArrayList<>();
 
         // load extension
         TwigNamespaceExtensionParameter parameter = new TwigNamespaceExtensionParameter(project);
-        for (TwigNamespaceExtension namespaceExtension : EXTENSIONS.getExtensions()) {
+        for (TwigNamespaceExtension namespaceExtension : TWIG_NAMESPACE_EXTENSIONS.getExtensions()) {
             twigPaths.addAll(namespaceExtension.getNamespaces(parameter));
         }
 
+        // normalize any absolute paths from extensions to project-relative paths; drop unresolvable ones
+        List<TwigPath> normalizedPaths = new ArrayList<>();
+        for (TwigPath twigPath : twigPaths) {
+            String path = twigPath.getPath();
+            if (VfsExUtil.isAbsolutePath(path)) {
+                VirtualFile virtualFile = VfsUtil.findFileByIoFile(new java.io.File(path), false);
+                if (virtualFile == null) {
+                    continue;
+                }
+                String relativePath = VfsExUtil.getRelativeProjectPathStrict(project, virtualFile);
+                if (relativePath == null) {
+                    continue;
+                }
+                normalizedPaths.add(TwigPath.createTwigPath(relativePath, twigPath.getNamespace(), twigPath.getNamespaceType(), twigPath.isCustomPath(), twigPath.isEnabled()));
+            } else {
+                normalizedPaths.add(twigPath);
+            }
+        }
+        twigPaths = normalizedPaths;
+
         // disable namespace explicitly disabled by user
-        for(TwigPath twigPath: twigPaths) {
+        for(int i = 0; i < twigPaths.size(); i++) {
+            TwigPath twigPath = twigPaths.get(i);
             TwigNamespaceSetting twigNamespaceSetting = findManagedTwigNamespace(project, twigPath);
             if(twigNamespaceSetting != null) {
-                twigPath.setEnabled(false);
+                twigPaths.set(i, TwigPath.createClone(twigPath, false));
             }
         }
 
@@ -1334,7 +1705,17 @@ public class TwigUtil {
         if(twigNamespaceSettings != null) {
             for(TwigNamespaceSetting twigNamespaceSetting: twigNamespaceSettings) {
                 if(twigNamespaceSetting.isCustom()) {
-                    twigPaths.add(new TwigPath(twigNamespaceSetting.getPath(), twigNamespaceSetting.getNamespace(), twigNamespaceSetting.getNamespaceType(), true).setEnabled(twigNamespaceSetting.isEnabled()));
+                    String path = twigNamespaceSetting.getPath();
+                    if (path == null || path.isBlank()) {
+                        continue;
+                    }
+
+                    // Skip absolute paths - only relative paths are supported
+                    if (VfsExUtil.isAbsolutePath(path)) {
+                        continue;
+                    }
+
+                    twigPaths.add(TwigPath.createTwigPath(path, twigNamespaceSetting.getNamespace(), twigNamespaceSetting.getNamespaceType(), true, twigNamespaceSetting.isEnabled()));
                 }
             }
         }
@@ -1352,9 +1733,9 @@ public class TwigUtil {
 
         Set<String> hashes = new HashSet<>();
         for (TwigPath twigPath : origin) {
-            // normalize hash; for same path element
-            // TODO: move to path object itself
-            String hash = twigPath.getNamespaceType() + twigPath.getNamespace() + twigPath.getPath().replace("\\", "/");
+            String normalizedPath = MULTIPLE_SLASHES.matcher(twigPath.getPath().replace("\\", "/")).replaceAll("/");
+
+            String hash = twigPath.getNamespaceType() + twigPath.getNamespace() + normalizedPath;
             if(hashes.contains(hash)) {
                 continue;
             }
@@ -1372,12 +1753,11 @@ public class TwigUtil {
 
         ElementPattern<PsiElement> pattern = PlatformPatterns.psiElement(TwigTokenTypes.RBRACE);
 
-        String currentText = transPsiElement.getText();
+        StringBuilder currentText = new StringBuilder(transPsiElement.getText());
         for (PsiElement child = transPsiElement.getNextSibling(); child != null; child = child.getNextSibling()) {
-            currentText = currentText + child.getText();
+            currentText.append(child.getText());
             if (pattern.accepts(child)) {
-                //noinspection unchecked
-                return currentText;
+                return currentText.toString();
             }
         }
 
@@ -1452,14 +1832,14 @@ public class TwigUtil {
     }
 
     public static Collection<PsiElement> getTwigMacroTargets(final Project project, final String name) {
-
         final Collection<PsiElement> targets = new ArrayList<>();
+        ElementPattern<PsiElement> twigMacroNameKnownPattern = TwigPattern.getTwigMacroNameKnownPattern(name);
 
         FileBasedIndex.getInstance().getFilesWithKey(TwigMacroFunctionStubIndex.KEY, new HashSet<>(Collections.singletonList(name)), virtualFile -> {
             PsiFile psiFile = PsiManager.getInstance(project).findFile(virtualFile);
             if (psiFile != null) {
                 PsiTreeUtil.processElements(psiFile, psiElement -> {
-                    if (TwigPattern.getTwigMacroNameKnownPattern(name).accepts(psiElement)) {
+                    if (twigMacroNameKnownPattern.accepts(psiElement)) {
                         targets.add(psiElement);
                     }
 
@@ -1479,14 +1859,24 @@ public class TwigUtil {
      */
     @NotNull
     public static Collection<LookupElement> getTwigLookupElements(@NotNull Project project) {
-        VirtualFile baseDir = project.getBaseDir();
+        return getTwigLookupElements(project, Collections.emptyList());
+    }
 
+    /**
+     * Lookup elements for Twig files
+     */
+    @NotNull
+    public static Collection<LookupElement> getTwigLookupElements(@NotNull Project project, @NotNull Collection<String> highlight) {
+        VirtualFile baseDir = ProjectUtil.getProjectDir(project);
         return getTemplateMap(project).entrySet()
             .stream()
-            .filter(entry -> entry.getValue().size() > 0)
-            .map((java.util.function.Function<Map.Entry<String, Set<VirtualFile>>, LookupElement>) entry ->
-                new TemplateLookupElement(entry.getKey(), entry.getValue().iterator().next(), baseDir)
-            )
+            .filter(entry -> !entry.getValue().isEmpty())
+            .map((java.util.function.Function<Map.Entry<String, Set<VirtualFile>>, LookupElement>) entry -> new TemplateLookupElement(
+                entry.getKey(),
+                entry.getValue().iterator().next(),
+                baseDir,
+                highlight.contains(entry.getKey())
+            ))
             .collect(Collectors.toList());
     }
 
@@ -1495,11 +1885,11 @@ public class TwigUtil {
      */
     @NotNull
     public static Collection<LookupElement> getAllTemplateLookupElements(@NotNull Project project) {
-        VirtualFile baseDir = project.getBaseDir();
+        VirtualFile baseDir = ProjectUtil.getProjectDir(project);
 
         return getTemplateMap(project, true).entrySet()
             .stream()
-            .filter(entry -> entry.getValue().size() > 0)
+            .filter(entry -> !entry.getValue().isEmpty())
             .map((java.util.function.Function<Map.Entry<String, Set<VirtualFile>>, LookupElement>) entry ->
                 new TemplateLookupElement(entry.getKey(), entry.getValue().iterator().next(), baseDir)
             )
@@ -1541,9 +1931,9 @@ public class TwigUtil {
         }
 
         // {% include ['foo.html.twig', 'foo_1.html.twig'] %}
-        PsiElement arrayMatch = PsiElementUtils.getNextSiblingOfType(firstChild, PlatformPatterns.psiElement(TwigTokenTypes.LBRACE_SQ));
-        if(arrayMatch != null) {
-            visitStringInArray(arrayMatch, pair ->
+        PsiElement arrayMatch = PsiElementUtils.getNextSiblingOfType(firstChild, PlatformPatterns.psiElement(TwigElementTypes.ARRAY_LITERAL));
+        if(arrayMatch instanceof TwigArrayLiteral) {
+            visitStringInArray((TwigArrayLiteral) arrayMatch, pair ->
                 strings.add(pair.getFirst())
             );
         }
@@ -1562,26 +1952,17 @@ public class TwigUtil {
      * ["foobar", "foobar"]
      * {"foobar", "foobar"}
      */
-    private static void visitStringInArray(@NotNull PsiElement arrayStartBrace, @NotNull Consumer<Pair<String, PsiElement>> pair) {
+    private static void visitStringInArray(@NotNull TwigArrayLiteral twigArrayLiteral, @NotNull Consumer<Pair<String, PsiElement>> pair) {
         // match: "([,)''(,])"
-        Collection<PsiElement> questString = PsiElementUtils.getNextSiblingOfTypes(arrayStartBrace, PlatformPatterns.psiElement(TwigTokenTypes.STRING_TEXT)
-                .afterLeafSkipping(
-                    TwigPattern.STRING_WRAP_PATTERN,
-                    PlatformPatterns.or(
-                        PlatformPatterns.psiElement(TwigTokenTypes.COMMA),
-                        PlatformPatterns.psiElement(TwigTokenTypes.LBRACE_SQ),
-                        PlatformPatterns.psiElement(TwigTokenTypes.LBRACE_CURL)
-                   )
-                )
-                .beforeLeafSkipping(
-                    TwigPattern.STRING_WRAP_PATTERN,
-                    PlatformPatterns.or(
-                        PlatformPatterns.psiElement(TwigTokenTypes.COMMA),
-                        PlatformPatterns.psiElement(TwigTokenTypes.RBRACE_SQ),
-                        PlatformPatterns.psiElement(TwigTokenTypes.RBRACE_CURL)
-                    )
-                )
-        );
+        Collection<PsiElement> questString = new HashSet<>();
+        for (TwigArrayValue arrayValue : twigArrayLiteral.getArrayValues()) {
+            // ignore concat: ~
+            if (!PsiElementUtils.getChildrenOfTypeAsList(arrayValue, PlatformPatterns.psiElement(TwigTokenTypes.CONCAT)).isEmpty()) {
+                continue;
+            }
+
+            questString.addAll(PsiElementUtils.getChildrenOfTypeAsList(arrayValue, PlatformPatterns.psiElement(TwigTokenTypes.STRING_TEXT)));
+        }
 
         for (PsiElement psiElement : questString) {
             String text = psiElement.getText();
@@ -1606,6 +1987,9 @@ public class TwigUtil {
 
         Collection<TwigBlock> block = new ArrayList<>();
 
+        ElementPattern<PsiElement> blockTagPattern = TwigPattern.getBlockTagPattern();
+        ElementPattern<PsiElement> blockFunctionPattern = TwigPattern.getPrintBlockOrTagFunctionPattern("block");
+
         for (PsiElement psiElement : blocks) {
             final PsiElement[] target = new PsiElement[1];
 
@@ -1614,7 +1998,7 @@ public class TwigUtil {
                 psiElement.acceptChildren(new PsiRecursiveElementVisitor() {
                     @Override
                     public void visitElement(PsiElement element) {
-                        if(target[0] == null && TwigPattern.getBlockTagPattern().accepts(element)) {
+                        if(target[0] == null && blockTagPattern.accepts(element)) {
                             target[0] = element;
                         }
                         super.visitElement(element);
@@ -1626,7 +2010,7 @@ public class TwigUtil {
                 psiElement.acceptChildren(new PsiRecursiveElementVisitor() {
                     @Override
                     public void visitElement(PsiElement element) {
-                        if(target[0] == null && TwigPattern.getPrintBlockOrTagFunctionPattern("block").accepts(element)) {
+                        if(target[0] == null && blockFunctionPattern.accepts(element)) {
                             target[0] = element;
                         }
                         super.visitElement(element);
@@ -1647,6 +2031,32 @@ public class TwigUtil {
         }
 
         return block;
+    }
+
+    public static void visitEmbedBlocks(@NotNull TwigFile psiFile, @NotNull Consumer<TwigBlockEmbed> consumer) {
+        PsiElement[] embedStatements = PsiTreeUtil.collectElements(psiFile, psiElement ->
+            psiElement instanceof TwigCompositeElement && psiElement.getNode().getElementType() == TwigElementTypes.EMBED_STATEMENT
+        );
+
+        for (PsiElement embedStatement : embedStatements) {
+            PsiElement firstChild = embedStatement.getFirstChild();
+            if (firstChild == null) {
+                continue;
+            }
+
+            String templateNameForEmbedTag = TwigUtil.getTemplateNameForEmbedTag(firstChild);
+            if (templateNameForEmbedTag == null) {
+                continue;
+            }
+
+            for (TwigBlockStatement twigBlockStatement : PsiTreeUtil.getChildrenOfAnyType(embedStatement, TwigBlockStatement.class)) {
+                String blockName = twigBlockStatement.getName();
+
+                if (blockName != null && !blockName.isBlank()) {
+                    consumer.consume(new TwigBlockEmbed(templateNameForEmbedTag, blockName, twigBlockStatement));
+                }
+            }
+        }
     }
 
     /**
@@ -1745,19 +2155,37 @@ public class TwigUtil {
     public static Pair<Collection<PsiFile>, Boolean> findScopedFile(@NotNull PsiElement psiElement) {
 
         // {% embed "template.twig" %}{% block <caret> %}
-        PsiElement firstParent = getTransDefaultDomainScope(psiElement);
+        PsiElement firstParent = getBlockExtendsScope(psiElement);
 
         // {% embed "template.twig" %}
-        if(firstParent != null && firstParent.getNode().getElementType() == TwigElementTypes.EMBED_STATEMENT) {
+        if (firstParent != null && firstParent.getNode().getElementType() == TwigElementTypes.EMBED_STATEMENT) {
             PsiElement embedTag = firstParent.getFirstChild();
-            if(embedTag != null) {
+            if (embedTag != null) {
                 String templateName = getTemplateNameForEmbedTag(embedTag);
-                if(templateName != null) {
+                if (templateName != null) {
                     return Pair.create(getTemplatePsiElements(psiElement.getProject(), templateName), true);
                 }
             }
 
             return Pair.create(Collections.emptyList(), true);
+        } else if (firstParent != null) {
+            // {% component RandomNumber
+            PsiElement firstChild = firstParent.getFirstChild();
+            if (firstChild != null) {
+                PsiElement tagStart = firstChild.getFirstChild();
+                if (tagStart != null) {
+                    PsiElement tagName = PsiElementUtils.getNextSiblingAndSkip(tagStart, TwigTokenTypes.TAG_NAME);
+                    if (tagName != null && "component".equals(tagName.getText())) {
+                        PsiElement filterName = PsiTreeUtil.nextVisibleLeaf(tagName);
+                        if (filterName != null) {
+                            String componentName = PsiElementUtils.trimQuote(filterName.getText());
+                            if (!componentName.isBlank()) {
+                                return Pair.create(UxUtil.getComponentTemplates(psiElement.getProject(), componentName), true);
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         return Pair.create(Collections.singletonList(psiElement.getContainingFile()), false);
@@ -1769,7 +2197,7 @@ public class TwigUtil {
      * {% embed "teasers_skeleton.html.twig" %}
      */
     @Nullable
-    private static String getTemplateNameForEmbedTag(@NotNull PsiElement embedTag) {
+    public static String getTemplateNameForEmbedTag(@NotNull PsiElement embedTag) {
         if(embedTag.getNode().getElementType() == TwigElementTypes.EMBED_TAG) {
             PsiElement fileReference = ContainerUtil.find(YamlHelper.getChildrenFix(embedTag), psiElement ->
                 TwigPattern.getTemplateFileReferenceTagPattern().accepts(psiElement)
@@ -1863,36 +2291,47 @@ public class TwigUtil {
      */
     @NotNull
     public static Collection<Pair<String, String>> getTwigPathFromYamlConfigResolved(@NotNull YAMLFile yamlFile) {
-        VirtualFile baseDir = yamlFile.getProject().getBaseDir();
+        VirtualFile baseDir = ProjectUtil.getProjectDir(yamlFile);
 
         Collection<Pair<String, String>> paths = new ArrayList<>();
 
         for (Pair<String, String> pair : getTwigPathFromYamlConfig(yamlFile)) {
-            String second = pair.getSecond();
+            // normalize path; just to be error prune
+            String namespacePath = pair.getSecond().replace("\\", "/").replaceAll("/+", "/");
+            String namespace = pair.getFirst();
 
-            if(second.startsWith("%kernel.root_dir%")) {
+            if(namespacePath.startsWith("%kernel.root_dir%")) {
                 // %kernel.root_dir%/../app
                 // %kernel.root_dir%/foo
                 for (VirtualFile appDir : FilesystemUtil.getAppDirectories(yamlFile.getProject())) {
-                    String path = StringUtils.stripStart(second.substring("%kernel.root_dir%".length()), "/");
+                    String path = StringUtils.stripStart(namespacePath.substring("%kernel.root_dir%".length()), "/");
 
                     VirtualFile relativeFile = VfsUtil.findRelativeFile(appDir, path.split("/"));
                     if(relativeFile != null) {
                         String relativePath = VfsUtil.getRelativePath(relativeFile, baseDir, '/');
                         if(relativePath != null) {
-                            paths.add(Pair.create(pair.getFirst(), relativePath));
+                            paths.add(Pair.create(namespace, relativePath));
                         }
                     }
                 }
-            } else if(second.startsWith("%kernel.project_dir%")) {
+            } else if(namespacePath.startsWith("%kernel.project_dir%")) {
                 // '%kernel.root_dir%/test'
-                String path = StringUtils.stripStart(second.substring("%kernel.project_dir%".length()), "/");
+                String path = StringUtils.stripStart(namespacePath.substring("%kernel.project_dir%".length()), "/");
 
-                VirtualFile relativeFile = VfsUtil.findRelativeFile(yamlFile.getProject().getBaseDir(), path.split("/"));
+                VirtualFile relativeFile = VfsUtil.findRelativeFile(baseDir, path.split("/"));
                 if(relativeFile != null) {
                     String relativePath = VfsUtil.getRelativePath(relativeFile, baseDir, '/');
                     if(relativePath != null) {
-                        paths.add(Pair.create(pair.getFirst(), relativePath));
+                        paths.add(Pair.create(namespace, relativePath));
+                    }
+                }
+            } else if(!namespacePath.startsWith("/") && !namespacePath.startsWith("\\")) {
+                // 'test/foo'
+                VirtualFile relativeFile = VfsUtil.findRelativeFile(baseDir, namespacePath.split("/"));
+                if(relativeFile != null) {
+                    String relativePath = VfsUtil.getRelativePath(relativeFile, baseDir, '/');
+                    if(relativePath != null) {
+                        paths.add(Pair.create(namespace, relativePath));
                     }
                 }
             }
@@ -1992,40 +2431,33 @@ public class TwigUtil {
 
         final TwigCreateContainer containerElement = new TwigCreateContainer();
 
-        VfsUtil.processFilesRecursively(startDirectory, new Processor<VirtualFile>() {
+        VfsUtil.processFilesRecursively(startDirectory, new Processor<>() {
             @Override
             public boolean process(VirtualFile virtualFile) {
 
-                if(virtualFile.getFileType() != TwigFileType.INSTANCE) {
+                if (virtualFile.getFileType() != TwigFileType.INSTANCE) {
                     return true;
                 }
 
+                FileBasedIndex.getInstance().getFileData(TwigExtendsStubIndex.KEY, virtualFile, project)
+                    .keySet().forEach(containerElement::addExtend);
+
                 PsiFile twigFile = PsiManager.getInstance(project).findFile(virtualFile);
-                if(twigFile instanceof TwigFile) {
-                    collect((TwigFile) twigFile);
+                if (twigFile instanceof TwigFile) {
+                    for (PsiElement psiElement : twigFile.getChildren()) {
+                        if (psiElement.getNode().getElementType() == TwigElementTypes.BLOCK_STATEMENT) {
+                            PsiElement blockTag = psiElement.getFirstChild();
+                            if (blockTag instanceof TwigBlockTag) {
+                                String name = ((TwigBlockTag) blockTag).getName();
+                                if (StringUtils.isNotBlank(name)) {
+                                    containerElement.addBlock(name);
+                                }
+                            }
+                        }
+                    }
                 }
 
                 return true;
-            }
-
-            private void collect(TwigFile twigFile) {
-                for(PsiElement psiElement: twigFile.getChildren()) {
-                    if(psiElement instanceof TwigExtendsTag) {
-                        for (String s : getTwigExtendsTagTemplates((TwigExtendsTag) psiElement)) {
-                            containerElement.addExtend(s);
-                        }
-                    } else if(psiElement.getNode().getElementType() == TwigElementTypes.BLOCK_STATEMENT) {
-                        PsiElement blockTag = psiElement.getFirstChild();
-                        if(blockTag instanceof TwigBlockTag) {
-                            String name = ((TwigBlockTag) blockTag).getName();
-                            if(StringUtils.isNotBlank(name)) {
-                                containerElement.addBlock(name);
-                            }
-                        }
-
-                    }
-
-                }
             }
 
         });
@@ -2058,50 +2490,6 @@ public class TwigUtil {
         String s = stringBuilder.toString();
         return StringUtils.isNotBlank(s) ? s : null;
 
-    }
-
-    /**
-     * Gets a template name from "app" or bundle getParent overwrite
-     *
-     * app/Resources/AcmeBlogBundle/views/Blog/index.html.twig
-     * src/Acme/UserBundle/Resources/views/index.html.twig
-     */
-    @Nullable
-    public static String getTemplateNameByOverwrite(@NotNull Project project, @NotNull VirtualFile virtualFile) {
-
-        String relativePath = VfsUtil.getRelativePath(virtualFile, project.getBaseDir());
-        if(relativePath == null) {
-            return null;
-        }
-
-        // app/Resources/AcmeBlogBundle/views/Blog/index.html.twig
-        Matcher matcher = Pattern.compile("app/Resources/([^/]*Bundle)/views/(.*)$").matcher(relativePath);
-        if (matcher.find()) {
-            return normalizeTemplateName(matcher.group(1) + ":" + matcher.group(2));
-        }
-
-        // src/Acme/UserBundle/Resources/views/index.html.twig
-        SymfonyBundleUtil symfonyBundleUtil = new SymfonyBundleUtil(project);
-        SymfonyBundle containingBundle = symfonyBundleUtil.getContainingBundle(virtualFile);
-        if(containingBundle == null) {
-            return null;
-        }
-
-        String relative = containingBundle.getRelative(virtualFile);
-        if(relative == null) {
-            return null;
-        }
-
-        if(!relative.startsWith("Resources/views/")) {
-            return null;
-        }
-
-        String parentBundleName = containingBundle.getParentBundleName();
-        if(parentBundleName == null) {
-            return null;
-        }
-
-        return normalizeTemplateName(containingBundle.getName() + ":" + relative.substring("Resources/views/".length(), relative.length()));
     }
 
     /**
@@ -2156,7 +2544,11 @@ public class TwigUtil {
 
         }
 
-        return paths;
+        // prevent some noisy standard project stuff.
+        return paths
+            .stream()
+            .filter(s -> !(s.toLowerCase().contains("/twig-bridge/") && s.toLowerCase().contains("/form/")))
+            .collect(Collectors.toSet());
     }
 
     /**
@@ -2193,7 +2585,7 @@ public class TwigUtil {
             }
 
             twigChild.add(myVirtualFile);
-            getTemplatesExtendingFile(project, myVirtualFile, twigChild, --depth);
+            getTemplatesExtendingFile(project, myVirtualFile, twigChild, depth - 1);
         }
     }
 
@@ -2212,127 +2604,128 @@ public class TwigUtil {
         return blocks;
     }
 
+    public static class TemplateIncludePatterns {
+        final ElementPattern<PsiElement> importTag = TwigPattern.getTagNameParameterPattern(TwigElementTypes.IMPORT_TAG, "import");
+        final ElementPattern<PsiElement> fromTag = TwigPattern.getTagNameParameterPattern(TwigElementTypes.IMPORT_TAG, "from");
+        final ElementPattern<PsiElement> sourceFunction = TwigPattern.getPrintBlockOrTagFunctionPattern("source");
+        final ElementPattern<PsiElement> includeSource = TwigPattern.getIncludeSourcePrintBlockOrTagFunctionPattern();
+        final ElementPattern<PsiElement> blockFunctionTemplate = TwigPattern.getPrintBlockOrTagFunctionSecondParameterPattern("block");
+        final ElementPattern<PsiElement> embed = TwigPattern.getEmbedPattern();
+        final ElementPattern<PsiElement> tagName = PlatformPatterns.psiElement().withElementType(TwigTokenTypes.TAG_NAME);
+        final ElementPattern<PsiElement> withKeyword = PlatformPatterns.psiElement().withElementType(TwigTokenTypes.IDENTIFIER).withText("with");
+    }
+
     /**
      * Visit all possible Twig include file pattern
      */
-    public static void visitTemplateIncludes(@NotNull TwigFile twigFile, @NotNull Consumer<TemplateInclude> consumer) {
-        visitTemplateIncludes(
-            twigFile,
-            consumer,
-            TemplateInclude.TYPE.EMBED,
-            TemplateInclude.TYPE.INCLUDE,
-            TemplateInclude.TYPE.INCLUDE_FUNCTION,
-            TemplateInclude.TYPE.FROM,
-            TemplateInclude.TYPE.IMPORT,
-            TemplateInclude.TYPE.FORM_THEME
-        );
+    public static void visitTemplateIncludes(@NotNull PsiElement psiElement, @NotNull Consumer<TemplateInclude> consumer) {
+        visitTemplateIncludes(psiElement, consumer, new TemplateIncludePatterns());
     }
 
-    private static void visitTemplateIncludes(@NotNull TwigFile twigFile, @NotNull Consumer<TemplateInclude> consumer, @NotNull TemplateInclude.TYPE... types) {
-        if(types.length == 0) {
-            return;
-        }
+    public static void visitTemplateIncludes(@NotNull PsiElement psiElement, @NotNull Consumer<TemplateInclude> consumer, @NotNull TemplateIncludePatterns patterns) {
+        if(psiElement instanceof TwigTagWithFileReference) {
+            // {% include %}
+            if(psiElement.getNode().getElementType() == TwigElementTypes.INCLUDE_TAG) {
+                for (String templateName : getIncludeTagStrings((TwigTagWithFileReference) psiElement)) {
+                    if(StringUtils.isNotBlank(templateName)) {
+                        consumer.consume(new TemplateInclude(psiElement, templateName, TemplateInclude.TYPE.INCLUDE));
+                    }
+                }
+            }
 
-        List<TemplateInclude.TYPE> myTypes = Arrays.asList(types);
+            // {% import "foo.html.twig"
+            PsiElement importTag = PsiElementUtils.getChildrenOfType(psiElement, patterns.importTag);
+            if(importTag != null) {
+                String templateName = importTag.getText();
+                if(StringUtils.isNotBlank(templateName)) {
+                    consumer.consume(new TemplateInclude(psiElement, templateName, TemplateInclude.TYPE.IMPORT));
+                }
+            }
 
-        PsiTreeUtil.collectElements(twigFile, psiElement -> {
-            if(psiElement instanceof TwigTagWithFileReference) {
-                // {% include %}
-                if(myTypes.contains(TemplateInclude.TYPE.INCLUDE)) {
-                    if(psiElement.getNode().getElementType() == TwigElementTypes.INCLUDE_TAG) {
-                        for (String templateName : getIncludeTagStrings((TwigTagWithFileReference) psiElement)) {
+            // {% from 'forms.html' import ... %}
+            PsiElement fromTag = PsiElementUtils.getChildrenOfType(psiElement, patterns.fromTag);
+            if(fromTag != null) {
+                String templateName = fromTag.getText();
+                if(StringUtils.isNotBlank(templateName)) {
+                    consumer.consume(new TemplateInclude(psiElement, templateName, TemplateInclude.TYPE.FROM));
+                }
+            }
+        } else if(psiElement instanceof TwigCompositeElement) {
+            // {{ include() }}
+            // {{ source() }}
+            PsiElement includeTag = PsiElementUtils.getChildrenOfType(psiElement, patterns.includeSource);
+            if(includeTag != null) {
+                String templateName = includeTag.getText();
+                if(StringUtils.isNotBlank(templateName)) {
+                    consumer.consume(new TemplateInclude(psiElement, templateName,
+                        patterns.sourceFunction.accepts(includeTag) ? TemplateInclude.TYPE.SOURCE_FUNCTION : TemplateInclude.TYPE.INCLUDE_FUNCTION));
+                }
+            }
+
+            // {{ block('title', 'foo.html.twig') }}
+            PsiElement blockFunctionTag = PsiElementUtils.getChildrenOfType(psiElement, patterns.blockFunctionTemplate);
+            if(blockFunctionTag != null) {
+                String templateName = blockFunctionTag.getText();
+                if(StringUtils.isNotBlank(templateName)) {
+                    consumer.consume(new TemplateInclude(
+                        psiElement,
+                        templateName,
+                        TemplateInclude.TYPE.BLOCK_FUNCTION
+                    ));
+                }
+            }
+
+            // {% embed "foo.html.twig"
+            PsiElement embedTag = PsiElementUtils.getChildrenOfType(psiElement, patterns.embed);
+            if(embedTag != null) {
+                String templateName = embedTag.getText();
+                if(StringUtils.isNotBlank(templateName)) {
+                    consumer.consume(new TemplateInclude(psiElement, templateName, TemplateInclude.TYPE.EMBED));
+                }
+            }
+
+            if(psiElement.getNode().getElementType() == TwigElementTypes.TAG) {
+                PsiElement tagElement = PsiElementUtils.getChildrenOfType(psiElement, patterns.tagName);
+                if(tagElement != null) {
+                    String text = tagElement.getText();
+                    if("form_theme".equals(text)) {
+                        // {% form_theme form.child 'form/fields_child.html.twig' %}
+                        PsiElement childrenOfType = PsiElementUtils.getNextSiblingAndSkip(tagElement, TwigTokenTypes.STRING_TEXT,
+                            TwigTokenTypes.IDENTIFIER, TwigTokenTypes.SINGLE_QUOTE, TwigTokenTypes.DOUBLE_QUOTE, TwigTokenTypes.DOT
+                        );
+
+                        if(childrenOfType != null) {
+                            String templateName = childrenOfType.getText();
                             if(StringUtils.isNotBlank(templateName)) {
-                                consumer.consume(new TemplateInclude(psiElement, templateName, TemplateInclude.TYPE.INCLUDE));
+                                consumer.consume(new TemplateInclude(psiElement, templateName, TemplateInclude.TYPE.FORM_THEME));
                             }
                         }
-                    }
-                }
 
-                // {% import "foo.html.twig"
-                if(myTypes.contains(TemplateInclude.TYPE.IMPORT)) {
-                    PsiElement embedTag = PsiElementUtils.getChildrenOfType(psiElement, TwigPattern.getTagNameParameterPattern(TwigElementTypes.IMPORT_TAG, "import"));
-                    if(embedTag != null) {
-                        String templateName = embedTag.getText();
-                        if(StringUtils.isNotBlank(templateName)) {
-                            consumer.consume(new TemplateInclude(psiElement, templateName, TemplateInclude.TYPE.IMPORT));
-                        }
-                    }
-                }
-
-                // {% from 'forms.html' import ... %}
-                if(myTypes.contains(TemplateInclude.TYPE.FROM)) {
-                    PsiElement embedTag = PsiElementUtils.getChildrenOfType(psiElement, TwigPattern.getTagNameParameterPattern(TwigElementTypes.IMPORT_TAG, "from"));
-                    if(embedTag != null) {
-                        String templateName = embedTag.getText();
-                        if(StringUtils.isNotBlank(templateName)) {
-                            consumer.consume(new TemplateInclude(psiElement, templateName, TemplateInclude.TYPE.IMPORT));
-                        }
-                    }
-                }
-            } else if(psiElement instanceof TwigCompositeElement) {
-                // {{ include() }}
-                // {{ source() }}
-                if(myTypes.contains(TemplateInclude.TYPE.INCLUDE_FUNCTION)) {
-                    PsiElement includeTag = PsiElementUtils.getChildrenOfType(psiElement, TwigPattern.getPrintBlockOrTagFunctionPattern("include", "source"));
-                    if(includeTag != null) {
-                        String templateName = includeTag.getText();
-                        if(StringUtils.isNotBlank(templateName)) {
-                            consumer.consume(new TemplateInclude(psiElement, templateName, TemplateInclude.TYPE.INCLUDE_FUNCTION));
-                        }
-                    }
-                }
-
-                // {% embed "foo.html.twig"
-                if(myTypes.contains(TemplateInclude.TYPE.EMBED)) {
-                    PsiElement embedTag = PsiElementUtils.getChildrenOfType(psiElement, TwigPattern.getEmbedPattern());
-                    if(embedTag != null) {
-                        String templateName = embedTag.getText();
-                        if(StringUtils.isNotBlank(templateName)) {
-                            consumer.consume(new TemplateInclude(psiElement, templateName, TemplateInclude.TYPE.EMBED));
-                        }
-                    }
-                }
-
-                if(myTypes.contains(TemplateInclude.TYPE.FORM_THEME) && psiElement.getNode().getElementType() == TwigElementTypes.TAG) {
-                    PsiElement tagElement = PsiElementUtils.getChildrenOfType(psiElement, PlatformPatterns.psiElement().withElementType(TwigTokenTypes.TAG_NAME));
-                    if(tagElement != null) {
-                        String text = tagElement.getText();
-                        if("form_theme".equals(text)) {
-                            // {% form_theme form.child 'form/fields_child.html.twig' %}
-                            PsiElement childrenOfType = PsiElementUtils.getNextSiblingAndSkip(tagElement, TwigTokenTypes.STRING_TEXT,
-                                TwigTokenTypes.IDENTIFIER, TwigTokenTypes.SINGLE_QUOTE, TwigTokenTypes.DOUBLE_QUOTE, TwigTokenTypes.DOT
-                            );
-
-                            if(childrenOfType != null) {
-                                String templateName = childrenOfType.getText();
-                                if(StringUtils.isNotBlank(templateName)) {
-                                    consumer.consume(new TemplateInclude(psiElement, templateName, TemplateInclude.TYPE.FORM_THEME));
-                                }
-                            }
-
-                            // {% form_theme form.child with ['form/fields_child.html.twig'] %}
-                            PsiElement withElement = PsiElementUtils.getNextSiblingOfType(tagElement, PlatformPatterns.psiElement().withElementType(TwigTokenTypes.IDENTIFIER).withText("with"));
-                            if(withElement != null) {
-                                // find LITERAL "[", "{"
-                                PsiElement arrayStart = PsiElementUtils.getNextSiblingAndSkip(tagElement, TwigElementTypes.LITERAL,
-                                    TwigTokenTypes.IDENTIFIER, TwigTokenTypes.SINGLE_QUOTE, TwigTokenTypes.DOUBLE_QUOTE, TwigTokenTypes.DOT
+                        // {% form_theme form.child with ['form/fields_child.html.twig'] %}
+                        PsiElement withElement = PsiElementUtils.getNextSiblingOfType(tagElement, patterns.withKeyword);
+                        if(withElement != null) {
+                            // find LITERAL "[", "{"
+                            for (TwigArrayLiteral twigArrayLiteral : PsiElementUtils.getNextSiblingOfTypes(tagElement, TwigArrayLiteral.class)) {
+                                visitStringInArray(twigArrayLiteral, pair ->
+                                    consumer.consume(new TemplateInclude(psiElement, pair.getFirst(), TemplateInclude.TYPE.FORM_THEME))
                                 );
-
-                                if(arrayStart != null) {
-                                    PsiElement firstChild = arrayStart.getFirstChild();
-                                    if(firstChild != null) {
-                                        visitStringInArray(firstChild, pair ->
-                                            consumer.consume(new TemplateInclude(psiElement, pair.getFirst(), TemplateInclude.TYPE.FORM_THEME))
-                                        );
-                                    }
-                                }
                             }
                         }
                     }
                 }
             }
+        }
+    }
 
-            return false;
+    /**
+     * Visit all possible Twig include file pattern
+     */
+    public static void visitTemplateIncludes(@NotNull TwigFile twigFile, @NotNull Consumer<TemplateInclude> consumer) {
+        TemplateIncludePatterns patterns = new TemplateIncludePatterns();
+
+        PsiTreeUtil.collectElements(twigFile, psiElement -> {
+            visitTemplateIncludes(psiElement, consumer, patterns);
+            return true;
         });
     }
 
@@ -2372,8 +2765,9 @@ public class TwigUtil {
             psiElement.getNode().getElementType() == TwigElementTypes.MACRO_TAG
         );
 
+        ElementPattern<PsiElement> rbracePattern = PlatformPatterns.psiElement().withElementType(TwigTokenTypes.RBRACE);
         for (PsiElement psiElement : psiElements) {
-            Pair<String, String> macro = getTwigMacroNameAndParameter(psiElement);
+            Pair<String, String> macro = getTwigMacroNameAndParameter(psiElement, rbracePattern);
             if(macro == null) {
                 continue;
             }
@@ -2390,6 +2784,11 @@ public class TwigUtil {
      */
     @Nullable
     public static Pair<String, String> getTwigMacroNameAndParameter(@NotNull PsiElement psiElement) {
+        return getTwigMacroNameAndParameter(psiElement, PlatformPatterns.psiElement().withElementType(TwigTokenTypes.RBRACE));
+    }
+
+    @Nullable
+    public static Pair<String, String> getTwigMacroNameAndParameter(@NotNull PsiElement psiElement, @NotNull ElementPattern<PsiElement> rbracePattern) {
         PsiElement firstChild = psiElement.getFirstChild();
         if(firstChild == null) {
             return null;
@@ -2406,8 +2805,7 @@ public class TwigUtil {
         PsiElement nextSiblingAndSkip = PsiElementUtils.getNextSiblingAndSkip(macroNamePsi, TwigTokenTypes.LBRACE);
         if(nextSiblingAndSkip != null) {
             PsiElement nextSiblingOfType = PsiElementUtils
-                .getNextSiblingOfType(nextSiblingAndSkip, PlatformPatterns.psiElement()
-                    .withElementType(TwigTokenTypes.RBRACE));
+                .getNextSiblingOfType(nextSiblingAndSkip, rbracePattern);
 
             if(nextSiblingOfType != null) {
                 parameter = psiElement.getContainingFile().getText().substring(
@@ -2432,15 +2830,35 @@ public class TwigUtil {
         Collection<PhpClass> allSubclasses = new HashSet<>();
 
         // Twig 1
-        allSubclasses.addAll(PhpIndex.getInstance(project).getAllSubclasses("\\Twig_ExtensionInterface"));
+        allSubclasses.addAll(PhpIndexUtil.getAllSubclasses(project, "\\Twig_ExtensionInterface"));
 
         // Twig 2+
-        allSubclasses.addAll(PhpIndex.getInstance(project).getAllSubclasses("\\Twig\\Extension\\ExtensionInterface"));
+        allSubclasses.addAll(PhpIndexUtil.getAllSubclasses(project, "\\Twig\\Extension\\ExtensionInterface"));
 
         // Filter units tests and use HashSet as interfaces are nested for BC
         return allSubclasses.stream()
             .filter(phpClass -> !PhpUnitUtil.isPhpUnitTestFile(phpClass.getContainingFile()))
             .collect(Collectors.toCollection(HashSet::new));
+    }
+
+    @Nullable
+    public static PsiElement getInjectedTwigElement(@NotNull PsiFile psiFile, @NotNull Editor editor) {
+        int caretOffset = editor.getCaretModel().getOffset();
+        if(caretOffset < 0) {
+            return null;
+        }
+
+        // last and first element of file are tricky :)
+        if (caretOffset == 0) {
+            return psiFile;
+        }
+
+        PsiElement psiElement = psiFile.findElementAt(caretOffset - 1);
+        if(psiElement == null) {
+            return null;
+        }
+
+        return TwigUtil.getElementOnTwigViewProvider(psiElement);
     }
 
     /**
@@ -2497,7 +2915,7 @@ public class TwigUtil {
 
         // we want to have mostly used domain preselected
         String domain = defaultDomain;
-        if(sortedMap.size() > 0) {
+        if(!sortedMap.isEmpty()) {
             domain = sortedMap.firstKey();
         }
 
@@ -2508,13 +2926,11 @@ public class TwigUtil {
      * Visit Twig TokenParser
      * eg. {% my_token %}
      */
-    public static void visitTokenParsers(@NotNull Project project, @NotNull Consumer<Pair<String, PsiElement>> consumer) {
+    public static void visitTokenParsers(@NotNull Project project, @NotNull Consumer<Triple<String, PsiElement, Method>> consumer) {
         Set<PhpClass> allSubclasses = new HashSet<>();
 
-        PhpIndex phpIndex = PhpIndex.getInstance(project);
-
-        allSubclasses.addAll(phpIndex.getAllSubclasses("\\Twig_TokenParserInterface"));
-        allSubclasses.addAll(phpIndex.getAllSubclasses("\\Twig\\TokenParser\\TokenParserInterface"));
+        allSubclasses.addAll(PhpIndexUtil.getAllSubclasses(project, "\\Twig_TokenParserInterface"));
+        allSubclasses.addAll(PhpIndexUtil.getAllSubclasses(project, "\\Twig\\TokenParser\\TokenParserInterface"));
 
         for (PhpClass allSubclass : allSubclasses) {
 
@@ -2528,18 +2944,139 @@ public class TwigUtil {
                 continue;
             }
 
-            // get string return value
-            PhpReturn childrenOfType = PsiTreeUtil.findChildOfType(getTag, PhpReturn.class);
-            if(childrenOfType != null) {
-                PhpPsiElement returnValue = childrenOfType.getFirstPsiChild();
-                if(returnValue instanceof StringLiteralExpression) {
-                    String contents = ((StringLiteralExpression) returnValue).getContents();
-                    if(StringUtils.isNotBlank(contents)) {
-                        consumer.consume(Pair.create(contents, returnValue));
+            for (PsiElement returnValue : PhpElementsUtil.collectPhpReturnArgumentsInsideControlFlow(getTag)) {
+                if (returnValue instanceof StringLiteralExpression stringLiteralExpression) {
+                    String contents = stringLiteralExpression.getContents();
+                    if (StringUtils.isNotBlank(contents)) {
+                        consumer.consume(new Triple<>(contents, returnValue, getTag));
                     }
                 }
             }
         }
+    }
+
+    public static Set<String> getNamedTokenParserTags(@NotNull Project project) {
+        return CachedValuesManager.getManager(project).getCachedValue(project, SYMFONY_NAMED_TOKEN_TAGS, () -> {
+            Set<String> items = new HashSet<>();
+            TwigUtil.visitTokenParsers(project, pair ->items.add(pair.getFirst()));
+            return CachedValueProvider.Result.create(Collections.unmodifiableSet(items), PsiModificationTracker.getInstance(project).forLanguage(PhpLanguage.INSTANCE));
+        }, false);
+    }
+    @NotNull
+
+    public static Map<String, String> getNamedDeprecatedTokenParserTags(@NotNull Project project) {
+        return CachedValuesManager.getManager(project).getCachedValue(project, SYMFONY_DEPRECATED_NAMED_TOKEN_TAGS, () -> {
+            Map<String, String> deprecations = new HashMap<>();
+
+            TwigUtil.visitTokenParsers(project, triple -> {
+                String currentTagName = triple.getFirst();
+
+                PhpClass phpClass = triple.getThird().getContainingClass();
+
+                if (phpClass != null) {
+                    if (phpClass.isDeprecated()) {
+                        String deprecationInfo = new PhpNamedElementDocSource(phpClass, false).getDeprecationInfo();
+                        deprecations.put(
+                            currentTagName,
+                            StringUtils.isNotBlank(deprecationInfo) ? StringUtils.abbreviate("Deprecated: " + deprecationInfo, 100) : null
+                        );
+                    } else {
+                        // Check for trigger_deprecation() in parse() method
+                        Method parseMethod = phpClass.findOwnMethodByName("parse");
+                        if (parseMethod != null) {
+                            Collection<FunctionReference> calls = PhpElementsUtil.collectFunctionReferencesInsideControlFlow(parseMethod, "trigger_deprecation");
+                            if (!calls.isEmpty()) {
+                                deprecations.put(currentTagName, null);
+                            }
+                        }
+                    }
+                }
+            });
+
+            return CachedValueProvider.Result.create(Collections.unmodifiableMap(deprecations), PsiModificationTracker.getInstance(project).forLanguage(PhpLanguage.INSTANCE));
+        }, false);
+    }
+
+    /**
+     * Get all deprecated Twig filters
+     *
+     * @return set of deprecated filter names
+     */
+    @NotNull
+    public static Set<String> getDeprecatedFilters(@NotNull Project project) {
+        return CachedValuesManager.getManager(project).getCachedValue(project, SYMFONY_DEPRECATED_FILTERS, () -> {
+            Set<String> deprecatedNames = new HashSet<>();
+
+            Map<String, TwigExtension> filters = TwigExtensionParser.getFilters(project);
+            for (Map.Entry<String, TwigExtension> entry : filters.entrySet()) {
+                String filterName = entry.getKey();
+                TwigExtension extension = entry.getValue();
+
+                // Check for deprecated/deprecation_info options
+                if (extension.isDeprecated()) {
+                    deprecatedNames.add(filterName);
+                    continue;
+                }
+
+                // Check if the target method calls triggerDeprecation
+                String signature = extension.getSignature();
+                if (signature != null) {
+                    Collection<? extends PhpNamedElement> elements = PhpIndex.getInstance(project).getBySignature(signature);
+                    for (PhpNamedElement element : elements) {
+                        if (element instanceof Method method) {
+                            Collection<MethodReference> calls = PhpElementsUtil.collectMethodReferencesInsideControlFlow(method, "triggerDeprecation");
+                            if (!calls.isEmpty()) {
+                                deprecatedNames.add(filterName);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            return CachedValueProvider.Result.create(Collections.unmodifiableSet(deprecatedNames), PsiModificationTracker.getInstance(project).forLanguage(PhpLanguage.INSTANCE));
+        }, false);
+    }
+
+    /**
+     * Get all deprecated Twig functions
+     *
+     * @return set of deprecated function names
+     */
+    @NotNull
+    public static Set<String> getDeprecatedFunctions(@NotNull Project project) {
+        return CachedValuesManager.getManager(project).getCachedValue(project, SYMFONY_DEPRECATED_FUNCTIONS, () -> {
+            Set<String> deprecatedNames = new HashSet<>();
+
+            Map<String, TwigExtension> functions = TwigExtensionParser.getFunctions(project);
+            for (Map.Entry<String, TwigExtension> entry : functions.entrySet()) {
+                String functionName = entry.getKey();
+                TwigExtension extension = entry.getValue();
+
+                // Check for deprecated/deprecation_info options
+                if (extension.isDeprecated()) {
+                    deprecatedNames.add(functionName);
+                    continue;
+                }
+
+                // Check if the target method calls triggerDeprecation
+                String signature = extension.getSignature();
+                if (signature != null) {
+                    Collection<? extends PhpNamedElement> elements = PhpIndex.getInstance(project).getBySignature(signature);
+                    for (PhpNamedElement element : elements) {
+                        if (element instanceof Method method) {
+                            Collection<MethodReference> calls = PhpElementsUtil.collectMethodReferencesInsideControlFlow(method, "triggerDeprecation");
+                            if (!calls.isEmpty()) {
+                                deprecatedNames.add(functionName);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            return CachedValueProvider.Result.create(Collections.unmodifiableSet(deprecatedNames), PsiModificationTracker.getInstance(project).forLanguage(PhpLanguage.INSTANCE));
+        }, false);
     }
 
     /**
@@ -2547,6 +3084,13 @@ public class TwigUtil {
      */
     public static void visitTemplateVariables(@NotNull TwigFile scope, @NotNull Consumer<Pair<String, PsiElement>> consumer) {
         visitTemplateVariables(scope, consumer, 3);
+    }
+
+    /**
+     * Check if Twig pathes should be filled with the Bundle naming strategy "FooBar:Foo:Test"
+     */
+    public static boolean hasBundleNamespaceSupport(@NotNull Project project) {
+        return Settings.getInstance(project).twigBundleNamespaceSupport;
     }
 
     /**
@@ -2565,7 +3109,7 @@ public class TwigUtil {
                 if (firstChildElementType == TwigElementTypes.IF_TAG || firstChildElementType == TwigElementTypes.SET_TAG) {
                     PsiElement nextSiblingOfType = PsiElementUtils.getNextSiblingOfType(
                         firstChild.getFirstChild(),
-                        PlatformPatterns.psiElement(TwigTokenTypes.IDENTIFIER).afterLeafSkipping(
+                        captureVariableOrField().afterLeafSkipping(
                             PlatformPatterns.psiElement(PsiWhiteSpace.class),
                             PlatformPatterns.psiElement(TwigTokenTypes.TAG_NAME)
                         )
@@ -2577,7 +3121,7 @@ public class TwigUtil {
                         PsiElement firstChild1 = firstChild.getFirstChild();
                         PsiElement nextSiblingOfType1 = PsiElementUtils.getNextSiblingOfType(
                             firstChild1,
-                            PlatformPatterns.psiElement(TwigTokenTypes.IDENTIFIER).afterLeafSkipping(
+                            captureVariableOrField().afterLeafSkipping(
                                 PlatformPatterns.psiElement(PsiWhiteSpace.class),
                                 PlatformPatterns.or(PlatformPatterns.psiElement(TwigTokenTypes.AND), PlatformPatterns.psiElement(TwigTokenTypes.OR))
                             )
@@ -2597,7 +3141,7 @@ public class TwigUtil {
 
                 PsiElement nextSiblingOfType = PsiElementUtils.getNextSiblingOfType(
                     psiElement.getFirstChild(),
-                    PlatformPatterns.psiElement(TwigTokenTypes.IDENTIFIER).afterLeaf(PlatformPatterns.or(
+                    captureVariableOrField().afterLeaf(PlatformPatterns.or(
                         PlatformPatterns.psiElement(PsiWhiteSpace.class),
                         PlatformPatterns.psiElement(TwigTokenTypes.PRINT_BLOCK_START)
                     ))
@@ -2607,6 +3151,9 @@ public class TwigUtil {
                 if(!PlatformPatterns.psiElement().beforeLeafSkipping(PlatformPatterns.psiElement(PsiWhiteSpace.class), PlatformPatterns.psiElement(TwigTokenTypes.LBRACE)).accepts(nextSiblingOfType)) {
                     visitTemplateVariablesConsumer(nextSiblingOfType, consumer);
                 }
+
+                visitPrintBlockSourceVariables(psiElement, consumer);
+                visitFunctionIncludeTemplateVariables(psiElement, consumer, includeDepth);
             } else if (elementType == TwigElementTypes.FOR_STATEMENT) {
                 // {% for foo in bar %}{% endfor %}
 
@@ -2617,7 +3164,7 @@ public class TwigUtil {
                 if(firstChild.getNode().getElementType() == TwigElementTypes.FOR_TAG) {
                     PsiElement afterIn = PsiElementUtils.getNextSiblingOfType(
                         firstChild.getFirstChild(),
-                        TwigPattern.getForTagInVariablePattern()
+                        TwigPattern.getForTagInVariableReferencePattern()
                     );
 
                     visitTemplateVariablesConsumer(afterIn, consumer);
@@ -2628,34 +3175,114 @@ public class TwigUtil {
                 String text = psiElement.getText();
 
                 if(StringUtils.isNotBlank(text)) {
-                    for (Pattern pattern : TwigTypeResolveUtil.INLINE_DOC_REGEX) {
+                    for (Pattern pattern : TwigTypeResolveUtil.INLINE_VAR_DOC_REGEX) {
                         Matcher matcher = pattern.matcher(text);
                         while (matcher.find()) {
-                            consumer.consume(Pair.create(matcher.group("var"), psiElement));
+                            String rootVariableName = StringUtils.trimToNull(matcher.group("var"));
+                            if (rootVariableName != null) {
+                                consumer.consume(Pair.create(rootVariableName, psiElement));
+                            }
                         }
                     }
                 }
-            } else if (psiElement instanceof TwigTagWithFileReference && includeDepth-- >= 0) {
-                // we dont support "with" and "context" modification for now
-                // {% include 'foo.html.twig' only %}
-                // {% include 'foo.html.twig' with {} %}
-
-                if(PsiElementUtils.getChildrenOfType(psiElement, PlatformPatterns.psiElement(TwigTokenTypes.IDENTIFIER).withText(PlatformPatterns.string().oneOf("with", "only"))) == null) {
-                    // collect includes unique and visit until given "includeDepth"
-
-                    Set<TwigFile> files = getIncludeTagStrings((TwigTagWithFileReference) psiElement).stream()
-                        .map(template -> getTemplatePsiElements(psiElement.getProject(), template))
-                        .filter(psiFile -> psiFile instanceof TwigFile)
-                        .map(psiFile -> (TwigFile) psiFile)
-                        .collect(Collectors.toCollection(ArrayListSet::new));
-
-                    for (TwigFile file : files) {
-                        visitTemplateVariables(file, consumer, includeDepth);
-                    }
-                }
+            } else if (psiElement instanceof TwigTagWithFileReference && includeDepth >= 0) {
+                visitTagIncludeTemplateVariables((TwigTagWithFileReference) psiElement, consumer, includeDepth - 1);
             } else if (elementType == TwigElementTypes.BLOCK_STATEMENT) {
                 // visit block statement
                 visitTemplateVariables(psiElement, consumer, includeDepth);
+            }
+        }
+    }
+
+    private static void visitPrintBlockSourceVariables(
+        @NotNull PsiElement printBlock,
+        @NotNull Consumer<Pair<String, PsiElement>> consumer
+    ) {
+        for (PsiElement sourceVariable : collectSourceRootVariables(Collections.singletonList(printBlock))) {
+            visitTemplateVariablesConsumer(sourceVariable, consumer);
+        }
+    }
+
+    private static void visitTagIncludeTemplateVariables(
+        @NotNull TwigTagWithFileReference includeTag,
+        @NotNull Consumer<Pair<String, PsiElement>> consumer,
+        int includeDepth
+    ) {
+        TwigIncludeContextParser.IncludeContext includeContext = TwigIncludeContextParser.resolveTagIncludeContext(includeTag);
+        visitIncludeArgumentSourceVariables(includeContext, consumer);
+        if (!includeContext.withParentContext()) {
+            return;
+        }
+
+        visitIncludedTemplateVariables(
+            includeTag.getProject(),
+            getIncludeTagStrings(includeTag),
+            includeContext.argumentNames(),
+            consumer,
+            includeDepth
+        );
+    }
+
+    private static void visitFunctionIncludeTemplateVariables(
+        @NotNull PsiElement scope,
+        @NotNull Consumer<Pair<String, PsiElement>> consumer,
+        int includeDepth
+    ) {
+        if (includeDepth < 0) {
+            return;
+        }
+
+        PsiElement[] templateNames = PsiTreeUtil.collectElements(scope, TwigPattern.getPrintBlockOrTagFunctionPattern("include")::accepts);
+        for (PsiElement templateName : templateNames) {
+            if (StringUtils.isBlank(templateName.getText())) {
+                continue;
+            }
+
+            TwigIncludeContextParser.IncludeContext includeContext = TwigIncludeContextParser.resolveFunctionIncludeContext(templateName);
+            visitIncludeArgumentSourceVariables(includeContext, consumer);
+            if (!includeContext.withParentContext()) {
+                continue;
+            }
+
+            visitIncludedTemplateVariables(
+                scope.getProject(),
+                Collections.singleton(templateName.getText()),
+                includeContext.argumentNames(),
+                consumer,
+                includeDepth - 1
+            );
+        }
+    }
+
+    private static void visitIncludedTemplateVariables(
+        @NotNull Project project,
+        @NotNull Collection<String> templateNames,
+        @NotNull Set<String> providedVariables,
+        @NotNull Consumer<Pair<String, PsiElement>> consumer,
+        int includeDepth
+    ) {
+        Set<TwigFile> files = templateNames.stream()
+            .flatMap(template -> getTemplatePsiElements(project, template).stream())
+            .filter(psiFile -> psiFile instanceof TwigFile)
+            .map(psiFile -> (TwigFile) psiFile)
+            .collect(Collectors.toCollection(ArrayListSet::new));
+
+        for (TwigFile file : files) {
+            visitTemplateVariables(file, pair -> {
+                if (!providedVariables.contains(pair.getFirst())) {
+                    consumer.consume(pair);
+                }
+            }, includeDepth);
+        }
+    }
+
+    private static void visitIncludeArgumentSourceVariables(
+        @NotNull TwigIncludeContextParser.IncludeContext includeContext,
+        @NotNull Consumer<Pair<String, PsiElement>> consumer
+    ) {
+        for (TwigIncludeContextParser.IncludeArgument argument : includeContext.arguments()) {
+            for (PsiElement sourceVariable : collectSourceRootVariables(argument.valueElements())) {
+                visitTemplateVariablesConsumer(sourceVariable, consumer);
             }
         }
     }
@@ -2665,11 +3292,67 @@ public class TwigUtil {
      */
     private static void visitTemplateVariablesConsumer(@Nullable PsiElement nextSiblingOfType, @NotNull Consumer<Pair<String, PsiElement>> consumer) {
         if (nextSiblingOfType != null) {
-            String text = nextSiblingOfType.getText();
-            if (StringUtils.isNotBlank(text)) {
-                consumer.consume(Pair.create(text, nextSiblingOfType));
+            String rootVariableName = getTemplateRootVariableName(nextSiblingOfType);
+            if (rootVariableName != null) {
+                consumer.consume(Pair.create(rootVariableName, nextSiblingOfType));
             }
         }
+    }
+
+    @Nullable
+    private static String getTemplateRootVariableName(@NotNull PsiElement variableReference) {
+        PsiElement rootVariable = getTemplateRootVariableReference(variableReference);
+
+        return rootVariable == null ? null : StringUtils.trimToNull(rootVariable.getText());
+    }
+
+    @Nullable
+    private static PsiElement getTemplateRootVariableReference(@NotNull PsiElement variableReference) {
+        if (variableReference instanceof TwigVariableReference) {
+            return variableReference;
+        }
+
+        if (variableReference instanceof TwigFieldReference) {
+            TwigPsiReference owner = ((TwigFieldReference) variableReference).getOwner();
+            return owner == null ? null : getTemplateRootVariableReference(owner);
+        }
+
+        return null;
+    }
+
+    @NotNull
+    private static Collection<PsiElement> collectSourceRootVariables(@NotNull List<PsiElement> valueElements) {
+        Map<String, PsiElement> rootVariables = new LinkedHashMap<>();
+        for (PsiElement valueElement : valueElements) {
+            collectSourceRootVariables(valueElement, rootVariables);
+        }
+
+        return rootVariables.values();
+    }
+
+    private static void collectSourceRootVariables(@NotNull PsiElement element, @NotNull Map<String, PsiElement> rootVariables) {
+        PsiElement rootVariable = getTemplateRootVariableReference(element);
+        if (rootVariable != null) {
+            if (!(element instanceof TwigVariableReference) || !isFunctionCallReference(element)) {
+                rootVariables.putIfAbsent(rootVariable.getText(), rootVariable);
+            }
+
+            return;
+        }
+
+        for (PsiElement child = element.getFirstChild(); child != null; child = child.getNextSibling()) {
+            collectSourceRootVariables(child, rootVariables);
+        }
+    }
+
+    private static boolean isFunctionCallReference(@NotNull PsiElement element) {
+        return PlatformPatterns.psiElement().beforeLeafSkipping(
+            PlatformPatterns.or(
+                PlatformPatterns.psiElement(PsiWhiteSpace.class),
+                PlatformPatterns.psiElement(TwigTokenTypes.WHITE_SPACE)
+            ),
+            PlatformPatterns.psiElement(TwigTokenTypes.LBRACE)
+        ).accepts(element);
     }
 
     /**
@@ -2686,17 +3369,18 @@ public class TwigUtil {
             return Collections.emptyMap();
         }
 
+        VirtualFile virtualFile = twigFile.getVirtualFile();
+        if (virtualFile == null) {
+            return Collections.emptyMap();
+        }
+
         Map<TwigFile, String> templates = new HashMap<>();
 
-        for (TwigExtendsTag extendsTag : PsiTreeUtil.getChildrenOfTypeAsList(twigFile, TwigExtendsTag.class)) {
-            for (String extendsTemplate : getTwigExtendsTagTemplates(extendsTag)) {
-                String templateName = normalizeTemplateName(extendsTemplate);
-
-                for (PsiFile psiFile : getTemplatePsiElements(twigFile.getProject(), templateName)) {
-                    if (psiFile instanceof TwigFile && !templates.containsKey(psiFile)) {
-                        templates.put((TwigFile) psiFile, templateName);
-                        templates.putAll(getExtendsTemplates((TwigFile) psiFile, --depth));
-                    }
+        for (String templateName : FileBasedIndex.getInstance().getFileData(TwigExtendsStubIndex.KEY, virtualFile, twigFile.getProject()).keySet()) {
+            for (PsiFile psiFile : getTemplatePsiElements(twigFile.getProject(), templateName)) {
+                if (psiFile instanceof TwigFile && !templates.containsKey(psiFile)) {
+                    templates.put((TwigFile) psiFile, templateName);
+                    templates.putAll(getExtendsTemplates((TwigFile) psiFile, --depth));
                 }
             }
         }
@@ -2726,7 +3410,7 @@ public class TwigUtil {
                     .withIcon(TwigIcons.TwigFileIcon);
 
                 Collection<String> names = templateNames.getOrDefault(virtualFile, Collections.emptyList());
-                if(names.size() > 0) {
+                if(!names.isEmpty()) {
                     lookupElementBuilder = lookupElementBuilder.withTypeText(names.iterator().next(), true);
                 }
 
@@ -2735,6 +3419,236 @@ public class TwigUtil {
         }
 
         return lookupElements;
+    }
+
+    public static void visitTemplateExtends(@NotNull TwigFile twigFile, @NotNull Consumer<Pair<String, PsiElement>> consumer) {
+        for (PsiElement element : twigFile.getChildren()) {
+            // "extends" must not be nested, support 1 level at least for invalid files
+            if (element instanceof TwigBlockStatement || element.getNode().getElementType() == TwigElementTypes.IF_STATEMENT) {
+                for (PsiElement child : element.getChildren()) {
+                    visitTemplateExtendsConsumer(child, consumer);
+                }
+
+                continue;
+            }
+
+            visitTemplateExtendsConsumer(element, consumer);
+        }
+    }
+
+    private static void visitTemplateExtendsConsumer(@NotNull PsiElement element, @NotNull Consumer<Pair<String, PsiElement>> consumer) {
+        if (element instanceof TwigExtendsTag) {
+            for (String s : TwigUtil.getTwigExtendsTagTemplates((TwigExtendsTag) element)) {
+                String first = TwigUtil.normalizeTemplateName(s);
+                consumer.consume(new Pair<>(first, element));
+            }
+        }
+    }
+
+    private static void addTemplateUsageFileCounts(@NotNull Project project, @NotNull Set<String> names,
+                                                    @NotNull Set<TemplateInclude.TYPE> types, @NotNull Map<String, Integer> usage) {
+        FileBasedIndex index = FileBasedIndex.getInstance();
+        for (String name : names) {
+            Set<VirtualFile> files = new HashSet<>();
+            index.processValues(TwigIncludeStubIndex.KEY, name, null, (file, value) -> {
+                if (!Collections.disjoint(value.getTypes(), types)) {
+                    files.add(file);
+                }
+                return true;
+            }, GlobalSearchScope.allScope(project));
+            if (!files.isEmpty()) {
+                usage.put(name, files.size());
+            }
+        }
+    }
+
+    public static List<String> getIncludeTemplateUsageAsOrderedList(@NotNull Project project) {
+        return CachedValuesManager.getManager(project).getCachedValue(project, SYMFONY_TEMPLATE_INCLUDE_LIST, () -> {
+            Set<String> allKeys = IndexUtil.getAllKeysForProject(TwigIncludeStubIndex.KEY, project)
+                .stream()
+                .filter(s -> !s.toLowerCase().contains("@webprofiler") && !s.toLowerCase().contains("/profiler/") && !s.toLowerCase().contains("@twig") && !s.equalsIgnoreCase("form_div_layout.html.twig"))
+                .collect(Collectors.toSet());
+
+            Map<String, Integer> extendsWithFileCountUsage = new HashMap<>();
+            addTemplateUsageFileCounts(project, allKeys, EnumSet.of(TemplateInclude.TYPE.INCLUDE, TemplateInclude.TYPE.INCLUDE_FUNCTION, TemplateInclude.TYPE.SOURCE_FUNCTION), extendsWithFileCountUsage);
+
+            List<String> collect = extendsWithFileCountUsage.entrySet()
+                .stream()
+                .sorted(Map.Entry.comparingByValue(Comparator.reverseOrder()))
+                .map(Map.Entry::getKey)
+                .limit(100)
+                .collect(Collectors.toList());
+
+            return CachedValueProvider.Result.create(collect, FileIndexCaches.getModificationTrackerForIndexId(project, TwigIncludeStubIndex.KEY));
+        }, false);
+    }
+
+    public static List<String> getFormThemeTemplateUsageAsOrderedList(@NotNull Project project) {
+        return CachedValuesManager.getManager(project).getCachedValue(project, SYMFONY_TEMPLATE_FORM_THEME_LIST, () -> {
+            Set<String> allKeys = IndexUtil.getAllKeysForProject(TwigIncludeStubIndex.KEY, project)
+                .stream()
+                .filter(s -> !s.toLowerCase().contains("@webprofiler") && !s.toLowerCase().contains("/profiler/") && !s.toLowerCase().contains("@twig"))
+                .collect(Collectors.toSet());
+
+            Map<String, Integer> usage = new HashMap<>();
+
+            // try to find core; performance needed here
+            for (Map.Entry<String, Set<VirtualFile>> entry : getTemplateMap(project, true).entrySet()) {
+                for (VirtualFile virtualFile : entry.getValue()) {
+                    String path = virtualFile.getPath().replace("\\", "/");
+                    if (path.contains("/twig-bridge/Resources/views/")) {
+                        int filename = path.lastIndexOf("/");
+                        if (filename > 0) {
+                            int lastPathElement = path.lastIndexOf("/", filename - 1);
+                            if (lastPathElement > 0) {
+                                String output = path.substring(lastPathElement + 1);
+                                if (output.startsWith("Form/")) {
+                                    usage.putIfAbsent(entry.getKey(), 0);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            addTemplateUsageFileCounts(project, allKeys, EnumSet.of(TemplateInclude.TYPE.FORM_THEME), usage);
+
+            List<String> collect = usage.entrySet()
+                .stream()
+                .sorted(Map.Entry.comparingByValue(Comparator.reverseOrder()))
+                .map(Map.Entry::getKey)
+                .limit(10)
+                .collect(Collectors.toList());
+
+            return CachedValueProvider.Result.create(collect, FileIndexCaches.getModificationTrackerForIndexId(project, TwigIncludeStubIndex.KEY));
+        }, false);
+    }
+
+    public static List<String> getEmbedTemplateUsageAsOrderedList(@NotNull Project project) {
+        return CachedValuesManager.getManager(project).getCachedValue(project, SYMFONY_TEMPLATE_EMBED_LIST, () -> {
+            Set<String> allKeys = IndexUtil.getAllKeysForProject(TwigIncludeStubIndex.KEY, project)
+                .stream()
+                .filter(s -> !s.toLowerCase().contains("@webprofiler") && !s.toLowerCase().contains("/profiler/") && !s.toLowerCase().contains("@twig") && !s.equalsIgnoreCase("form_div_layout.html.twig"))
+                .collect(Collectors.toSet());
+
+            Map<String, Integer> extendsWithFileCountUsage = new HashMap<>();
+            addTemplateUsageFileCounts(project, allKeys, EnumSet.of(TemplateInclude.TYPE.EMBED), extendsWithFileCountUsage);
+
+            List<String> collect = extendsWithFileCountUsage.entrySet()
+                .stream()
+                .sorted(Map.Entry.comparingByValue(Comparator.reverseOrder()))
+                .map(Map.Entry::getKey)
+                .limit(100)
+                .collect(Collectors.toList());
+
+            return CachedValueProvider.Result.create(collect, FileIndexCaches.getModificationTrackerForIndexId(project, TwigIncludeStubIndex.KEY));
+        }, false);
+    }
+
+    public static List<String> getExtendsTemplateUsageAsOrderedList(@NotNull Project project) {
+        return CachedValuesManager.getManager(project).getCachedValue(project, SYMFONY_TEMPLATE_EXTENDS_LIST, () -> {
+            Set<String> allKeys = IndexUtil.getAllKeysForProject(TwigExtendsStubIndex.KEY, project)
+                .stream()
+                .filter(s -> !s.toLowerCase().contains("@webprofiler") && !s.toLowerCase().contains("/profiler/") && !s.toLowerCase().contains("@twig") && !s.equalsIgnoreCase("form_div_layout.html.twig"))
+                .collect(Collectors.toSet());
+
+            Map<String, Integer> extendsWithFileCountUsage = new HashMap<>();
+            for (String allKey : allKeys) {
+                Collection<VirtualFile> containingFiles = FileBasedIndex.getInstance().getContainingFiles(TwigExtendsStubIndex.KEY, allKey, GlobalSearchScope.allScope(project));
+                extendsWithFileCountUsage.put(allKey, containingFiles.size());
+            }
+
+            List<String> collect = extendsWithFileCountUsage.entrySet()
+                .stream()
+                .sorted(Map.Entry.comparingByValue(Comparator.reverseOrder()))
+                .map(Map.Entry::getKey)
+                .limit(100)
+                .collect(Collectors.toList());
+
+            return CachedValueProvider.Result.create(collect, FileIndexCaches.getModificationTrackerForIndexId(project, TwigExtendsStubIndex.KEY));
+        }, false);
+    }
+
+    /**
+     * Visit each "controller()" with its normalized parameter
+     */
+    public static void visitControllerFunctions(@NotNull PsiFile psiFile,@NotNull Consumer<Pair<String, PsiElement>> consumer) {
+        //
+        PsiElement[] psiElements = PsiTreeUtil.collectElements(psiFile, psiElement -> {
+            if (psiElement.getNode().getElementType() != TwigElementTypes.FUNCTION_CALL) {
+                return false;
+            }
+
+            PsiElement firstChild = psiElement.getFirstChild();
+            if (firstChild.getNode().getElementType() != TwigTokenTypes.IDENTIFIER) {
+                return false;
+            }
+
+            return "controller".equalsIgnoreCase(firstChild.getText());
+        });
+
+        // find parameter: controller("foobar::action")
+        ElementPattern<PsiElement> controllerPattern = TwigPattern.getPrintBlockOrTagFunctionPattern("controller");
+        for (PsiElement functionCall: psiElements) {
+            PsiElement includeTag = PsiElementUtils.getChildrenOfType(functionCall, controllerPattern);
+            if(includeTag != null) {
+                String controllerName = includeTag.getText();
+                if(StringUtils.isNotBlank(controllerName)) {
+                    // escaping
+                    // "Foobar\\Test"
+                    String replace = StringUtils.stripStart(controllerName.replace("\\\\", "\\"), "\\");
+                    consumer.consume(Pair.create(replace, includeTag));
+                }
+            }
+        }
+    }
+
+    /**
+     * Build a map of controller FQN to templates rendered by that controller.
+     * Efficiently iterates the index only once for all controllers.
+     *
+     * @param project The project
+     * @param controllerFqns Set of controller FQNs in format "App\Controller\HomeController::method" or "ClassName.methodName"
+     * @return Map where key is the normalized scope (ClassName.methodName) and value is set of template names
+     */
+    @NotNull
+    public static Map<String, Set<String>> findTemplatesByControllers(
+        @NotNull Project project,
+        @NotNull Set<String> controllerFqns
+    ) {
+        if (controllerFqns.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        // Normalize all controller FQNs to scope format: "ClassName.methodName"
+        Set<String> targetScopes = new HashSet<>();
+        for (String fqn : controllerFqns) {
+            String normalized = StringUtils.stripStart(fqn, "\\");
+            // Convert "Class::method" to "Class.method"
+            if (normalized.contains("::")) {
+                normalized = normalized.replace("::", ".");
+            }
+            targetScopes.add(normalized);
+        }
+
+        Map<String, Set<String>> result = new HashMap<>();
+
+        // Single iteration through the index
+        FileBasedIndex index = FileBasedIndex.getInstance();
+        Collection<String> allTemplateKeys = index.getAllKeys(PhpTwigTemplateUsageStubIndex.KEY, project);
+        GlobalSearchScope scope = GlobalSearchScope.allScope(project);
+
+        for (String templateKey : allTemplateKeys) {
+            for (TemplateUsage usage : index.getValues(PhpTwigTemplateUsageStubIndex.KEY, templateKey, scope)) {
+                for (String templateScope : usage.getScopes()) {
+                    if (targetScopes.contains(templateScope)) {
+                        result.computeIfAbsent(templateScope, k -> new HashSet<>()).add(templateKey);
+                    }
+                }
+            }
+        }
+
+        return result;
     }
 
     public static class DomainScope {
@@ -2766,119 +3680,4 @@ public class TwigUtil {
         }
     }
 
-    private static class MyAllTemplateFileMapCachedValueProvider implements CachedValueProvider<Map<String, Set<VirtualFile>>> {
-        @NotNull
-        private final Project project;
-
-        private final boolean includePhpFiles;
-
-        MyAllTemplateFileMapCachedValueProvider(@NotNull Project project) {
-            this(project, false);
-        }
-
-        MyAllTemplateFileMapCachedValueProvider(@NotNull Project project, boolean includePhpFiles) {
-            this.project = project;
-            this.includePhpFiles = includePhpFiles;
-        }
-
-        @Nullable
-        @Override
-        public Result<Map<String, Set<VirtualFile>>> compute() {
-            return Result.create(getTemplateMapProxy(project, includePhpFiles), PsiModificationTracker.MODIFICATION_COUNT);
-        }
-    }
-
-    /**
-     * Twig template visitor, which scan given TwigPath for template names
-     *
-     * "@Foo/foo.html.twig"
-     * "foo.html.twig"
-     * "FooBundle:foo:foo.html.twig"
-     */
-    private static class MyLimitedVirtualFileVisitor extends VirtualFileVisitor {
-        @NotNull
-        private final TwigPath twigPath;
-
-        @NotNull
-        private final Project project;
-
-        @NotNull
-        private Map<String, VirtualFile> results = new HashMap<>();
-
-        final private boolean withPhp;
-
-        private int childrenAllowToVisit;
-
-        @NotNull
-        private Set<String> workedOn = new HashSet<>();
-
-        private MyLimitedVirtualFileVisitor(@NotNull Project project, @NotNull TwigPath twigPath, boolean withPhp, int maxDepth, int maxDirs) {
-            super(VirtualFileVisitor.limit(maxDepth));
-
-            this.project = project;
-            this.twigPath = twigPath;
-            this.withPhp = withPhp;
-            this.childrenAllowToVisit = maxDirs;
-        }
-
-        @Override
-        public boolean visitFile(@NotNull VirtualFile virtualFile) {
-            // per path directory limit
-            if (virtualFile.isDirectory() && childrenAllowToVisit-- <= 0) {
-                return false;
-            }
-
-            processFile(virtualFile);
-
-            return super.visitFile(virtualFile);
-        }
-
-        private void processFile(VirtualFile virtualFile) {
-            // @TODO make file types more dynamically like eg js
-            if(!this.isProcessable(virtualFile)) {
-                return;
-            }
-
-            // prevent process double file if processCollection and ContentIterator is used in one instance
-            String filePath = virtualFile.getPath();
-            if(workedOn.contains(filePath)) {
-                return;
-            }
-
-            workedOn.add(filePath);
-
-            String templateName = getTemplateNameForTwigPath(project, twigPath, virtualFile);
-            if(templateName != null) {
-                results.put(templateName, virtualFile);
-            }
-        }
-
-        private boolean isProcessable(VirtualFile virtualFile) {
-            if(virtualFile.isDirectory()) {
-                return false;
-            }
-
-            if(virtualFile.getFileType() instanceof TwigFileType) {
-                return true;
-            }
-
-            if(withPhp && virtualFile.getFileType() instanceof PhpFileType) {
-                return true;
-            }
-
-            return false;
-        }
-
-        @NotNull
-        private Map<String, VirtualFile> getResults() {
-            return results;
-        }
-
-        @NotNull
-        static Map<String, VirtualFile> createResult(@NotNull VirtualFile virtualFile, @NotNull Project project, @NotNull TwigPath twigPath, boolean withPhp) {
-            MyLimitedVirtualFileVisitor visitor = new MyLimitedVirtualFileVisitor(project, twigPath, withPhp, 5, 150);
-            VfsUtil.visitChildrenRecursively(virtualFile, visitor);
-            return visitor.getResults();
-        }
-    }
 }

@@ -1,14 +1,22 @@
 package fr.adrienbrault.idea.symfony2plugin.util;
 
+import com.intellij.codeInsight.hint.HintManager;
+import com.intellij.codeInsight.intention.preview.IntentionPreviewUtils;
 import com.intellij.ide.util.PsiNavigationSupport;
 import com.intellij.notification.Notification;
+import com.intellij.notification.NotificationAction;
+import com.intellij.notification.NotificationGroupManager;
 import com.intellij.notification.NotificationType;
-import com.intellij.notification.Notifications;
+import com.intellij.openapi.actionSystem.AnActionEvent;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.ex.ApplicationManagerEx;
+import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.fileEditor.OpenFileDescriptor;
 import com.intellij.openapi.fileTypes.FileType;
+import com.intellij.openapi.module.Module;
+import com.intellij.openapi.module.ModuleUtilCore;
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.text.StringUtil;
+import com.intellij.openapi.roots.*;
 import com.intellij.openapi.vfs.VfsUtil;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.wm.ex.WindowManagerEx;
@@ -17,19 +25,26 @@ import com.intellij.psi.*;
 import com.intellij.psi.codeStyle.CodeStyleManager;
 import com.intellij.util.ui.UIUtil;
 import fr.adrienbrault.idea.symfony2plugin.Settings;
-import fr.adrienbrault.idea.symfony2plugin.SettingsForm;
+import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.awt.*;
 import java.io.IOException;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class IdeHelper {
+
+    private static final String DIRECTORY_EXCLUDE_MESSAGE = "Directory '%s' marked as excluded for indexing";
 
     public static void openUrl(String url) {
         if(java.awt.Desktop.isDesktopSupported() ) {
@@ -57,7 +72,7 @@ public class IdeHelper {
         }
 
         String[] filenameSplit = fileNameWithPath.split("/");
-        String pathString = StringUtil.join(Arrays.copyOf(filenameSplit, filenameSplit.length - 1), "/");
+        String pathString = StringUtils.join(Arrays.copyOf(filenameSplit, filenameSplit.length - 1), "/");
 
         VirtualFile twigDirectory = VfsUtil.findRelativeFile(root, filenameSplit);
         if(twigDirectory != null) {
@@ -122,41 +137,157 @@ public class IdeHelper {
     }
 
     public static void notifyEnableMessage(final Project project) {
+        Notification notification = NotificationGroupManager.getInstance()
+            .getNotificationGroup("Symfony Notifications")
+            .createNotification("Detected a Symfony project structure", NotificationType.INFORMATION);
 
-        Notification notification = new Notification("Symfony Plugin", "Symfony Plugin", "Enable the Symfony Plugin <a href=\"enable\">with auto configuration now</a>, open <a href=\"config\">Project Settings</a> or <a href=\"dismiss\">dismiss</a> further messages", NotificationType.INFORMATION, (notification1, event) -> {
+        notification.addAction(new NotificationAction("Enable plugin") {
+            @Override
+            public void actionPerformed(@NotNull AnActionEvent e, @NotNull Notification notification) {
+                Project project1 = e.getProject();
+                if (project1 == null) {
+                    return;
+                }
 
-            // handle html click events
-            if("config".equals(event.getDescription())) {
+                Collection<String> messages = enablePluginAndConfigure(project1);
 
-                // open settings dialog and show panel
-                SettingsForm.show(project);
-            } else if("enable".equals(event.getDescription())) {
-                enablePluginAndConfigure(project);
-                Notifications.Bus.notify(new Notification("Symfony Plugin", "Symfony Plugin", "Plugin enabled", NotificationType.INFORMATION), project);
-            } else if("dismiss".equals(event.getDescription())) {
+                String message = "Plugin enabled for project";
 
-                // user doesnt want to show notification again
-                Settings.getInstance(project).dismissEnableNotification = true;
+                if (!messages.isEmpty()) {
+                    List<String> collect = messages.stream().map(s -> "<br> - " + s).collect(Collectors.toList());
+                    message += StringUtils.join(collect, "");
+                }
+
+                Notification notification2 = NotificationGroupManager.getInstance()
+                    .getNotificationGroup("Symfony Notifications")
+                    .createNotification(message, NotificationType.INFORMATION);
+
+                notification2.setTitle(createNotificationTitle(project1));
+                notification2.setIcon(Symfony2Icons.SYMFONY);
+                notification2.notify(project1);
+
+                notification.expire();
             }
-
-            notification1.expire();
         });
 
-        Notifications.Bus.notify(notification, project);
+        notification.addAction(new NotificationAction("Don't show again") {
+            @Override
+            public void actionPerformed(@NotNull AnActionEvent e, @NotNull Notification notification) {
+                // user doesnt want to show notification again
+                Settings.getInstance(project).dismissEnableNotification = true;
+
+                notification.expire();
+            }
+        });
+
+        notification.setTitle(createNotificationTitle(project));
+        notification.setIcon(Symfony2Icons.SYMFONY);
+
+        notification.notify(project);
     }
 
-    public static void enablePluginAndConfigure(@NotNull Project project) {
+    private static String createNotificationTitle(@NotNull final Project project) {
+        String title = "Symfony Support";
+
+        title += " (Full Version)";
+
+        return title;
+    }
+
+    public static Collection<String> enablePluginAndConfigure(@NotNull Project project) {
         Settings.getInstance(project).pluginEnabled = true;
 
+        Collection<String> messages = new ArrayList<>();
+
+        /* Remove version info; prevent index issues
+        Set<String> versions = SymfonyUtil.getVersions(project);
+        if (!versions.isEmpty()) {
+            messages.add("Symfony Version: " + versions.iterator().next());
+        }
+        */
+
         // Symfony 3.0 structure
-        if(VfsUtil.findRelativeFile(project.getBaseDir(), "var", "cache") != null) {
+        if (VfsUtil.findRelativeFile(ProjectUtil.getProjectDir(project), "var", "cache") != null) {
             Settings.getInstance(project).pathToTranslation = "var/cache/dev/translations";
+            messages.add("Translations: var/cache/dev/translations");
         }
 
         // Symfony 4.0 structure
-        if(VfsUtil.findRelativeFile(project.getBaseDir(), "public") != null) {
+        if (VfsUtil.findRelativeFile(ProjectUtil.getProjectDir(project), "public") != null) {
             Settings.getInstance(project).directoryToWeb = "public";
+            messages.add("Web Directory: public");
         }
+
+        // There no clean version when "FooBar:Foo:foo.html.twig" was dropped or deprecated
+        // So we disable it in the 4 branch by default; following with a default switch to "false" soon
+        /* Remove version info; prevent index issues
+        if (SymfonyUtil.isVersionGreaterThenEquals(project, "4.0")) {
+            Settings.getInstance(project).twigBundleNamespaceSupport = false;
+            messages.add("Twig: Bundle names disabled");
+        }
+        */
+
+        // mark "var" as excluded directory to prevent indexing
+        Module moduleForFile = ModuleUtilCore.findModuleForFile(ProjectUtil.getProjectDir(project), project);
+        if (moduleForFile != null) {
+            ModifiableRootModel modifiableRootModel = ModuleRootManager.getInstance(moduleForFile).getModifiableModel();
+            boolean needsCommit = false;
+
+            for (ContentEntry contentEntry : modifiableRootModel.getContentEntries()) {
+                VirtualFile projectDir = ProjectUtil.getProjectDir(modifiableRootModel.getProject());
+
+                VirtualFile var = VfsUtil.findRelativeFile(projectDir, "var");
+
+                // second check for valid exclude
+                if (var != null && (VfsUtil.findRelativeFile(projectDir, "var", "cache") != null || VfsUtil.findRelativeFile(projectDir, "var", "log") != null) && !hasAlreadyAnExclude(contentEntry, projectDir, "var")) {
+                    contentEntry.addExcludeFolder(var);
+                    needsCommit = true;
+
+                    if (!messages.contains(String.format(DIRECTORY_EXCLUDE_MESSAGE, "var"))) {
+                        messages.add(String.format(DIRECTORY_EXCLUDE_MESSAGE, "var"));
+                    }
+                }
+
+                // encore build path + "var" are Symfony structure root
+                VirtualFile publicBuild = VfsUtil.findRelativeFile(projectDir, "public", "build");
+                if (publicBuild != null && var != null && !hasAlreadyAnExclude(contentEntry, projectDir, "public/build")) {
+                    contentEntry.addExcludeFolder(publicBuild);
+                    needsCommit = true;
+
+                    if (!messages.contains(String.format(DIRECTORY_EXCLUDE_MESSAGE, "public/build"))) {
+                        messages.add(String.format(DIRECTORY_EXCLUDE_MESSAGE, "public/build"));
+                    }
+                }
+
+                // assetic bundle + "var" are Symfony structure root
+                VirtualFile publicBundles = VfsUtil.findRelativeFile(projectDir, "public", "bundles");
+                if (publicBundles != null && var != null && !hasAlreadyAnExclude(contentEntry, projectDir, "public/bundles")) {
+                    contentEntry.addExcludeFolder(publicBundles);
+                    needsCommit = true;
+
+                    if (!messages.contains(String.format(DIRECTORY_EXCLUDE_MESSAGE, "public/bundles"))) {
+                        messages.add(String.format(DIRECTORY_EXCLUDE_MESSAGE, "public/bundles"));
+                    }
+                }
+            }
+
+            if (needsCommit) {
+                ApplicationManager.getApplication().runWriteAction(modifiableRootModel::commit);
+            }
+        }
+
+        return messages;
+    }
+
+    private static boolean hasAlreadyAnExclude(@NotNull ContentEntry contentEntry, @NotNull VirtualFile projectDir, @NotNull String path) {
+        return Arrays.stream(contentEntry.getExcludeFolders()).anyMatch(excludeFolder -> {
+            VirtualFile file = excludeFolder.getFile();
+            if (file == null) {
+                return false;
+            }
+
+            return path.equals(VfsUtil.getRelativePath(file, projectDir, '/'));
+        });
     }
 
     public static void navigateToPsiElement(@NotNull PsiElement psiElement) {
@@ -208,5 +339,19 @@ public class IdeHelper {
         }
 
         return window;
+    }
+
+    public static void showErrorHintIfAvailable(@NotNull Editor editor, @NotNull String text) {
+        if (ApplicationManager.getApplication().isHeadlessEnvironment() || IntentionPreviewUtils.isIntentionPreviewActive()) {
+            return;
+        }
+
+        Runnable runnable = () -> HintManager.getInstance().showErrorHint(editor, text);
+
+        if (!ApplicationManager.getApplication().isDispatchThread()) {
+            ApplicationManager.getApplication().invokeLater(runnable);
+        } else {
+            runnable.run();
+        }
     }
 }

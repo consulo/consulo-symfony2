@@ -10,18 +10,21 @@ import java.util.Collections;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
+ *
  */
 public abstract class GotoCompletionProvider implements GotoCompletionProviderInterfaceEx {
     @NotNull
     private final PsiElement element;
+    private final Project project;
 
     public GotoCompletionProvider(@NotNull PsiElement element) {
         this.element = element;
+        this.project = element.getProject();
     }
 
     @NotNull
     protected Project getProject() {
-        return this.element.getProject();
+        return this.project;
     }
 
     @NotNull

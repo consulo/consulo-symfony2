@@ -12,12 +12,13 @@ import fr.adrienbrault.idea.symfony2plugin.action.dict.TranslationFileModel;
 import fr.adrienbrault.idea.symfony2plugin.translation.dict.TranslationUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.SymfonyBundleUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.SymfonyBundle;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.yaml.psi.YAMLFile;
 
 import javax.swing.*;
+import java.awt.*;
 import java.awt.event.ItemEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.WindowAdapter;
@@ -37,7 +38,7 @@ public class TranslatorKeyExtractorDialog extends JDialog {
     private JButton buttonCancel;
     private JTextField textTranslationKey;
     private JPanel panelTableView;
-    private JComboBox comboBox1;
+    private JComboBox<String> comboBox1;
     private JCheckBox checkNavigateTo;
 
     private final ListTableModel<TranslationFileModel> listTableModel;
@@ -51,6 +52,8 @@ public class TranslatorKeyExtractorDialog extends JDialog {
         this.project = project;
         this.fileContext = fileContext;
         this.okCallback = okCallback;
+
+        createUIComponents();
 
         for(String domain: domains) {
             comboBox1.addItem(domain);
@@ -110,6 +113,43 @@ public class TranslatorKeyExtractorDialog extends JDialog {
 
     }
 
+    private void createUIComponents() {
+        textTranslationKey = new JTextField(20);
+        comboBox1 = new JComboBox<>();
+        checkNavigateTo = new JCheckBox("Navigate to created key (first file only)");
+        buttonOK = new JButton("OK");
+        buttonCancel = new JButton("Cancel");
+        panelTableView = new JPanel(new BorderLayout());
+
+        JPanel fieldsPanel = new JPanel(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(2, 4, 2, 4);
+        gbc.anchor = GridBagConstraints.WEST;
+
+        gbc.gridx = 0; gbc.gridy = 0; gbc.fill = GridBagConstraints.NONE; gbc.weightx = 0;
+        fieldsPanel.add(new JLabel("Translation Key"), gbc);
+        gbc.gridx = 1; gbc.fill = GridBagConstraints.HORIZONTAL; gbc.weightx = 1.0;
+        fieldsPanel.add(textTranslationKey, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 1; gbc.fill = GridBagConstraints.NONE; gbc.weightx = 0;
+        fieldsPanel.add(new JLabel("Domain"), gbc);
+        gbc.gridx = 1; gbc.fill = GridBagConstraints.HORIZONTAL; gbc.weightx = 1.0;
+        fieldsPanel.add(comboBox1, gbc);
+
+        gbc.gridx = 0; gbc.gridy = 2; gbc.gridwidth = 2; gbc.fill = GridBagConstraints.BOTH; gbc.weightx = 1.0; gbc.weighty = 1.0;
+        fieldsPanel.add(panelTableView, gbc);
+
+        JPanel buttonsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
+        buttonsPanel.add(checkNavigateTo);
+        buttonsPanel.add(buttonOK);
+        buttonsPanel.add(buttonCancel);
+
+        contentPane = new JPanel(new BorderLayout(0, 5));
+        contentPane.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        contentPane.add(fieldsPanel, BorderLayout.CENTER);
+        contentPane.add(buttonsPanel, BorderLayout.SOUTH);
+    }
+
     private void filterList(String domainName) {
 
         // clear list no all*() method?
@@ -143,7 +183,7 @@ public class TranslatorKeyExtractorDialog extends JDialog {
                 }
             }
 
-            if(psiFiles.size() > 0) {
+            if(!psiFiles.isEmpty()) {
                 okCallback.onClick(psiFiles, text, (String) comboBox1.getSelectedItem(), checkNavigateTo.isSelected());
                 dispose();
                 return;
@@ -158,7 +198,7 @@ public class TranslatorKeyExtractorDialog extends JDialog {
         dispose();
     }
 
-    private class FileNameColumn extends ColumnInfo<TranslationFileModel, String> {
+    private static class FileNameColumn extends ColumnInfo<TranslationFileModel, String> {
 
         public FileNameColumn() {
             super("Name");
@@ -176,7 +216,7 @@ public class TranslatorKeyExtractorDialog extends JDialog {
 
     }
 
-    private class PathNameColumn extends ColumnInfo<TranslationFileModel, String> {
+    private static class PathNameColumn extends ColumnInfo<TranslationFileModel, String> {
 
         public PathNameColumn() {
             super("Path");
@@ -231,7 +271,7 @@ public class TranslatorKeyExtractorDialog extends JDialog {
         }
     }
 
-    private class IconColumn extends ColumnInfo<TranslationFileModel, Icon> {
+    private static class IconColumn extends ColumnInfo<TranslationFileModel, Icon> {
 
         public IconColumn() {
             super("");

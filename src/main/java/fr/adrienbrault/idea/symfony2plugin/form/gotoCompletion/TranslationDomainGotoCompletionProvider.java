@@ -2,7 +2,6 @@ package fr.adrienbrault.idea.symfony2plugin.form.gotoCompletion;
 
 import com.intellij.codeInsight.lookup.LookupElement;
 import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionProvider;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.utils.GotoCompletionUtil;
 import fr.adrienbrault.idea.symfony2plugin.translation.dict.TranslationUtil;
@@ -26,7 +25,7 @@ public class TranslationDomainGotoCompletionProvider extends GotoCompletionProvi
     @NotNull
     @Override
     public Collection<LookupElement> getLookupElements() {
-        return TranslationUtil.getTranslationDomainLookupElements(getElement().getProject());
+        return TranslationUtil.getTranslationDomainLookupElements(getProject());
     }
 
     @NotNull
@@ -37,11 +36,6 @@ public class TranslationDomainGotoCompletionProvider extends GotoCompletionProvi
             return Collections.emptyList();
         }
 
-        Collection<PsiElement> targets = new ArrayList<>();
-        for (PsiFile psiFile : TranslationUtil.getDomainPsiFiles(getElement().getProject(), stringLiteralValue)) {
-            targets.add(psiFile);
-        }
-
-        return targets;
+        return new ArrayList<>(TranslationUtil.getDomainPsiFiles(getProject(), stringLiteralValue));
     }
 }

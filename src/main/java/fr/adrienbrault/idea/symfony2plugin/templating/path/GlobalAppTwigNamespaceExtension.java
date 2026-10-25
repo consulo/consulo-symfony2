@@ -6,6 +6,8 @@ import fr.adrienbrault.idea.symfony2plugin.extension.TwigNamespaceExtension;
 import fr.adrienbrault.idea.symfony2plugin.extension.TwigNamespaceExtensionParameter;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.FilesystemUtil;
+import fr.adrienbrault.idea.symfony2plugin.util.ProjectUtil;
+import fr.adrienbrault.idea.symfony2plugin.util.VfsExUtil;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
@@ -26,7 +28,7 @@ public class GlobalAppTwigNamespaceExtension implements TwigNamespaceExtension {
     @NotNull
     @Override
     public Collection<TwigPath> getNamespaces(@NotNull TwigNamespaceExtensionParameter parameter) {
-        VirtualFile baseDir = parameter.getProject().getBaseDir();
+        VirtualFile baseDir = ProjectUtil.getProjectDir(parameter.getProject());
 
         // "app" folder
         Collection<VirtualFile> directories = FilesystemUtil.getAppDirectories(parameter.getProject()).stream()
@@ -36,16 +38,24 @@ public class GlobalAppTwigNamespaceExtension implements TwigNamespaceExtension {
 
         // flex "templates" in root
         VirtualFile templates = VfsUtil.findRelativeFile(baseDir, "templates");
-        if(templates != null) {
+        if (templates != null) {
             directories.add(templates);
         }
 
         Collection<TwigPath> paths = new ArrayList<>();
 
-        directories.stream().map(VirtualFile::getPath).forEach(path -> {
-            paths.add(new TwigPath(path, TwigUtil.MAIN, TwigUtil.NamespaceType.BUNDLE));
-            paths.add(new TwigPath(path, TwigUtil.MAIN, TwigUtil.NamespaceType.ADD_PATH));
-        });
+        for (VirtualFile dir : directories) {
+            String relativePath = VfsExUtil.getRelativeProjectPathStrict(parameter.getProject(), dir);
+            if (relativePath == null) {
+                continue;
+            }
+
+            if (TwigUtil.hasBundleNamespaceSupport(parameter.getProject())) {
+                paths.add(new TwigPath(relativePath, TwigUtil.MAIN, TwigUtil.NamespaceType.BUNDLE));
+            }
+
+            paths.add(new TwigPath(relativePath, TwigUtil.MAIN, TwigUtil.NamespaceType.ADD_PATH));
+        }
 
         return paths;
     }

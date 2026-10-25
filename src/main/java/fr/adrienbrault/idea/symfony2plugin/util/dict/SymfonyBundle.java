@@ -9,12 +9,21 @@ import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
+import java.util.Collection;
+
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class SymfonyBundle {
     @NotNull
     final private PhpClass phpClass;
+
+    @NotNull
+    final private String phpClassName;
+
+    @NotNull
+    private final String phpClassNameNamespaceName;
 
     @NotNull
     public PhpClass getPhpClass() {
@@ -28,11 +37,14 @@ public class SymfonyBundle {
 
     @NotNull
     public String getName() {
-        return this.phpClass.getName();
+        return this.phpClassName;
     }
 
     public SymfonyBundle(@NotNull PhpClass phpClass) {
         this.phpClass = phpClass;
+
+        this.phpClassName = this.phpClass.getName();
+        this.phpClassNameNamespaceName = this.phpClass.getNamespaceName();
     }
 
     @Nullable
@@ -41,12 +53,7 @@ public class SymfonyBundle {
             return null;
         }
 
-        PsiDirectory bundleDirectory = this.phpClass.getContainingFile().getContainingDirectory();
-        if(null == bundleDirectory) {
-            return null;
-        }
-
-        return bundleDirectory;
+        return this.phpClass.getContainingFile().getContainingDirectory();
     }
 
     @Nullable
@@ -78,7 +85,7 @@ public class SymfonyBundle {
     }
 
     public boolean isInBundle(@NotNull PhpClass phpClass) {
-        return phpClass.getNamespaceName().startsWith(this.phpClass.getNamespaceName());
+        return phpClass.getNamespaceName().startsWith(this.phpClassNameNamespaceName);
     }
 
     public boolean isInBundle(@NotNull PsiFile psiFile) {
@@ -138,4 +145,26 @@ public class SymfonyBundle {
     public String getParentBundleName() {
         return PhpElementsUtil.getMethodReturnAsString(this.getPhpClass(), "getParent");
     }
+
+    /**
+     * Returns all possible template directories for this bundle.
+     * Supports both legacy (Resources/views) and new Symfony 4.4+ (templates) structures.
+     */
+    @NotNull
+    public Collection<PsiDirectory> getTemplateDirectories() {
+        Collection<PsiDirectory> directories = new ArrayList<>();
+
+        PsiDirectory legacy = getSubDirectory("Resources", "views");
+        if (legacy != null) {
+            directories.add(legacy);
+        }
+
+        PsiDirectory modern = getSubDirectory("templates");
+        if (modern != null) {
+            directories.add(modern);
+        }
+
+        return directories;
+    }
+
 }

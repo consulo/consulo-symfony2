@@ -1,0 +1,744 @@
+package fr.adrienbrault.idea.symfony2plugin.tests.dic.container.util;
+
+import com.google.gson.Gson;
+import com.intellij.openapi.util.Condition;
+import com.intellij.psi.PsiElement;
+import com.intellij.psi.PsiFile;
+import com.intellij.psi.PsiManager;
+import com.intellij.util.containers.ContainerUtil;
+import com.jetbrains.php.lang.psi.PhpFile;
+import fr.adrienbrault.idea.symfony2plugin.dic.container.ServiceInterface;
+import fr.adrienbrault.idea.symfony2plugin.dic.container.ServiceSerializable;
+import fr.adrienbrault.idea.symfony2plugin.dic.container.dict.ServiceTypeHint;
+import fr.adrienbrault.idea.symfony2plugin.dic.container.util.ServiceContainerUtil;
+import fr.adrienbrault.idea.symfony2plugin.stubs.ContainerCollectionResolver;
+import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.yaml.psi.YAMLScalar;
+
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
+
+/**
+ * @author Daniel Espendiller <daniel@espendiller.net>
+ *
+ * @see fr.adrienbrault.idea.symfony2plugin.dic.container.util.ServiceContainerUtil
+ */
+public class ServiceContainerUtilTest extends SymfonyLightCodeInsightFixtureTestCase {
+
+    public String getTestDataPath() {
+        return "src/test/java/fr/adrienbrault/idea/symfony2plugin/tests/dic/container/util/fixtures";
+    }
+
+    public void testDefaults() {
+        PsiFile xmlFile = PsiManager.getInstance(getProject()).findFile(myFixture.copyFileToProject("services.xml"));
+        PsiFile ymlFile = PsiManager.getInstance(getProject()).findFile(myFixture.copyFileToProject("services.yml"));
+
+        for (PsiFile psiFile : new PsiFile[]{xmlFile, ymlFile}) {
+            ServiceInterface bar = ContainerUtil.find(ServiceContainerUtil.getServicesInFile(psiFile), MyStringServiceInterfaceCondition.create("defaults"));
+            assertEquals("defaults", bar.getId());
+            assertEquals("DateTime", bar.getClassName());
+
+            assertEquals(false, bar.isAbstract());
+            assertEquals(false, bar.isAutowire());
+            assertEquals(false, bar.isDeprecated());
+            assertEquals(false, bar.isLazy());
+            assertEquals(true, bar.isPublic());
+
+            assertNull(bar.getDecorates());
+            assertNull(bar.getDecorationInnerName());
+            assertNull(bar.getParent());
+            assertNull(bar.getAlias());
+        }
+    }
+
+    public void testDecoratorPatternCustomLanguageUnderscoreKeys() {
+        PsiFile xmlFile = PsiManager.getInstance(getProject()).findFile(myFixture.copyFileToProject("services.xml"));
+        PsiFile ymlFile = PsiManager.getInstance(getProject()).findFile(myFixture.copyFileToProject("services.yml"));
+
+        for (PsiFile psiFile : new PsiFile[]{xmlFile, ymlFile}) {
+            ServiceInterface bar = ContainerUtil.find(ServiceContainerUtil.getServicesInFile(psiFile), MyStringServiceInterfaceCondition.create("bar"));
+            assertEquals("bar", bar.getId());
+            assertEquals("stdClass", bar.getClassName());
+            assertEquals("foo", bar.getDecorates());
+            assertEquals("bar.wooz", bar.getDecorationInnerName());
+            assertEquals(false, bar.isPublic());
+        }
+    }
+
+    public void testNonDefaults() {
+        PsiFile xmlFile = PsiManager.getInstance(getProject()).findFile(myFixture.copyFileToProject("services.xml"));
+        PsiFile ymlFile = PsiManager.getInstance(getProject()).findFile(myFixture.copyFileToProject("services.yml"));
+
+        for (PsiFile psiFile : new PsiFile[]{xmlFile, ymlFile}) {
+            ServiceInterface bar = ContainerUtil.find(ServiceContainerUtil.getServicesInFile(psiFile), MyStringServiceInterfaceCondition.create("non.defaults"));
+
+            assertEquals(true, bar.isAbstract());
+            assertEquals(true, bar.isAutowire());
+            assertEquals(true, bar.isDeprecated());
+            assertEquals(true, bar.isLazy());
+            assertEquals(false, bar.isPublic());
+
+            assertEquals("foo", bar.getDecorates());
+            assertEquals("foo", bar.getDecorationInnerName());
+            assertEquals("foo", bar.getParent());
+            assertEquals("foo", bar.getAlias());
+        }
+    }
+
+    public void testUpperToLower() {
+        PsiFile xmlFile = PsiManager.getInstance(getProject()).findFile(myFixture.copyFileToProject("services.xml"));
+        PsiFile ymlFile = PsiManager.getInstance(getProject()).findFile(myFixture.copyFileToProject("services.yml"));
+
+        for (PsiFile psiFile : new PsiFile[]{xmlFile, ymlFile}) {
+            ServiceInterface bar = ContainerUtil.find(ServiceContainerUtil.getServicesInFile(psiFile), serviceInterface ->
+                serviceInterface.getId().equalsIgnoreCase("bar.UPPER")
+            );
+
+            assertEquals("bar.UPPER", bar.getId());
+        }
+    }
+
+    public void testNonDefaultValuesAreSerialized() {
+        PsiFile xmlFile = PsiManager.getInstance(getProject()).findFile(myFixture.copyFileToProject("services.xml"));
+        PsiFile ymlFile = PsiManager.getInstance(getProject()).findFile(myFixture.copyFileToProject("services.yml"));
+
+        for (PsiFile psiFile : new PsiFile[]{xmlFile, ymlFile}) {
+            ServiceInterface bar = ContainerUtil.find(ServiceContainerUtil.getServicesInFile(psiFile), MyStringServiceInterfaceCondition.create("non.defaults"));
+            assertEquals(
+                "{\"id\":\"non.defaults\",\"class\":\"DateTime\",\"public\":false,\"lazy\":true,\"abstract\":true,\"autowire\":true,\"deprecated\":true,\"alias\":\"foo\",\"decorates\":\"foo\",\"decoration_inner_name\":\"foo\",\"parent\":\"foo\",\"resource\":[],\"exclude\":[],\"tags\":[]}",
+                new Gson().toJson(bar)
+            );
+        }
+    }
+
+    public void testPhpServicesAreInIndex() {
+        PsiFile phpFile = PsiManager.getInstance(getProject()).findFile(myFixture.copyFileToProject("services.php"));
+
+        Collection<ServiceSerializable> servicesInFile = ServiceContainerUtil.getServicesInFile(phpFile);
+
+        ServiceSerializable translationWarmer = servicesInFile.stream().filter(s -> "translator.default".equals(s.getId())).findFirst().get();
+        assertEquals(
+            "Symfony\\Bundle\\FrameworkBundle\\Translation\\Translator",
+            translationWarmer.getClassName()
+        );
+
+        ServiceSerializable translationReader = servicesInFile.stream().filter(s -> "Symfony\\Contracts\\Translation\\TranslatorInterface".equals(s.getId())).findFirst().get();
+        assertEquals(
+            "translator",
+            translationReader.getAlias()
+        );
+    }
+
+    public void testPhpArrayServicesAreInIndex() {
+        PsiFile phpFile = PsiManager.getInstance(getProject()).findFile(myFixture.copyFileToProject("services_array.php"));
+
+        Collection<ServiceSerializable> servicesInFile = ServiceContainerUtil.getServicesInFile(phpFile);
+
+        ServiceSerializable defaultsService = servicesInFile.stream().filter(s -> "App\\Util\\MessageGenerator".equals(s.getId())).findFirst().get();
+        assertEquals("App\\Util\\MessageGenerator", defaultsService.getClassName());
+        assertTrue(defaultsService.isAutowire());
+        assertFalse(defaultsService.isPublic());
+
+        ServiceSerializable configuredService = servicesInFile.stream().filter(s -> "app.my_service".equals(s.getId())).findFirst().get();
+        assertEquals("App\\Service\\MyService", configuredService.getClassName());
+        assertTrue(configuredService.isAutowire());
+        assertFalse(configuredService.isPublic());
+        assertContainsElements(configuredService.getTags(), "my.tag", "my.named_tag");
+
+        ServiceSerializable aliasService = servicesInFile.stream().filter(s -> "app.alias_service".equals(s.getId())).findFirst().get();
+        assertEquals("app.my_service", aliasService.getAlias());
+
+        ServiceSerializable decoratedService = servicesInFile.stream().filter(s -> "app.decorated_service".equals(s.getId())).findFirst().get();
+        assertEquals("ArrayObject", decoratedService.getClassName());
+        assertEquals("app.my_service", decoratedService.getDecorates());
+        assertEquals("app.decorated_service.inner_custom", decoratedService.getDecorationInnerName());
+
+        ServiceSerializable decoratedInner = servicesInFile.stream().filter(s -> "app.decorated_service.inner_custom".equals(s.getId())).findFirst().get();
+        assertEquals("app.decorated_service.inner_custom", decoratedInner.getId());
+
+        ServiceSerializable resourceService = servicesInFile.stream().filter(s -> "app.resource_prototype".equals(s.getId())).findFirst().get();
+        assertContainsElements(resourceService.getResource(), "../src/*", "../src2/*");
+        assertContainsElements(resourceService.getExclude(), "../src/{Tests,Kernel.php}");
+        assertFalse(resourceService.isAutowire());
+    }
+
+    public void testPhpArrayAutowireUsesDefaultsAndPerEntryOverride() {
+        PsiFile phpFile = PsiManager.getInstance(getProject()).findFile(myFixture.copyFileToProject("services_array.php"));
+
+        Collection<ServiceSerializable> servicesInFile = ServiceContainerUtil.getServicesInFile(phpFile);
+
+        ServiceSerializable defaultsService = servicesInFile.stream().filter(s -> "App\\Util\\MessageGenerator".equals(s.getId())).findFirst().get();
+        assertTrue(defaultsService.isAutowire());
+
+        ServiceSerializable configuredService = servicesInFile.stream().filter(s -> "app.my_service".equals(s.getId())).findFirst().get();
+        assertTrue(configuredService.isAutowire());
+
+        ServiceSerializable resourceService = servicesInFile.stream().filter(s -> "app.resource_prototype".equals(s.getId())).findFirst().get();
+        assertFalse(resourceService.isAutowire());
+    }
+
+    public void testPhpArrayResourcePrototypeKeepsNamespaceIdAndAutowire() {
+        PsiFile phpFile = myFixture.addFileToProject("services_resource_array.php", "<?php\nnamespace Symfony\\Component\\DependencyInjection\\Loader\\Configurator;\nreturn App::config([\n    'services' => [\n        '_defaults' => ['autowire' => true],\n        'App\\\\Service\\\\' => ['resource' => '../Service/*'],\n    ],\n]);");
+
+        Collection<ServiceSerializable> servicesInFile = ServiceContainerUtil.getServicesInFile(phpFile);
+        ServiceSerializable service = servicesInFile.stream().filter(s -> "App\\Service\\".equals(s.getId())).findFirst().get();
+
+        assertEquals("App\\Service\\", service.getId());
+        assertEquals("App\\Service\\", service.getClassName());
+        assertContainsElements(service.getResource(), "../Service/*");
+        assertTrue(service.isAutowire());
+    }
+
+    public void testPhpArrayServicesUsingImportedAppAliasAreInIndex() {
+        PsiFile phpFile = myFixture.addFileToProject("services_imported_app_alias.php", "<?php\n" +
+            "use Symfony\\Component\\DependencyInjection\\Loader\\Configurator\\App as ConfigApp;\n" +
+            "return ConfigApp::config([\n" +
+            "    'services' => [\n" +
+            "        'alias.array_service' => ['class' => \\DateTime::class],\n" +
+            "    ],\n" +
+            "]);");
+
+        Collection<ServiceSerializable> servicesInFile = ServiceContainerUtil.getServicesInFile(phpFile);
+        ServiceSerializable service = servicesInFile.stream().filter(s -> "alias.array_service".equals(s.getId())).findFirst().get();
+
+        assertEquals("DateTime", service.getClassName());
+    }
+
+    public void testPhpDirectArrayReturnServicesAreInIndex() {
+        PsiFile phpFile = myFixture.addFileToProject("services_direct_array.php", "<?php\nreturn ['services' => ['direct.array_service' => ['class' => \\DateTime::class]]];");
+
+        Collection<ServiceSerializable> servicesInFile = ServiceContainerUtil.getServicesInFile(phpFile);
+        ServiceSerializable service = servicesInFile.stream().filter(s -> "direct.array_service".equals(s.getId())).findFirst().get();
+
+        assertEquals("DateTime", service.getClassName());
+    }
+
+    public void testPhpConfiguratorClosureArrayServicesAreInIndex() {
+        PsiFile phpFile = myFixture.addFileToProject("services_configurator_closure.php", "<?php\nnamespace Symfony\\Component\\DependencyInjection\\Loader\\Configurator;\nreturn static function (ContainerConfigurator $container) {\n    return ['services' => ['closure.array_service' => ['class' => \\ArrayObject::class]]];\n};");
+
+        Collection<ServiceSerializable> servicesInFile = ServiceContainerUtil.getServicesInFile(phpFile);
+        ServiceSerializable service = servicesInFile.stream().filter(s -> "closure.array_service".equals(s.getId())).findFirst().get();
+
+        assertEquals("ArrayObject", service.getClassName());
+    }
+
+    public void testThatDefaultValueAreNullAndNotSerialized() {
+        PsiFile xmlFile = PsiManager.getInstance(getProject()).findFile(myFixture.copyFileToProject("services.xml"));
+        PsiFile ymlFile = PsiManager.getInstance(getProject()).findFile(myFixture.copyFileToProject("services.yml"));
+
+        for (PsiFile psiFile : new PsiFile[]{xmlFile, ymlFile}) {
+            ServiceInterface bar = ContainerUtil.find(ServiceContainerUtil.getServicesInFile(psiFile), MyStringServiceInterfaceCondition.create("defaults"));
+            assertEquals(
+                "{\"id\":\"defaults\",\"class\":\"DateTime\",\"resource\":[],\"exclude\":[],\"tags\":[]}",
+                new Gson().toJson(bar)
+            );
+        }
+    }
+
+    public void testYmlDeprecatedAsTilde() {
+        PsiFile ymlFile = PsiManager.getInstance(getProject()).findFile(myFixture.copyFileToProject("services.yml"));
+
+        ServiceInterface bar = ContainerUtil.find(ServiceContainerUtil.getServicesInFile(ymlFile), MyStringServiceInterfaceCondition.create("bar.deprecated"));
+        assertEquals(true, bar.isDeprecated());
+    }
+
+    public void testYmlAliasDefinitionAsInline() {
+        PsiFile ymlFile = PsiManager.getInstance(getProject()).findFile(myFixture.copyFileToProject("services.yml"));
+
+        Collection<ServiceSerializable> services = ServiceContainerUtil.getServicesInFile(ymlFile);
+        assertEquals("bar", ContainerUtil.find(services, MyStringServiceInterfaceCondition.create("alias.inline_1")).getAlias());
+        assertEquals("bar", ContainerUtil.find(services, MyStringServiceInterfaceCondition.create("alias.inline_2")).getAlias());
+        assertEquals("bar", ContainerUtil.find(services, MyStringServiceInterfaceCondition.create("alias.inline_3")).getAlias());
+        assertNull(ContainerUtil.find(services, MyStringServiceInterfaceCondition.create("alias.inline_4")).getAlias());
+    }
+
+    public void testServiceWithoutClassMustUseIdAsClass() {
+        PsiFile xmlFile = PsiManager.getInstance(getProject()).findFile(myFixture.copyFileToProject("services.xml"));
+        PsiFile ymlFile = PsiManager.getInstance(getProject()).findFile(myFixture.copyFileToProject("services.yml"));
+
+        for (PsiFile psiFile : new PsiFile[]{xmlFile, ymlFile}) {
+            ServiceInterface bar = ContainerUtil.find(ServiceContainerUtil.getServicesInFile(psiFile), MyStringServiceInterfaceCondition.create("My\\Class\\Id\\First"));
+            assertEquals("My\\Class\\Id\\First", bar.getClassName());
+
+            assertNull(ContainerUtil.find(ServiceContainerUtil.getServicesInFile(psiFile), MyStringServiceInterfaceCondition.create("my_abstract_without_class")).getClassName());
+            assertNull(ContainerUtil.find(ServiceContainerUtil.getServicesInFile(psiFile), MyStringServiceInterfaceCondition.create("my_alias_without_class")).getClassName());
+        }
+    }
+
+    public void testGetServiceUsage() {
+        myFixture.copyFileToProject("usage.services.xml");
+        myFixture.copyFileToProject("usage1.services.xml");
+
+        assertEquals(3, ServiceContainerUtil.getServiceUsage(getProject(), "usage_xml_foobar"));
+        assertEquals(3, ServiceContainerUtil.getServiceUsage(getProject(), "usage_xml_foobar2"));
+        assertEquals(1, ServiceContainerUtil.getServiceUsage(getProject(), "usage_xml_foobar3"));
+    }
+
+    public void testGetSortedServiceId() {
+        myFixture.copyFileToProject("usage.services.xml");
+        myFixture.copyFileToProject("usage1.services.xml");
+
+        List<String> sortedServiceId = ServiceContainerUtil.getSortedServiceId(getProject(), Arrays.asList("foobar.default", "foobar", "usage_xml_foobar"));
+
+        assertEquals("usage_xml_foobar", sortedServiceId.get(0));
+        assertEquals("foobar", sortedServiceId.get(1));
+        assertEquals("foobar.default", sortedServiceId.get(2));
+    }
+
+    public void testGetSortedServiceIdByUsage() {
+        myFixture.copyFileToProject("usage.services.xml");
+        myFixture.copyFileToProject("usage1.services.xml");
+
+        List<String> sortedServiceId = ServiceContainerUtil.getSortedServiceId(getProject(), Arrays.asList("foobar.default", "usage_xml_foobar3", "usage_xml_foobar2"));
+
+        assertEquals("usage_xml_foobar2", sortedServiceId.get(0));
+        assertEquals("usage_xml_foobar3", sortedServiceId.get(1));
+        assertEquals("foobar.default", sortedServiceId.get(2));
+    }
+
+    /**
+     * @see fr.adrienbrault.idea.symfony2plugin.dic.container.util.ServiceContainerUtil#getServicesInFile
+     */
+    public void testYamlFileScopeDefaultsForSymfony33() {
+        Collection<ServiceSerializable> services = ServiceContainerUtil.getServicesInFile(PsiManager.getInstance(getProject()).findFile(myFixture.copyFileToProject("services3-3.yml")));
+
+        assertFalse(services.stream().anyMatch(service -> "_defaults".equals(service.getId())));
+
+        ServiceSerializable defaults = services.stream().filter(service -> "_yaml.defaults".equals(service.getId())).findFirst().get();
+        assertTrue(defaults.isAutowire());
+        assertFalse(defaults.isPublic());
+
+        ServiceSerializable defaultsOverwrite = services.stream().filter(service -> "_yaml.defaults_overwrite".equals(service.getId())).findFirst().get();
+        assertFalse(defaultsOverwrite.isAutowire());
+        assertTrue(defaultsOverwrite.isPublic());
+
+        ServiceSerializable defaultsClass = services.stream().filter(service -> "Yaml\\DefaultClassPrivateAutowire".equals(service.getId())).findFirst().get();
+        assertTrue(defaultsClass.isAutowire());
+        assertFalse(defaultsClass.isPublic());
+
+        ServiceSerializable defaultsAlias = services.stream().filter(service -> "_yaml.defaults_alias".equals(service.getId())).findFirst().get();
+        assertTrue(defaultsAlias.isAutowire());
+        assertFalse(defaultsAlias.isPublic());
+    }
+
+    /**
+     * @see fr.adrienbrault.idea.symfony2plugin.dic.container.util.ServiceContainerUtil#getServicesInFile
+     */
+    public void testYamlFileScopeDefaultsForSymfony5() {
+        Collection<ServiceSerializable> services = ServiceContainerUtil.getServicesInFile(PsiManager.getInstance(getProject()).findFile(myFixture.copyFileToProject("services5.yml")));
+
+        ServiceSerializable appResourceSingle = services.stream().filter(service -> "AppSingle\\".equals(service.getId())).findFirst().get();
+        assertContainsElements(appResourceSingle.getResource(), "../src/*");
+        assertContainsElements(appResourceSingle.getExclude(), "../src/{DependencyInjection,Entity,Migrations,Tests,Kernel.php}");
+
+        ServiceSerializable appResourceArray = services.stream().filter(service -> "AppArray\\".equals(service.getId())).findFirst().get();
+        assertContainsElements(appResourceArray.getResource(), "../src2/*", "../src/*");
+        assertContainsElements(appResourceArray.getExclude(), "../src/{DependencyInjection,Kernel.php}", "../src2/{Tests,Kernel.php}");
+    }
+
+    public void testYamlEmptyResourceAndExcludeValuesAreIgnored() {
+        Collection<ServiceSerializable> services = ServiceContainerUtil.getServicesInFile(myFixture.addFileToProject("services_empty_resource.yml", "" +
+            "services:\n" +
+            "  App\\Empty\\:\n" +
+            "    resource:\n" +
+            "    exclude: ~\n" +
+            "  App\\Null\\:\n" +
+            "    resource: null\n" +
+            "  App\\Quoted\\:\n" +
+            "    resource: \"~\"\n"
+        ));
+
+        ServiceSerializable service = services.stream().filter(s -> "App\\Empty\\".equals(s.getId())).findFirst().get();
+        assertTrue(service.getResource().isEmpty());
+        assertFalse(service.getResource().contains(null));
+        assertTrue(service.getExclude().isEmpty());
+        assertFalse(service.getExclude().contains(null));
+
+        ServiceSerializable nullService = services.stream().filter(s -> "App\\Null\\".equals(s.getId())).findFirst().get();
+        assertTrue(nullService.getResource().isEmpty());
+
+        ServiceSerializable quotedService = services.stream().filter(s -> "App\\Quoted\\".equals(s.getId())).findFirst().get();
+        assertContainsElements(quotedService.getResource(), "~");
+    }
+
+    /**
+     * @see fr.adrienbrault.idea.symfony2plugin.dic.container.util.ServiceContainerUtil#getServicesInFile
+     */
+    public void testXmlFileScopeDefaultsForSymfony33() {
+        Collection<ServiceSerializable> services = ServiceContainerUtil.getServicesInFile(PsiManager.getInstance(getProject()).findFile(myFixture.copyFileToProject("services3-3.xml")));
+
+        ServiceSerializable defaults = services.stream().filter(service -> "_xml.defaults".equals(service.getId())).findFirst().get();
+        assertTrue(defaults.isAutowire());
+        assertFalse(defaults.isPublic());
+
+        ServiceSerializable defaultsOverwrite = services.stream().filter(service -> "_xml.defaults_overwrite".equals(service.getId())).findFirst().get();
+        assertFalse(defaultsOverwrite.isAutowire());
+        assertTrue(defaultsOverwrite.isPublic());
+    }
+
+    /**
+     * @see fr.adrienbrault.idea.symfony2plugin.dic.container.util.ServiceContainerUtil#getYamlConstructorTypeHint
+     */
+    public void testGetYamlConstructorTypeHint() {
+        myFixture.copyFileToProject("classes.php");
+
+        myFixture.configureByText("test.yml", "" +
+            "services:\n" +
+            "   NamedArgument\\Foobar:\n" +
+            "       arguments: ['<caret>']\n"
+        );
+
+        PsiElement psiElement = myFixture.getFile().findElementAt(myFixture.getCaretOffset());
+
+        YAMLScalar parent = (YAMLScalar) psiElement.getParent();
+
+        ServiceTypeHint typeHint = ServiceContainerUtil.getYamlConstructorTypeHint(
+            parent,
+            new ContainerCollectionResolver.LazyServiceCollector(getProject())
+        );
+
+        assertEquals(0, typeHint.getIndex());
+        assertEquals("__construct", typeHint.getMethod().getName());
+    }
+
+    /**
+     * @see fr.adrienbrault.idea.symfony2plugin.dic.container.util.ServiceContainerUtil#getYamlConstructorTypeHint
+     */
+    public void testGetYamlConstructorTypeHintForNamedArgument() {
+        myFixture.copyFileToProject("classes.php");
+
+        myFixture.configureByText("test.yml", "" +
+            "services:\n" +
+            "   NamedArgument\\Foobar:\n" +
+            "       arguments:\n" +
+            "           $foobar: '<caret>'\n"
+        );
+
+        PsiElement psiElement = myFixture.getFile().findElementAt(myFixture.getCaretOffset());
+
+        YAMLScalar parent = (YAMLScalar) psiElement.getParent();
+
+        ServiceTypeHint typeHint = ServiceContainerUtil.getYamlConstructorTypeHint(
+            parent,
+            new ContainerCollectionResolver.LazyServiceCollector(getProject())
+        );
+
+        assertEquals(0, typeHint.getIndex());
+        assertEquals("__construct", typeHint.getMethod().getName());
+    }
+
+    /**
+     * @see fr.adrienbrault.idea.symfony2plugin.dic.container.util.ServiceContainerUtil#getXmlConstructorTypeHint
+     */
+    public void testGetXmlConstructorTypeHint() {
+        myFixture.copyFileToProject("classes.php");
+
+        myFixture.configureByText("services.xml", "" +
+                "<services>" +
+                "     <service id=\"NamedArgument\\Foobar\">\n" +
+                "         <argument type=\"service\" key=\"$foobar\" id=\"args<caret>_bar\"/>\n" +
+                "     </service>" +
+                "</services>"
+        );
+
+        PsiElement psiElement = myFixture.getFile().findElementAt(myFixture.getCaretOffset());
+
+        ServiceTypeHint typeHint = ServiceContainerUtil.getXmlConstructorTypeHint(
+            psiElement,
+            new ContainerCollectionResolver.LazyServiceCollector(getProject())
+        );
+
+        assertEquals(0, typeHint.getIndex());
+        assertEquals("__construct", typeHint.getMethod().getName());
+    }
+
+    /**
+     * @see fr.adrienbrault.idea.symfony2plugin.dic.container.util.ServiceContainerUtil#getXmlCallTypeHint
+     */
+    public void testGetXmlCallTypeHint() {
+        myFixture.copyFileToProject("classes.php");
+
+        myFixture.configureByText("services.xml", "" +
+            "<services>" +
+            "     <service id=\"NamedArgument\\Foobar\">\n" +
+            "         <call method=\"setFoo\">\n" +
+            "             <argument type=\"service\" key=\"$foobar\" id=\"args_bar<caret>\"/>\n" +
+            "         </call>\n" +
+            "     </service>" +
+            "</services>"
+        );
+
+        PsiElement psiElement = myFixture.getFile().findElementAt(myFixture.getCaretOffset());
+
+        ServiceTypeHint typeHint = ServiceContainerUtil.getXmlCallTypeHint(
+            psiElement,
+            new ContainerCollectionResolver.LazyServiceCollector(getProject())
+        );
+
+        assertEquals(1, typeHint.getIndex());
+        assertEquals("setFoo", typeHint.getMethod().getName());
+    }
+
+    public void testVisitNamedArguments() {
+        myFixture.copyFileToProject("classes.php");
+
+        PsiFile psiFile = myFixture.addFileToProject("test.yml", "" +
+            "services:\n" +
+            "   NamedArgument\\Foobar:\n" +
+            "       arguments: []\n" +
+            "" +
+            "   App\\Controller\\:\n" +
+            "       resource: '../src/Controller'\n" +
+            "       tags: ['controller.service_arguments']\n"
+        );
+
+        Collection<String> arguments = new HashSet<>();
+        ServiceContainerUtil.visitNamedArguments(psiFile, parameter -> arguments.add(parameter.getFirst().getName()));
+
+        assertTrue(arguments.contains("foobar"));
+
+        assertTrue(arguments.contains("foobarString"));
+        assertFalse(arguments.contains("private"));
+    }
+
+    public void testGetTargetsForConstantForEmptyClassConstName() {
+        myFixture.copyFileToProject("classes.php");
+
+        assertEmpty(ServiceContainerUtil.getTargetsForConstant(getProject(), "\\App\\Service\\FooService::"));
+    }
+
+    /**
+     * @see fr.adrienbrault.idea.symfony2plugin.dic.container.util.ServiceContainerUtil#visitFile(com.jetbrains.php.lang.psi.PhpFile, com.intellij.util.Consumer)
+     */
+    public void testVisitFileForPhpServicesWithSetAndAlias() {
+        PhpFile phpFile = (PhpFile) PsiManager.getInstance(getProject()).findFile(myFixture.copyFileToProject("services_set_alias.php"));
+
+        Collection<String> visitedServices = new HashSet<>();
+        Collection<String> visitedClasses = new HashSet<>();
+        Collection<String> visitedAliases = new HashSet<>();
+
+        ServiceContainerUtil.visitFile(phpFile, serviceConsumer -> {
+            visitedServices.add(serviceConsumer.getServiceId());
+
+            String className = serviceConsumer.attributes().getString("class");
+            if (className != null) {
+                visitedClasses.add(serviceConsumer.getServiceId() + ":" + className);
+            }
+
+            String alias = serviceConsumer.attributes().getString("alias");
+            if (alias != null) {
+                visitedAliases.add(serviceConsumer.getServiceId() + ":" + alias);
+            }
+        });
+
+        // Test that 'set' method with class parameter is found
+        assertTrue("Service 'test.service_direct' should be visited", visitedServices.contains("test.service_direct"));
+        assertTrue("Service 'test.service_direct' should have class", visitedClasses.contains("test.service_direct:App\\Service\\TestClassA"));
+
+        // Test that 'alias' method is found
+        assertTrue("Service 'test.service_alias' should be visited", visitedServices.contains("test.service_alias"));
+        assertTrue("Service 'test.service_alias' should have alias", visitedAliases.contains("test.service_alias:foo_alias"));
+
+        // Test that 'set' with chained 'class' method is found
+        assertTrue("Service 'test.service_chained_class' should be visited", visitedServices.contains("test.service_chained_class"));
+        assertTrue("Service 'test.service_chained_class' should have class from chained method", visitedClasses.contains("test.service_chained_class:App\\Service\\TestClassB"));
+
+        // Test that chained 'set' calls create separate services with correct classes
+        assertTrue("Service 'service1' should be visited", visitedServices.contains("service1"));
+        assertTrue("Service 'service1' should have its own class", visitedClasses.contains("service1:App\\Service\\TestClassA"));
+
+        assertTrue("Service 'service2' should be visited", visitedServices.contains("service2"));
+        assertTrue("Service 'service2' should have its own class", visitedClasses.contains("service2:App\\Service\\TestClassC"));
+    }
+
+    public void testVisitFileForPhpFluentChainTagsAreCollected() {
+        PsiFile phpFile = PsiManager.getInstance(getProject()).findFile(myFixture.copyFileToProject("services_set_alias.php"));
+        Collection<ServiceSerializable> services = ServiceContainerUtil.getServicesInFile(phpFile);
+
+        ServiceSerializable fullChain = services.stream().filter(s -> "test.full_chain".equals(s.getId())).findFirst().orElseThrow();
+        assertContainsElements(fullChain.getTags(), "chain.tag_one", "chain.tag_two");
+    }
+
+    public void testVisitFileForPhpFluentChainBooleanFlagsAreIndexed() {
+        PsiFile phpFile = PsiManager.getInstance(getProject()).findFile(myFixture.copyFileToProject("services_set_alias.php"));
+        Collection<ServiceSerializable> services = ServiceContainerUtil.getServicesInFile(phpFile);
+
+        ServiceSerializable fullChain = services.stream().filter(s -> "test.full_chain".equals(s.getId())).findFirst().orElseThrow();
+        assertTrue(fullChain.isPublic());
+        assertTrue(fullChain.isAutowire());
+        assertTrue(fullChain.isLazy());
+        assertTrue(fullChain.isDeprecated());
+
+        ServiceSerializable privateService = services.stream().filter(s -> "test.private".equals(s.getId())).findFirst().orElseThrow();
+        assertFalse(privateService.isPublic());
+
+        // ->autowire(false) and ->public(false) must be explicitly false, not just default
+        ServiceSerializable autowireFalse = services.stream().filter(s -> "test.autowire_false".equals(s.getId())).findFirst().orElseThrow();
+        assertFalse(autowireFalse.isAutowire());
+        assertFalse(autowireFalse.isPublic());
+    }
+
+    public void testVisitFileForPhpFluentDefaultsAreInheritedByServices() {
+        PsiFile phpFile = PsiManager.getInstance(getProject()).findFile(myFixture.copyFileToProject("services_fluent_defaults.php"));
+        Collection<ServiceSerializable> services = ServiceContainerUtil.getServicesInFile(phpFile);
+
+        // Service with no explicit flags should inherit from ->defaults()
+        ServiceSerializable inherited = services.stream().filter(s -> "defaults.inherited".equals(s.getId())).findFirst().orElseThrow();
+        assertTrue(inherited.isAutowire());
+        assertFalse(inherited.isPublic());
+    }
+
+    public void testVisitFileForPhpFluentPerServiceOverridesDefaults() {
+        PsiFile phpFile = PsiManager.getInstance(getProject()).findFile(myFixture.copyFileToProject("services_fluent_defaults.php"));
+        Collection<ServiceSerializable> services = ServiceContainerUtil.getServicesInFile(phpFile);
+
+        // ->autowire(false) overrides defaults.autowire=true; public stays false from defaults
+        ServiceSerializable autowireOverride = services.stream().filter(s -> "defaults.autowire_override".equals(s.getId())).findFirst().orElseThrow();
+        assertFalse(autowireOverride.isAutowire());
+        assertFalse(autowireOverride.isPublic());
+
+        // ->public() overrides defaults.public=false; autowire stays true from defaults
+        ServiceSerializable publicOverride = services.stream().filter(s -> "defaults.public_override".equals(s.getId())).findFirst().orElseThrow();
+        assertTrue(publicOverride.isAutowire());
+        assertTrue(publicOverride.isPublic());
+    }
+
+    /**
+     * $container->parameters()->set() defines a container parameter, not a service.
+     * The services index must not contain entries from the parameters configurator.
+     */
+    public void testThatParametersSetIsNotIndexedAsService() {
+        PsiFile phpFile = PsiManager.getInstance(getProject()).findFile(myFixture.copyFileToProject("services_fluent_chained.php"));
+        Collection<ServiceSerializable> services = ServiceContainerUtil.getServicesInFile(phpFile);
+
+        assertTrue("my.parameter must not be indexed as a service",
+            services.stream().noneMatch(s -> "my.parameter".equals(s.getId())));
+        assertTrue("my.parameter_variable must not be indexed as a service",
+            services.stream().noneMatch(s -> "my.parameter_variable".equals(s.getId())));
+        assertTrue("my.parameter_variable_alias must not be indexed as a service",
+            services.stream().noneMatch(s -> "my.parameter_variable_alias".equals(s.getId())));
+    }
+
+    /**
+     * Services defined via $container->services()->set(...)-> ... ->set(...) (no $services variable)
+     * must all be discovered and include class, tags, visibility, and decoration data.
+     */
+    public void testThatDirectChainOnServicesCallIsFullyIndexed() {
+        PsiFile phpFile = PsiManager.getInstance(getProject()).findFile(myFixture.copyFileToProject("services_fluent_chained.php"));
+        Collection<ServiceSerializable> services = ServiceContainerUtil.getServicesInFile(phpFile);
+
+        ServiceSerializable serviceA = services.stream()
+            .filter(s -> "chain.service_a".equals(s.getId())).findFirst().orElseThrow();
+        assertEquals("App\\Service\\TestClassA", serviceA.getClassName());
+        assertContainsElements(serviceA.getTags(), "app.handler");
+
+        ServiceSerializable serviceB = services.stream()
+            .filter(s -> "chain.service_b".equals(s.getId())).findFirst().orElseThrow();
+        assertTrue(serviceB.isPublic());
+        assertContainsElements(serviceB.getTags(), "app.processor", "app.secondary");
+
+        ServiceSerializable lazyAutowired = services.stream()
+            .filter(s -> "chain.lazy_autowired".equals(s.getId())).findFirst().orElseThrow();
+        assertTrue(lazyAutowired.isLazy());
+        assertTrue(lazyAutowired.isAutowire());
+
+        // last service in chain with no chained attributes
+        assertTrue(services.stream().anyMatch(s -> "chain.last".equals(s.getId())));
+        assertTrue(services.stream().anyMatch(s -> "chain.alias_service".equals(s.getId())));
+    }
+
+    public void testThatDirectChainDecoratesIsIndexed() {
+        PsiFile phpFile = PsiManager.getInstance(getProject()).findFile(myFixture.copyFileToProject("services_fluent_chained.php"));
+        Collection<ServiceSerializable> services = ServiceContainerUtil.getServicesInFile(phpFile);
+
+        ServiceSerializable decorated = services.stream()
+            .filter(s -> "chain.decorated".equals(s.getId())).findFirst().orElseThrow();
+        assertEquals("chain.service_a", decorated.getDecorates());
+        assertEquals("chain.decorated.inner", decorated.getDecorationInnerName());
+    }
+
+    public void testVisitFileForPhpFluentChainDecoratesIsIndexed() {
+        PsiFile phpFile = PsiManager.getInstance(getProject()).findFile(myFixture.copyFileToProject("services_set_alias.php"));
+        Collection<ServiceSerializable> services = ServiceContainerUtil.getServicesInFile(phpFile);
+
+        ServiceSerializable decorated = services.stream().filter(s -> "test.decorated".equals(s.getId())).findFirst().orElseThrow();
+        assertEquals("test.service_direct", decorated.getDecorates());
+
+        ServiceSerializable decoratedWithInner = services.stream().filter(s -> "test.decorated_with_inner".equals(s.getId())).findFirst().orElseThrow();
+        assertEquals("test.service_direct", decoratedWithInner.getDecorates());
+        assertEquals("test.decorated_with_inner.custom", decoratedWithInner.getDecorationInnerName());
+    }
+
+    public void testVisitFileForPhpFluentChainParentIsIndexed() {
+        PsiFile phpFile = PsiManager.getInstance(getProject()).findFile(myFixture.copyFileToProject("services_set_alias.php"));
+        Collection<ServiceSerializable> services = ServiceContainerUtil.getServicesInFile(phpFile);
+
+        ServiceSerializable withParent = services.stream().filter(s -> "test.with_parent".equals(s.getId())).findFirst().orElseThrow();
+        assertEquals("test.service_direct", withParent.getParent());
+    }
+
+    /**
+     * $services->set('id')->parent('base')->class(Foo::class)
+     * The ->class() call must be resolved even with ->parent() in the chain.
+     */
+    public void testVisitFileForPhpFluentParentThenClassResolvesClass() {
+        PsiFile phpFile = PsiManager.getInstance(getProject()).findFile(myFixture.copyFileToProject("services_set_alias.php"));
+        Collection<ServiceSerializable> services = ServiceContainerUtil.getServicesInFile(phpFile);
+
+        ServiceSerializable parentThenClass = services.stream()
+            .filter(s -> "test.parent_then_class".equals(s.getId()))
+            .findFirst()
+            .orElseThrow();
+
+        assertEquals("App\\Service\\TestClassC", parentThenClass.getClassName());
+        assertEquals("test.service_direct", parentThenClass.getParent());
+    }
+
+    /**
+     * @see fr.adrienbrault.idea.symfony2plugin.dic.container.util.ServiceContainerUtil#visitFile(com.jetbrains.php.lang.psi.PhpFile, com.intellij.util.Consumer)
+     */
+    public void testVisitFileForPhpBundleLoadExtension() {
+        PhpFile phpFile = (PhpFile) PsiManager.getInstance(getProject()).findFile(myFixture.copyFileToProject("services_bundle_load_extension.php"));
+
+        Collection<String> visitedServices = new HashSet<>();
+        Collection<String> visitedClasses = new HashSet<>();
+
+        ServiceContainerUtil.visitFile(phpFile, serviceConsumer -> {
+            visitedServices.add(serviceConsumer.getServiceId());
+
+            String className = serviceConsumer.attributes().getString("class");
+            if (className != null) {
+                visitedClasses.add(serviceConsumer.getServiceId() + ":" + className);
+            }
+        });
+
+        // Test that services defined in Bundle::loadExtension are found
+        assertTrue("Service 'test.bundle_service' should be visited", visitedServices.contains("test.bundle_service"));
+        assertTrue("Service 'test.bundle_service' should have class", visitedClasses.contains("test.bundle_service:App\\Service\\TestClassA"));
+
+        assertTrue("Service 'test.bundle_chained' should be visited", visitedServices.contains("test.bundle_chained"));
+        assertTrue("Service 'test.bundle_chained' should have class", visitedClasses.contains("test.bundle_chained:App\\Service\\TestClassB"));
+    }
+
+    private static class MyStringServiceInterfaceCondition implements Condition<ServiceInterface> {
+
+        @NotNull
+        private final String id;
+
+        private MyStringServiceInterfaceCondition(@NotNull String id) {
+            this.id = id;
+        }
+
+        @Override
+        public boolean value(ServiceInterface serviceInterface) {
+            return serviceInterface.getId().equals(this.id);
+        }
+
+        public static MyStringServiceInterfaceCondition create(@NotNull String id) {
+            return new MyStringServiceInterfaceCondition(id);
+        }
+    }
+}

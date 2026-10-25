@@ -8,7 +8,7 @@ import com.intellij.psi.PsiElement;
 import fr.adrienbrault.idea.symfony2plugin.action.ServiceActionUtil;
 import fr.adrienbrault.idea.symfony2plugin.translation.util.TranslationInsertUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.yaml.YAMLUtil;
 import org.jetbrains.yaml.psi.YAMLCompoundValue;
 import org.jetbrains.yaml.psi.YAMLKeyValue;
@@ -50,7 +50,7 @@ public class YamlUpdateArgumentServicesCallback implements ServiceActionUtil.Ins
 
             // we wound array
             List<PsiElement> yamlArguments = YamlHelper.getYamlArrayOnSequenceOrArrayElements((YAMLCompoundValue) yamlCompoundValue);
-            if(yamlArguments != null && yamlArguments.size() > 0) {
+            if(yamlArguments != null && !yamlArguments.isEmpty()) {
                 appendEndOffset = yamlArguments.get(yamlArguments.size() - 1).getTextRange().getEndOffset();
 
                 List<String> arrayList = new ArrayList<>();
@@ -66,7 +66,7 @@ public class YamlUpdateArgumentServicesCallback implements ServiceActionUtil.Ins
 
             // search indent and EOL value
             String indent = StringUtil.repeatSymbol(' ', YAMLUtil.getIndentToThisElement(yamlCompoundValue));
-            String eol = TranslationInsertUtil.findEol(yamlKeyValue);
+            String eol = TranslationInsertUtil.findLineSeparator(yamlKeyValue);
 
             List<String> yamlSequences = new ArrayList<>();
             for (String item : items) {

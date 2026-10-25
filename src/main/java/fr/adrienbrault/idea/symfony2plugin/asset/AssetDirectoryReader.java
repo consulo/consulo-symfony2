@@ -5,19 +5,20 @@ import com.intellij.openapi.vfs.VfsUtil;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.vfs.VirtualFileVisitor;
 import com.intellij.psi.PsiDirectory;
+import com.intellij.psi.search.FilenameIndex;
+import com.intellij.psi.search.GlobalSearchScope;
 import fr.adrienbrault.idea.symfony2plugin.Settings;
+import fr.adrienbrault.idea.symfony2plugin.templating.webpack.SymfonyWebpackUtil;
+import fr.adrienbrault.idea.symfony2plugin.util.ProjectUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.SymfonyBundleUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.SymfonyBundle;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashSet;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -40,31 +41,67 @@ public class AssetDirectoryReader {
         this.filterExtension.addAll(Arrays.asList(filterExtension));
     }
 
-    @Nullable
-    private static VirtualFile getProjectAssetRoot(@NotNull Project project) {
-        VirtualFile projectDirectory = project.getBaseDir();
-        String webDirectoryName = Settings.getInstance(project).directoryToWeb;
-        return VfsUtil.findRelativeFile(projectDirectory, webDirectoryName.split("/"));
+    @NotNull
+    private static Collection<VirtualFile> getProjectAssetRoot(@NotNull Project project) {
+        Set<String> paths = new HashSet<>();
+
+        // custom config
+        String directoryToWeb = Settings.getInstance(project).directoryToWeb;
+        if (StringUtils.isNotBlank(directoryToWeb)) {
+            paths.add(directoryToWeb);
+        }
+
+        paths.add("public"); // latest Symfony structure
+        paths.add("web"); // old Symfony structure
+
+        // find asset mapper files
+        for (VirtualFile file : FilenameIndex.getVirtualFilesByName("installed.php", GlobalSearchScope.allScope(project))) {
+            // composer
+            VirtualFile parent = file.getParent();
+            if (parent == null || !"vendor".equals(parent.getName())) {
+                continue;
+            }
+
+            VirtualFile assetFolder = parent.getParent();
+            if (assetFolder == null) {
+                continue;
+            }
+
+            String relativePath = VfsUtil.getRelativePath(assetFolder, ProjectUtil.getProjectDir(project), '/');
+            if (relativePath != null) {
+                paths.add(relativePath);
+            }
+        }
+
+        return paths.stream()
+            .map(path -> VfsUtil.findRelativeFile(ProjectUtil.getProjectDir(project), path.split("/")))
+            .filter(Objects::nonNull)
+            .collect(Collectors.toSet());
     }
 
     @NotNull
     public Collection<AssetFile> getAssetFiles(@NotNull Project project) {
         Collection<AssetFile> files = new ArrayList<>();
 
-        VirtualFile webDirectory = getProjectAssetRoot(project);
-        if (null == webDirectory) {
-            return files;
+        Collection<VirtualFile> projectAssetRoots = getProjectAssetRoot(project);
+        for (VirtualFile webDirectory : projectAssetRoots) {
+            VfsUtil.visitChildrenRecursively(webDirectory, new VirtualFileVisitor<VirtualFile>() {
+                @Override
+                public boolean visitFile(@NotNull VirtualFile virtualFile) {
+                    if(isValidFile(virtualFile)) {
+                        files.add(new AssetFile(virtualFile, AssetEnum.Position.Web, webDirectory));
+                    }
+                    return super.visitFile(virtualFile);
+                }
+            });
         }
 
-        VfsUtil.visitChildrenRecursively(webDirectory, new VirtualFileVisitor() {
-            @Override
-            public boolean visitFile(@NotNull VirtualFile virtualFile) {
-                if(isValidFile(virtualFile)) {
-                    files.add(new AssetFile(virtualFile, AssetEnum.Position.Web, webDirectory));
-                }
-                return super.visitFile(virtualFile);
-            }
-        });
+        for (VirtualFile projectManifestJsonFile : getProjectManifestJsonFiles(project, projectAssetRoots)) {
+            SymfonyWebpackUtil.visitManifestJsonEntries(
+                projectManifestJsonFile,
+                pair -> files.add(AssetFile.createVirtualManifestEntry(projectManifestJsonFile, pair.getFirst()))
+            );
+        }
 
         if(!this.includeBundleDir) {
             return files;
@@ -81,7 +118,7 @@ public class AssetDirectoryReader {
             VirtualFile resourceDirectory = VfsUtil.findRelativeFile(bundleDirectoryVirtual, "Resources");
 
             if (null != resourceDirectory) {
-                VfsUtil.visitChildrenRecursively(resourceDirectory, new VirtualFileVisitor() {
+                VfsUtil.visitChildrenRecursively(resourceDirectory, new VirtualFileVisitor<VirtualFile>() {
                     @Override
                     public boolean visitFile(@NotNull VirtualFile virtualFile) {
                         if(isValidFile(virtualFile)) {
@@ -109,7 +146,7 @@ public class AssetDirectoryReader {
         // TODO: '@SampleBundle/Resources/public/js/*'
         // TODO: '@SampleBundle/Resources/public/js/*.js'
         if(filename.startsWith("@")) {
-            Collection<VirtualFile> files = new ArrayList<>();
+            Collection<VirtualFile> files = new HashSet<>();
 
             int i = filename.indexOf("/");
             if(i > 0) {
@@ -137,23 +174,32 @@ public class AssetDirectoryReader {
             return files;
         }
 
-        Collection<VirtualFile> files = new ArrayList<>();
+        Collection<VirtualFile> files = new HashSet<>();
 
-        VirtualFile webDirectory = getProjectAssetRoot(project);
-        if (null == webDirectory) {
-            return files;
+        Collection<VirtualFile> projectAssetRoots = getProjectAssetRoot(project);
+        for (VirtualFile webDirectory : projectAssetRoots) {
+            Matcher matcher = Pattern.compile("^(.*[/\\\\])\\*([.\\w+]*)$").matcher(assetName);
+            if (!matcher.find()) {
+                VirtualFile assetFile = VfsUtil.findRelativeFile(webDirectory, assetName.split("/"));
+                if(assetFile != null) {
+                    files.add(assetFile);
+                }
+            } else {
+                // "/*"
+                // "/*.js"
+                files.addAll(collectWildcardDirectories(matcher, webDirectory));
+            }
         }
 
-        Matcher matcher = Pattern.compile("^(.*[/\\\\])\\*([.\\w+]*)$").matcher(assetName);
-        if (!matcher.find()) {
-            VirtualFile assetFile = VfsUtil.findRelativeFile(webDirectory, assetName.split("/"));
-            if(assetFile != null) {
-                files.add(assetFile);
-            }
-        } else {
-            // "/*"
-            // "/*.js"
-            files.addAll(collectWildcardDirectories(matcher, webDirectory));
+        for (VirtualFile projectManifestJsonFile : getProjectManifestJsonFiles(project, projectAssetRoots)) {
+            SymfonyWebpackUtil.visitManifestJsonEntries(
+                projectManifestJsonFile,
+                pair -> {
+                    if (filename.equalsIgnoreCase(pair.getFirst())) {
+                        files.add(projectManifestJsonFile);
+                    }
+                }
+            );
         }
 
         return files;
@@ -163,7 +209,7 @@ public class AssetDirectoryReader {
         Collection<VirtualFile> files = new HashSet<>();
 
         String pathName = matcher.group(1);
-        String fileExtension = matcher.group(2).length() > 0 ? matcher.group(2) : null;
+        String fileExtension = !matcher.group(2).isEmpty() ? matcher.group(2) : null;
 
         pathName = StringUtils.stripEnd(pathName, "/");
 
@@ -191,11 +237,28 @@ public class AssetDirectoryReader {
             return false;
         }
 
-        if(filterExtension.size() == 0) {
+        if(filterExtension.isEmpty()) {
             return true;
         }
 
         String extension = virtualFile.getExtension();
         return extension != null && this.filterExtension.contains(extension);
+    }
+
+    @NotNull
+    private Collection<VirtualFile> getProjectManifestJsonFiles(@NotNull Project project, @NotNull Collection<VirtualFile> webDirectories) {
+        HashSet<VirtualFile> manifestFiles = new HashSet<>(
+            FilenameIndex.getVirtualFilesByName("manifest.json", GlobalSearchScope.allScope(project))
+        );
+
+        // for files which are ignored by indexing, resolve based on project web folder
+        for (VirtualFile webDirectory : webDirectories) {
+            VirtualFile fileByRelativePath = webDirectory.findFileByRelativePath("build/manifest.json");
+            if (fileByRelativePath != null) {
+                manifestFiles.add(fileByRelativePath);
+            }
+        }
+
+        return manifestFiles;
     }
 }

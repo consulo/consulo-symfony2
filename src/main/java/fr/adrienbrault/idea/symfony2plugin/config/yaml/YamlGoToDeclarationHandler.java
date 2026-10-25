@@ -3,12 +3,14 @@ package fr.adrienbrault.idea.symfony2plugin.config.yaml;
 import com.intellij.codeInsight.navigation.actions.GotoDeclarationHandler;
 import com.intellij.openapi.actionSystem.DataContext;
 import com.intellij.openapi.editor.Editor;
+import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.patterns.PlatformPatterns;
 import com.intellij.patterns.PsiElementPattern;
 import com.intellij.patterns.StandardPatterns;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.tree.IElementType;
+import com.intellij.psi.util.PsiTreeUtil;
 import com.jetbrains.php.PhpIndex;
 import com.jetbrains.php.lang.psi.elements.Method;
 import com.jetbrains.php.lang.psi.elements.Parameter;
@@ -19,6 +21,7 @@ import fr.adrienbrault.idea.symfony2plugin.config.utils.ConfigUtil;
 import fr.adrienbrault.idea.symfony2plugin.dic.container.util.DotEnvUtil;
 import fr.adrienbrault.idea.symfony2plugin.dic.container.util.ServiceContainerUtil;
 import fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper;
+import fr.adrienbrault.idea.symfony2plugin.dic.container.ServiceSerializable;
 import fr.adrienbrault.idea.symfony2plugin.stubs.ContainerCollectionResolver;
 import fr.adrienbrault.idea.symfony2plugin.stubs.ServiceIndexUtil;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
@@ -27,7 +30,7 @@ import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.ServiceUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.resource.FileResourceUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.yaml.YAMLTokenTypes;
@@ -53,8 +56,8 @@ public class YamlGoToDeclarationHandler implements GotoDeclarationHandler {
         // only string values like "foo", foo
         if (elementType == YAMLTokenTypes.TEXT || elementType == YAMLTokenTypes.SCALAR_DSTRING || elementType == YAMLTokenTypes.SCALAR_STRING) {
             String psiText = PsiElementUtils.getText(psiElement);
-            if(psiText != null && psiText.length() > 0) {
-                if(psiText.startsWith("@") && psiText.length() > 1) {
+            if (!psiText.isEmpty()) {
+                if (psiText.startsWith("@") && psiText.length() > 1) {
                     targets.addAll(serviceGoToDeclaration(psiElement, psiText.substring(1)));
                 }
 
@@ -87,25 +90,31 @@ public class YamlGoToDeclarationHandler implements GotoDeclarationHandler {
         }
 
         if (elementType == YAMLTokenTypes.SCALAR_KEY) {
-            String psiText = PsiElementUtils.getText(psiElement);
-
-            if (psiText.startsWith("$")) {
-                targets.addAll(namedArgumentGoto(psiElement));
-
-                // services:
-                //      _defaults:
-                //          bind:
-                //              $fo<caret>obar: '@foobar'
-                if (YamlElementPatternHelper.getBindArgumentPattern().accepts(psiElement)) {
-                    targets.addAll(namedDefaultBindArgumentGoto(psiElement, psiText));
+            // services:
+            //      _defaults:
+            //          bind:
+            //              $fo<caret>obar: '@foobar'
+            //              string $fo<caret>obar: '@foobar'
+            if (YamlElementPatternHelper.getBindArgumentPattern().accepts(psiElement)) {
+                String argumentName = getBindArgumentName(psiElement);
+                if (argumentName != null) {
+                    targets.addAll(namedDefaultBindArgumentGoto(psiElement, argumentName, getBindArgumentType(psiElement)));
                 }
+            }
+
+            // services:
+            //      Foo\Bar:
+            //          arguments:
+            //              $fo<caret>obar: '@foobar'
+            if (YamlElementPatternHelper.getNamedArgumentPattern().accepts(psiElement)) {
+                targets.addAll(namedArgumentGoto(psiElement));
             }
         }
 
         // yaml Plugin BC: "!php/const:" is a tag
-        if(elementType == YAMLTokenTypes.TAG) {
+        if (elementType == YAMLTokenTypes.TAG) {
             String psiText = PsiElementUtils.getText(psiElement);
-            if(psiText != null && psiText.length() > 0 && psiText.startsWith("!php/const:")) {
+            if (psiText.startsWith("!php/const:")) {
                 targets.addAll(constantGoto(psiElement, psiText));
             }
         }
@@ -133,7 +142,7 @@ public class YamlGoToDeclarationHandler implements GotoDeclarationHandler {
         }
 
         // tags: [ name: foobar ]
-        if(YamlElementPatternHelper.getTagsAsSequencePattern().accepts(psiElement)) {
+        if(YamlElementPatternHelper.getSequenceValueWithArrayKeyPattern("tags").accepts(psiElement)) {
             targets.addAll(getTagClassesGoto(psiElement));
         }
 
@@ -172,26 +181,164 @@ public class YamlGoToDeclarationHandler implements GotoDeclarationHandler {
             targets.addAll(getFactoryStringGoto(psiElement));
         }
 
+        // _instanceof:
+        //   My<caret>Class: ~
         // services:
         //   My<caret>Class: ~
         if(YamlElementPatternHelper.getServicesKeyPattern().accepts(psiElement)) {
             targets.addAll(getClassesForServiceKey(psiElement));
         }
 
-        return targets.toArray(new PsiElement[targets.size()]);
+        // services:
+        //  Foo\\:
+        //   resource: '../src/'
+        //   exclude:
+        //      - '../src/DependencyInjection/'
+        if (StandardPatterns.or(
+            YamlElementPatternHelper.getSingleLineScalarKey("exclude", "resource"),
+            YamlElementPatternHelper.getSequenceValueWithArrayKeyPattern("exclude", "resource")
+        ).accepts(psiElement)) {
+            targets.addAll(attachResourceOrExcludeGlobNamespaceElements(psiElement));
+        }
+
+        // !tagged_iterator
+        if (PlatformPatterns.psiElement(YAMLTokenTypes.TAG).accepts(psiElement)) {
+            targets.addAll(attachTaggedIteratorClasses(psiElement));
+        }
+
+        return targets.toArray(new PsiElement[0]);
     }
 
-    private Collection<? extends PsiElement> namedDefaultBindArgumentGoto(@NotNull PsiElement psiElement, @NotNull String parameterName) {
+    /**
+     * Extracts the argument name from a YAML bind key.
+     * Examples:
+     * - "$proxyUrl" -> "proxyUrl"
+     * - "string $defaultUri" -> "defaultUri"
+     * - "Psr\Log\LoggerInterface $logger" -> "logger"
+     */
+    @Nullable
+    private static String getBindArgumentName(@NotNull PsiElement psiElement) {
+        PsiElement context = psiElement.getContext();
+        if (!(context instanceof YAMLKeyValue yamlKeyValue)) {
+            return null;
+        }
+
+        PsiElement key = yamlKeyValue.getKey();
+        if (key == null) {
+            return null;
+        }
+
+        String argumentName = getBindArgumentNameFromLeaf(psiElement, key);
+        if (argumentName != null) {
+            return argumentName;
+        }
+
+        argumentName = getBindArgumentNameFromLeaf(PsiTreeUtil.prevLeaf(psiElement), key);
+        if (argumentName != null) {
+            return argumentName;
+        }
+
+        return getBindArgumentNameFromLeaf(PsiTreeUtil.nextLeaf(psiElement), key);
+    }
+
+    /**
+     * Extracts the optional type prefix from a YAML bind key.
+     * Examples:
+     * - "$proxyUrl" -> null
+     * - "string $defaultUri" -> "string"
+     * - "Psr\Log\LoggerInterface $logger" -> "Psr\Log\LoggerInterface"
+     */
+    @Nullable
+    private static String getBindArgumentType(@NotNull PsiElement psiElement) {
+        PsiElement context = psiElement.getContext();
+        if (!(context instanceof YAMLKeyValue yamlKeyValue)) {
+            return null;
+        }
+
+        PsiElement key = yamlKeyValue.getKey();
+        if (key == null) {
+            return null;
+        }
+
+        String typeText = StringUtils.substringBeforeLast(key.getText(), "$");
+        return typeText.equals(key.getText()) ? null : StringUtils.trimToNull(typeText);
+    }
+
+    /**
+     * Extracts the argument name from one key leaf.
+     * Examples:
+     * - leaf "$proxyUrl" -> "proxyUrl"
+     * - leaf "string $defaultUri" -> "defaultUri"
+     * - split leaves "$" + "defaultUri" -> "defaultUri"
+     */
+    @Nullable
+    private static String getBindArgumentNameFromLeaf(@Nullable PsiElement leaf, @NotNull PsiElement key) {
+        if (leaf == null) {
+            return null;
+        }
+
+        if (leaf != key && !PsiTreeUtil.isAncestor(key, leaf, false)) {
+            return null;
+        }
+
+        String leafText = leaf.getText();
+        String argumentName = StringUtils.substringAfterLast(leafText, "$");
+        if (StringUtils.isNotBlank(argumentName) && !argumentName.equals(leafText)) {
+            return argumentName.trim();
+        }
+
+        if ("$".equals(leafText)) {
+            PsiElement nextLeaf = PsiTreeUtil.nextLeaf(leaf);
+            boolean nextLeafInKey = nextLeaf != null && (nextLeaf == key || PsiTreeUtil.isAncestor(key, nextLeaf, false));
+            return nextLeafInKey ? nextLeaf.getText() : null;
+        }
+
+        PsiElement previousLeaf = PsiTreeUtil.prevLeaf(leaf);
+        boolean previousLeafInKey = previousLeaf != null && (previousLeaf == key || PsiTreeUtil.isAncestor(key, previousLeaf, false));
+        if (previousLeafInKey && "$".equals(previousLeaf.getText())) {
+            return leafText;
+        }
+
+        return null;
+    }
+
+    private Collection<? extends PsiElement> namedDefaultBindArgumentGoto(@NotNull PsiElement psiElement, @NotNull String parameterName, @Nullable String parameterType) {
         Collection<PsiElement> psiElements = new HashSet<>();
 
-        String argumentWithoutDollar = parameterName.substring(1);
-        ServiceContainerUtil.visitNamedArguments(psiElement.getContainingFile(), parameter -> {
-            if (parameter.getName().equals(argumentWithoutDollar)) {
+        ServiceContainerUtil.visitNamedArguments(psiElement.getContainingFile(), pair -> {
+            Parameter parameter = pair.getFirst();
+            if (parameter.getName().equals(parameterName) && isBindArgumentTypeMatch(parameter, parameterType)) {
                 psiElements.add(parameter);
             }
         });
 
         return psiElements;
+    }
+
+    private static boolean isBindArgumentTypeMatch(@NotNull Parameter parameter, @Nullable String parameterType) {
+        if (StringUtils.isBlank(parameterType)) {
+            return true;
+        }
+
+        String normalizedParameterType = normalizeBindArgumentType(parameterType);
+
+        PsiElement typeDeclaration = parameter.getTypeDeclaration();
+        if (typeDeclaration != null && normalizeBindArgumentType(typeDeclaration.getText()).equalsIgnoreCase(normalizedParameterType)) {
+            return true;
+        }
+
+        for (String type : parameter.getType().getTypes()) {
+            if (normalizeBindArgumentType(type).equalsIgnoreCase(normalizedParameterType)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    @NotNull
+    private static String normalizeBindArgumentType(@NotNull String type) {
+        return StringUtils.stripStart(type.trim(), "\\");
     }
 
     private Collection<? extends PsiElement> namedArgumentGoto(@NotNull PsiElement psiElement) {
@@ -256,7 +403,7 @@ public class YamlGoToDeclarationHandler implements GotoDeclarationHandler {
 
         if (serviceClass != null) {
             Collection<PhpClass> phpClasses = PhpIndex.getInstance(psiElement.getProject()).getAnyByFQN(serviceClass);
-            if(phpClasses.size() > 0) {
+            if(!phpClasses.isEmpty()) {
                 return new ArrayList<>(phpClasses);
             }
         }
@@ -268,9 +415,7 @@ public class YamlGoToDeclarationHandler implements GotoDeclarationHandler {
 
     @NotNull
     private Collection<PsiElement> parameterGoToDeclaration(@NotNull PsiElement psiElement, @NotNull String psiParameterName) {
-        Collection<PsiElement> targets = new ArrayList<>();
-
-        targets.addAll(
+        Collection<PsiElement> targets = new ArrayList<>(
             DotEnvUtil.getEnvironmentVariableTargetsForParameter(psiElement.getProject(), psiParameterName)
         );
 
@@ -446,6 +591,52 @@ public class YamlGoToDeclarationHandler implements GotoDeclarationHandler {
 
     }
 
+    /**
+     * services:
+     *   Foo\\:
+     *     resource: '../src/'
+     *     exclude: ...
+     */
+    @NotNull
+    private Collection<PsiElement> attachResourceOrExcludeGlobNamespaceElements(@NotNull PsiElement psiElement) {
+        String resource = PsiElementUtils.trimQuote(psiElement.getText());
+        if (StringUtils.isBlank(resource)) {
+            return Collections.emptyList();
+        }
+
+        PsiFile containingFile = psiElement.getContainingFile();
+        if (containingFile == null) {
+            return Collections.emptyList();
+        }
+
+        VirtualFile virtualFile = containingFile.getVirtualFile();
+        if (virtualFile == null) {
+            return Collections.emptyList();
+        }
+
+        YAMLKeyValue resourceKeyValue = PsiTreeUtil.getParentOfType(psiElement, YAMLKeyValue.class);
+        if (resourceKeyValue == null) {
+            return Collections.emptyList();
+        }
+
+        YAMLKeyValue serviceKeyValue = PsiTreeUtil.getParentOfType(resourceKeyValue, YAMLKeyValue.class);
+        if (serviceKeyValue == null) {
+            return Collections.emptyList();
+        }
+
+        String id = serviceKeyValue.getKeyText();
+        if (StringUtils.isBlank(id)) {
+            return Collections.emptyList();
+        }
+
+        ServiceSerializable service = ServiceIndexUtil.findServiceDefinition(psiElement.getProject(), virtualFile, id);
+        if (service == null || service.getResource().isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        return new HashSet<>(ServiceIndexUtil.getClassesForServiceDefinition(psiElement.getProject(), virtualFile, service));
+    }
+
     @NotNull
     private Collection<PsiElement> attachResourceOnPathGoto(@NotNull PsiElement psiElement) {
         String text = PsiElementUtils.trimQuote(psiElement.getText());
@@ -458,7 +649,47 @@ public class YamlGoToDeclarationHandler implements GotoDeclarationHandler {
             return Collections.emptyList();
         }
 
-        return new ArrayList<>(FileResourceUtil.getFileResourceTargetsInDirectoryScope(containingFile, text));
+        return new ArrayList<>(FileResourceUtil.getFileResourceTargets(psiElement.getProject(), containingFile, text));
+    }
+
+    /**
+     * Click on "tagged_iterator"
+     *
+     * "!tagged_iterator app.handler"
+     */
+    @NotNull
+    private Collection<PsiElement> attachTaggedIteratorClasses(@NotNull PsiElement psiElement) {
+        if (psiElement.getNode().getElementType() == YAMLTokenTypes.TAG) {
+            // - !tagged_iterator ...
+
+            if ("!tagged_iterator".equals(psiElement.getText())) {
+                PsiElement nextLeaf = PsiTreeUtil.nextCodeLeaf(psiElement);
+
+                if (nextLeaf != null && (nextLeaf.getNode().getElementType() == YAMLTokenTypes.TEXT || nextLeaf.getNode().getElementType() == YAMLTokenTypes.SCALAR_STRING)) {
+                    // - !tagged_iterator app.handler
+                    String tag = PsiElementUtils.trimQuote(nextLeaf.getText());
+                    if (StringUtils.isNotBlank(tag)) {
+                        return new ArrayList<>(ServiceUtil.getTaggedClasses(psiElement.getProject(), tag));
+                    }
+                } else {
+                    // - !tagged_iterator { tag: app.handler, default_priority_method: getPriority }
+                    YAMLKeyValue tagKeyValue = PsiElementUtils.getNextSiblingOfTypes(psiElement, YAMLKeyValue.class)
+                        .stream()
+                        .filter(yamlKeyValue -> "tag".equals(yamlKeyValue.getKeyText()))
+                        .findFirst()
+                        .orElse(null);
+
+                    if (tagKeyValue != null) {
+                        String tag = PsiElementUtils.trimQuote(tagKeyValue.getValueText());
+                        if (StringUtils.isNotBlank(tag)) {
+                            return new ArrayList<>(ServiceUtil.getTaggedClasses(psiElement.getProject(), tag));
+                        }
+                    }
+                }
+            }
+        }
+
+        return Collections.emptyList();
     }
 
     @NotNull
@@ -478,7 +709,7 @@ public class YamlGoToDeclarationHandler implements GotoDeclarationHandler {
             return Collections.emptyList();
         }
 
-        return new ArrayList<>(ServiceUtil.getTaggedClassesWithCompiled(psiElement.getProject(), tagName));
+        return new ArrayList<>(ServiceUtil.getTaggedClasses(psiElement.getProject(), tagName));
     }
 
     private Collection<PsiElement> getEventGoto(@NotNull PsiElement psiElement) {
@@ -489,21 +720,39 @@ public class YamlGoToDeclarationHandler implements GotoDeclarationHandler {
      * services:
      *   My<caret>Class: ~
      */
-    private Collection<PsiElement> getClassesForServiceKey(@NotNull PsiElement psiElement) {
+    private static Collection<PsiElement> getClassesForServiceKey(@NotNull PsiElement psiElement) {
         PsiElement parent = psiElement.getParent();
         if(parent instanceof YAMLKeyValue) {
-            String valueText = ((YAMLKeyValue) parent).getKeyText();
-            if(StringUtils.isNotBlank(valueText)) {
-                return new ArrayList<>(PhpElementsUtil.getClassesInterface(psiElement.getProject(), valueText));
-            }
+            return getClassesForServiceKey((YAMLKeyValue) parent);
         }
 
         return Collections.emptyList();
     }
 
+    @NotNull
+    public static Collection<PsiElement> getClassesForServiceKey(@NotNull YAMLKeyValue yamlKeyValue) {
+        String valueText = yamlKeyValue.getKeyText();
+        if (StringUtils.isBlank(valueText)) {
+            return Collections.emptyList();
+        }
+
+        Collection<PsiElement> targets = new HashSet<>();
+
+        // My<caret>Class\:
+        //   resource: '....'
+        //   exclude: '....'
+        if (valueText.endsWith("\\")) {
+            targets.addAll(YamlHelper.getNamespaceResourcesClasses(yamlKeyValue));
+        }
+
+        targets.addAll(PhpElementsUtil.getClassesInterface(yamlKeyValue.getProject(), valueText));
+
+        return targets;
+    }
+
     @Nullable
     @Override
-    public String getActionText(DataContext dataContext) {
+    public String getActionText(@NotNull DataContext dataContext) {
         return null;
     }
 

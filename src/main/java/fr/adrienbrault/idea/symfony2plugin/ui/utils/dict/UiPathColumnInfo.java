@@ -26,7 +26,7 @@ public class UiPathColumnInfo {
 
     public static class TypeColumn extends ColumnInfo<UiFilePathInterface, String> {
 
-        private Project project;
+        private final Project project;
 
         public TypeColumn(Project project) {
             super("Info");
@@ -36,7 +36,7 @@ public class UiPathColumnInfo {
         @Nullable
         @Override
         public String valueOf(UiFilePathInterface file) {
-            return UiSettingsUtil.getPresentableFilePath(project, file).getInfo();
+            return UiSettingsUtil.getPresentableFilePath(project, file).info();
         }
     }
 

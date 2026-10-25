@@ -7,17 +7,18 @@ import com.intellij.openapi.util.Key;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.patterns.PlatformPatterns;
 import com.intellij.psi.PsiElement;
+import com.intellij.psi.PsiFile;
 import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.util.*;
 import com.intellij.psi.xml.XmlAttribute;
 import com.intellij.psi.xml.XmlFile;
 import com.intellij.psi.xml.XmlTag;
 import com.intellij.util.containers.ContainerUtil;
-import com.intellij.util.containers.HashMap;
 import com.intellij.util.indexing.FileBasedIndex;
-import com.jetbrains.php.PhpIndex;
+import com.jetbrains.php.lang.PhpLanguage;
 import com.jetbrains.php.lang.parser.PhpElementTypes;
 import com.jetbrains.php.lang.psi.PhpFile;
+import com.jetbrains.php.lang.psi.PhpPsiUtil;
 import com.jetbrains.php.lang.psi.elements.*;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
 import fr.adrienbrault.idea.symfony2plugin.config.dic.EventDispatcherSubscribedEvent;
@@ -28,10 +29,11 @@ import fr.adrienbrault.idea.symfony2plugin.stubs.dict.DispatcherEvent;
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.EventAnnotationStubIndex;
 import fr.adrienbrault.idea.symfony2plugin.util.EventSubscriberUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
+import fr.adrienbrault.idea.symfony2plugin.util.PhpIndexUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
 import fr.adrienbrault.idea.symfony2plugin.util.service.ServiceXmlParserFactory;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.yaml.psi.YAMLFile;
@@ -48,42 +50,65 @@ public class EventDispatcherSubscriberUtil {
     private static final Key<CachedValue<Collection<EventDispatcherSubscribedEvent>>> EVENT_SUBSCRIBERS = new Key<>("SYMFONY_EVENT_SUBSCRIBERS");
     private static final Key<CachedValue<Set<String>>> EVENT_ANNOTATIONS = new Key<>("SYMFONY_EVENT_ANNOTATIONS");
 
+    // Per-file cache for event subscriber extraction
+    private static final Key<CachedValue<Collection<EventDispatcherSubscribedEvent>>> FILE_EVENT_SUBSCRIBERS = new Key<>("FILE_EVENT_SUBSCRIBERS");
+
     @NotNull
     public static Collection<EventDispatcherSubscribedEvent> getSubscribedEvents(final @NotNull Project project) {
-
-        CachedValue<Collection<EventDispatcherSubscribedEvent>> cache = project.getUserData(EVENT_SUBSCRIBERS);
-        if (cache == null) {
-            cache = CachedValuesManager.getManager(project).createCachedValue(() ->
-                CachedValueProvider.Result.create(getSubscribedEventsProxy(project), PsiModificationTracker.MODIFICATION_COUNT), false
-            );
-            project.putUserData(EVENT_SUBSCRIBERS, cache);
-        }
-
-        return cache.getValue();
+        return CachedValuesManager.getManager(project).getCachedValue(
+            project,
+            EVENT_SUBSCRIBERS,
+            () -> CachedValueProvider.Result.create(getSubscribedEventsProxy(project), PsiModificationTracker.getInstance(project).forLanguage(PhpLanguage.INSTANCE)),
+            false
+        );
     }
 
     @NotNull
     private static Collection<EventDispatcherSubscribedEvent> getSubscribedEventsProxy(@NotNull Project project) {
-
         Collection<EventDispatcherSubscribedEvent> events = new ArrayList<>();
 
         // http://symfony.com/doc/current/components/event_dispatcher/introduction.html
-        PhpIndex phpIndex = PhpIndex.getInstance(project);
-        Collection<PhpClass> phpClasses = phpIndex.getAllSubclasses("\\Symfony\\Component\\EventDispatcher\\EventSubscriberInterface");
+        Collection<PhpClass> phpClasses = PhpIndexUtil.getAllSubclasses(project, "\\Symfony\\Component\\EventDispatcher\\EventSubscriberInterface");
 
-        for(PhpClass phpClass: phpClasses) {
-
-            if(PhpElementsUtil.isTestClass(phpClass)) {
+        // Collect unique files for per-file caching
+        Set<PsiFile> files = new HashSet<>();
+        for (PhpClass phpClass : phpClasses) {
+            if (PhpElementsUtil.isTestClass(phpClass)) {
                 continue;
             }
-
-            Method method = phpClass.findMethodByName("getSubscribedEvents");
-            if(method != null) {
-                PhpReturn phpReturn = PsiTreeUtil.findChildOfType(method, PhpReturn.class);
-                if(phpReturn != null) {
-                    attachSubscriberEventNames(events, phpClass, phpReturn);
-                }
+            PsiFile file = phpClass.getContainingFile();
+            if (file instanceof PhpFile) {
+                files.add(file);
             }
+        }
+
+        // Parse each file (cached per file)
+        for (PsiFile file : files) {
+            Collection<EventDispatcherSubscribedEvent> fileEvents = CachedValuesManager.getCachedValue(file, FILE_EVENT_SUBSCRIBERS, () -> {
+                Collection<EventDispatcherSubscribedEvent> result = new ArrayList<>();
+                // Resolve classes fresh from file inside cache provider
+                for (PhpClass phpClass : PhpPsiUtil.findAllClasses((PhpFile) file)) {
+                    // Only process classes that implement EventSubscriberInterface
+                    if (!PhpElementsUtil.isInstanceOf(phpClass, "\\Symfony\\Component\\EventDispatcher\\EventSubscriberInterface")) {
+                        continue;
+                    }
+
+                    if (PhpElementsUtil.isTestClass(phpClass)) {
+                        continue;
+                    }
+
+                    Method method = phpClass.findMethodByName("getSubscribedEvents");
+                    if (method != null) {
+                        PhpReturn phpReturn = PsiTreeUtil.findChildOfType(method, PhpReturn.class);
+                        if (phpReturn != null) {
+                            attachSubscriberEventNames(result, phpClass, phpReturn);
+                        }
+                    }
+                }
+                return CachedValueProvider.Result.create(result, file);
+            });
+
+            events.addAll(fileEvents);
         }
 
        return events;
@@ -106,7 +131,7 @@ public class EventDispatcherSubscriberUtil {
             // get method name
             // @TODO: support multiple method names, currently we only use method name if type hint, so first item helps for now
             Collection<PsiElement> subscriberMethods = getSubscriberMethods(arrayHashElement);
-            if(subscriberMethods.size() > 0) {
+            if(!subscriberMethods.isEmpty()) {
                 value = subscriberMethods.iterator().next();
             }
 
@@ -151,7 +176,7 @@ public class EventDispatcherSubscriberUtil {
         // support string, constants and array values
         PhpPsiElement value = arrayHashElement.getValue();
         if(value == null) {
-            Collections.emptySet();
+            return Collections.emptySet();
         }
 
         // 'pre.foo' => [...]

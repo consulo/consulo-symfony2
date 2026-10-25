@@ -1,6 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.templating;
 
 import com.intellij.codeInsight.lookup.LookupElement;
+import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiElement;
 import com.intellij.util.containers.ContainerUtil;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
@@ -10,7 +11,7 @@ import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionRegistrarPa
 import fr.adrienbrault.idea.symfony2plugin.templating.dict.TwigExtension;
 import fr.adrienbrault.idea.symfony2plugin.templating.dict.TwigExtensionLookupElement;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigExtensionParser;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
@@ -46,8 +47,11 @@ public class FilterGotoCompletionRegistrar implements GotoCompletionRegistrar {
         public Collection<LookupElement> getLookupElements() {
             Collection<LookupElement> lookupElements = new ArrayList<>();
 
-            for (Map.Entry<String, TwigExtension> extension : new TwigExtensionParser(getProject()).getFilters().entrySet()) {
-                lookupElements.add(new TwigExtensionLookupElement(getProject(), extension.getKey(), extension.getValue()));
+            Project project = getProject();
+            for (Map.Entry<String, TwigExtension> entry : TwigExtensionParser.getFilters(project).entrySet()) {
+                lookupElements.add(new TwigExtensionLookupElement(project, entry.getKey(), entry.getValue()));
+
+                lookupElements.addAll(TwigTemplateCompletionContributor.getTypesFilters(project, entry.getKey(), entry.getValue()));
             }
 
             return lookupElements;
@@ -63,7 +67,7 @@ public class FilterGotoCompletionRegistrar implements GotoCompletionRegistrar {
 
             Collection<PsiElement> targets = new ArrayList<>();
 
-            for (Map.Entry<String, TwigExtension> extension : new TwigExtensionParser(getProject()).getFilters().entrySet()) {
+            for (Map.Entry<String, TwigExtension> extension : TwigExtensionParser.getFilters(getProject()).entrySet()) {
                 if(!text.equals(extension.getKey())) {
                     continue;
                 }

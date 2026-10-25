@@ -1,2 +1,15 @@
-.consulo/
-target/
+out/
+/.intellijPlatform
+/.idea
+/.idea/misc.xml
+/.gradle
+/build
+/decompiled
+/.junie
+*.hprof
+.mcp.json
+.codex
+.junie
+.kotlin
+.agents
+.claude

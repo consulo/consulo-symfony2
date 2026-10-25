@@ -145,13 +145,12 @@ public class QueryBuilderChainProcessor {
 
         InstanceType queryBuilderInstance = isQueryBuilderInstance((Method) method);
         switch (queryBuilderInstance) {
-            case DIRECT:
-
+            case DIRECT -> {
                 // we are inside QueryBuilder class eg. addSelect
                 medRefCollection.add(child);
                 return true;
-
-            case RESOLVE:
+            }
+            case RESOLVE -> {
 
                 // we found a method returning QueryBuilder
 
@@ -164,10 +163,11 @@ public class QueryBuilderChainProcessor {
                 // goto (resolve) method and collect its QueryBuilder method
                 processNextMethodReference((Method) method, medRefCollection, factoryReferences);
                 return true;
-
-            default:
+            }
+            default -> {
                 factoryReferences.add(child);
                 return false;
+            }
         }
 
     }
@@ -194,6 +194,7 @@ public class QueryBuilderChainProcessor {
     }
 
     @Nullable
+    @SuppressWarnings("unchecked")
     private static <T extends PsiElement> T getLastParentOfType(@Nullable PsiElement element, @NotNull Class<T> aClass) {
         if (element == null) return null;
 
@@ -212,7 +213,6 @@ public class QueryBuilderChainProcessor {
             last = element;
         }
 
-        //noinspection unchecked
         return null;
     }
 

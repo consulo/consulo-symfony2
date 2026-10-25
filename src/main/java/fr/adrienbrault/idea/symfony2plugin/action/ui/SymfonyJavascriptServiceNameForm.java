@@ -4,7 +4,7 @@ import com.intellij.openapi.project.Project;
 import fr.adrienbrault.idea.symfony2plugin.Settings;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
 import fr.adrienbrault.idea.symfony2plugin.action.generator.naming.JavascriptServiceNameStrategy;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 
 import javax.script.ScriptException;
@@ -37,6 +37,7 @@ public class SymfonyJavascriptServiceNameForm extends JDialog {
     public SymfonyJavascriptServiceNameForm(@NotNull final Project project) {
         this.project = project;
 
+        createUIComponents();
         setContentPane(contentPane);
         setModal(true);
         getRootPane().setDefaultButton(buttonOK);
@@ -58,7 +59,7 @@ public class SymfonyJavascriptServiceNameForm extends JDialog {
         buttonTest.addActionListener(e -> {
             try {
                 Object eval = JavascriptServiceNameStrategy.run(project, textClass.getText(), textJavascript.getText());
-                if(!(eval instanceof String)) {
+                if (!(eval instanceof String)) {
                     textResult.setText("Error: invalid string response");
                     return;
                 }
@@ -83,16 +84,67 @@ public class SymfonyJavascriptServiceNameForm extends JDialog {
             "return className.replace(/\\\\/g, '.').toLowerCase();"));
 
         String jsText = Settings.getInstance(project).serviceJsNameStrategy;
-        if(StringUtils.isNotBlank(jsText)) {
+        if (StringUtils.isNotBlank(jsText)) {
             textJavascript.setText(jsText);
         }
 
     }
 
+    private void createUIComponents() {
+        textClass = new JTextField(30);
+        textJavascript = new JTextArea();
+        textJavascript.setFont(new Font("Courier New", Font.PLAIN, textJavascript.getFont().getSize()));
+        textResult = new JTextField();
+        textResult.setEditable(false);
+        textResult.setEnabled(false);
+        buttonOK = new JButton("Save");
+        buttonCancel = new JButton("Cancel");
+        buttonTest = new JButton("Test");
+        buttonExample = new JButton("Example");
+
+        JPanel fieldsPanel = new JPanel(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(2, 4, 2, 4);
+        gbc.anchor = GridBagConstraints.WEST;
+
+        gbc.gridx = 0; gbc.gridy = 0; gbc.fill = GridBagConstraints.NONE; gbc.weightx = 0; gbc.weighty = 0;
+        fieldsPanel.add(new JLabel("PhpClass Name:"), gbc);
+        gbc.gridy = 1; gbc.fill = GridBagConstraints.HORIZONTAL; gbc.weightx = 1.0;
+        fieldsPanel.add(textClass, gbc);
+        gbc.gridy = 2; gbc.fill = GridBagConstraints.NONE; gbc.weightx = 0;
+        fieldsPanel.add(new JLabel("Javascript:"), gbc);
+        gbc.gridy = 3; gbc.fill = GridBagConstraints.BOTH; gbc.weightx = 1.0; gbc.weighty = 1.0;
+        fieldsPanel.add(new JScrollPane(textJavascript), gbc);
+        gbc.gridy = 4; gbc.fill = GridBagConstraints.HORIZONTAL; gbc.weightx = 1.0; gbc.weighty = 0;
+        fieldsPanel.add(textResult, gbc);
+
+        JLabel hintLabel = new JLabel("Provide value by 'return'; empty textfield will clear name strategy to project default");
+        hintLabel.setFont(hintLabel.getFont().deriveFont(Font.ITALIC));
+
+        JPanel buttonsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+        buttonsPanel.add(buttonTest);
+        buttonsPanel.add(buttonExample);
+        JPanel rightButtons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
+        rightButtons.add(buttonOK);
+        rightButtons.add(buttonCancel);
+        JPanel bottomBar = new JPanel(new BorderLayout());
+        bottomBar.add(buttonsPanel, BorderLayout.WEST);
+        bottomBar.add(rightButtons, BorderLayout.EAST);
+
+        JPanel southSection = new JPanel(new BorderLayout(0, 2));
+        southSection.add(hintLabel, BorderLayout.NORTH);
+        southSection.add(bottomBar, BorderLayout.SOUTH);
+
+        contentPane = new JPanel(new BorderLayout(0, 5));
+        contentPane.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        contentPane.add(fieldsPanel, BorderLayout.CENTER);
+        contentPane.add(southSection, BorderLayout.SOUTH);
+    }
+
     private void onSave() {
 
         String text = textJavascript.getText();
-        if(StringUtils.isBlank(text)) {
+        if (StringUtils.isBlank(text)) {
             text = null;
         }
 
@@ -114,5 +166,4 @@ public class SymfonyJavascriptServiceNameForm extends JDialog {
         dialog.setLocationRelativeTo(c);
         dialog.setVisible(true);
     }
-
 }

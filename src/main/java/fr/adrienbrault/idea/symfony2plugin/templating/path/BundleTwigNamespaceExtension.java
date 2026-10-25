@@ -5,6 +5,7 @@ import fr.adrienbrault.idea.symfony2plugin.extension.TwigNamespaceExtension;
 import fr.adrienbrault.idea.symfony2plugin.extension.TwigNamespaceExtensionParameter;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.SymfonyBundleUtil;
+import fr.adrienbrault.idea.symfony2plugin.util.VfsExUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.SymfonyBundle;
 import org.jetbrains.annotations.NotNull;
 
@@ -25,19 +26,24 @@ public class BundleTwigNamespaceExtension implements TwigNamespaceExtension {
 
         Collection<SymfonyBundle> symfonyBundles = new SymfonyBundleUtil(parameter.getProject()).getBundles();
         for (SymfonyBundle bundle : symfonyBundles) {
-            PsiDirectory views = bundle.getSubDirectory("Resources", "views");
-            if(views == null) {
-                continue;
-            }
+            for (PsiDirectory views : bundle.getTemplateDirectories()) {
+                String path = VfsExUtil.getRelativeProjectPathStrict(parameter.getProject(), views.getVirtualFile());
+                if (path == null) {
+                    continue;
+                }
 
-            // @TODO: use relative path and make os independent
-            String path = views.getVirtualFile().getPath();
+                String bundleName = bundle.getName();
 
-            String bundleName = bundle.getName();
+                if (TwigUtil.hasBundleNamespaceSupport(parameter.getProject())) {
+                    twigPaths.add(new TwigPath(path, bundleName, TwigUtil.NamespaceType.BUNDLE));
+                }
 
-            twigPaths.add(new TwigPath(path, bundleName, TwigUtil.NamespaceType.BUNDLE));
-            if(bundleName.endsWith("Bundle")) {
-                twigPaths.add(new TwigPath(path, bundleName.substring(0, bundleName.length() - 6), TwigUtil.NamespaceType.ADD_PATH));
+                // Bundle is stripped from its name on the ending "FooBarBundle" => "FooBar"
+                if (bundleName.endsWith("Bundle")) {
+                    bundleName = bundleName.substring(0, bundleName.length() - 6);
+                }
+
+                twigPaths.add(new TwigPath(path, bundleName, TwigUtil.NamespaceType.ADD_PATH));
             }
         }
 

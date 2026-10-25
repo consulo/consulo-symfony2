@@ -1,6 +1,5 @@
 package fr.adrienbrault.idea.symfony2plugin.stubs.indexes;
 
-import com.intellij.ide.highlighter.XmlFileType;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.xml.XmlFile;
 import com.intellij.util.indexing.*;
@@ -10,11 +9,11 @@ import com.intellij.util.io.KeyDescriptor;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.form.util.FormUtil;
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.externalizer.StringSetDataExternalizer;
-import gnu.trove.THashMap;
+import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.inputFilter.FileInputFilter;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.yaml.YAMLFileType;
 import org.jetbrains.yaml.psi.YAMLFile;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -28,11 +27,12 @@ public class ServicesTagStubIndex extends FileBasedIndexExtension<String, Set<St
 
     @NotNull
     @Override
+    // Index-safe only: no PhpIndex/type resolution here.
     public DataIndexer<String, Set<String>, FileContent> getIndexer() {
 
         return inputData -> {
 
-            Map<String, Set<String>> map = new THashMap<>();
+            Map<String, Set<String>> map = new HashMap<>();
 
             PsiFile psiFile = inputData.getPsiFile();
             if(!Symfony2ProjectComponent.isEnabledForIndex(psiFile.getProject())) {
@@ -75,8 +75,7 @@ public class ServicesTagStubIndex extends FileBasedIndexExtension<String, Set<St
     @NotNull
     @Override
     public FileBasedIndex.InputFilter getInputFilter() {
-        return file ->
-            file.getFileType() == XmlFileType.INSTANCE || file.getFileType() == YAMLFileType.YML;
+        return FileInputFilter.XML_YAML;
     }
 
     @Override
