@@ -11,6 +11,8 @@
     <depends>consulo.javascript</depends>
     <depends>de.espend.idea.php.annotation</depends>
     <depends>de.espend.idea.php.toolbox</depends>
+    <depends optional="true">consulo.markdown</depends>
+    <depends optional="true">consulo.database</depends>
     <version>SNAPSHOT</version>
     <category>Framework Integration</category>
 
