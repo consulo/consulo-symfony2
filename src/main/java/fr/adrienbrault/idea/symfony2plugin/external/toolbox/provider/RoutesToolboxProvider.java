@@ -1,7 +1,10 @@
 package fr.adrienbrault.idea.symfony2plugin.external.toolbox.provider;
 
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.psi.PsiElement;
+import consulo.annotation.component.ExtensionImpl;
+
+import consulo.ui.image.Image;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.psi.PsiElement;
 import de.espend.idea.php.toolbox.completion.dict.PhpToolboxCompletionContributorParameter;
 import de.espend.idea.php.toolbox.extension.PhpToolboxProviderAbstract;
 import de.espend.idea.php.toolbox.navigation.dict.PhpToolboxDeclarationHandlerParameter;
@@ -9,20 +12,18 @@ import de.espend.idea.php.toolbox.provider.presentation.ProviderPresentation;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
-import javax.swing.*;
 import java.util.Collection;
 import java.util.Collections;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class RoutesToolboxProvider extends PhpToolboxProviderAbstract {
-    @NotNull
     @Override
-    public Collection<LookupElement> getLookupElements(@NotNull PhpToolboxCompletionContributorParameter parameter) {
+    public Collection<LookupElement> getLookupElements(PhpToolboxCompletionContributorParameter parameter) {
         if(!Symfony2ProjectComponent.isEnabled(parameter.getProject())) {
             return Collections.emptyList();
         }
@@ -31,9 +32,8 @@ public class RoutesToolboxProvider extends PhpToolboxProviderAbstract {
     }
 
 
-    @NotNull
     @Override
-    public Collection<PsiElement> getPsiTargets(@NotNull PhpToolboxDeclarationHandlerParameter parameter) {
+    public Collection<PsiElement> getPsiTargets(PhpToolboxDeclarationHandlerParameter parameter) {
         if(!Symfony2ProjectComponent.isEnabled(parameter.getProject())) {
             return Collections.emptyList();
         }
@@ -44,7 +44,6 @@ public class RoutesToolboxProvider extends PhpToolboxProviderAbstract {
         );
     }
 
-    @NotNull
     @Override
     public String getName() {
         return "symfony.routes";
@@ -56,7 +55,7 @@ public class RoutesToolboxProvider extends PhpToolboxProviderAbstract {
         return new ProviderPresentation() {
             @Nullable
             @Override
-            public Icon getIcon() {
+            public Image getIcon() {
                 return Symfony2Icons.ROUTE;
             }
 

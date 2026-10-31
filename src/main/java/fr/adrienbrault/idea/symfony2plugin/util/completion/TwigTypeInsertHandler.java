@@ -1,13 +1,12 @@
 package fr.adrienbrault.idea.symfony2plugin.util.completion;
 
-import com.intellij.codeInsight.completion.InsertHandler;
-import com.intellij.codeInsight.completion.InsertionContext;
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.psi.PsiElement;
 import com.jetbrains.php.completion.insert.PhpInsertHandlerUtil;
 import com.jetbrains.php.lang.psi.elements.Method;
 import com.jetbrains.php.lang.psi.elements.Parameter;
-import org.jetbrains.annotations.NotNull;
+import consulo.language.editor.completion.lookup.InsertHandler;
+import consulo.language.editor.completion.lookup.InsertionContext;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.psi.PsiElement;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -16,7 +15,7 @@ public class TwigTypeInsertHandler implements InsertHandler<LookupElement> {
 
     private static final TwigTypeInsertHandler instance = new TwigTypeInsertHandler();
 
-    public void handleInsert(@NotNull InsertionContext context, @NotNull LookupElement lookupElement) {
+    public void handleInsert(InsertionContext context, LookupElement lookupElement) {
 
         PsiElement psiElement = lookupElement.getPsiElement();
         if(psiElement instanceof Method && needParameter((Method) psiElement)) {

@@ -1,8 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.doctrine.dict;
 
-import com.intellij.psi.PsiElement;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import consulo.language.psi.PsiElement;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -39,7 +38,6 @@ public class DoctrineModelField {
         this.typeName = typeName;
     }
 
-    @NotNull
     public String getName() {
         return this.name;
     }
@@ -49,7 +47,6 @@ public class DoctrineModelField {
         return this.typeName;
     }
 
-    @NotNull
     public Collection<PsiElement> getTargets() {
         return targets;
     }
@@ -97,12 +94,11 @@ public class DoctrineModelField {
         return this;
     }
 
-    @NotNull
     public Collection<String> getPropertyTypes() {
         return propertyTypes;
     }
 
-    public DoctrineModelField setPropertyTypes(@NotNull Collection<String> propertyTypes) {
+    public DoctrineModelField setPropertyTypes(Collection<String> propertyTypes) {
         this.propertyTypes = propertyTypes;
         return this;
     }

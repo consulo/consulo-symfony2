@@ -1,14 +1,13 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.inlay.ui;
 
-import com.intellij.openapi.project.Project;
 import com.jetbrains.php.PhpIndex;
 import com.jetbrains.php.lang.psi.elements.Field;
 import com.jetbrains.php.lang.psi.elements.Method;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
 import com.jetbrains.php.lang.psi.resolve.types.PhpType;
+import consulo.project.Project;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigTypeResolveUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 
@@ -19,11 +18,10 @@ import java.util.*;
  */
 public class TwigVariableTreeBuilder {
 
-    @NotNull
     public static List<TwigVariableTreeNode> buildProperties(
-        @NotNull Project project,
-        @NotNull String parentVarName,
-        @NotNull Set<String> types
+        Project project,
+        String parentVarName,
+        Set<String> types
     ) {
         Map<String, Set<String>> propMap = new TreeMap<>();
 
@@ -55,7 +53,7 @@ public class TwigVariableTreeBuilder {
         return result;
     }
 
-    private static Collection<String> resolveCleanTypes(@NotNull Project project, @NotNull PhpType rawType) {
+    private static Collection<String> resolveCleanTypes(Project project, PhpType rawType) {
         PhpType resolved = PhpIndex.getInstance(project).completeType(project, rawType, new HashSet<>());
         List<String> result = new ArrayList<>();
         for (String t : resolved.getTypes()) {

@@ -1,17 +1,16 @@
 package fr.adrienbrault.idea.symfony2plugin.util;
 
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.patterns.PsiElementPattern;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiWhiteSpace;
-import com.intellij.psi.util.PsiTreeUtil;
 import com.jetbrains.php.lang.lexer.PhpTokenTypes;
 import com.jetbrains.php.lang.psi.PhpPsiUtil;
 import com.jetbrains.php.lang.psi.elements.*;
 import com.jetbrains.php.lang.psi.stubs.indexes.expectedArguments.PhpExpectedFunctionArgument;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.pattern.PsiElementPattern;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiWhiteSpace;
+import consulo.language.psi.util.PsiTreeUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.*;
 
@@ -22,7 +21,7 @@ import java.util.*;
  */
 public class PhpPsiAttributesUtil {
     @Nullable
-    public static String getAttributeValueByNameAsString(@NotNull PhpAttribute attribute, @NotNull String attributeName) {
+    public static String getAttributeValueByNameAsString(PhpAttribute attribute, String attributeName) {
         PsiElement nextSibling = findAttributeByName(attribute, attributeName);
         if (nextSibling != null) {
             return getAttributeString(attribute, nextSibling);
@@ -31,7 +30,7 @@ public class PhpPsiAttributesUtil {
         return null;
     }
 
-    public static String getAttributeValueByNameAsString(@NotNull PhpAttribute attribute, int parameter, @NotNull String attributeName) {
+    public static String getAttributeValueByNameAsString(PhpAttribute attribute, int parameter, String attributeName) {
         PsiElement nextSibling = getAttributeValuePsiElement(attribute, parameter, attributeName);
 
         if (nextSibling != null) {
@@ -42,7 +41,7 @@ public class PhpPsiAttributesUtil {
     }
 
     @Nullable
-    public static PsiElement getAttributeValuePsiElement(@NotNull PhpAttribute attribute, int parameter, @NotNull String attributeName) {
+    public static PsiElement getAttributeValuePsiElement(PhpAttribute attribute, int parameter, String attributeName) {
         PsiElement nextSibling = findAttributeByName(attribute, attributeName);
 
         //  Workaround: to find / resolve non named argument attribute: "#[Route('/attributesWithoutName', "")]"
@@ -64,7 +63,7 @@ public class PhpPsiAttributesUtil {
      * <p>
      * Needed to resolve for indexed non named argument by ourselves
      */
-    private static PsiElement[] getParametersBeforeFirstNamedArgument(@NotNull ParameterList parameterList) {
+    private static PsiElement[] getParametersBeforeFirstNamedArgument(ParameterList parameterList) {
         List<PsiElement> psiElements = new ArrayList<>();
 
         for (PsiElement psiElement : parameterList.getParameters()) {
@@ -80,7 +79,7 @@ public class PhpPsiAttributesUtil {
     }
 
     @Nullable
-    private static String getAttributeString(@NotNull PhpAttribute attribute, @NotNull PsiElement nextSibling) {
+    private static String getAttributeString(PhpAttribute attribute, PsiElement nextSibling) {
         if (nextSibling instanceof StringLiteralExpression) {
             String contents = ((StringLiteralExpression) nextSibling).getContents();
             if (StringUtils.isNotBlank(contents)) {
@@ -93,8 +92,7 @@ public class PhpPsiAttributesUtil {
         return null;
     }
 
-    @NotNull
-    public static Collection<String> getAttributeValueByNameAsArray(@NotNull PhpAttribute attribute, @NotNull String attributeName) {
+    public static Collection<String> getAttributeValueByNameAsArray(PhpAttribute attribute, String attributeName) {
         PsiElement nextSibling = findAttributeByName(attribute, attributeName);
 
         if (nextSibling instanceof ArrayCreationExpression) {
@@ -104,8 +102,7 @@ public class PhpPsiAttributesUtil {
         return Collections.emptyList();
     }
 
-    @NotNull
-    public static Collection<String> getAttributeValueByNameAsArrayLocalResolve(@NotNull PhpAttribute attribute, @NotNull String attributeName) {
+    public static Collection<String> getAttributeValueByNameAsArrayLocalResolve(PhpAttribute attribute, String attributeName) {
         PsiElement nextSibling = findAttributeByName(attribute, attributeName);
 
         Collection<String> values = new HashSet<>();
@@ -132,7 +129,7 @@ public class PhpPsiAttributesUtil {
      * find default "#[Route(path: '/attributesWithoutName')]" or "#[Route('/attributesWithoutName')]"
      */
     @Nullable
-    public static String getAttributeValueByNameAsStringWithDefaultParameterFallback(@NotNull PhpAttribute attribute, @NotNull String attributeName) {
+    public static String getAttributeValueByNameAsStringWithDefaultParameterFallback(PhpAttribute attribute, String attributeName) {
         String pathAttribute = PhpPsiAttributesUtil.getAttributeValueByNameAsString(attribute, attributeName);
         if (StringUtils.isNotBlank(pathAttribute)) {
             return pathAttribute;
@@ -152,7 +149,7 @@ public class PhpPsiAttributesUtil {
 
                 // hint: reference is a complete fake object lazily created; it is not reflect the real element :(
                 // PhpPsiElementFactory.createPhpPsiFromText => com.jetbrains.php.lang.psi.stubs.indexes.expectedArguments.PhpExpectedFunctionClassConstantArgument.createReference
-                @NotNull PsiElement namedElement;
+                PsiElement namedElement;
                 try {
                     namedElement = argument1.createReference(attribute.getProject());
                 } catch (AssertionError e) {
@@ -204,7 +201,7 @@ public class PhpPsiAttributesUtil {
      * Workaround to find given attribute: "#[Route('/attributesWithoutName', name: "")]" as attribute iteration given the index as "int" but not the key as name
      */
     @Nullable
-    private static PsiElement findAttributeByName(@NotNull PhpAttribute attribute, @NotNull String attributeName) {
+    private static PsiElement findAttributeByName(PhpAttribute attribute, String attributeName) {
         ParameterList parameterList = PsiTreeUtil.findChildOfType(attribute, ParameterList.class);
         if (parameterList == null) {
             return null;
@@ -224,7 +221,6 @@ public class PhpPsiAttributesUtil {
     /**
      * "#[Route('/path', name: 'attributes_action')]"
      */
-    @NotNull
     private static PsiElementPattern.Capture<PsiElement> getAttributeColonPattern(String name) {
         return PlatformPatterns.psiElement().withElementType(
             PhpTokenTypes.opCOLON
@@ -232,7 +228,7 @@ public class PhpPsiAttributesUtil {
     }
 
     @Nullable
-    private static String resolveLocalValue(@NotNull PhpAttribute attribute, @NotNull ClassConstantReference nextSibling) {
+    private static String resolveLocalValue(PhpAttribute attribute, ClassConstantReference nextSibling) {
         PhpExpression classReference = nextSibling.getClassReference();
         if (classReference instanceof ClassReference) {
             String name = classReference.getName();

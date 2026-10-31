@@ -1,14 +1,15 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.templating.util;
 
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.util.PsiTreeUtil;
+import org.junit.jupiter.api.Test;
+
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.util.PsiTreeUtil;
 import com.jetbrains.php.lang.PhpFileType;
 import com.jetbrains.php.lang.psi.PhpPsiElementFactory;
 import com.jetbrains.php.lang.psi.elements.Function;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.PhpMethodVariableResolveUtil;
 import fr.adrienbrault.idea.symfony2plugin.templating.variable.dict.PsiVariable;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.Arrays;
 import java.util.Map;
@@ -31,6 +32,7 @@ public class PhpMethodVariableResolveUtilTest extends SymfonyLightCodeInsightFix
     /**
      * @see PhpMethodVariableResolveUtil#collectMethodVariables
      */
+    @Test
     public void testCollectMethodVariablesForVariablesReferences() {
         Function function = PhpPsiElementFactory.createFunction(getProject(), "function foobar() {\n" +
             "$myVar = new \\MyVars\\MyVar();\n" +
@@ -52,6 +54,7 @@ public class PhpMethodVariableResolveUtilTest extends SymfonyLightCodeInsightFix
     /**
      * @see PhpMethodVariableResolveUtil#collectMethodVariables
      */
+    @Test
     public void testCollectMethodVariablesForArrayCreation() {
         Function function = PhpPsiElementFactory.createFunction(getProject(), "function foobar() {\n" +
             "$myVar = new \\MyVars\\MyVar();\n" +
@@ -71,6 +74,7 @@ public class PhpMethodVariableResolveUtilTest extends SymfonyLightCodeInsightFix
     /**
      * @see PhpMethodVariableResolveUtil#collectMethodVariables
      */
+    @Test
     public void testCollectMethodVariablesCarriesPrimitiveFormTypeFqns() {
         myFixture.configureByText(PhpFileType.INSTANCE, "<?php\n" +
             "namespace Symfony\\Component\\Form { interface FormTypeInterface {} }\n" +
@@ -95,6 +99,7 @@ public class PhpMethodVariableResolveUtilTest extends SymfonyLightCodeInsightFix
     /**
      * @see PhpMethodVariableResolveUtil#collectMethodVariables
      */
+    @Test
     public void testCollectMethodVariablesForArrayMerge() {
         Function function = PhpPsiElementFactory.createFunction(getProject(), "function foobar() {\n" +
             "$myVar = new \\MyVars\\MyVar();\n" +
@@ -115,6 +120,7 @@ public class PhpMethodVariableResolveUtilTest extends SymfonyLightCodeInsightFix
     /**
      * @see PhpMethodVariableResolveUtil#collectMethodVariables
      */
+    @Test
     public void testCollectMethodVariablesForDirectArrayReplaceAndMergeRecursive() {
         Function function = PhpPsiElementFactory.createFunction(getProject(), "function foobar() {\n" +
             "$myVar = new \\MyVars\\MyVar();\n" +
@@ -134,6 +140,7 @@ public class PhpMethodVariableResolveUtilTest extends SymfonyLightCodeInsightFix
     /**
      * @see PhpMethodVariableResolveUtil#collectMethodVariables
      */
+    @Test
     public void testCollectMethodVariablesForArraySpreadWithVariable() {
         Function function = PhpPsiElementFactory.createFunction(getProject(), "function foobar() {\n" +
             "$myVar = new \\MyVars\\MyVar();\n" +
@@ -157,6 +164,7 @@ public class PhpMethodVariableResolveUtilTest extends SymfonyLightCodeInsightFix
     /**
      * @see PhpMethodVariableResolveUtil#collectMethodVariables
      */
+    @Test
     public void testCollectMethodVariablesForArraySpreadWithLocalMethodReturn() {
         myFixture.configureByText(PhpFileType.INSTANCE, "<?php\n" +
             "class ProductController\n" +
@@ -189,6 +197,7 @@ public class PhpMethodVariableResolveUtilTest extends SymfonyLightCodeInsightFix
     /**
      * @see PhpMethodVariableResolveUtil#collectMethodVariables
      */
+    @Test
     public void testCollectMethodVariablesForMultipleArraySpreads() {
         myFixture.configureByText(PhpFileType.INSTANCE, "<?php\n" +
             "class ProductController\n" +
@@ -218,6 +227,7 @@ public class PhpMethodVariableResolveUtilTest extends SymfonyLightCodeInsightFix
     /**
      * @see PhpMethodVariableResolveUtil#collectMethodVariables
      */
+    @Test
     public void testCollectMethodVariablesForDirectLocalMethodContext() {
         myFixture.configureByText(PhpFileType.INSTANCE, "<?php\n" +
             "class ProductController\n" +
@@ -245,6 +255,7 @@ public class PhpMethodVariableResolveUtilTest extends SymfonyLightCodeInsightFix
     /**
      * @see PhpMethodVariableResolveUtil#collectMethodVariables
      */
+    @Test
     public void testCollectMethodVariablesForLocalMethodControllerReturn() {
         myFixture.configureByText(PhpFileType.INSTANCE, "<?php\n" +
             "use Sensio\\Bundle\\FrameworkExtraBundle\\Configuration\\Template;\n" +
@@ -273,6 +284,7 @@ public class PhpMethodVariableResolveUtilTest extends SymfonyLightCodeInsightFix
     /**
      * @see PhpMethodVariableResolveUtil#collectMethodVariables
      */
+    @Test
     public void testCollectMethodVariablesForLocalMethodReturningVariableContext() {
         myFixture.configureByText(PhpFileType.INSTANCE, "<?php\n" +
             "class ProductController\n" +
@@ -299,6 +311,7 @@ public class PhpMethodVariableResolveUtilTest extends SymfonyLightCodeInsightFix
     /**
      * @see PhpMethodVariableResolveUtil#collectMethodVariables
      */
+    @Test
     public void testCollectMethodVariablesForVariableAssignedFromLocalMethodContext() {
         myFixture.configureByText(PhpFileType.INSTANCE, "<?php\n" +
             "class ProductController\n" +
@@ -328,6 +341,7 @@ public class PhpMethodVariableResolveUtilTest extends SymfonyLightCodeInsightFix
     /**
      * @see PhpMethodVariableResolveUtil#collectMethodVariables
      */
+    @Test
     public void testCollectMethodVariablesForArrayMergeAssignment() {
         myFixture.configureByText(PhpFileType.INSTANCE, "<?php\n" +
             "class ProductController\n" +
@@ -362,6 +376,7 @@ public class PhpMethodVariableResolveUtilTest extends SymfonyLightCodeInsightFix
     /**
      * @see PhpMethodVariableResolveUtil#collectMethodVariables
      */
+    @Test
     public void testCollectMethodVariablesForArrayReplaceAndMergeRecursiveAssignments() {
         myFixture.configureByText(PhpFileType.INSTANCE, "<?php\n" +
             "class ProductController\n" +
@@ -385,6 +400,7 @@ public class PhpMethodVariableResolveUtilTest extends SymfonyLightCodeInsightFix
     /**
      * @see PhpMethodVariableResolveUtil#collectMethodVariables
      */
+    @Test
     public void testCollectMethodVariablesForConditionalArrayIndexAssignment() {
         Function function = PhpPsiElementFactory.createFunction(getProject(), "function foobar() {\n" +
             "$templateData = ['item' => new \\MyVars\\MyVar()];\n" +
@@ -406,6 +422,7 @@ public class PhpMethodVariableResolveUtilTest extends SymfonyLightCodeInsightFix
     /**
      * @see PhpMethodVariableResolveUtil#collectMethodVariables
      */
+    @Test
     public void testCollectMethodVariablesFiltersRenderCallsByTemplateName() {
         Function function = PhpPsiElementFactory.createFunction(getProject(), "function show() {\n" +
             "$product = new \\MyVars\\MyVar();\n" +
@@ -430,6 +447,7 @@ public class PhpMethodVariableResolveUtilTest extends SymfonyLightCodeInsightFix
     /**
      * @see PhpMethodVariableResolveUtil#collectMethodVariables
      */
+    @Test
     public void testCollectMethodVariablesSharesConditionalRenderCallForAllResolvedTemplates() {
         Function function = PhpPsiElementFactory.createFunction(getProject(), "function show() {\n" +
             "$product = new \\MyVars\\MyVar();\n" +
@@ -447,6 +465,7 @@ public class PhpMethodVariableResolveUtilTest extends SymfonyLightCodeInsightFix
     /**
      * @see PhpMethodVariableResolveUtil#collectMethodVariables
      */
+    @Test
     public void testCollectMethodVariablesSupportsNamedAndReorderedArguments() {
         Function function = PhpPsiElementFactory.createFunction(getProject(), "function show() {\n" +
             "$product = new \\MyVars\\MyVar();\n" +
@@ -474,13 +493,11 @@ public class PhpMethodVariableResolveUtilTest extends SymfonyLightCodeInsightFix
         assertFalse(collectMethodVariables(function, "content.html.twig").containsKey("wrong"));
     }
 
-    @NotNull
-    private Map<String, PsiVariable> collectMethodVariables(@NotNull Function function, @NotNull String... templateNames) {
+    private Map<String, PsiVariable> collectMethodVariables(Function function, String... templateNames) {
         return PhpMethodVariableResolveUtil.collectMethodVariables(function, Arrays.asList(templateNames));
     }
 
-    @NotNull
-    private Function findFunction(@NotNull String name) {
+    private Function findFunction(String name) {
         for (PsiElement psiElement : PsiTreeUtil.collectElementsOfType(myFixture.getFile(), Function.class)) {
             Function function = (Function) psiElement;
             if (name.equals(function.getName())) {
@@ -495,6 +512,7 @@ public class PhpMethodVariableResolveUtilTest extends SymfonyLightCodeInsightFix
     /**
      * @see PhpMethodVariableResolveUtil#collectMethodVariables
      */
+    @Test
     public void testCollectMethodVariablesForBinaryExpression() {
         Function function = PhpPsiElementFactory.createFunction(getProject(), "function foobar() {\n" +
             "$myVar = new \\MyVars\\MyVar();\n" +
@@ -515,6 +533,7 @@ public class PhpMethodVariableResolveUtilTest extends SymfonyLightCodeInsightFix
     /**
      * @see PhpMethodVariableResolveUtil#collectMethodVariables
      */
+    @Test
     public void testCollectMethodVariablesForOperatorSelfAssignment() {
         Function function = PhpPsiElementFactory.createFunction(getProject(), "function foobar() {\n" +
             "$myVar = new \\MyVars\\MyVar();\n" +
@@ -535,6 +554,7 @@ public class PhpMethodVariableResolveUtilTest extends SymfonyLightCodeInsightFix
     /**
      * @see PhpMethodVariableResolveUtil#collectMethodVariables
      */
+    @Test
     public void testCollectMethodVariablesForTernary() {
         Function function = PhpPsiElementFactory.createFunction(getProject(), "function foobar() {\n" +
             "$myVar = new \\MyVars\\MyVar();\n" +
@@ -555,6 +575,7 @@ public class PhpMethodVariableResolveUtilTest extends SymfonyLightCodeInsightFix
     /**
      * @see PhpMethodVariableResolveUtil#collectMethodVariables
      */
+    @Test
     public void testCollectMethodVariablesForCoalesce() {
         Function function = PhpPsiElementFactory.createFunction(getProject(), "function foobar() {\n" +
             "$test = 'foo.html.twig'\n" +
@@ -575,6 +596,7 @@ public class PhpMethodVariableResolveUtilTest extends SymfonyLightCodeInsightFix
     /**
      * @see PhpMethodVariableResolveUtil#collectMethodVariables
      */
+    @Test
     public void testCollectMethodVariablesForVariable() {
         Function function = PhpPsiElementFactory.createFunction(getProject(), "function foobar() {\n" +
             "$test = 'foo.html.twig'\n" +
@@ -595,6 +617,7 @@ public class PhpMethodVariableResolveUtilTest extends SymfonyLightCodeInsightFix
     /**
      * @see PhpMethodVariableResolveUtil#collectMethodVariables
      */
+    @Test
     public void testCollectMethodVariablesForVariableWithInvalidTemplateNameString() {
         Function function = PhpPsiElementFactory.createFunction(getProject(), "function foobar() {\n" +
             "$test = 'foo.html'\n" +
@@ -614,6 +637,7 @@ public class PhpMethodVariableResolveUtilTest extends SymfonyLightCodeInsightFix
     /**
      * @see PhpMethodVariableResolveUtil#collectMethodVariables
      */
+    @Test
     public void testCollectMethodVariablesForRenderBlock() {
         Function function = PhpPsiElementFactory.createFunction(getProject(), "function foobar() {\n" +
             "$myVar = new \\MyVars\\MyVar();\n" +
@@ -630,6 +654,7 @@ public class PhpMethodVariableResolveUtilTest extends SymfonyLightCodeInsightFix
     /**
      * @see PhpMethodVariableResolveUtil#collectMethodVariables
      */
+    @Test
     public void testCollectMethodVariablesForRenderBlockView() {
         Function function = PhpPsiElementFactory.createFunction(getProject(), "function foobar() {\n" +
             "$myVar = new \\MyVars\\MyVar();\n" +

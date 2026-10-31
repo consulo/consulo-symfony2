@@ -1,15 +1,14 @@
 package fr.adrienbrault.idea.symfony2plugin.navigation;
 
-import com.intellij.ide.util.PsiNavigationSupport;
-import com.intellij.navigation.ItemPresentation;
-import com.intellij.navigation.NavigationItem;
-import com.intellij.pom.Navigatable;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
-import javax.swing.*;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.PsiNavigationSupport;
+import consulo.localize.LocalizeValue;
+import consulo.navigation.ItemPresentation;
+import consulo.navigation.Navigatable;
+import consulo.navigation.NavigationItem;
+import consulo.ui.image.Image;
+import org.jspecify.annotations.Nullable;
 
 /**
  * "Search everywhere" does instance check on NavigationItem, but ChooseByNameContributor use getPresentation :)
@@ -21,18 +20,18 @@ public class NavigationItemEx implements NavigationItem, ItemPresentation {
 
     private final PsiElement psiElement;
     private final String name;
-    private final Icon icon;
+    private final Image icon;
     private final String locationString;
     private boolean appendBundleLocation = true;
 
-    public NavigationItemEx(PsiElement psiElement, final String name, final Icon icon, final String locationString) {
+    public NavigationItemEx(PsiElement psiElement, final String name, final Image icon, final String locationString) {
         this.psiElement = psiElement;
         this.name = name;
         this.icon = icon;
         this.locationString = locationString;
     }
 
-    public NavigationItemEx(PsiElement psiElement, final String name, final Icon icon, final String locationString, boolean appendBundleLocation) {
+    public NavigationItemEx(PsiElement psiElement, final String name, final Image icon, final String locationString, boolean appendBundleLocation) {
         this(psiElement, name, icon, locationString);
         this.appendBundleLocation = appendBundleLocation;
     }
@@ -72,10 +71,9 @@ public class NavigationItemEx implements NavigationItem, ItemPresentation {
         return this.name;
     }
 
-    @Nullable
     @Override
-    public String getPresentableText() {
-        return name;
+    public LocalizeValue getPresentableText() {
+        return LocalizeValue.ofNullable(name);
     }
 
     @Nullable
@@ -106,7 +104,7 @@ public class NavigationItemEx implements NavigationItem, ItemPresentation {
 
     @Nullable
     @Override
-    public Icon getIcon(boolean b) {
+    public Image getIcon(boolean b) {
         return icon;
     }
 
@@ -114,8 +112,7 @@ public class NavigationItemEx implements NavigationItem, ItemPresentation {
      * Appends bundle and file name to the location string when the file path contains "Bundle".
      * Format: {@code "locationString BundleDir::filename"}, or {@code "locationString filename"} as fallback.
      */
-    @NotNull
-    public static String buildBundleLocationString(@NotNull String locationString, @NotNull PsiFile psiFile) {
+    public static String buildBundleLocationString(String locationString, PsiFile psiFile) {
         String locationPathString = locationString + " " + psiFile.getName();
 
         String bundlePath = psiFile.getVirtualFile().getPath();

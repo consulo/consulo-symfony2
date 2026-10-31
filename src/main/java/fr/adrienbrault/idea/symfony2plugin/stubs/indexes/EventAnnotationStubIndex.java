@@ -1,15 +1,20 @@
 package fr.adrienbrault.idea.symfony2plugin.stubs.indexes;
 
-import com.intellij.patterns.ElementPattern;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.util.PsiTreeUtil;
-import com.intellij.util.ObjectUtils;
-import com.intellij.util.indexing.*;
-import com.intellij.util.io.DataExternalizer;
-import com.intellij.util.io.EnumeratorStringDescriptor;
-import com.intellij.util.io.KeyDescriptor;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.pattern.ElementPattern;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.util.PsiTreeUtil;
+import consulo.util.lang.ObjectUtil;
+import consulo.index.io.DataIndexer;
+import consulo.index.io.ID;
+import consulo.language.psi.stub.FileBasedIndex;
+import consulo.language.psi.stub.FileBasedIndexExtension;
+import consulo.language.psi.stub.FileContent;
+import consulo.index.io.data.DataExternalizer;
+import consulo.index.io.EnumeratorStringDescriptor;
+import consulo.index.io.KeyDescriptor;
 import com.jetbrains.php.lang.PhpFileType;
 import com.jetbrains.php.lang.documentation.phpdoc.PhpDocUtil;
 import com.jetbrains.php.lang.documentation.phpdoc.parser.PhpDocElementTypes;
@@ -25,7 +30,6 @@ import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.externalizer.Dispatcher
 import fr.adrienbrault.idea.symfony2plugin.stubs.util.EventDispatcherUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -33,19 +37,18 @@ import java.util.Map;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class EventAnnotationStubIndex extends FileBasedIndexExtension<String, DispatcherEvent> {
 
     public static final ID<String, DispatcherEvent> KEY = ID.create("fr.adrienbrault.idea.symfony2plugin.events_annotation");
     private final KeyDescriptor<String> myKeyDescriptor = new EnumeratorStringDescriptor();
     private static final DispatcherEventExternalizer EXTERNALIZER = DispatcherEventExternalizer.INSTANCE;
 
-    @NotNull
     @Override
     public ID<String, DispatcherEvent> getName() {
         return KEY;
     }
 
-    @NotNull
     @Override
     // Index-safe only: no PhpIndex/type resolution here.
     public DataIndexer<String, DispatcherEvent, FileContent> getIndexer() {
@@ -80,22 +83,19 @@ public class EventAnnotationStubIndex extends FileBasedIndexExtension<String, Di
 
     }
 
-    @NotNull
     @Override
     public KeyDescriptor<String> getKeyDescriptor() {
         return this.myKeyDescriptor;
     }
 
-    @NotNull
     @Override
     public DataExternalizer<DispatcherEvent> getValueExternalizer() {
         return EXTERNALIZER;
     }
 
-    @NotNull
     @Override
     public FileBasedIndex.InputFilter getInputFilter() {
-        return file ->
+        return (project, file) ->
             file.getFileType() == PhpFileType.INSTANCE;
     }
 
@@ -109,13 +109,13 @@ public class EventAnnotationStubIndex extends FileBasedIndexExtension<String, Di
         return 3;
     }
 
-    private void visitPhpDocTag(@NotNull PhpDocTag element, @NotNull Map<String, DispatcherEvent> map, @NotNull ElementPattern<PsiElement> phpDocAttributeListPattern, @NotNull ElementPattern<PsiElement> phpDocStringPattern) {
+    private void visitPhpDocTag(PhpDocTag element, Map<String, DispatcherEvent> map, ElementPattern<PsiElement> phpDocAttributeListPattern, ElementPattern<PsiElement> phpDocStringPattern) {
         String name = StringUtils.stripStart(element.getName(), "@");
         if(!"Event".equalsIgnoreCase(name)) {
             return;
         }
 
-        PhpDocComment phpDocComment = ObjectUtils.tryCast(element.getParent(), PhpDocComment.class);
+        PhpDocComment phpDocComment = ObjectUtil.tryCast(element.getParent(), PhpDocComment.class);
         if(phpDocComment == null) {
             return;
         }
@@ -145,7 +145,7 @@ public class EventAnnotationStubIndex extends FileBasedIndexExtension<String, Di
         );
     }
 
-    private String findClassInstance(@NotNull PhpDocComment phpDocComment, @NotNull PhpDocTag phpDocTag, @NotNull ElementPattern<PsiElement> phpDocAttributeListPattern, @NotNull ElementPattern<PsiElement> phpDocStringPattern) {
+    private String findClassInstance(PhpDocComment phpDocComment, PhpDocTag phpDocTag, ElementPattern<PsiElement> phpDocAttributeListPattern, ElementPattern<PsiElement> phpDocStringPattern) {
         PsiElement phpDocAttributeList = PsiElementUtils.getChildrenOfType(phpDocTag, phpDocAttributeListPattern);
         if(phpDocAttributeList instanceof PhpPsiElement) {
             PsiElement childrenOfType = PsiElementUtils.getChildrenOfType(phpDocAttributeList, phpDocStringPattern);

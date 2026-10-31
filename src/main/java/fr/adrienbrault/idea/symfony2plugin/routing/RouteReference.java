@@ -1,33 +1,32 @@
 package fr.adrienbrault.idea.symfony2plugin.routing;
 
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiElementResolveResult;
-import com.intellij.psi.PsiPolyVariantReferenceBase;
-import com.intellij.psi.ResolveResult;
+import fr.adrienbrault.idea.symfony2plugin.codeInsight.completion.SymfonyCompletionReference;
+
 import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
-import org.jetbrains.annotations.NotNull;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiElementResolveResult;
+import consulo.language.psi.PsiPolyVariantReferenceBase;
+import consulo.language.psi.ResolveResult;
 
 /**
  * @author Adrien Brault <adrien.brault@gmail.com>
  */
-public class RouteReference extends PsiPolyVariantReferenceBase<PsiElement> {
+public class RouteReference extends PsiPolyVariantReferenceBase<PsiElement> implements SymfonyCompletionReference {
 
     private final String routeName;
 
-    public RouteReference(@NotNull StringLiteralExpression element) {
+    public RouteReference(StringLiteralExpression element) {
         super(element);
         this.routeName = element.getContents();
     }
 
-    @NotNull
     @Override
     public ResolveResult[] multiResolve(boolean incompleteCode) {
         return PsiElementResolveResult.createResults(RouteHelper.getRouteDefinitionTargets(getElement().getProject(), this.routeName));
     }
 
-    @NotNull
     @Override
-    public Object[] getVariants() {
+    public Object[] getCompletionVariants() {
         return RouteHelper.getRoutesLookupElements(getElement().getProject()).toArray();
     }
 

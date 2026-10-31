@@ -1,0 +1,66 @@
+package fr.adrienbrault.idea.symfony2plugin.navigation.controller;
+
+import com.jetbrains.php.lang.psi.elements.MethodReference;
+import com.jetbrains.php.lang.psi.elements.PhpClass;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.psi.PsiElement;
+import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
+import fr.adrienbrault.idea.symfony2plugin.dic.RelatedPopupGotoLineMarker;
+import fr.adrienbrault.idea.symfony2plugin.extension.ControllerActionGotoRelatedCollector;
+import fr.adrienbrault.idea.symfony2plugin.extension.ControllerActionGotoRelatedCollectorParameter;
+import fr.adrienbrault.idea.symfony2plugin.form.util.FormUtil;
+import fr.adrienbrault.idea.symfony2plugin.util.MethodMatcher;
+import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
+import org.apache.commons.lang3.StringUtils;
+
+import java.util.HashSet;
+
+/**
+ * @author Daniel Espendiller <daniel@espendiller.net>
+ */
+@ExtensionImpl(order = "after TwigControllerUsageControllerRelatedGotoCollector")
+public class FormControllerRelatedGotoCollector implements ControllerActionGotoRelatedCollector {
+    @Override
+    public void collectGotoRelatedItems(ControllerActionGotoRelatedCollectorParameter parameter) {
+        HashSet<PhpClass> uniqueTargets = new HashSet<>();
+
+        for (MethodReference methodReference : PhpElementsUtil.collectMethodReferencesInsideControlFlow(parameter.getMethod())) {
+            PsiElement parameter0 = methodReference.getParameter(0);
+            if (parameter0 == null) {
+                continue;
+            }
+
+            MethodMatcher.MethodMatchParameter matchedSignature = MethodMatcher.getMatchedSignatureWithDepth(parameter0, FormUtil.FORM_FACTORY_SIGNATURES);
+            if (matchedSignature != null) {
+                PhpClass formTypeToClass = FormUtil.getFormTypeClassOnParameter(parameter0);
+                if (formTypeToClass != null) {
+                    uniqueTargets.add(formTypeToClass);
+                }
+            }
+
+            PsiElement parameter1 = methodReference.getParameter(1);
+            if (parameter1 != null) {
+                MethodMatcher.MethodMatchParameter matchedSignature1 = MethodMatcher.getMatchedSignatureWithDepth(
+                    parameter1,
+                    FormUtil.PHP_FORM_NAMED_BUILDER_SIGNATURES,
+                    1
+                );
+                if (matchedSignature1 != null) {
+                    PhpClass formTypeToClass = FormUtil.getFormTypeClassOnParameter(parameter1);
+                    if (formTypeToClass != null) {
+                        uniqueTargets.add(formTypeToClass);
+                    }
+                }
+            }
+        }
+
+        for (PhpClass phpClass : uniqueTargets) {
+            parameter.add(
+                new RelatedPopupGotoLineMarker.PopupGotoRelatedItem(
+                    phpClass,
+                    StringUtils.stripStart(phpClass.getFQN(), "\\")
+                ).withIcon(Symfony2Icons.FORM_TYPE, Symfony2Icons.FORM_TYPE_LINE_MARKER)
+            );
+        }
+    }
+}

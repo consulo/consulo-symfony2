@@ -1,11 +1,10 @@
 package fr.adrienbrault.idea.symfony2plugin.config.yaml;
 
-import com.intellij.codeInsight.completion.InsertHandler;
-import com.intellij.codeInsight.completion.InsertionContext;
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.psi.PsiElement;
+import consulo.language.editor.completion.lookup.InsertHandler;
+import consulo.language.editor.completion.lookup.InsertionContext;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.psi.PsiElement;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -14,7 +13,7 @@ public class ParameterPercentWrapInsertHandler implements InsertHandler<LookupEl
 
     private static final ParameterPercentWrapInsertHandler instance = new ParameterPercentWrapInsertHandler();
 
-    public void handleInsert(@NotNull InsertionContext context, @NotNull LookupElement lookupElement) {
+    public void handleInsert(InsertionContext context, LookupElement lookupElement) {
         String insertText = null;
         if((lookupElement.getObject() instanceof PsiElement)) {
             return;

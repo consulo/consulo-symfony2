@@ -1,10 +1,10 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.variable.collector;
 
+import consulo.annotation.component.ExtensionImpl;
 import com.jetbrains.php.lang.psi.elements.Method;
 import fr.adrienbrault.idea.symfony2plugin.templating.variable.TwigFileVariableCollector;
 import fr.adrienbrault.idea.symfony2plugin.templating.variable.TwigFileVariableCollectorParameter;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.Arrays;
 import java.util.HashSet;
@@ -18,6 +18,7 @@ import java.util.Set;
  *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class StaticVariableCollector implements TwigFileVariableCollector {
     private static final HashSet<String> APP_CLASSES = new HashSet<>(Arrays.asList(
         "\\Symfony\\Bundle\\FrameworkBundle\\Templating\\GlobalVariables", // valid inside Symfony < 5
@@ -25,11 +26,11 @@ public class StaticVariableCollector implements TwigFileVariableCollector {
     ));
 
     @Override
-    public void collect(@NotNull TwigFileVariableCollectorParameter parameter, @NotNull Map<String, Set<String>> variables) {
+    public void collect(TwigFileVariableCollectorParameter parameter, Map<String, Set<String>> variables) {
         variables.put("app", new HashSet<>(APP_CLASSES)); // const must be a copy
     }
 
-    public static boolean isUserMethod(@NotNull Method method) {
+    public static boolean isUserMethod(Method method) {
         return APP_CLASSES.stream()
             .anyMatch(phpClass -> PhpElementsUtil.isMethodInstanceOf(method, phpClass, "getUser"));
     }

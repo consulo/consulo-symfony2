@@ -1,10 +1,9 @@
 package fr.adrienbrault.idea.symfony2plugin.doctrine.dict;
 
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.codeInsight.lookup.LookupElementPresentation;
 import com.jetbrains.php.PhpIcons;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.editor.completion.lookup.LookupElementPresentation;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -15,11 +14,10 @@ public class DoctrineModelFieldLookupElement extends LookupElement {
     private boolean withBoldness = false;
     private String withLookupName = null;
 
-    public DoctrineModelFieldLookupElement(@NotNull DoctrineModelField doctrineModelField) {
+    public DoctrineModelFieldLookupElement(DoctrineModelField doctrineModelField) {
         this.doctrineModelField = doctrineModelField;
     }
 
-    @NotNull
     @Override
     public String getLookupString() {
         if(this.withLookupName != null) {

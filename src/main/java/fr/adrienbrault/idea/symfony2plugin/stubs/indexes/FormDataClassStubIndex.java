@@ -1,13 +1,18 @@
 package fr.adrienbrault.idea.symfony2plugin.stubs.indexes;
 
-import com.intellij.openapi.util.text.StringUtil;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.util.PsiTreeUtil;
-import com.intellij.util.indexing.*;
-import com.intellij.util.io.DataExternalizer;
-import com.intellij.util.io.EnumeratorStringDescriptor;
-import com.intellij.util.io.KeyDescriptor;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.util.lang.StringUtil;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.util.PsiTreeUtil;
+import consulo.index.io.DataIndexer;
+import consulo.index.io.ID;
+import consulo.language.psi.stub.FileBasedIndex;
+import consulo.language.psi.stub.FileBasedIndexExtension;
+import consulo.language.psi.stub.FileContent;
+import consulo.index.io.data.DataExternalizer;
+import consulo.index.io.EnumeratorStringDescriptor;
+import consulo.index.io.KeyDescriptor;
 import com.jetbrains.php.codeInsight.controlFlow.PhpControlFlowUtil;
 import com.jetbrains.php.codeInsight.controlFlow.PhpInstructionProcessor;
 import com.jetbrains.php.codeInsight.controlFlow.instructions.PhpCallInstruction;
@@ -18,13 +23,14 @@ import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.externalizer.StringSetD
 import fr.adrienbrault.idea.symfony2plugin.util.AnnotationBackportUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+
+import static fr.adrienbrault.idea.symfony2plugin.stubs.indexes.PhpAttributeIndex.PhpAttributeIndexer.AS_FORM_TYPE_ATTRIBUTE;
 
 /**
  *  public function configureOptions(OptionsResolver $resolver)
@@ -35,17 +41,16 @@ import java.util.Set;
  *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class FormDataClassStubIndex extends FileBasedIndexExtension<String, Set<String>> {
     public static final ID<String, Set<String>> KEY = ID.create("fr.adrienbrault.idea.symfony2plugin.form_data_class");
     private final KeyDescriptor<String> myKeyDescriptor = new EnumeratorStringDescriptor();
 
-    @NotNull
     @Override
     public ID<String, Set<String>> getName() {
         return KEY;
     }
 
-    @NotNull
     @Override
     // Index-safe only: no PhpIndex/type resolution here.
     public DataIndexer<String, Set<String>, FileContent> getIndexer() {
@@ -59,6 +64,12 @@ public class FormDataClassStubIndex extends FileBasedIndexExtension<String, Set<
 
             for (PhpNamedElement topLevelElement : ((PhpFile) psiFile).getTopLevelDefs().values()) {
                 if (topLevelElement instanceof PhpClass clazz) {
+                    if (!clazz.getAttributes(AS_FORM_TYPE_ATTRIBUTE).isEmpty()) {
+                        String fqn = "\\" + StringUtils.stripStart(clazz.getFQN(), "\\");
+                        map.computeIfAbsent(fqn, ignored -> new HashSet<>()).add(fqn);
+                        continue;
+                    }
+
                     for (Method method : clazz.getOwnMethods()) {
                         Map<String, String> useImports = AnnotationBackportUtil.getUseImportMap(method);
                         PhpControlFlowUtil.processFlow(method.getControlFlow(), new PhpInstructionProcessor() {
@@ -79,7 +90,7 @@ public class FormDataClassStubIndex extends FileBasedIndexExtension<String, Set<
 
     }
 
-    public void visitElement(@NotNull MethodReference element, @NotNull Map<String, String> useImports, @NotNull Map<String, Set<String>> map) {
+    public void visitElement(MethodReference element, Map<String, String> useImports, Map<String, Set<String>> map) {
         String phpClassFqn = null;
 
         String name = element.getName();
@@ -127,7 +138,7 @@ public class FormDataClassStubIndex extends FileBasedIndexExtension<String, Set<
         }
     }
 
-    private static boolean isOptionsResolverReference(@NotNull MethodReference element, @NotNull Map<String, String> useImports) {
+    private static boolean isOptionsResolverReference(MethodReference element, Map<String, String> useImports) {
         PhpExpression classReference = element.getClassReference();
         if (!(classReference instanceof Variable variable)) {
             return false;
@@ -166,7 +177,7 @@ public class FormDataClassStubIndex extends FileBasedIndexExtension<String, Set<
     }
 
     @Nullable
-    private static String getString(@NotNull PsiElement parameter) {
+    private static String getString(PsiElement parameter) {
         if (parameter instanceof ClassConstantReference) {
             String classConstantPhpFqn = PhpElementsUtil.getClassConstantPhpFqn((ClassConstantReference) parameter);
             if (StringUtils.isNotBlank(classConstantPhpFqn)) {
@@ -182,22 +193,19 @@ public class FormDataClassStubIndex extends FileBasedIndexExtension<String, Set<
         return null;
     }
 
-    @NotNull
     @Override
     public KeyDescriptor<String> getKeyDescriptor() {
         return this.myKeyDescriptor;
     }
 
-    @NotNull
     @Override
     public DataExternalizer<Set<String>> getValueExternalizer() {
         return new StringSetDataExternalizer();
     }
 
-    @NotNull
     @Override
     public FileBasedIndex.InputFilter getInputFilter() {
-        return file -> file.getFileType() == PhpFileType.INSTANCE;
+        return (project, file) -> file.getFileType() == PhpFileType.INSTANCE;
     }
 
     @Override
@@ -207,6 +215,6 @@ public class FormDataClassStubIndex extends FileBasedIndexExtension<String, Set<
 
     @Override
     public int getVersion() {
-        return 1;
+        return 2;
     }
 }

@@ -1,15 +1,14 @@
 package fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.driver;
 
-import com.intellij.openapi.util.Key;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.util.CachedValue;
-import com.intellij.psi.util.CachedValueProvider;
-import com.intellij.psi.util.CachedValuesManager;
+import consulo.application.util.CachedValue;
+import consulo.application.util.CachedValueProvider;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.util.LanguageCachedValueUtil;
+import consulo.util.dataholder.Key;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.dict.DoctrineMetadataModel;
 import fr.adrienbrault.idea.symfony2plugin.stubs.cache.FileIndexCaches;
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.DoctrineMetadataFileStubIndex;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -25,23 +24,21 @@ public class DoctrineMappingDriverFileCacheDecorator implements DoctrineMappingD
     private static final Key<CachedValue<Map<String, DoctrineMetadataModel>>> XML_CACHE = new Key<>("DOCTRINE_MAPPING_DRIVER_FILE_CACHE_XML");
     private static final Key<CachedValue<Map<String, DoctrineMetadataModel>>> YAML_CACHE = new Key<>("DOCTRINE_MAPPING_DRIVER_FILE_CACHE_YAML");
 
-    @NotNull
     private final DoctrineMappingDriverInterface delegate;
 
-    @NotNull
     private final Key<CachedValue<Map<String, DoctrineMetadataModel>>> cacheKey;
 
-    public DoctrineMappingDriverFileCacheDecorator(@NotNull DoctrineMappingDriverInterface delegate) {
+    public DoctrineMappingDriverFileCacheDecorator(DoctrineMappingDriverInterface delegate) {
         this.delegate = delegate;
         this.cacheKey = delegate instanceof DoctrineXmlMappingDriver ? XML_CACHE : YAML_CACHE;
     }
 
     @Nullable
     @Override
-    public DoctrineMetadataModel getMetadata(@NotNull DoctrineMappingDriverArguments arguments) {
+    public DoctrineMetadataModel getMetadata(DoctrineMappingDriverArguments arguments) {
         PsiFile file = arguments.getPsiFile();
 
-        Map<String, DoctrineMetadataModel> cache = CachedValuesManager.getCachedValue(file, cacheKey, () ->
+        Map<String, DoctrineMetadataModel> cache = LanguageCachedValueUtil.getCachedValue(file, cacheKey, () ->
             CachedValueProvider.Result.create(
                 new HashMap<>(),
                 file,

@@ -1,14 +1,18 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.templating.util;
 
-import com.intellij.openapi.command.WriteCommandAction;
-import com.intellij.openapi.util.Pair;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiDirectory;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiFileFactory;
-import com.intellij.psi.PsiManager;
-import com.intellij.psi.util.PsiTreeUtil;
+import consulo.it.AllowWriteLockUnderUIThread;
+
+import org.junit.jupiter.api.Test;
+
+import consulo.language.editor.WriteCommandAction;
+import consulo.util.lang.Pair;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.language.psi.PsiDirectory;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.PsiFileFactory;
+import consulo.language.psi.PsiManager;
+import consulo.language.psi.util.PsiTreeUtil;
 import com.jetbrains.twig.TwigFileType;
 import fr.adrienbrault.idea.symfony2plugin.Settings;
 import fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern;
@@ -16,7 +20,6 @@ import fr.adrienbrault.idea.symfony2plugin.templating.path.TwigNamespaceSetting;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlPsiElementFactory;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.yaml.psi.YAMLFile;
 
 import java.util.Arrays;
@@ -28,6 +31,8 @@ import java.util.List;
  * @author Daniel Espendiller <daniel@espendiller.net>
  * @see TwigUtil
  */
+// the document is changed on the UI thread like in the IDE
+@AllowWriteLockUnderUIThread
 public class TwigUtilTest extends SymfonyLightCodeInsightFixtureTestCase {
     @Override
     public void setUp() throws Exception {
@@ -38,6 +43,7 @@ public class TwigUtilTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see TwigUtil#getTemplatePsiElements
      */
+    @Test
     public void testGetTemplatePsiElements() {
         myFixture.addFileToProject("res/foo.html.twig", "");
 
@@ -58,6 +64,7 @@ public class TwigUtilTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see TwigUtil#getTemplateNamesForFile
      */
+    @Test
     public void testGetTemplateNamesForFile() {
         Settings.getInstance(getProject()).twigNamespaces.addAll(createTwigNamespaceSettings());
 
@@ -75,6 +82,7 @@ public class TwigUtilTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see TwigUtil#getTemplateNavigationOnOffset
      */
+    @Test
     public void testGetTemplateNavigationOnOffset() {
         myFixture.addFileToProject("res/foobar/foo.html.twig", "");
 
@@ -91,6 +99,7 @@ public class TwigUtilTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see TwigUtil#getTemplateTargetOnOffset
      */
+    @Test
     public void testGetTemplateTargetOnOffset() {
         myFixture.addFileToProject("res/foobar/foo.html.twig", "");
         myFixture.addFileToProject("res/foobar/apple/foo.html.twig", "");
@@ -124,6 +133,7 @@ public class TwigUtilTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see TwigUtil#getPresentableTemplateName
      */
+    @Test
     public void testGetPresentableTemplateName() {
         createFileInProjectRoot("presentable_res/foo/foo.html.twig", "");
         VirtualFile res = getProject().getBaseDir().findFileByRelativePath("presentable_res/foo/foo.html.twig");
@@ -141,6 +151,7 @@ public class TwigUtilTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see TwigUtil#getTwigPathFromYamlConfigResolved
      */
+    @Test
     public void testGetTwigPathFromYamlConfigResolved() {
         createFileInProjectRoot("app/test/foo.html.twig", "");
         createFileInProjectRoot("app/template/foo.html.twig", "");
@@ -182,6 +193,7 @@ public class TwigUtilTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see TwigUtil#findTwigFunctionSecondArgumentPathLeaf
      */
+    @Test
     public void testFindTwigFunctionSecondArgumentPathLeaf() {
         assertSecondArgumentPathLeaf("{{ constant('CLUBS', suite) }}", "suite");
         assertSecondArgumentPathLeaf("{{ constant('CLUBS', order.suite) }}", "suite");
@@ -193,6 +205,7 @@ public class TwigUtilTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see TwigUtil#isTemplateUsage(PsiElement)
      */
+    @Test
     public void testIsTemplateUsage() {
         PsiElement includeTagString = findCaretElement("{% include 'foo<caret>.html.twig' %}");
         assertTrue(TwigUtil.isTemplateUsage(includeTagString));
@@ -207,6 +220,7 @@ public class TwigUtilTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see TwigUtil#isStaticTemplateUsage(PsiElement)
      */
+    @Test
     public void testIsStaticTemplateUsage() {
         PsiElement includeTagString = findCaretElement("{% include 'foo<caret>.html.twig' %}");
         assertTrue(TwigUtil.isStaticTemplateUsage(includeTagString));
@@ -217,6 +231,8 @@ public class TwigUtilTest extends SymfonyLightCodeInsightFixtureTestCase {
         PsiElement dynamicTemplateString = findCaretElement("{% include 'foo<caret>#{bar}.html.twig' %}");
         assertFalse(TwigUtil.isStaticTemplateUsage(dynamicTemplateString));
     }
+
+    @Test
 
     public void testTransDefaultDomainCacheDoesNotRetainInvalidPsiScope() {
         String template = "{% embed 'card.html.twig' %}{% trans_default_domain 'first' %}{{ 'key'|trans }}{% endembed %}";
@@ -235,13 +251,15 @@ public class TwigUtilTest extends SymfonyLightCodeInsightFixtureTestCase {
 
         PsiElement replacementScope = TwigUtil.getTransDefaultDomainScope(replacementPosition);
         assertNotNull(replacementScope);
-        WriteCommandAction.runWriteCommandAction(getProject(), (Runnable) () -> scope.replace(replacementScope));
+        runWriteCommand(getProject(), (Runnable) () -> scope.replace(replacementScope));
 
         assertFalse(scope.isValid());
         PsiElement updatedPosition = file.findElementAt(updatedTemplate.indexOf("'key'") + 1);
         assertNotNull(updatedPosition);
         assertEquals("second", TwigUtil.getTransDefaultDomainOnScope(updatedPosition));
     }
+
+    @Test
 
     public void testTemplateUsageRankingCountsFilesAcrossAllGroups() {
         // Three identical values must count as three files, even if getValues would deduplicate them.
@@ -261,6 +279,8 @@ public class TwigUtilTest extends SymfonyLightCodeInsightFixtureTestCase {
         assertEquals(expected, TwigUtil.getFormThemeTemplateUsageAsOrderedList(getProject()));
     }
 
+    @Test
+
     public void testSourceRemainsInIncludeRanking() {
         myFixture.addFileToProject("source.html.twig", "{{ source('source_only.html.twig') }}");
         assertEquals(List.of("source_only.html.twig"), TwigUtil.getIncludeTemplateUsageAsOrderedList(getProject()));
@@ -274,7 +294,6 @@ public class TwigUtilTest extends SymfonyLightCodeInsightFixtureTestCase {
             + "{% form_theme form '" + template + "' %}";
     }
 
-    @NotNull
     static List<TwigNamespaceSetting> createTwigNamespaceSettings() {
         return Arrays.asList(
             new TwigNamespaceSetting("Foo", "res", true, TwigUtil.NamespaceType.ADD_PATH, true),
@@ -284,19 +303,18 @@ public class TwigUtilTest extends SymfonyLightCodeInsightFixtureTestCase {
         );
     }
 
-    private void assertIsDirectoryAtOffset(@NotNull String templateName, int offset, @NotNull String directory) {
+    private void assertIsDirectoryAtOffset(String templateName, int offset, String directory) {
         assertTrue(TwigUtil.getTemplateTargetOnOffset(getProject(), templateName, offset).stream().anyMatch(psiElement -> psiElement instanceof PsiDirectory && directory.equals(((PsiDirectory) psiElement).getName())));
     }
 
-    private void assertSecondArgumentPathLeaf(@NotNull String template, @NotNull String expectedName) {
+    private void assertSecondArgumentPathLeaf(String template, String expectedName) {
         PsiElement pathLeaf = TwigUtil.findTwigFunctionSecondArgumentPathLeaf(findConstantStringArgument(template));
 
         assertNotNull(pathLeaf);
         assertEquals(expectedName, pathLeaf.getText());
     }
 
-    @NotNull
-    private PsiElement findCaretElement(@NotNull String template) {
+    private PsiElement findCaretElement(String template) {
         myFixture.configureByText(TwigFileType.INSTANCE, template);
         PsiElement element = myFixture.getFile().findElementAt(myFixture.getCaretOffset());
         assertNotNull(element);
@@ -304,8 +322,7 @@ public class TwigUtilTest extends SymfonyLightCodeInsightFixtureTestCase {
         return element;
     }
 
-    @NotNull
-    private PsiElement findConstantStringArgument(@NotNull String template) {
+    private PsiElement findConstantStringArgument(String template) {
         myFixture.configureByText(TwigFileType.INSTANCE, template);
 
         PsiElement[] elements = PsiTreeUtil.collectElements(myFixture.getFile(), TwigPattern.getPrintBlockOrTagFunctionPattern("constant")::accepts);

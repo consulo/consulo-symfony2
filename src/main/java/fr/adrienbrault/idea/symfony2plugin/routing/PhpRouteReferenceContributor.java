@@ -1,20 +1,27 @@
 package fr.adrienbrault.idea.symfony2plugin.routing;
 
-import com.intellij.psi.*;
-import com.intellij.util.ProcessingContext;
+import com.jetbrains.php.lang.PhpLanguage;
 import com.jetbrains.php.lang.psi.elements.MethodReference;
 import com.jetbrains.php.lang.psi.elements.PhpExpression;
 import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.util.MethodMatcher;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.Language;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiReference;
+import consulo.language.psi.PsiReferenceContributor;
+import consulo.language.psi.PsiReferenceProvider;
+import consulo.language.psi.PsiReferenceRegistrar;
+import consulo.language.util.ProcessingContext;
 import fr.adrienbrault.idea.symfony2plugin.util.controller.ControllerReference;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * @author Adrien Brault <adrien.brault@gmail.com>
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class PhpRouteReferenceContributor extends PsiReferenceContributor {
 
     public static final MethodMatcher.CallToSignature[] GENERATOR_SIGNATURES = new MethodMatcher.CallToSignature[] {
@@ -48,13 +55,12 @@ public class PhpRouteReferenceContributor extends PsiReferenceContributor {
     };
 
     @Override
-    public void registerReferenceProviders(@NotNull PsiReferenceRegistrar psiReferenceRegistrar) {
+    public void registerReferenceProviders(PsiReferenceRegistrar psiReferenceRegistrar) {
         psiReferenceRegistrar.registerReferenceProvider(
             PhpElementsUtil.getMethodWithFirstStringOrNamedArgumentPattern(),
             new PsiReferenceProvider() {
-                @NotNull
                 @Override
-                public PsiReference @NotNull [] getReferencesByElement(@NotNull PsiElement psiElement, @NotNull ProcessingContext processingContext) {
+                public PsiReference[] getReferencesByElement(PsiElement psiElement, ProcessingContext processingContext) {
 
                     MethodMatcher.MethodMatchParameter matchedSignatureWithDepth = MethodMatcher.getMatchedSignatureWithDepth(psiElement, GENERATOR_SIGNATURES);
                     if (matchedSignatureWithDepth == null) {
@@ -72,7 +78,7 @@ public class PhpRouteReferenceContributor extends PsiReferenceContributor {
                 }
 
                 @Override
-                public boolean acceptsTarget(@NotNull PsiElement target) {
+                public boolean acceptsTarget(PsiElement target) {
                     return Symfony2ProjectComponent.isEnabled(target);
                 }
             }
@@ -81,9 +87,8 @@ public class PhpRouteReferenceContributor extends PsiReferenceContributor {
         psiReferenceRegistrar.registerReferenceProvider(
             PhpElementsUtil.getMethodWithFirstStringOrNamedArgumentPattern(),
             new PsiReferenceProvider() {
-                @NotNull
                 @Override
-                public PsiReference @NotNull [] getReferencesByElement(@NotNull PsiElement psiElement, @NotNull ProcessingContext processingContext) {
+                public PsiReference[] getReferencesByElement(PsiElement psiElement, ProcessingContext processingContext) {
 
                     if (MethodMatcher.getMatchedSignatureWithDepth(psiElement, FORWARD_SIGNATURES) == null) {
                         return new PsiReference[0];
@@ -93,7 +98,7 @@ public class PhpRouteReferenceContributor extends PsiReferenceContributor {
                 }
 
                 @Override
-                public boolean acceptsTarget(@NotNull PsiElement target) {
+                public boolean acceptsTarget(PsiElement target) {
                     return Symfony2ProjectComponent.isEnabled(target);
                 }
             }
@@ -102,9 +107,8 @@ public class PhpRouteReferenceContributor extends PsiReferenceContributor {
         psiReferenceRegistrar.registerReferenceProvider(
             PhpElementsUtil.getMethodWithFirstStringOrNamedArgumentPattern(),
             new PsiReferenceProvider() {
-                @NotNull
                 @Override
-                public PsiReference @NotNull [] getReferencesByElement(@NotNull PsiElement psiElement, @NotNull ProcessingContext processingContext) {
+                public PsiReference[] getReferencesByElement(PsiElement psiElement, ProcessingContext processingContext) {
 
                     if (MethodMatcher.getMatchedSignatureWithDepth(psiElement, ROUTE_CONTROLLER_SIGNATURES) == null) {
                         return new PsiReference[0];
@@ -114,10 +118,15 @@ public class PhpRouteReferenceContributor extends PsiReferenceContributor {
                 }
 
                 @Override
-                public boolean acceptsTarget(@NotNull PsiElement target) {
+                public boolean acceptsTarget(PsiElement target) {
                     return Symfony2ProjectComponent.isEnabled(target);
                 }
             }
         );
+    }
+
+    @Override
+    public Language getLanguage() {
+        return PhpLanguage.INSTANCE;
     }
 }

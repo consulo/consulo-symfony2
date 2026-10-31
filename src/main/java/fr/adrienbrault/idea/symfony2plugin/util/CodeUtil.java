@@ -1,18 +1,17 @@
 package fr.adrienbrault.idea.symfony2plugin.util;
 
-import com.intellij.openapi.editor.Document;
-import com.intellij.openapi.project.Project;
-import com.intellij.psi.PsiDocumentManager;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.codeStyle.CodeStyleManager;
-import com.intellij.psi.util.PsiTreeUtil;
 import com.jetbrains.php.lang.psi.elements.ClassReference;
 import com.jetbrains.php.lang.psi.elements.ExtendsList;
 import com.jetbrains.php.lang.psi.elements.Method;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
 import com.jetbrains.php.lang.psi.elements.PhpPsiElement;
-import org.jetbrains.annotations.NotNull;
+import consulo.document.Document;
+import consulo.language.codeStyle.CodeStyleManager;
+import consulo.language.psi.PsiDocumentManager;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.util.PsiTreeUtil;
+import consulo.project.Project;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -29,7 +28,7 @@ public class CodeUtil {
      * @param methodName The method
      * @return last int position of method psi element
      */
-    public static int getMethodInsertPosition(@NotNull PhpClass phpClass, @NotNull String methodName) {
+    public static int getMethodInsertPosition(PhpClass phpClass, String methodName) {
 
         // empty class
         Method[] ownMethods = phpClass.getOwnMethods();
@@ -69,7 +68,7 @@ public class CodeUtil {
      * @param document The document containing the method
      * @param attributeStartOffset The offset where the attribute starts
      */
-    public static void reformatAddedAttribute(@NotNull Project project, @NotNull Document document, int attributeStartOffset) {
+    public static void reformatAddedAttribute(Project project, Document document, int attributeStartOffset) {
         PsiDocumentManager psiDocManager = PsiDocumentManager.getInstance(project);
         PsiFile freshFile = psiDocManager.getPsiFile(document);
         if (freshFile == null) {
@@ -107,7 +106,7 @@ public class CodeUtil {
      * @param parentClassFqn The fully-qualified name of the parent class to remove (with or without leading backslash)
      * @return true if the extends clause was removed, false otherwise
      */
-    public static boolean removeExtendsClause(@NotNull PhpClass phpClass, @NotNull String parentClassFqn) {
+    public static boolean removeExtendsClause(PhpClass phpClass, String parentClassFqn) {
         ExtendsList extendsList = phpClass.getExtendsList();
         List<ClassReference> references = extendsList.getReferenceElements();
 

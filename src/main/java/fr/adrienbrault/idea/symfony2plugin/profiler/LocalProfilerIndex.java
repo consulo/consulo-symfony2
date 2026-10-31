@@ -1,6 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.profiler;
 
-import com.intellij.util.containers.ContainerUtil;
+import consulo.util.collection.ContainerUtil;
 import fr.adrienbrault.idea.symfony2plugin.profiler.collector.LocalDefaultDataCollector;
 import fr.adrienbrault.idea.symfony2plugin.profiler.collector.LocalMailCollector;
 import fr.adrienbrault.idea.symfony2plugin.profiler.collector.LocalTwigComponentDataCollector;
@@ -9,8 +9,7 @@ import fr.adrienbrault.idea.symfony2plugin.profiler.dict.ProfilerRequestInterfac
 import fr.adrienbrault.idea.symfony2plugin.profiler.reader.ReverseFileLineReader;
 import fr.adrienbrault.idea.symfony2plugin.profiler.utils.ProfilerUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.io.File;
 import java.io.IOException;
@@ -29,22 +28,20 @@ public class LocalProfilerIndex implements ProfilerIndexInterface {
     private static final Pattern PROFILER_HASH_PATTERN = Pattern.compile("^[a-fA-F0-9]{6,64}$");
     private static final int MAX_RAW_PROFILE_BYTES = 5 * 1024 * 1024;
 
-    @NotNull
     private final File file;
 
     @Nullable
     private String baseUrl;
 
-    public LocalProfilerIndex(@NotNull File file) {
+    public LocalProfilerIndex(File file) {
         this.file = file;
     }
 
-    public LocalProfilerIndex(@NotNull File file, @Nullable String baseUrl) {
+    public LocalProfilerIndex(File file, @Nullable String baseUrl) {
         this.file = file;
         this.baseUrl = baseUrl;
     }
 
-    @NotNull
     public List<ProfilerRequestInterface> getRequests() {
         List<String> lines = new ArrayList<>();
 
@@ -74,7 +71,7 @@ public class LocalProfilerIndex implements ProfilerIndexInterface {
 
     @Nullable
     @Override
-    public String getUrlForRequest(@NotNull ProfilerRequestInterface request) {
+    public String getUrlForRequest(ProfilerRequestInterface request) {
         if(this.baseUrl != null) {
             return this.baseUrl  + "/" + StringUtils.stripStart(request.getProfilerUrl(), "/");
         }
@@ -83,7 +80,7 @@ public class LocalProfilerIndex implements ProfilerIndexInterface {
     }
 
     @Override
-    public byte @Nullable [] getRawProfile(@NotNull String hash) {
+    public byte @Nullable [] getRawProfile(String hash) {
         File profile = this.getFile(hash);
         if (profile == null) {
             return null;
@@ -102,14 +99,13 @@ public class LocalProfilerIndex implements ProfilerIndexInterface {
         }
     }
 
-    @NotNull
-    private String getPath(@NotNull String hash) {
+    private String getPath(String hash) {
         String[] hashSplit = hash.split("(?<=\\G.{2})");
         return hashSplit[2] + "/" + hashSplit[1] + "/" + hash;
     }
 
     @Nullable
-    private File getFile(@NotNull String hash) {
+    private File getFile(String hash) {
         if (!PROFILER_HASH_PATTERN.matcher(hash).matches()) {
             return null;
         }
@@ -133,7 +129,7 @@ public class LocalProfilerIndex implements ProfilerIndexInterface {
     }
 
     @Nullable
-    private String getContentForHash(@NotNull String hash) {
+    private String getContentForHash(String hash) {
         File file = this.getFile(hash);
         if(file == null) {
             return  null;

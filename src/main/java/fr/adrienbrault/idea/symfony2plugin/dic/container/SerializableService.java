@@ -2,8 +2,7 @@ package fr.adrienbrault.idea.symfony2plugin.dic.container;
 
 import com.google.gson.annotations.SerializedName;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Collection;
 import java.util.HashSet;
@@ -16,7 +15,6 @@ import java.util.Objects;
  */
 public class SerializableService implements ServiceSerializable {
 
-    @NotNull
     private final String id;
 
     @SerializedName("class")
@@ -60,24 +58,20 @@ public class SerializableService implements ServiceSerializable {
     @Nullable
     private String parent;
 
-    @NotNull
     @SerializedName("resource")
     private Collection<String> resource = new HashSet<>();
 
-    @NotNull
     @SerializedName("exclude")
     private Collection<String> exclude = new HashSet<>();
 
-    @NotNull
     @SerializedName("tags")
     private Collection<String> tags = new HashSet<>();
 
-    public SerializableService(@NotNull String id) {
+    public SerializableService(String id) {
         this.id = id;
     }
 
     @Override
-    @NotNull
     public String getId() {
         return id;
     }
@@ -227,35 +221,32 @@ public class SerializableService implements ServiceSerializable {
         return this;
     }
 
-    @NotNull
     @Override
     public Collection<String> getResource() {
         return this.resource;
     }
 
-    @NotNull
     @Override
     public Collection<String> getExclude() {
         return this.exclude;
     }
 
-    @NotNull
     @Override
     public Collection<String> getTags() {
         return tags;
     }
 
-    public SerializableService setTags(@NotNull Collection<String> tags) {
+    public SerializableService setTags(Collection<String> tags) {
         this.tags = tags;
         return this;
     }
 
-    public SerializableService setResource(@NotNull Collection<String> resource) {
+    public SerializableService setResource(Collection<String> resource) {
         this.resource = resource;
         return this;
     }
 
-    public SerializableService setExclude(@NotNull Collection<String> exclude) {
+    public SerializableService setExclude(Collection<String> exclude) {
         this.exclude = exclude;
         return this;
     }

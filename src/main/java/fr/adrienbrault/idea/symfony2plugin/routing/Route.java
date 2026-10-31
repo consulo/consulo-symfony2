@@ -2,8 +2,7 @@ package fr.adrienbrault.idea.symfony2plugin.routing;
 
 import fr.adrienbrault.idea.symfony2plugin.routing.dict.RouteInterface;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.*;
 import java.util.regex.Matcher;
@@ -15,7 +14,6 @@ import java.util.regex.Pattern;
  */
 public class Route implements RouteInterface {
 
-    @NotNull
     final private String name;
 
     private Collection<String> methods = Collections.emptyList();
@@ -28,7 +26,7 @@ public class Route implements RouteInterface {
     final private Map<String, String> requirements;
     final private List<Collection<String>> tokens;
 
-    public Route(@NotNull String name, @NotNull Set<String> variables, @NotNull Map<String, String> defaults, @NotNull Map<String, String> requirements, @NotNull List<Collection<String>> tokens) {
+    public Route(String name, Set<String> variables, Map<String, String> defaults, Map<String, String> requirements, List<Collection<String>> tokens) {
         this.name = name;
 
         this.variables = variables.isEmpty() ? Collections.emptySet() : Collections.unmodifiableSet(variables);
@@ -44,21 +42,21 @@ public class Route implements RouteInterface {
         }
     }
 
-    public Route(@NotNull String name, @NotNull Set<String> variables, @NotNull Map<String, String> defaults, @NotNull Map<String, String> requirements, @NotNull List<Collection<String>> tokens, @Nullable String path) {
+    public Route(String name, Set<String> variables, Map<String, String> defaults, Map<String, String> requirements, List<Collection<String>> tokens, @Nullable String path) {
         this(name, variables, defaults, requirements, tokens);
         this.path = path;
     }
 
-    public Route(@NotNull String name) {
+    public Route(String name) {
         this(name, Collections.emptySet(), Collections.emptyMap(), Collections.emptyMap(), Collections.emptyList());
     }
 
-    public Route(@NotNull String name, @NotNull String controller) {
+    public Route(String name, String controller) {
         this(name, Collections.emptySet(), Collections.emptyMap(), Collections.emptyMap(), Collections.emptyList());
         this.controller = controller;
     }
 
-    public Route(@NotNull RouteInterface routeInterface) {
+    public Route(RouteInterface routeInterface) {
         this(routeInterface.getName(), Collections.emptySet(), Collections.emptyMap(), Collections.emptyMap(), Collections.emptyList());
 
         this.controller = routeInterface.getController();
@@ -68,7 +66,6 @@ public class Route implements RouteInterface {
         this.methods = methods1.isEmpty() ? Collections.emptyList() : Collections.unmodifiableCollection(methods1);
     }
 
-    @NotNull
     public String getName() {
         return name;
     }
@@ -78,7 +75,6 @@ public class Route implements RouteInterface {
         return controller;
     }
 
-    @NotNull
     public Set<String> getVariables() {
         if (this.pathCache != null) {
             return this.pathCache;
@@ -127,7 +123,6 @@ public class Route implements RouteInterface {
         return this.path.replaceAll("\\{!?(\\w+)[<[^}].*>]*}", "{$1}");
     }
 
-    @NotNull
     @Override
     public Collection<String> getMethods() {
         return this.methods;

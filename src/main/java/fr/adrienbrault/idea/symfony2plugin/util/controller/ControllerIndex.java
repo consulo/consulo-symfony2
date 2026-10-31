@@ -1,9 +1,9 @@
 package fr.adrienbrault.idea.symfony2plugin.util.controller;
 
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.openapi.project.Project;
 import com.jetbrains.php.lang.psi.elements.Method;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.project.Project;
 import fr.adrienbrault.idea.symfony2plugin.routing.Route;
 import fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper;
 import fr.adrienbrault.idea.symfony2plugin.routing.dic.ServiceRouteContainer;
@@ -14,25 +14,27 @@ import fr.adrienbrault.idea.symfony2plugin.util.SymfonyBundleUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.ServiceUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.SymfonyBundle;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class ControllerIndex {
-    @NotNull
     final private Project project;
 
     private ContainerCollectionResolver.LazyServiceCollector lazyServiceCollector;
 
-    public ControllerIndex(@NotNull Project project) {
+    public ControllerIndex(Project project) {
        this.project = project;
     }
 
-    @NotNull
     public Collection<ControllerAction> getActions() {
         Collection<ControllerAction> actions = new ArrayList<>();
 
@@ -43,8 +45,7 @@ public class ControllerIndex {
         return actions;
     }
 
-    @Nullable
-    public ControllerAction getControllerActionOnService(String shortcutName) {
+    public @Nullable ControllerAction getControllerActionOnService(String shortcutName) {
 
         String serviceId;
         String methodName;
@@ -75,8 +76,7 @@ public class ControllerIndex {
         return new ControllerAction(serviceId, method);
     }
 
-    @NotNull
-    private Collection<ControllerAction> getActionMethods(@NotNull SymfonyBundle symfonyBundle) {
+    private Collection<ControllerAction> getActionMethods(SymfonyBundle symfonyBundle) {
         String namespaceName = symfonyBundle.getNamespaceName();
         if(!namespaceName.startsWith("\\")) {
             namespaceName = "\\" + namespaceName;
@@ -134,8 +134,7 @@ public class ControllerIndex {
         return actions;
     }
 
-    @NotNull
-    private Collection<ControllerAction> getServiceActionMethods(@NotNull Project project) {
+    private Collection<ControllerAction> getServiceActionMethods(Project project) {
         Map<String,Route> routes = RouteHelper.getAllRoutes(project);
         if(routes.isEmpty()) {
             return Collections.emptyList();
@@ -164,8 +163,7 @@ public class ControllerIndex {
         return actions;
     }
 
-    @NotNull
-    public Collection<Method> resolveShortcutName(@NotNull String controllerName) {
+    public Collection<Method> resolveShortcutName(String controllerName) {
         String[] split = controllerName.split(":");
 
         // normalize: "FooBundle:Apple/Bar:foo" => FooBundle:Apple\Bar:foo
@@ -238,8 +236,7 @@ public class ControllerIndex {
         return lookupElements;
     }
 
-    @NotNull
-    static public Collection<Method> getControllerMethod(@NotNull Project project, @NotNull String controllerName) {
+    static public Collection<Method> getControllerMethod(Project project, String controllerName) {
         return new ControllerIndex(project).resolveShortcutName(controllerName);
     }
 }

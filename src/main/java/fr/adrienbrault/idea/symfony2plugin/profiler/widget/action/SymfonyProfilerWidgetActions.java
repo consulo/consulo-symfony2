@@ -1,16 +1,18 @@
 package fr.adrienbrault.idea.symfony2plugin.profiler.widget.action;
 
-import com.intellij.openapi.actionSystem.AnAction;
-import com.intellij.openapi.actionSystem.AnActionEvent;
-import com.intellij.openapi.actionSystem.Presentation;
-import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.Computable;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.ui.IconManager;
-import com.intellij.util.PsiIconUtil;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
+import consulo.application.ApplicationManager;
+import consulo.language.icon.IconDescriptorUpdaters;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.localize.LocalizeValue;
+import consulo.project.Project;
+import consulo.ui.annotation.RequiredUIAccess;
+import consulo.ui.ex.IconDeferrer;
+import consulo.ui.ex.action.AnAction;
+import consulo.ui.ex.action.AnActionEvent;
+import consulo.ui.ex.action.Presentation;
+import consulo.ui.image.Image;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
 import fr.adrienbrault.idea.symfony2plugin.form.util.FormUtil;
 import fr.adrienbrault.idea.symfony2plugin.profiler.ProfilerIndexInterface;
@@ -21,14 +23,11 @@ import fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.IdeHelper;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
-import icons.TwigIcons;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import com.jetbrains.twig.icons.TwigIcons;
+import org.jspecify.annotations.Nullable;
 
-import javax.swing.*;
-import java.awt.*;
-import java.net.URI;
 import java.util.Collection;
+import java.util.function.Supplier;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -39,14 +38,15 @@ public class SymfonyProfilerWidgetActions {
         private final String templateName;
         private final Project project;
 
-        public TemplateAction(@NotNull Project project, @NotNull String templateName) {
-            super(templateName, "Open Template", createDeferredTemplateIcon(project, templateName));
+        public TemplateAction(Project project, String templateName) {
+            super(LocalizeValue.of(templateName), LocalizeValue.localizeTODO("Open Template"), createDeferredTemplateIcon(project, templateName));
             this.templateName = templateName;
             this.project = project;
         }
 
+        @RequiredUIAccess
         @Override
-        public void actionPerformed(@NotNull AnActionEvent e) {
+        public void actionPerformed(AnActionEvent e) {
             Collection<PsiFile> psiFiles = TwigUtil.getTemplatePsiElements(project, templateName);
 
             // @TODO: multiple targets?
@@ -55,13 +55,12 @@ public class SymfonyProfilerWidgetActions {
             }
         }
 
-        @NotNull
-        private static Icon createDeferredTemplateIcon(@NotNull Project project, @NotNull String templateName) {
-            return IconManager.getInstance().createDeferredIcon(
+        private static Image createDeferredTemplateIcon(Project project, String templateName) {
+            return IconDeferrer.getInstance().defer(
                 TwigIcons.TwigFileIcon,
                 new TemplateIconRequest(project, templateName),
                 request -> {
-                    Icon icon = ApplicationManager.getApplication().runReadAction((Computable<Icon>) () ->
+                    Image icon = ApplicationManager.getApplication().runReadAction((Supplier<Image>) () ->
                         getTemplateFileIcon(request.project(), request.templateName())
                     );
                     return icon != null ? icon : TwigIcons.TwigFileIcon;
@@ -70,15 +69,15 @@ public class SymfonyProfilerWidgetActions {
         }
 
         @Nullable
-        public static Icon getTemplateFileIcon(@NotNull Project project, @NotNull String templateName) {
+        public static Image getTemplateFileIcon(Project project, String templateName) {
             for (PsiFile psiFile : TwigUtil.getTemplatePsiElements(project, templateName)) {
-                return PsiIconUtil.getIconFromProviders(psiFile, 0);
+                return IconDescriptorUpdaters.getIcon(psiFile, 0);
             }
 
             return null;
         }
 
-        private record TemplateIconRequest(@NotNull Project project, @NotNull String templateName) {
+        private record TemplateIconRequest(Project project, String templateName) {
         }
     }
 
@@ -86,14 +85,15 @@ public class SymfonyProfilerWidgetActions {
         private final String formType;
         private final Project project;
 
-        public FormTypeAction(@NotNull Project project, @NotNull String formType) {
-            super(formType, "Open FormType", Symfony2Icons.FORM_TYPE);
+        public FormTypeAction(Project project, String formType) {
+            super(LocalizeValue.of(formType), LocalizeValue.localizeTODO("Open FormType"), Symfony2Icons.FORM_TYPE);
             this.formType = formType;
             this.project = project;
         }
 
+        @RequiredUIAccess
         @Override
-        public void actionPerformed(@NotNull AnActionEvent e) {
+        public void actionPerformed(AnActionEvent e) {
             PhpClass psiFiles = FormUtil.getFormTypeToClass(project, formType);
             if (psiFiles != null) {
                 IdeHelper.navigateToPsiElement(psiFiles);
@@ -102,20 +102,19 @@ public class SymfonyProfilerWidgetActions {
     }
 
     public static class TwigComponentAction extends AnAction {
-        @NotNull
         private final Project project;
 
-        @NotNull
         private final ProfilerTwigComponent component;
 
-        public TwigComponentAction(@NotNull Project project, @NotNull ProfilerTwigComponent component) {
-            super(getText(component), "Open Twig Component", TwigIcons.TwigFileIcon);
+        public TwigComponentAction(Project project, ProfilerTwigComponent component) {
+            super(LocalizeValue.of(getText(component)), LocalizeValue.localizeTODO("Open Twig Component"), TwigIcons.TwigFileIcon);
             this.project = project;
             this.component = component;
         }
 
+        @RequiredUIAccess
         @Override
-        public void actionPerformed(@NotNull AnActionEvent e) {
+        public void actionPerformed(AnActionEvent e) {
             if (!component.isAnonymous() && component.className() != null) {
                 PhpClass phpClass = PhpElementsUtil.getClassInterface(project, component.className());
                 if (phpClass != null) {
@@ -142,8 +141,7 @@ public class SymfonyProfilerWidgetActions {
             return null;
         }
 
-        @NotNull
-        private static String getText(@NotNull ProfilerTwigComponent component) {
+        private static String getText(ProfilerTwigComponent component) {
             if (component.isAnonymous()) {
                 return String.format("%s (anonymous)", component.name());
             }
@@ -158,11 +156,12 @@ public class SymfonyProfilerWidgetActions {
         private final Project project;
 
         public RouteAction(Project project, @Nullable String text) {
-            super(text, "Open Route", Symfony2Icons.ROUTE);
+            super(LocalizeValue.ofNullable(text), LocalizeValue.localizeTODO("Open Route"), Symfony2Icons.ROUTE);
             this.routeName = text;
             this.project = project;
         }
 
+        @RequiredUIAccess
         @Override
         public void actionPerformed(AnActionEvent e) {
             PsiElement[] targets = RouteHelper.getMethods(project, this.routeName);
@@ -179,11 +178,12 @@ public class SymfonyProfilerWidgetActions {
         private final Project project;
 
         public MethodAction(Project project, @Nullable String text) {
-            super(text, "Open Method", com.jetbrains.php.PhpIcons.METHOD);
+            super(LocalizeValue.ofNullable(text), LocalizeValue.localizeTODO("Open Method"), com.jetbrains.php.PhpIcons.METHOD);
             this.methodShortcut = text;
             this.project = project;
         }
 
+        @RequiredUIAccess
         @Override
         public void actionPerformed(AnActionEvent e) {
             PsiElement[] method = RouteHelper.getMethodsOnControllerShortcut(project, this.methodShortcut);
@@ -195,29 +195,27 @@ public class SymfonyProfilerWidgetActions {
 
     public static class UrlAction extends AnAction {
 
-        @NotNull
         private final ProfilerIndexInterface profilerIndex;
 
-        @NotNull
         private final ProfilerRequestInterface profilerRequest;
 
-        private String panel;
+        private @Nullable String panel;
 
-        public UrlAction(@NotNull ProfilerIndexInterface profilerIndex, @NotNull ProfilerRequestInterface profilerRequest) {
-            super(String.format("(%s) %s", profilerRequest.getHash(), profilerRequest.getUrl()), "Open Url", Symfony2Icons.PROFILER_LINK);
+        public UrlAction(ProfilerIndexInterface profilerIndex, ProfilerRequestInterface profilerRequest) {
+            super(LocalizeValue.of(String.format("(%s) %s", profilerRequest.getHash(), profilerRequest.getUrl())), LocalizeValue.localizeTODO("Open Url"), Symfony2Icons.PROFILER_LINK);
             this.profilerIndex = profilerIndex;
             this.profilerRequest = profilerRequest;
 
             Presentation presentation = getTemplatePresentation();
-            presentation.setText(ProfilerUtil.formatProfilerRow(profilerRequest));
+            presentation.setText(LocalizeValue.ofNullable(ProfilerUtil.formatProfilerRow(profilerRequest)));
         }
 
-        public UrlAction(@NotNull ProfilerIndexInterface profilerIndex, @NotNull ProfilerRequestInterface profilerRequest, @NotNull String panel) {
+        public UrlAction(ProfilerIndexInterface profilerIndex, ProfilerRequestInterface profilerRequest, String panel) {
             this(profilerIndex, profilerRequest);
             this.panel = panel;
         }
 
-        public UrlAction withIcon(Icon icon) {
+        public UrlAction withIcon(Image icon) {
             Presentation presentation = getTemplatePresentation();
             presentation.setIcon(icon);
             return this;
@@ -225,11 +223,12 @@ public class SymfonyProfilerWidgetActions {
 
         public UrlAction withText(String text) {
             Presentation presentation = getTemplatePresentation();
-            presentation.setText(text);
+            presentation.setText(LocalizeValue.of(text));
 
             return this;
         }
 
+        @RequiredUIAccess
         @Override
         public void actionPerformed(AnActionEvent event) {
             String urlForRequest = profilerIndex.getUrlForRequest(profilerRequest);
@@ -241,15 +240,7 @@ public class SymfonyProfilerWidgetActions {
                 urlForRequest += "?panel=" + this.panel;
             }
 
-            Desktop desktop = Desktop.isDesktopSupported() ? Desktop.getDesktop() : null;
-            if (desktop == null || !desktop.isSupported(Desktop.Action.BROWSE)) {
-                return;
-            }
-
-            try {
-                desktop.browse(URI.create(urlForRequest));
-            } catch (Exception ignored) {
-            }
+            IdeHelper.openUrl(urlForRequest);
         }
     }
 }

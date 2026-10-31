@@ -1,6 +1,5 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.variable.resolver.holder;
 
-import org.jetbrains.annotations.NotNull;
 
 import java.util.Collections;
 import java.util.LinkedHashSet;
@@ -16,13 +15,12 @@ import java.util.Set;
  *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
-public record FormViewDataHolder(@NotNull Set<String> formTypeFqns) {
+public record FormViewDataHolder(Set<String> formTypeFqns) {
     public FormViewDataHolder {
         formTypeFqns = toImmutableNormalizedSet(formTypeFqns);
     }
 
-    @NotNull
-    private static Set<String> toImmutableNormalizedSet(@NotNull Set<String> formTypeFqns) {
+    private static Set<String> toImmutableNormalizedSet(Set<String> formTypeFqns) {
         Set<String> normalized = new LinkedHashSet<>();
 
         for (String formTypeFqn : formTypeFqns) {

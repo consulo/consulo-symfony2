@@ -1,10 +1,9 @@
 package fr.adrienbrault.idea.symfony2plugin.util.completion;
 
-import com.intellij.codeInsight.completion.InsertHandler;
-import com.intellij.codeInsight.completion.InsertionContext;
-import com.intellij.codeInsight.lookup.LookupElement;
 import com.jetbrains.php.completion.insert.PhpInsertHandlerUtil;
-import org.jetbrains.annotations.NotNull;
+import consulo.language.editor.completion.lookup.InsertHandler;
+import consulo.language.editor.completion.lookup.InsertionContext;
+import consulo.language.editor.completion.lookup.LookupElement;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -13,7 +12,7 @@ public class FunctionInsertHandler implements InsertHandler<LookupElement> {
 
     private static final FunctionInsertHandler instance = new FunctionInsertHandler();
 
-    public void handleInsert(@NotNull InsertionContext context, @NotNull LookupElement lookupElement) {
+    public void handleInsert(InsertionContext context, LookupElement lookupElement) {
 
         // check this:
         // {{ form_javasc|() }}

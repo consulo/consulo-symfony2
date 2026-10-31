@@ -1,13 +1,14 @@
 package fr.adrienbrault.idea.symfony2plugin.routing.annotation;
 
-import com.intellij.codeInsight.lookup.LookupElementBuilder;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.util.PsiTreeUtil;
 import com.jetbrains.php.lang.documentation.phpdoc.lexer.PhpDocTokenTypes;
 import com.jetbrains.php.lang.documentation.phpdoc.psi.tags.PhpDocTag;
 import com.jetbrains.php.lang.psi.elements.Method;
 import com.jetbrains.php.lang.psi.elements.PhpAttributesList;
 import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.editor.completion.lookup.LookupElementBuilder;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.util.PsiTreeUtil;
 import de.espend.idea.php.annotation.extension.PhpAnnotationCompletionProvider;
 import de.espend.idea.php.annotation.extension.parameter.AnnotationCompletionProviderParameter;
 import de.espend.idea.php.annotation.extension.parameter.AnnotationPropertyParameter;
@@ -24,6 +25,7 @@ import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
  *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class RouteNameAnnotationCompletionProvider implements PhpAnnotationCompletionProvider {
     @Override
     public void getPropertyValueCompletions(AnnotationPropertyParameter annotationPropertyParameter, AnnotationCompletionProviderParameter annotationCompletionProviderParameter) {

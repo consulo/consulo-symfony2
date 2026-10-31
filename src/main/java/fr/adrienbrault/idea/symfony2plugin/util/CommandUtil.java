@@ -1,8 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.util;
 
-import com.intellij.openapi.project.Project;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
-import org.jetbrains.annotations.NotNull;
+import consulo.project.Project;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -12,7 +11,7 @@ import java.util.Map;
  */
 public class CommandUtil {
 
-    public static Map<String, String> getCommandHelper(@NotNull Project project) {
+    public static Map<String, String> getCommandHelper(Project project) {
 
         Map<String, String> map = new HashMap<>();
         for(PhpClass phpClass: PhpIndexUtil.getAllSubclasses(project, "\\Symfony\\Component\\Console\\Helper\\HelperInterface")) {

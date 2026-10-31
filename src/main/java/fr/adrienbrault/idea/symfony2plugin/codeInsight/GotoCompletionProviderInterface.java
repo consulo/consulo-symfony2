@@ -1,8 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.codeInsight;
 
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.psi.PsiElement;
-import org.jetbrains.annotations.NotNull;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.psi.PsiElement;
 
 import java.util.Collection;
 
@@ -10,9 +9,7 @@ import java.util.Collection;
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public interface GotoCompletionProviderInterface {
-    @NotNull
     Collection<LookupElement> getLookupElements();
 
-    @NotNull
     Collection<PsiElement> getPsiTargets(PsiElement element);
 }

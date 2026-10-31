@@ -1,5 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.dic;
 
+import org.junit.jupiter.api.Test;
+
 import com.jetbrains.php.lang.PhpFileType;
 import fr.adrienbrault.idea.symfony2plugin.dic.ContainerService;
 import fr.adrienbrault.idea.symfony2plugin.dic.DefaultServiceCollector;
@@ -16,6 +18,7 @@ public class DefaultServiceCollectorTest extends SymfonyLightCodeInsightFixtureT
      * @see DefaultServiceCollector#collectServices
      * @see DefaultServiceCollector#collectIds
      */
+    @Test
     public void testDefaultServiceAreInsideContainer() {
         ContainerService servicContainer = ContainerCollectionResolver.getService(getProject(), "service_container");
 
@@ -27,6 +30,7 @@ public class DefaultServiceCollectorTest extends SymfonyLightCodeInsightFixtureT
      * @see DefaultServiceCollector#collectServices
      * @see DefaultServiceCollector#collectIds
      */
+    @Test
     public void testThatDeprecatesRequestIsOnlyAvailableInSupportedVersion() {
         assertNull(ContainerCollectionResolver.getService(getProject(), "request"));
 

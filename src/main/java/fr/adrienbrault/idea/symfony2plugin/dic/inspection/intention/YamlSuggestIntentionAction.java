@@ -1,22 +1,21 @@
 package fr.adrienbrault.idea.symfony2plugin.dic.inspection.intention;
 
-import com.intellij.openapi.editor.Editor;
-import com.intellij.psi.PsiElement;
+import consulo.codeEditor.Editor;
+import consulo.language.psi.PsiElement;
 import fr.adrienbrault.idea.symfony2plugin.intentions.ui.ServiceSuggestDialog;
 import fr.adrienbrault.idea.symfony2plugin.util.IdeHelper;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class YamlSuggestIntentionAction extends AbstractServiceSuggestIntentionAction {
-    public YamlSuggestIntentionAction(@NotNull String expectedClass, @NotNull PsiElement psiElement) {
+    public YamlSuggestIntentionAction(String expectedClass, PsiElement psiElement) {
         super(expectedClass, psiElement);
     }
 
     @Override
-    protected @NotNull ServiceSuggestDialog.Callback createInsertCallback(@NotNull Editor editor, @NotNull PsiElement psiElement) {
+    protected ServiceSuggestDialog.Callback createInsertCallback(Editor editor, PsiElement psiElement) {
         return new MyInsertCallback(editor, psiElement);
     }
 
@@ -27,9 +26,9 @@ public class YamlSuggestIntentionAction extends AbstractServiceSuggestIntentionA
      * - @, @?
      * - "@foo", '@foo', @foo
      */
-    private record MyInsertCallback(@NotNull Editor editor, @NotNull PsiElement psiElement) implements ServiceSuggestDialog.Callback {
+    private record MyInsertCallback(Editor editor, PsiElement psiElement) implements ServiceSuggestDialog.Callback {
         @Override
-        public void insert(@NotNull String selected) {
+        public void insert(String selected) {
             String text = this.psiElement.getText();
 
             int i = getServiceChar(text);
@@ -50,7 +49,7 @@ public class YamlSuggestIntentionAction extends AbstractServiceSuggestIntentionA
             editor.getDocument().insertString(afterAt, selected);
         }
 
-        private int getServiceChar(@NotNull String text) {
+        private int getServiceChar(String text) {
             int i = text.lastIndexOf("@?");
             if (i >= 0) {
                 return i + 1;

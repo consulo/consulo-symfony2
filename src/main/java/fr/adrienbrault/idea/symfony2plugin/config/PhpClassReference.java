@@ -1,18 +1,19 @@
 package fr.adrienbrault.idea.symfony2plugin.config;
 
-import com.intellij.codeInsight.completion.impl.CamelHumpMatcher;
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiElementResolveResult;
-import com.intellij.psi.PsiPolyVariantReferenceBase;
-import com.intellij.psi.ResolveResult;
+import fr.adrienbrault.idea.symfony2plugin.codeInsight.completion.SymfonyCompletionReference;
+
 import com.jetbrains.php.PhpIndex;
 import com.jetbrains.php.completion.PhpClassLookupElement;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
 import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
+import consulo.language.editor.completion.CamelHumpMatcher;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiElementResolveResult;
+import consulo.language.psi.PsiPolyVariantReferenceBase;
+import consulo.language.psi.ResolveResult;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
 import fr.adrienbrault.idea.symfony2plugin.util.completion.PhpClassReferenceInsertHandler;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -21,7 +22,7 @@ import java.util.List;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
-public class PhpClassReference extends PsiPolyVariantReferenceBase<PsiElement> {
+public class PhpClassReference extends PsiPolyVariantReferenceBase<PsiElement> implements SymfonyCompletionReference {
 
     private final String classFQN;
     private boolean provideVariants = false;
@@ -29,27 +30,26 @@ public class PhpClassReference extends PsiPolyVariantReferenceBase<PsiElement> {
     private boolean useClasses = true;
     private boolean useInterfaces = false;
 
-    public PhpClassReference(@NotNull StringLiteralExpression element) {
+    public PhpClassReference(StringLiteralExpression element) {
         super(element);
         this.classFQN = PsiElementUtils.getMethodParameter(element);
     }
 
-    public PhpClassReference(@NotNull PsiElement element, String classFQN) {
+    public PhpClassReference(PsiElement element, String classFQN) {
         super(element);
         this.classFQN = classFQN;
     }
 
-    public PhpClassReference(@NotNull PsiElement element, String classFQN, boolean provideVariants) {
+    public PhpClassReference(PsiElement element, String classFQN, boolean provideVariants) {
         this(element, classFQN);
         this.provideVariants = provideVariants;
     }
 
-    public PhpClassReference(@NotNull StringLiteralExpression element, boolean provideVariants) {
+    public PhpClassReference(StringLiteralExpression element, boolean provideVariants) {
         this(element);
         this.provideVariants = provideVariants;
     }
 
-    @NotNull
     @Override
     public ResolveResult[] multiResolve(boolean incompleteCode) {
 
@@ -73,9 +73,8 @@ public class PhpClassReference extends PsiPolyVariantReferenceBase<PsiElement> {
         }
     }
 
-    @NotNull
     @Override
-    public Object[] getVariants() {
+    public Object[] getCompletionVariants() {
 
         List<LookupElement> results = new ArrayList<>();
 

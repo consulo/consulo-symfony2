@@ -1,9 +1,8 @@
 package fr.adrienbrault.idea.symfony2plugin.stubs.indexes.externalizer;
 
-import com.intellij.util.io.DataExternalizer;
+import consulo.index.io.data.DataExternalizer;
 import fr.adrienbrault.idea.symfony2plugin.stubs.dict.FileResource;
 import fr.adrienbrault.idea.symfony2plugin.stubs.dict.FileResourceContextTypeEnum;
-import org.jetbrains.annotations.NotNull;
 
 import java.io.DataInput;
 import java.io.DataOutput;
@@ -21,7 +20,7 @@ public class FileResourceExternalizer implements DataExternalizer<FileResource> 
     private static final FileResourceContextTypeEnum[] CONTEXT_TYPE_VALUES = FileResourceContextTypeEnum.values();
 
     @Override
-    public void save(@NotNull DataOutput out, FileResource value) throws IOException {
+    public void save(DataOutput out, FileResource value) throws IOException {
         writeNullableString(out, value.getResource());
         FileResourceContextTypeEnum contextType = value.getContextType();
         out.writeBoolean(contextType != null);
@@ -40,7 +39,7 @@ public class FileResourceExternalizer implements DataExternalizer<FileResource> 
     }
 
     @Override
-    public FileResource read(@NotNull DataInput in) throws IOException {
+    public FileResource read(DataInput in) throws IOException {
         String resource = readNullableString(in);
         FileResourceContextTypeEnum contextType = null;
         if (in.readBoolean()) {
@@ -57,14 +56,14 @@ public class FileResourceExternalizer implements DataExternalizer<FileResource> 
         return new FileResource(resource, contextType, contextValues);
     }
 
-    private static void writeNullableString(@NotNull DataOutput out, String value) throws IOException {
+    private static void writeNullableString(DataOutput out, String value) throws IOException {
         out.writeBoolean(value != null);
         if (value != null) {
             out.writeUTF(value);
         }
     }
 
-    private static String readNullableString(@NotNull DataInput in) throws IOException {
+    private static String readNullableString(DataInput in) throws IOException {
         return in.readBoolean() ? in.readUTF() : null;
     }
 }

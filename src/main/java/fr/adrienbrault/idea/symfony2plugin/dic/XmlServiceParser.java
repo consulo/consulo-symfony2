@@ -2,13 +2,12 @@ package fr.adrienbrault.idea.symfony2plugin.dic;
 
 import fr.adrienbrault.idea.symfony2plugin.dic.container.ServiceInterface;
 import fr.adrienbrault.idea.symfony2plugin.util.service.AbstractServiceParser;
-import org.jetbrains.annotations.NotNull;
 import org.xml.sax.SAXException;
 
 import javax.xml.parsers.ParserConfigurationException;
 import java.io.IOException;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.vfs.VirtualFile;
+import consulo.project.Project;
+import consulo.virtualFileSystem.VirtualFile;
 import java.io.InputStream;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -18,7 +17,6 @@ import java.util.Map;
  */
 public class XmlServiceParser extends AbstractServiceParser {
 
-    @NotNull
     private ServiceMap serviceMap = new ServiceMap();
 
     @Override
@@ -39,7 +37,6 @@ public class XmlServiceParser extends AbstractServiceParser {
         }
     }
 
-    @NotNull
     public ServiceMap getServiceMap() {
         return serviceMap;
     }

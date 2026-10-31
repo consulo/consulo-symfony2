@@ -1,22 +1,20 @@
 package fr.adrienbrault.idea.symfony2plugin.config.yaml;
 
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiElementResolveResult;
-import com.intellij.psi.PsiPolyVariantReferenceBase;
-import com.intellij.psi.ResolveResult;
-import com.intellij.util.IncorrectOperationException;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiElementResolveResult;
+import consulo.language.psi.PsiPolyVariantReferenceBase;
+import consulo.language.psi.ResolveResult;
+import consulo.language.util.IncorrectOperationException;
 import fr.adrienbrault.idea.symfony2plugin.dic.container.util.ServiceContainerUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.yaml.psi.YAMLScalar;
 
 public class ConstantYamlReference extends PsiPolyVariantReferenceBase<YAMLScalar> {
 
-    public ConstantYamlReference(@NotNull YAMLScalar element) {
+    public ConstantYamlReference(YAMLScalar element) {
         super(element);
     }
 
-    @NotNull
     @Override
     public ResolveResult[] multiResolve(boolean incompleteCode) {
         var constantName = getElement().getTextValue();
@@ -30,7 +28,7 @@ public class ConstantYamlReference extends PsiPolyVariantReferenceBase<YAMLScala
     }
 
     @Override
-    public PsiElement handleElementRename(@NotNull String newElementName) throws IncorrectOperationException {
+    public PsiElement handleElementRename(String newElementName) throws IncorrectOperationException {
         var constantName = getValue();
         if (isClassConst(constantName)) {
             newElementName = getClassName(constantName) + "::" + newElementName;
@@ -39,12 +37,11 @@ public class ConstantYamlReference extends PsiPolyVariantReferenceBase<YAMLScala
         return super.handleElementRename(newElementName);
     }
 
-    private boolean isClassConst(@NotNull String value) {
+    private boolean isClassConst(String value) {
         return value.contains("::");
     }
 
-    @NotNull
-    private String getClassName(@NotNull String value) {
+    private String getClassName(String value) {
         return value.substring(0, value.indexOf("::"));
     }
 }

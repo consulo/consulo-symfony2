@@ -1,9 +1,10 @@
 package fr.adrienbrault.idea.symfony2plugin.templating;
 
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.openapi.project.Project;
-import com.intellij.psi.PsiElement;
-import com.intellij.util.containers.ContainerUtil;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.project.Project;
+import consulo.language.psi.PsiElement;
+import consulo.util.collection.ContainerUtil;
+import consulo.annotation.component.ExtensionImpl;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionProvider;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionRegistrar;
@@ -12,7 +13,6 @@ import fr.adrienbrault.idea.symfony2plugin.templating.dict.TwigExtension;
 import fr.adrienbrault.idea.symfony2plugin.templating.dict.TwigExtensionLookupElement;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigExtensionParser;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -22,8 +22,9 @@ import java.util.Map;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class FilterGotoCompletionRegistrar implements GotoCompletionRegistrar {
-    public void register(@NotNull GotoCompletionRegistrarParameter registrar) {
+    public void register(GotoCompletionRegistrarParameter registrar) {
         // {% trans foo<caret>bar %}
         registrar.register(TwigPattern.getFilterTagPattern(), psiElement -> {
             if (!Symfony2ProjectComponent.isEnabled(psiElement)) {
@@ -42,7 +43,6 @@ public class FilterGotoCompletionRegistrar implements GotoCompletionRegistrar {
             super(psiElement);
         }
 
-        @NotNull
         @Override
         public Collection<LookupElement> getLookupElements() {
             Collection<LookupElement> lookupElements = new ArrayList<>();
@@ -57,7 +57,6 @@ public class FilterGotoCompletionRegistrar implements GotoCompletionRegistrar {
             return lookupElements;
         }
 
-        @NotNull
         @Override
         public Collection<PsiElement> getPsiTargets(PsiElement element) {
             String text = element.getText();

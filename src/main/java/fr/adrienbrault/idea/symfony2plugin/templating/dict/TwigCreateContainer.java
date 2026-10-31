@@ -1,7 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.dict;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.*;
 
@@ -9,13 +8,11 @@ import java.util.*;
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class TwigCreateContainer {
-    @NotNull
     final private Map<String, Integer> extendHap = new HashMap<>();
 
-    @NotNull
     final private Map<String, Integer> blockHap = new HashMap<>();
 
-    public void addExtend(@NotNull String extend) {
+    public void addExtend(String extend) {
         if(extendHap.containsKey(extend)) {
             extendHap.put(extend, extendHap.get(extend) + 1);
         } else {
@@ -23,7 +20,7 @@ public class TwigCreateContainer {
         }
     }
 
-    public void addBlock(@NotNull String block) {
+    public void addBlock(String block) {
         if(blockHap.containsKey(block)) {
             blockHap.put(block, blockHap.get(block) + 1);
         } else {
@@ -37,17 +34,14 @@ public class TwigCreateContainer {
         return !extendsMap.isEmpty() ? extendsMap.keySet().iterator().next() : null;
     }
 
-    @NotNull
     private Map<String, Integer> getExtends() {
         return sortByValue(extendHap);
     }
 
-    @NotNull
     private Map<String, Integer> getBlocks() {
         return sortByValue(blockHap);
     }
 
-    @NotNull
     public Collection<String> getBlockNames(int limit) {
         List<String> strings = new ArrayList<>(getBlocks().keySet());
 
@@ -58,7 +52,6 @@ public class TwigCreateContainer {
         return strings;
     }
 
-    @NotNull
     private static <K, V extends Comparable<? super V>> Map<K, V> sortByValue(Map<K, V> map )
     {
         List<Map.Entry<K, V>> list = new LinkedList<>(map.entrySet());

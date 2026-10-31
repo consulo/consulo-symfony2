@@ -1,72 +1,74 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.inlay.ui;
 
-import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer;
-import com.intellij.codeInsight.hints.InlayHintsSettings;
-import com.intellij.codeInsight.hints.SettingsKey;
-import com.intellij.icons.AllIcons;
-import com.intellij.notification.Notification;
-import com.intellij.notification.NotificationGroupManager;
-import com.intellij.notification.NotificationType;
-import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.editor.Editor;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.ui.popup.JBPopupFactory;
-import com.intellij.openapi.util.Computable;
-import com.intellij.pom.Navigatable;
-import com.intellij.ui.SearchTextField;
-import com.intellij.ui.awt.RelativePoint;
-import com.intellij.ui.components.JBScrollPane;
-import com.intellij.ui.treeStructure.Tree;
-import com.intellij.util.ui.JBUI;
-import com.intellij.util.ui.UIUtil;
 import com.jetbrains.php.PhpIndex;
 import com.jetbrains.php.lang.psi.elements.Field;
 import com.jetbrains.php.lang.psi.elements.Method;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
 import com.jetbrains.php.lang.psi.resolve.types.PhpType;
 import com.jetbrains.twig.TwigFile;
-import com.jetbrains.twig.TwigLanguage;
+import consulo.application.ApplicationManager;
+import consulo.application.util.function.Computable;
+import consulo.codeEditor.Editor;
+import consulo.language.editor.DaemonCodeAnalyzer;
+import consulo.localize.LocalizeValue;
+import consulo.navigation.Navigatable;
+import consulo.platform.base.icon.PlatformIconGroup;
+import consulo.project.Project;
+import consulo.project.ui.notification.Notification;
+import consulo.project.ui.notification.NotificationService;
+import consulo.ui.RelativePoint2D;
+import consulo.ui.TextBox;
+import consulo.ui.Tree;
+import consulo.ui.TreeModel;
+import consulo.ui.TreeNode;
+import consulo.ui.annotation.RequiredUIAccess;
+import consulo.ui.ex.action.ActionGroup;
+import consulo.ui.ex.action.ActionManager;
+import consulo.ui.ex.action.ActionToolbar;
+import consulo.ui.ex.action.AnActionEvent;
+import consulo.ui.ex.action.DefaultActionGroup;
+import consulo.ui.ex.action.DumbAwareAction;
+import consulo.ui.ex.action.LegacyDumbAwareAction;
+import consulo.ui.ex.popup.JBPopup;
+import consulo.ui.ex.popup.JBPopupFactory;
+import consulo.ui.layout.DockLayout;
+import consulo.ui.layout.ScrollableLayout;
 import fr.adrienbrault.idea.symfony2plugin.templating.inlay.TwigVariableInsertHandler;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigTypeResolveUtil;
 import fr.adrienbrault.idea.symfony2plugin.templating.variable.dict.PsiVariable;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
-import org.jetbrains.annotations.NotNull;
+import fr.adrienbrault.idea.symfony2plugin.util.SymfonyNotificationGroupContributor;
+import org.apache.commons.lang3.StringUtils;
+import org.jspecify.annotations.Nullable;
 
-import javax.swing.*;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
-import javax.swing.event.TreeExpansionEvent;
-import javax.swing.event.TreeExpansionListener;
-import javax.swing.tree.DefaultMutableTreeNode;
-import javax.swing.tree.DefaultTreeModel;
-import javax.swing.tree.TreePath;
-import java.awt.*;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
-import java.awt.event.MouseMotionAdapter;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 
 /**
+ * Consulo: the unified tree has no per row action icon, so inserting and navigating are toolbar actions on the
+ * selected row (double click navigates, like the click on a row upstream)
+ *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class TwigVariablesTreePopup {
-    private static final int POPUP_WIDTH = 392;
-    private static final int MIN_VISIBLE_ROWS = 6;
-    private static final int MAX_VISIBLE_ROWS = 16;
-
+    /**
+     * @param point where to show the popup, {@code null} shows it at the best position of the editor
+     */
+    @RequiredUIAccess
     public static void show(
-        @NotNull TwigFile file,
-        @NotNull Editor editor,
-        @NotNull Map<String, PsiVariable> variables,
-        @NotNull MouseEvent mouseEvent
+        TwigFile file,
+        Editor editor,
+        Map<String, PsiVariable> variables,
+        @Nullable RelativePoint2D point
     ) {
         List<VariableTreeEntry> variableEntries = new ArrayList<>();
         for (Map.Entry<String, PsiVariable> entry : variables.entrySet().stream()
@@ -90,245 +92,200 @@ public class TwigVariablesTreePopup {
             }
         }
 
-        DefaultTreeModel model = new DefaultTreeModel(buildFilteredRoot(variableEntries, ""));
-        Tree tree = new Tree(model) {
-            @Override
-            public Dimension getPreferredSize() {
-                Dimension preferred = super.getPreferredSize();
-                Rectangle bounds = getLastVisibleRowBounds(this, getRowCount());
-                if (bounds == null) {
-                    return preferred;
-                }
+        VariableTreeModel model = new VariableTreeModel();
+        model.setRoot(buildFilteredRoot(variableEntries, ""));
 
-                Insets insets = getInsets();
-                int contentHeight = bounds.y + bounds.height + insets.bottom;
-                return new Dimension(preferred.width, contentHeight);
-            }
-        };
-        tree.setRootVisible(false);
-        tree.setCellRenderer(new TwigVariableTreeActionCellRenderer());
+        Tree<TwigVariableTreeNode> tree = Tree.create(model);
 
         TwigVariableInsertHandler insertHandler = new TwigVariableInsertHandler(editor, file);
 
-        com.intellij.openapi.ui.popup.JBPopup[] popupRef = new com.intellij.openapi.ui.popup.JBPopup[1];
+        JBPopup[] popupRef = new JBPopup[1];
 
-        SearchTextField searchField = new SearchTextField();
-        searchField.setToolTipText("Filter variables");
-        Font editorFont = searchField.getTextEditor().getFont();
-        searchField.getTextEditor().setFont(editorFont.deriveFont(Math.max(9f, editorFont.getSize2D() - 2f)));
+        TextBox searchField = TextBox.create();
+        searchField.setPlaceholder(LocalizeValue.localizeTODO("Filter variables"));
+        searchField.setToolTipText(LocalizeValue.localizeTODO("Filter variables"));
 
-        tree.addMouseListener(new MouseAdapter() {
+        Runnable insertSelected = () -> {
+            TwigVariableTreeNode data = getSelectedValue(tree);
+            if (data == null) {
+                return;
+            }
+
+            if (!data.isPropertyNode()) {
+                if (data.isList()) {
+                    insertHandler.insertEmptyForeach(data.name());
+                }
+                else if (data.isBool()) {
+                    insertHandler.insertIfStatement(data.name());
+                }
+                else {
+                    insertHandler.insertPrintBlock(data.name());
+                }
+            }
+            else {
+                String parentVar = data.parentVariable();
+                if (parentVar != null && listVariables.contains(parentVar)) {
+                    insertHandler.insertForeachPropertyAccess(parentVar, data.name());
+                }
+                else if (data.isList() && parentVar != null) {
+                    insertHandler.insertFilledForeach(parentVar, data.name());
+                }
+                else {
+                    String expr = (parentVar != null ? parentVar + "." : "") + data.name();
+                    insertHandler.insertPrintBlock(expr);
+                }
+            }
+
+            if (popupRef[0] != null) {
+                popupRef[0].cancel();
+            }
+        };
+
+        Function<@Nullable TwigVariableTreeNode, Boolean> navigate = data -> {
+            if (data == null) {
+                return false;
+            }
+
+            Navigatable target = ApplicationManager.getApplication().runReadAction((Computable<Navigatable>) () -> findNavigationTarget(file.getProject(), data, variableTypes));
+            if (target == null) {
+                return false;
+            }
+
+            target.navigate(true);
+            if (popupRef[0] != null) {
+                popupRef[0].cancel();
+            }
+            return true;
+        };
+
+        tree.addDoubleClickListener(event -> navigate.apply(event.getValue().getValue()));
+
+        DefaultActionGroup optionsGroup = new DefaultActionGroup(LocalizeValue.localizeTODO("Options"), true);
+        optionsGroup.getTemplatePresentation().setIcon(PlatformIconGroup.generalGearplain());
+        optionsGroup.add(new DumbAwareAction(LocalizeValue.localizeTODO("Disable inlay hints")) {
+            @RequiredUIAccess
             @Override
-            public void mouseClicked(MouseEvent e) {
-                TreePath path = tree.getClosestPathForLocation(e.getX(), e.getY());
-                if (path == null) return;
+            public void actionPerformed(AnActionEvent e) {
+                Project project = file.getProject();
+                // TODO consulo-port: InlayHintsSettings.changeHintTypeStatus / SettingsKey missing; upstream:
+                // InlayHintsSettings.instance().changeHintTypeStatus(new SettingsKey<>("symfony.twig.root.variables"), TwigLanguage.INSTANCE, false);
+                DaemonCodeAnalyzer.getInstance(project).restart(file); // TODO consulo-port: restart(PsiFile, Object reason) missing, reason dropped
 
-                DefaultMutableTreeNode node = (DefaultMutableTreeNode) path.getLastPathComponent();
-                if (!(node.getUserObject() instanceof TwigVariableTreeNode data)) return;
+                Notification notification = NotificationService.getInstance()
+                    .newInfo(SymfonyNotificationGroupContributor.GROUP)
+                    .title(LocalizeValue.localizeTODO("Twig Variable Inlay Hints Disabled"))
+                    .content(LocalizeValue.localizeTODO("Twig variable inlay hints were disabled. Re-enable them in Settings > Editor > Inlay Hints > Other > Twig > Twig Root Variables."))
+                    .create();
+                notification.notify(project);
 
-                int depth = path.getPathCount(); // root(1) + variable(2) + property(3)
-                Rectangle rowBounds = tree.getPathBounds(path);
-                if (rowBounds == null) return;
-                if (e.getY() < rowBounds.y || e.getY() > rowBounds.y + rowBounds.height) {
-                    return;
-                }
-
-                // Keep expand/collapse controls clickable without triggering row actions.
-                if (e.getX() < rowBounds.x) {
-                    return;
-                }
-
-                if (isInsertIconHit(tree, e, rowBounds)) {
-                    if (depth == 2) {
-                        if (data.isList()) {
-                            insertHandler.insertEmptyForeach(data.name());
-                        } else if (data.isBool()) {
-                            insertHandler.insertIfStatement(data.name());
-                        } else {
-                            insertHandler.insertPrintBlock(data.name());
-                        }
-                    } else if (depth == 3) {
-                        String parentVar = data.parentVariable();
-                        if (parentVar != null && listVariables.contains(parentVar)) {
-                            insertHandler.insertForeachPropertyAccess(parentVar, data.name());
-                        } else if (data.isList() && parentVar != null) {
-                            insertHandler.insertFilledForeach(parentVar, data.name());
-                        } else {
-                            String expr = (parentVar != null ? parentVar + "." : "") + data.name();
-                            insertHandler.insertPrintBlock(expr);
-                        }
-                    }
-
-                    if (popupRef[0] != null) {
-                        popupRef[0].cancel();
-                    }
-                    return;
-                }
-
-                Navigatable target = ApplicationManager.getApplication().runReadAction((Computable<Navigatable>) () -> findNavigationTarget(file.getProject(), data, variableTypes));
-                if (target != null) {
-                    target.navigate(true);
-                    if (popupRef[0] != null) {
-                        popupRef[0].cancel();
-                    }
+                if (popupRef[0] != null) {
+                    popupRef[0].cancel();
                 }
             }
         });
 
-        tree.addMouseMotionListener(new MouseMotionAdapter() {
+        ActionGroup.Builder actions = ActionGroup.newImmutableBuilder();
+        actions.add(new LegacyDumbAwareAction(LocalizeValue.localizeTODO("Insert"), LocalizeValue.empty(), PlatformIconGroup.generalAdd()) {
+            @RequiredUIAccess
             @Override
-            public void mouseMoved(MouseEvent e) {
-                TreePath path = tree.getClosestPathForLocation(e.getX(), e.getY());
-                if (path == null) {
-                    tree.setCursor(Cursor.getDefaultCursor());
-                    return;
-                }
+            public void actionPerformed(AnActionEvent e) {
+                insertSelected.run();
+            }
 
-                Rectangle rowBounds = tree.getPathBounds(path);
-                if (rowBounds == null || e.getY() < rowBounds.y || e.getY() > rowBounds.y + rowBounds.height) {
-                    tree.setCursor(Cursor.getDefaultCursor());
-                    return;
-                }
-
-                if (isInsertIconHit(tree, e, rowBounds)) {
-                    tree.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-                } else {
-                    tree.setCursor(Cursor.getDefaultCursor());
-                }
+            @RequiredUIAccess
+            @Override
+            public void update(AnActionEvent e) {
+                e.getPresentation().setEnabled(getSelectedValue(tree) != null);
             }
         });
-
-        // Settings button in top row (next to search)
-        JLabel settingsLabel = new JLabel(AllIcons.General.GearPlain);
-        settingsLabel.setBorder(JBUI.Borders.empty(2, 6));
-        settingsLabel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        settingsLabel.setToolTipText("Options");
-        settingsLabel.addMouseListener(new MouseAdapter() {
+        actions.add(new LegacyDumbAwareAction(LocalizeValue.localizeTODO("Navigate"), LocalizeValue.empty(), PlatformIconGroup.actionsEditsource()) {
+            @RequiredUIAccess
             @Override
-            public void mouseClicked(MouseEvent e) {
-                JPopupMenu menu = new JPopupMenu();
+            public void actionPerformed(AnActionEvent e) {
+                navigate.apply(getSelectedValue(tree));
+            }
 
-                JMenuItem disableItem = new JMenuItem("Disable inlay hints");
-                disableItem.addActionListener(ev -> {
-                    Project project = file.getProject();
-                    InlayHintsSettings.instance().changeHintTypeStatus(new SettingsKey<>("symfony.twig.root.variables"), TwigLanguage.INSTANCE, false);
-                    DaemonCodeAnalyzer.getInstance(project).restart(file, this);
-
-                    Notification notification = NotificationGroupManager.getInstance()
-                        .getNotificationGroup("Symfony Notifications")
-                        .createNotification(
-                            "Twig Variable Inlay Hints Disabled",
-                            "Twig variable inlay hints were disabled. Re-enable them in Settings > Editor > Inlay Hints > Other > Twig > Twig Root Variables.",
-                            NotificationType.INFORMATION
-                        );
-                    notification.notify(project);
-
-                    if (popupRef[0] != null) popupRef[0].cancel();
-                });
-                menu.add(disableItem);
-                menu.show(settingsLabel, 0, settingsLabel.getHeight());
+            @RequiredUIAccess
+            @Override
+            public void update(AnActionEvent e) {
+                e.getPresentation().setEnabled(getSelectedValue(tree) != null);
             }
         });
+        actions.add(optionsGroup);
 
-        JPanel content = new JPanel(new BorderLayout());
-        JBScrollPane scrollPane = new JBScrollPane(tree);
-        scrollPane.setBorder(null);
-        scrollPane.setViewportBorder(null);
-        scrollPane.setPreferredSize(new Dimension(POPUP_WIDTH, getTreeViewportHeight(tree)));
-        JPanel header = new JPanel(new BorderLayout());
-        header.setOpaque(true);
-        header.setBackground(UIUtil.getPanelBackground());
-        header.setBorder(JBUI.Borders.empty(4, 6, 2, 6));
-        header.add(searchField, BorderLayout.CENTER);
-        header.add(settingsLabel, BorderLayout.EAST);
-        content.add(header, BorderLayout.NORTH);
-        content.add(scrollPane, BorderLayout.CENTER);
+        ActionToolbar toolbar = ActionManager.getInstance().createActionToolbar("TwigVariablesTreePopup", actions.build(), true);
+        toolbar.setTargetUIComponent(tree);
+
+        DockLayout header = DockLayout.create();
+        header.center(searchField);
+        header.right(toolbar.getUIComponent());
+
+        DockLayout content = DockLayout.create();
+        content.top(header);
+        content.center(ScrollableLayout.create(tree));
+
+        searchField.addValueListener(event -> {
+            String query = StringUtils.defaultString(searchField.getValue()).trim();
+            model.setRoot(buildFilteredRoot(variableEntries, query));
+            tree.refreshAll().whenComplete((o, throwable) -> {
+                if (!query.isEmpty()) {
+                    tree.expandAll();
+                }
+            });
+        });
 
         popupRef[0] = JBPopupFactory.getInstance()
-            .createComponentPopupBuilder(content, tree)
+            .createComponentPopupBuilder(content, searchField)
             .setRequestFocus(true)
             .setResizable(true)
             .createPopup();
 
-        Runnable updatePopupSize = () -> SwingUtilities.invokeLater(() -> {
-            if (popupRef[0] == null) {
-                return;
-            }
-
-            int viewportHeight = getTreeViewportHeight(tree);
-            scrollPane.setPreferredSize(new Dimension(POPUP_WIDTH, viewportHeight));
-
-            JComponent popupContent = popupRef[0].getContent();
-
-            popupContent.revalidate();
-            int chromeHeight = popupRef[0].getSize().height - popupContent.getHeight();
-            int targetHeight = viewportHeight + header.getPreferredSize().height + chromeHeight;
-            popupRef[0].setSize(new Dimension(POPUP_WIDTH, targetHeight));
-        });
-
-        tree.addTreeExpansionListener(new TreeExpansionListener() {
-            @Override
-            public void treeExpanded(TreeExpansionEvent event) {
-                updatePopupSize.run();
-            }
-
-            @Override
-            public void treeCollapsed(TreeExpansionEvent event) {
-                updatePopupSize.run();
-            }
-        });
-
-        searchField.getTextEditor().getDocument().addDocumentListener(new DocumentListener() {
-            @Override
-            public void insertUpdate(DocumentEvent e) {
-                applyFilter();
-            }
-
-            @Override
-            public void removeUpdate(DocumentEvent e) {
-                applyFilter();
-            }
-
-            @Override
-            public void changedUpdate(DocumentEvent e) {
-                applyFilter();
-            }
-
-            private void applyFilter() {
-                String query = searchField.getText().trim();
-                DefaultMutableTreeNode filteredRoot = buildFilteredRoot(variableEntries, query);
-                model.setRoot(filteredRoot);
-                model.reload();
-                if (!query.isEmpty()) {
-                    expandAll(tree);
-                }
-                updatePopupSize.run();
-            }
-        });
-
-        popupRef[0].show(new RelativePoint(mouseEvent));
-
-        SwingUtilities.invokeLater(() -> {
-            if (popupRef[0] == null) {
-                return;
-            }
-
-            updatePopupSize.run();
-            searchField.requestFocusInWindow();
-        });
-    }
-
-    private static void expandAll(@NotNull JTree tree) {
-        for (int i = 0; i < tree.getRowCount(); i++) {
-            tree.expandRow(i);
+        if (point != null) {
+            popupRef[0].show(point);
+        }
+        else {
+            editor.showPopupInBestPositionFor(popupRef[0]);
         }
     }
 
-    @NotNull
-    private static DefaultMutableTreeNode buildFilteredRoot(@NotNull List<VariableTreeEntry> variableEntries, @NotNull String query) {
+    private static @Nullable TwigVariableTreeNode getSelectedValue(Tree<TwigVariableTreeNode> tree) {
+        TreeNode<TwigVariableTreeNode> node = tree.getSelectedNode();
+        return node != null ? node.getValue() : null;
+    }
+
+    /**
+     * Variables on the first level, their properties below; the root value is {@code null}
+     */
+    private static class VariableTreeModel implements TreeModel<TwigVariableTreeNode> {
+        private Map<TwigVariableTreeNode, List<TwigVariableTreeNode>> myRoot = Map.of();
+
+        void setRoot(Map<TwigVariableTreeNode, List<TwigVariableTreeNode>> root) {
+            myRoot = root;
+        }
+
+        @Override
+        public void buildChildren(Function<TwigVariableTreeNode, TreeNode<TwigVariableTreeNode>> nodeFactory, @Nullable TwigVariableTreeNode parentValue) {
+            if (parentValue == null) {
+                for (Map.Entry<TwigVariableTreeNode, List<TwigVariableTreeNode>> entry : myRoot.entrySet()) {
+                    TreeNode<TwigVariableTreeNode> node = nodeFactory.apply(entry.getKey());
+                    node.setRenderer((value, presentation) -> TwigVariableTreeCellRenderer.render(value, presentation));
+                    node.setLeaf(entry.getValue().isEmpty());
+                }
+                return;
+            }
+
+            for (TwigVariableTreeNode property : myRoot.getOrDefault(parentValue, List.of())) {
+                TreeNode<TwigVariableTreeNode> node = nodeFactory.apply(property);
+                node.setRenderer((value, presentation) -> TwigVariableTreeCellRenderer.render(value, presentation));
+                node.setLeaf(true);
+            }
+        }
+    }
+
+    private static Map<TwigVariableTreeNode, List<TwigVariableTreeNode>> buildFilteredRoot(List<VariableTreeEntry> variableEntries, String query) {
         String normalizedQuery = query.toLowerCase(Locale.ROOT);
         boolean hasQuery = !normalizedQuery.isBlank();
-        DefaultMutableTreeNode root = new DefaultMutableTreeNode("Variables");
+        Map<TwigVariableTreeNode, List<TwigVariableTreeNode>> root = new LinkedHashMap<>();
 
         for (VariableTreeEntry variableEntry : variableEntries) {
             TwigVariableTreeNode variableNodeData = variableEntry.variableNode;
@@ -345,18 +302,13 @@ public class TwigVariablesTreePopup {
                 continue;
             }
 
-            DefaultMutableTreeNode variableNode = new DefaultMutableTreeNode(variableNodeData);
-            for (TwigVariableTreeNode propertyNodeData : filteredProperties) {
-                variableNode.add(new DefaultMutableTreeNode(propertyNodeData, false));
-            }
-
-            root.add(variableNode);
+            root.put(variableNodeData, filteredProperties);
         }
 
         return root;
     }
 
-    private static boolean matchesQuery(@NotNull TwigVariableTreeNode node, @NotNull String query) {
+    private static boolean matchesQuery(TwigVariableTreeNode node, String query) {
         if (query.isBlank()) {
             return true;
         }
@@ -375,19 +327,10 @@ public class TwigVariablesTreePopup {
         return parent != null && (parent + "." + node.name()).toLowerCase(Locale.ROOT).contains(query);
     }
 
-    private static boolean isInsertIconHit(@NotNull JTree tree, @NotNull MouseEvent e, @NotNull Rectangle rowBounds) {
-        Rectangle visible = tree.getVisibleRect();
-        int actionZoneWidth = TwigVariableTreeActionCellRenderer.ACTION_ICON.getIconWidth() + TwigVariableTreeActionCellRenderer.ACTION_ICON_RIGHT_INSET + 14;
-        int zoneRight = visible.x + visible.width - 4;
-        int zoneLeft = zoneRight - actionZoneWidth;
-
-        return e.getX() >= zoneLeft && e.getX() <= zoneRight && e.getY() >= rowBounds.y && e.getY() <= rowBounds.y + rowBounds.height;
-    }
-
-    private static Navigatable findNavigationTarget(
-        @NotNull Project project,
-        @NotNull TwigVariableTreeNode node,
-        @NotNull Map<String, Set<String>> variableTypes
+    private static @Nullable Navigatable findNavigationTarget(
+        Project project,
+        TwigVariableTreeNode node,
+        Map<String, Set<String>> variableTypes
     ) {
         if (!node.isPropertyNode()) {
             return findClassNavigatable(project, node.types());
@@ -421,7 +364,7 @@ public class TwigVariablesTreePopup {
 
                 String propName = TwigTypeResolveUtil.getPropertyShortcutMethodName(method);
                 if (node.name().equals(propName)) {
-                    return method;
+                    return (Navigatable) method;
                 }
             }
 
@@ -431,7 +374,7 @@ public class TwigVariablesTreePopup {
                 }
 
                 if (node.name().equals(field.getName())) {
-                    return field;
+                    return (Navigatable) field;
                 }
             }
         }
@@ -439,7 +382,7 @@ public class TwigVariablesTreePopup {
         return null;
     }
 
-    private static Navigatable findClassNavigatable(@NotNull Project project, @NotNull Set<String> types) {
+    private static @Nullable Navigatable findClassNavigatable(Project project, Set<String> types) {
         for (String type : types) {
             String baseType = type.replaceAll("\\[\\]$", "");
             if (baseType.isBlank() || !baseType.startsWith("\\")) {
@@ -455,42 +398,7 @@ public class TwigVariablesTreePopup {
         return null;
     }
 
-    private static int getTreeViewportHeight(@NotNull JTree tree) {
-        int rowCount = Math.max(tree.getRowCount(), 0);
-        int visibleRows = Math.min(TwigVariablesTreePopup.MAX_VISIBLE_ROWS, Math.max(TwigVariablesTreePopup.MIN_VISIBLE_ROWS, rowCount));
-        Rectangle lastVisibleRowBounds = getLastVisibleRowBounds(tree, visibleRows);
-        if (lastVisibleRowBounds != null) {
-            // Keep a tiny guard pixel budget to avoid borderline "empty-space only" vertical scrollbars.
-            return lastVisibleRowBounds.y + lastVisibleRowBounds.height + 2;
-        }
-
-        Insets insets = tree.getInsets();
-        int rowHeight = getEffectiveRowHeight(tree);
-        return insets.top + (visibleRows * rowHeight) + insets.bottom + 2;
-    }
-
-    private static Rectangle getLastVisibleRowBounds(@NotNull JTree tree, int visibleRows) {
-        if (visibleRows <= 0) {
-            return null;
-        }
-        return tree.getRowBounds(visibleRows - 1);
-    }
-
-    private static int getEffectiveRowHeight(@NotNull JTree tree) {
-        int rowHeight = tree.getRowHeight();
-        if (rowHeight > 0) {
-            return rowHeight;
-        }
-
-        Rectangle firstRow = tree.getRowBounds(0);
-        if (firstRow != null && firstRow.height > 0) {
-            return firstRow.height;
-        }
-
-        return 20;
-    }
-
-    private static Set<String> resolveTypes(@NotNull Project project, @NotNull Set<String> rawTypes) {
+    private static Set<String> resolveTypes(Project project, Set<String> rawTypes) {
         PhpType resolved = PhpIndex.getInstance(project).completeType(
             project, PhpType.from(rawTypes.toArray(new String[0])), new HashSet<>()
         );
@@ -503,6 +411,6 @@ public class TwigVariablesTreePopup {
         return result.isEmpty() ? rawTypes : result;
     }
 
-    private record VariableTreeEntry(@NotNull TwigVariableTreeNode variableNode, @NotNull List<TwigVariableTreeNode> propertyNodes) {
+    private record VariableTreeEntry(TwigVariableTreeNode variableNode, List<TwigVariableTreeNode> propertyNodes) {
     }
 }

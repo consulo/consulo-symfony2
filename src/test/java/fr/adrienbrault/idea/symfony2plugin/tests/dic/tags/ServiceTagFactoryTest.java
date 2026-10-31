@@ -1,6 +1,8 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.dic.tags;
 
-import com.intellij.psi.PsiElement;
+import org.junit.jupiter.api.Test;
+
+import consulo.language.psi.PsiElement;
 import fr.adrienbrault.idea.symfony2plugin.dic.tags.ServiceTagFactory;
 import fr.adrienbrault.idea.symfony2plugin.dic.tags.ServiceTagInterface;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
@@ -13,6 +15,7 @@ import java.util.Collection;
  * @see fr.adrienbrault.idea.symfony2plugin.dic.tags.ServiceTagFactory
  */
 public class ServiceTagFactoryTest extends SymfonyLightCodeInsightFixtureTestCase {
+    @Test
     public void testServiceTagFactoryCreationForYaml() {
         myFixture.configureByText(YAMLFileType.YML, "" +
             "services:\n" +

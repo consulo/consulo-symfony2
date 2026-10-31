@@ -1,14 +1,15 @@
 package fr.adrienbrault.idea.symfony2plugin.codeInsight.navigation;
 
-import com.intellij.codeInsight.navigation.actions.GotoDeclarationHandler;
-import com.intellij.openapi.actionSystem.DataContext;
-import com.intellij.openapi.editor.Editor;
-import com.intellij.psi.PsiElement;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.codeEditor.Editor;
+import consulo.dataContext.DataContext;
+import consulo.language.editor.navigation.GotoDeclarationHandler;
+import consulo.language.psi.PsiElement;
+import consulo.localize.LocalizeValue;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionContributor;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionProviderInterface;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.utils.GotoCompletionUtil;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -16,10 +17,10 @@ import java.util.Collection;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class GotoHandler implements GotoDeclarationHandler {
 
 
-    @Nullable
     @Override
     public PsiElement[] getGotoDeclarationTargets(PsiElement psiElement, int i, Editor editor) {
 
@@ -38,9 +39,8 @@ public class GotoHandler implements GotoDeclarationHandler {
         return psiTargets.toArray(new PsiElement[0]);
     }
 
-    @Nullable
     @Override
-    public String getActionText(DataContext dataContext) {
-        return null;
+    public LocalizeValue getActionText(DataContext dataContext) {
+        return LocalizeValue.empty();
     }
 }

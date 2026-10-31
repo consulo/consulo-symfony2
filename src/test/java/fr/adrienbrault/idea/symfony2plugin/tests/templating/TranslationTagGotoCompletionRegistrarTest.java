@@ -1,6 +1,8 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.templating;
 
-import com.intellij.patterns.PlatformPatterns;
+import org.junit.jupiter.api.Test;
+
+import consulo.language.pattern.PlatformPatterns;
 import com.jetbrains.twig.TwigFileType;
 import fr.adrienbrault.idea.symfony2plugin.templating.TranslationTagGotoCompletionRegistrar;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
@@ -19,6 +21,8 @@ public class TranslationTagGotoCompletionRegistrarTest extends SymfonyLightCodeI
     public String getTestDataPath() {
         return "src/test/java/fr/adrienbrault/idea/symfony2plugin/tests/templating/fixtures";
     }
+
+    @Test
 
     public void testThatTransTagProvidesCompletionForTagValue() {
         assertCompletionContains(
@@ -46,6 +50,8 @@ public class TranslationTagGotoCompletionRegistrarTest extends SymfonyLightCodeI
         );
     }
 
+    @Test
+
     public void testThatTransTagProvidesCompletionForTagValueWithMessagesScope() {
         assertCompletionContains(
             TwigFileType.INSTANCE,
@@ -53,6 +59,8 @@ public class TranslationTagGotoCompletionRegistrarTest extends SymfonyLightCodeI
             "symfony.great"
         );
     }
+
+    @Test
 
     public void testThatTransTagProvidesNavigationForTagValue() {
         assertNavigationMatch(

@@ -1,14 +1,13 @@
 package fr.adrienbrault.idea.symfony2plugin.util;
 
-import com.intellij.psi.PsiElement;
 import com.jetbrains.php.lang.psi.elements.ArrayCreationExpression;
 import com.jetbrains.php.lang.psi.elements.Method;
 import com.jetbrains.php.lang.psi.elements.MethodReference;
 import com.jetbrains.php.lang.psi.elements.ParameterList;
+import consulo.language.psi.PsiElement;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.dic.MethodReferenceBag;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -20,13 +19,11 @@ import java.util.List;
  */
 public class MethodMatcher {
 
-    @Nullable
-    public static MethodMatcher.MethodMatchParameter getMatchedSignatureWithDepth(PsiElement psiElement, MethodMatcher.CallToSignature[] callToSignatures) {
+    public static MethodMatcher.@Nullable MethodMatchParameter getMatchedSignatureWithDepth(PsiElement psiElement, MethodMatcher.CallToSignature[] callToSignatures) {
         return getMatchedSignatureWithDepth(psiElement, callToSignatures, 0);
     }
 
-    @Nullable
-    public static MethodMatcher.MethodMatchParameter getMatchedSignatureWithDepth(PsiElement psiElement, MethodMatcher.CallToSignature[] callToSignatures, int defaultParameterIndex) {
+    public static MethodMatcher.@Nullable MethodMatchParameter getMatchedSignatureWithDepth(PsiElement psiElement, MethodMatcher.CallToSignature[] callToSignatures, int defaultParameterIndex) {
 
         if (!Symfony2ProjectComponent.isEnabled(psiElement)) {
             return null;
@@ -47,64 +44,52 @@ public class MethodMatcher {
     }
 
     public static class CallToSignature {
-        @NotNull
         private final String instance;
 
-        @NotNull
         private final String method;
 
-        public CallToSignature(@NotNull String instance, @NotNull String method) {
+        public CallToSignature(String instance, String method) {
             this.instance = instance;
             this.method = method;
         }
 
-        @NotNull
         public String getInstance() {
             return instance;
         }
 
-        @NotNull
         public String getMethod() {
             return method;
         }
     }
 
     public static class MethodMatchParameter {
-        @NotNull
         final private CallToSignature signature;
 
-        @NotNull
         final private ParameterBag parameterBag;
 
-        @NotNull
         final private PsiElement[] parameters;
 
-        @NotNull
         final private MethodReference methodReference;
 
-        public MethodMatchParameter(@NotNull CallToSignature signature, @NotNull ParameterBag parameterBag, @NotNull PsiElement[] parameters, @NotNull MethodReference methodReference) {
+        public MethodMatchParameter(CallToSignature signature, ParameterBag parameterBag, PsiElement[] parameters, MethodReference methodReference) {
             this.signature = signature;
             this.parameterBag = parameterBag;
             this.parameters = parameters;
             this.methodReference = methodReference;
         }
 
-        @NotNull
         public CallToSignature getSignature() {
             return signature;
         }
 
-        @NotNull
         public ParameterBag getParameterBag() {
             return this.parameterBag;
         }
 
-        @NotNull
         public PsiElement[] getParameters() {
             return parameters;
         }
 
-        @NotNull
         public MethodReference getMethodReference() {
             return methodReference;
         }
@@ -301,7 +286,7 @@ public class MethodMatcher {
          * Match both positional and reordered named arguments against the declared parameter position.
          * For example: generateUrl(parameters: ['slug' => 'blog'], name: 'app_blog').
          */
-        protected boolean matchesParameter(@NotNull MethodReference methodReference, @NotNull ParameterBag parameter) {
+        protected boolean matchesParameter(MethodReference methodReference, ParameterBag parameter) {
             if (parameterIndex < 0) {
                 return true;
             }

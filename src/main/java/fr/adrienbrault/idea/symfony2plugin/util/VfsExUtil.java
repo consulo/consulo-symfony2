@@ -1,12 +1,11 @@
 package fr.adrienbrault.idea.symfony2plugin.util;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.roots.ProjectRootManager;
-import com.intellij.openapi.util.io.FileUtil;
-import com.intellij.openapi.vfs.VfsUtil;
-import com.intellij.openapi.vfs.VirtualFile;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import consulo.module.content.ProjectRootManager;
+import consulo.project.Project;
+import consulo.util.io.FileUtil;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.virtualFileSystem.util.VirtualFileUtil;
+import org.jspecify.annotations.Nullable;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -14,24 +13,24 @@ import org.jetbrains.annotations.Nullable;
 public class VfsExUtil {
 
     @Nullable
-    public static String getRelativeProjectPath(@NotNull Project project, @NotNull VirtualFile virtualFile) {
+    public static String getRelativeProjectPath(Project project, VirtualFile virtualFile) {
         VirtualFile projectDir = ProjectUtil.getProjectDir(project);
         if (projectDir == null) {
             return virtualFile.getPath();
         }
 
-        String relativePath = VfsUtil.getRelativePath(virtualFile, projectDir);
+        String relativePath = VirtualFileUtil.getRelativePath(virtualFile, projectDir);
         return relativePath != null ? relativePath : virtualFile.getPath();
     }
 
     /**
      * Returns true if the given path is absolute on any OS, regardless of the OS the JVM is running on.
      * Detects Unix-style paths ("/foo") and Windows drive-letter paths ("C:/foo", "C:\foo").
-     * This is necessary because {@link com.intellij.openapi.util.io.FileUtil#isAbsolute} is
+     * This is necessary because {@link consulo.util.io.FileUtil#isAbsolute} is
      * OS-sensitive: on Windows it does not recognise Unix paths (e.g. from Docker/WSL containers),
      * and on Linux it does not recognise Windows drive-letter paths.
      */
-    public static boolean isAbsolutePath(@NotNull String path) {
+    public static boolean isAbsolutePath(String path) {
         // Unix-style absolute path (e.g. from Docker/WSL containers on Windows)
         if (path.startsWith("/")) {
             return true;
@@ -54,15 +53,15 @@ public class VfsExUtil {
      * are in the in-memory temp:// VFS).
      */
     @Nullable
-    public static String getRelativeProjectPathStrict(@NotNull Project project, @NotNull VirtualFile file) {
+    public static String getRelativeProjectPathStrict(Project project, VirtualFile file) {
         VirtualFile baseDir = ProjectUtil.getProjectDir(project);
         if (baseDir != null && baseDir.getFileSystem().equals(file.getFileSystem())) {
-            return VfsUtil.getRelativePath(file, baseDir);
+            return VirtualFileUtil.getRelativePath(file, baseDir);
         }
 
         for (VirtualFile root : ProjectRootManager.getInstance(project).getContentRoots()) {
-            if (root.getFileSystem().equals(file.getFileSystem()) && VfsUtil.isAncestor(root, file, false)) {
-                return VfsUtil.getRelativePath(file, root);
+            if (root.getFileSystem().equals(file.getFileSystem()) && VirtualFileUtil.isAncestor(root, file, false)) {
+                return VirtualFileUtil.getRelativePath(file, root);
             }
         }
 

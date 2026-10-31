@@ -1,10 +1,9 @@
 package fr.adrienbrault.idea.symfony2plugin.util.controller;
 
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.codeInsight.lookup.LookupElementPresentation;
 import com.jetbrains.php.PhpIcons;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.editor.completion.lookup.LookupElementPresentation;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -17,7 +16,6 @@ public class ControllerActionLookupElement extends LookupElement {
         this.controllerAction = controllerAction;
     }
 
-    @NotNull
     @Override
     public String getLookupString() {
         return this.controllerAction.getShortcutName();

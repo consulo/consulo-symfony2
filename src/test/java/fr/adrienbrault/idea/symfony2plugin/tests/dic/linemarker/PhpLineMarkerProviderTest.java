@@ -1,18 +1,20 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.dic.linemarker;
 
-import com.intellij.patterns.PatternCondition;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.util.ProcessingContext;
+import org.junit.jupiter.api.Test;
+
+import consulo.language.pattern.PatternCondition;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.util.ProcessingContext;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * @see fr.adrienbrault.idea.symfony2plugin.dic.linemarker.PhpLineMarkerProvider
  */
 public class PhpLineMarkerProviderTest extends SymfonyLightCodeInsightFixtureTestCase {
+    @Test
     public void testThatPhpArrayDecoratesOutsideServicesDoesNotProvideMarker() {
         PsiFile configFile = myFixture.addFileToProject("config/services.php", "<?php\n" +
             "return [\n" +
@@ -27,6 +29,8 @@ public class PhpLineMarkerProviderTest extends SymfonyLightCodeInsightFixtureTes
         assertLineMarkerIsEmpty(myFixture.getFile());
     }
 
+    @Test
+
     public void testThatAssignedServicesArrayDoesNotProvideMarker() {
         PsiFile configFile = myFixture.addFileToProject("config/services.php", "<?php\n" +
             "$foo = [\n" +
@@ -40,6 +44,8 @@ public class PhpLineMarkerProviderTest extends SymfonyLightCodeInsightFixtureTes
 
         assertLineMarkerIsEmpty(myFixture.getFile());
     }
+
+    @Test
 
     public void testThatAssignedAppConfigArrayProvidesMarker() {
         PsiFile configFile = myFixture.addFileToProject("config/services.php", "<?php\n" +
@@ -56,6 +62,8 @@ public class PhpLineMarkerProviderTest extends SymfonyLightCodeInsightFixtureTes
 
         assertLineMarker(myFixture.getFile(), new LineMarker.ToolTipEqualsAssert("Navigate to decorated service"));
     }
+
+    @Test
 
     public void testThatPhpArrayDecoratesProvidesForwardMarkerForStringServiceId() {
         PsiFile configFile = myFixture.addFileToProject("config/services.php", "<?php\n" +
@@ -75,6 +83,8 @@ public class PhpLineMarkerProviderTest extends SymfonyLightCodeInsightFixtureTes
         ));
     }
 
+    @Test
+
     public void testThatAppConfigPhpArrayDecoratesProvidesForwardMarkerForStringServiceId() {
         PsiFile configFile = myFixture.addFileToProject("config/services.php", "<?php\n" +
             "namespace Symfony\\Component\\DependencyInjection\\Loader\\Configurator;\n" +
@@ -90,6 +100,8 @@ public class PhpLineMarkerProviderTest extends SymfonyLightCodeInsightFixtureTes
 
         assertLineMarker(myFixture.getFile(), new LineMarker.ToolTipEqualsAssert("Navigate to decorated service"));
     }
+
+    @Test
 
     public void testThatAppConfigWithoutReturnProvidesForwardMarker() {
         PsiFile configFile = myFixture.addFileToProject("config/services.php", "<?php\n" +
@@ -107,6 +119,8 @@ public class PhpLineMarkerProviderTest extends SymfonyLightCodeInsightFixtureTes
         assertLineMarker(myFixture.getFile(), new LineMarker.ToolTipEqualsAssert("Navigate to decorated service"));
     }
 
+    @Test
+
     public void testThatPhpArrayParentProvidesForwardMarkerForStringServiceId() {
         PsiFile configFile = myFixture.addFileToProject("config/services.php", "<?php\n" +
             "return [\n" +
@@ -121,6 +135,8 @@ public class PhpLineMarkerProviderTest extends SymfonyLightCodeInsightFixtureTes
 
         assertLineMarker(myFixture.getFile(), new LineMarker.ToolTipEqualsAssert("Navigate to parent service"));
     }
+
+    @Test
 
     public void testThatPhpArrayDecoratesProvidesForwardMarkerForClassConstant() {
         PsiFile configFile = myFixture.addFileToProject("config/services.php", "<?php\n" +
@@ -139,6 +155,8 @@ public class PhpLineMarkerProviderTest extends SymfonyLightCodeInsightFixtureTes
         assertLineMarker(myFixture.getFile(), new LineMarker.ToolTipEqualsAssert("Navigate to decorated service"));
     }
 
+    @Test
+
     public void testThatPhpArrayDecoratedServiceProvidesReverseMarker() {
         PsiFile configFile = myFixture.addFileToProject("config/services.php", "<?php\n" +
             "use App\\DecoratingMailer;\n" +
@@ -155,6 +173,8 @@ public class PhpLineMarkerProviderTest extends SymfonyLightCodeInsightFixtureTes
 
         assertLineMarker(myFixture.getFile(), new LineMarker.ToolTipEqualsAssert("Navigate to decoration"));
     }
+
+    @Test
 
     public void testThatPhpArrayParentServiceProvidesReverseMarker() {
         PsiFile configFile = myFixture.addFileToProject("config/services.php", "<?php\n" +
@@ -173,6 +193,8 @@ public class PhpLineMarkerProviderTest extends SymfonyLightCodeInsightFixtureTes
         assertLineMarker(myFixture.getFile(), new LineMarker.ToolTipEqualsAssert("Navigate to parent"));
     }
 
+    @Test
+
     public void testThatPhpFluentDecorateProvidesForwardMarker() {
         PsiFile configFile = myFixture.addFileToProject("config/services.php", "<?php\n" +
             "namespace Symfony\\Component\\DependencyInjection\\Loader\\Configurator;\n" +
@@ -188,6 +210,8 @@ public class PhpLineMarkerProviderTest extends SymfonyLightCodeInsightFixtureTes
         assertLineMarker(myFixture.getFile(), new LineMarker.ToolTipEqualsAssert("Navigate to decorated service"));
     }
 
+    @Test
+
     public void testThatPhpFluentParentProvidesForwardMarker() {
         PsiFile configFile = myFixture.addFileToProject("config/services.php", "<?php\n" +
             "namespace Symfony\\Component\\DependencyInjection\\Loader\\Configurator;\n" +
@@ -202,6 +226,8 @@ public class PhpLineMarkerProviderTest extends SymfonyLightCodeInsightFixtureTes
 
         assertLineMarker(myFixture.getFile(), new LineMarker.ToolTipEqualsAssert("Navigate to parent service"));
     }
+
+    @Test
 
     public void testThatPhpFluentDecoratedServiceProvidesReverseMarker() {
         PsiFile configFile = myFixture.addFileToProject("config/services.php", "<?php\n" +
@@ -219,6 +245,8 @@ public class PhpLineMarkerProviderTest extends SymfonyLightCodeInsightFixtureTes
         assertLineMarker(myFixture.getFile(), new LineMarker.ToolTipEqualsAssert("Navigate to decoration"));
     }
 
+    @Test
+
     public void testThatPhpFluentParentServiceProvidesReverseMarker() {
         PsiFile configFile = myFixture.addFileToProject("config/services.php", "<?php\n" +
             "namespace Symfony\\Component\\DependencyInjection\\Loader\\Configurator;\n" +
@@ -235,6 +263,8 @@ public class PhpLineMarkerProviderTest extends SymfonyLightCodeInsightFixtureTes
         assertLineMarker(myFixture.getFile(), new LineMarker.ToolTipEqualsAssert("Navigate to parent"));
     }
 
+    @Test
+
     public void testThatNonSymfonyFluentDecorateDoesNotProvideMarker() {
         PsiFile configFile = myFixture.addFileToProject("config/services.php", "<?php\n" +
             "namespace App;\n" +
@@ -250,6 +280,8 @@ public class PhpLineMarkerProviderTest extends SymfonyLightCodeInsightFixtureTes
 
         assertLineMarkerIsEmpty(myFixture.getFile());
     }
+
+    @Test
 
     public void testThatPhpArrayServiceResourceIsHavingLinemarker() {
         myFixture.addFileToProject("src/Service/ResourceLineMarkerFoo.php", "<?php\n" +
@@ -275,12 +307,14 @@ public class PhpLineMarkerProviderTest extends SymfonyLightCodeInsightFixtureTes
         assertLineMarker(phpConfig, new LineMarker.TargetAcceptsPattern("Navigate to class",
             PlatformPatterns.psiElement(PhpClass.class).with(new PatternCondition<>("fqn") {
                 @Override
-                public boolean accepts(@NotNull PhpClass phpClass, ProcessingContext context) {
+                public boolean accepts(PhpClass phpClass, ProcessingContext context) {
                     return "\\App\\Service\\ResourceLineMarkerFoo".equals(phpClass.getFQN());
                 }
             }))
         );
     }
+
+    @Test
 
     public void testThatPhpArrayServiceResourceUsesDefaultsAutowireParsingPath() {
         myFixture.addFileToProject("src/Service/ResourceLineMarkerFoo.php", "<?php\n" +
@@ -306,12 +340,14 @@ public class PhpLineMarkerProviderTest extends SymfonyLightCodeInsightFixtureTes
         assertLineMarker(phpConfig, new LineMarker.TargetAcceptsPattern("Navigate to class",
             PlatformPatterns.psiElement(PhpClass.class).with(new PatternCondition<>("fqn") {
                 @Override
-                public boolean accepts(@NotNull PhpClass phpClass, ProcessingContext context) {
+                public boolean accepts(PhpClass phpClass, ProcessingContext context) {
                     return "\\App\\Service\\ResourceLineMarkerFoo".equals(phpClass.getFQN());
                 }
             }))
         );
     }
+
+    @Test
 
     public void testThatDirectPhpArrayServiceResourceIsHavingLinemarker() {
         myFixture.addFileToProject("src/Service/ResourceLineMarkerFoo.php", "<?php\n" +
@@ -335,7 +371,7 @@ public class PhpLineMarkerProviderTest extends SymfonyLightCodeInsightFixtureTes
         assertLineMarker(phpConfig, new LineMarker.TargetAcceptsPattern("Navigate to class",
             PlatformPatterns.psiElement(PhpClass.class).with(new PatternCondition<>("fqn") {
                 @Override
-                public boolean accepts(@NotNull PhpClass phpClass, ProcessingContext context) {
+                public boolean accepts(PhpClass phpClass, ProcessingContext context) {
                     return "\\App\\Service\\ResourceLineMarkerFoo".equals(phpClass.getFQN());
                 }
             }))

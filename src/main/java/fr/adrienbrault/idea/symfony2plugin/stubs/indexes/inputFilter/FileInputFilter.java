@@ -1,12 +1,13 @@
 package fr.adrienbrault.idea.symfony2plugin.stubs.indexes.inputFilter;
 
-import com.intellij.ide.highlighter.XmlFileType;
-import com.intellij.openapi.fileTypes.FileType;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.util.indexing.FileBasedIndex;
 import com.jetbrains.php.lang.PhpFileType;
-import org.jetbrains.annotations.NotNull;
+import consulo.language.psi.stub.FileBasedIndex;
+import consulo.project.Project;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.virtualFileSystem.fileType.FileType;
+import consulo.xml.language.XmlFileType;
 import org.jetbrains.yaml.YAMLFileType;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Files which are allowed for cusomng on index
@@ -21,7 +22,7 @@ public class FileInputFilter {
 
     private static class XmlAndYamlFileInputFilter implements FileBasedIndex.InputFilter {
         @Override
-        public boolean acceptInput(@NotNull VirtualFile file) {
+        public boolean acceptInput(@Nullable Project project, VirtualFile file) {
             FileType fileType = file.getFileType();
 
             // "xsd" and other file types are inside file tye, filter by extension
@@ -36,7 +37,7 @@ public class FileInputFilter {
 
     private static class XmlYamlAndPhpFileInputFilter implements FileBasedIndex.InputFilter {
         @Override
-        public boolean acceptInput(@NotNull VirtualFile file) {
+        public boolean acceptInput(@Nullable Project project, VirtualFile file) {
             FileType fileType = file.getFileType();
 
             // "xsd" and other file types are inside file tye, filter by extension

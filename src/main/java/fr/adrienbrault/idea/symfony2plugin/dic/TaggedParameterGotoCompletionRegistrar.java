@@ -1,9 +1,10 @@
 package fr.adrienbrault.idea.symfony2plugin.dic;
 
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.patterns.XmlPatterns;
-import com.intellij.psi.PsiElement;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiElement;
+import consulo.xml.language.psi.pattern.XmlPatterns;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionContributor;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionProvider;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionRegistrar;
@@ -13,7 +14,6 @@ import fr.adrienbrault.idea.symfony2plugin.config.xml.XmlHelper;
 import fr.adrienbrault.idea.symfony2plugin.config.yaml.YamlElementPatternHelper;
 import fr.adrienbrault.idea.symfony2plugin.util.completion.TagNameCompletionProvider;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.ServiceUtil;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -22,9 +22,10 @@ import java.util.Collections;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class TaggedParameterGotoCompletionRegistrar implements GotoCompletionRegistrar {
     @Override
-    public void register(@NotNull GotoCompletionRegistrarParameter registrar) {
+    public void register(GotoCompletionRegistrarParameter registrar) {
         // arguments: [!tagged twig.extension]
         // <argument type="tagged" tag="foobar" />
         registrar.register(
@@ -40,15 +41,13 @@ public class TaggedParameterGotoCompletionRegistrar implements GotoCompletionReg
 
     private static class MyTagGotoCompletionContributor implements GotoCompletionContributor {
         @Override
-        public GotoCompletionProvider getProvider(@NotNull PsiElement psiElement) {
+        public GotoCompletionProvider getProvider(PsiElement psiElement) {
             return new GotoCompletionProvider(psiElement) {
-                @NotNull
                 @Override
                 public Collection<LookupElement> getLookupElements() {
                     return TagNameCompletionProvider.getTagLookupElements(getProject());
                 }
 
-                @NotNull
                 @Override
                 public Collection<PsiElement> getPsiTargets(PsiElement element) {
                     String tagName = GotoCompletionUtil.getTextValueForElement(element);

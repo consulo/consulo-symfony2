@@ -1,11 +1,10 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.completion;
 
-import com.intellij.codeInsight.completion.InsertHandler;
-import com.intellij.codeInsight.completion.InsertionContext;
 import com.jetbrains.php.completion.insert.PhpInsertHandlerUtil;
+import consulo.language.editor.completion.lookup.InsertHandler;
+import consulo.language.editor.completion.lookup.InsertionContext;
 import fr.adrienbrault.idea.symfony2plugin.routing.RouteLookupElement;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -18,7 +17,7 @@ public class TwigPathFunctionInsertHandler implements InsertHandler<RouteLookupE
 
     private static final TwigPathFunctionInsertHandler instance = new TwigPathFunctionInsertHandler();
 
-    public void handleInsert(@NotNull InsertionContext context, @NotNull RouteLookupElement lookupElement) {
+    public void handleInsert(InsertionContext context, RouteLookupElement lookupElement) {
         context.getDocument().insertString(context.getStartOffset(), "{{ path('");
 
         StringBuilder stringBuilder = new StringBuilder();

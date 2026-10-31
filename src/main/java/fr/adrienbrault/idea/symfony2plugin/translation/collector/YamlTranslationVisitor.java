@@ -1,10 +1,9 @@
 package fr.adrienbrault.idea.symfony2plugin.translation.collector;
 
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.util.PsiTreeUtil;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.util.PsiTreeUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.yaml.psi.*;
 
 import java.util.ArrayList;
@@ -16,13 +15,13 @@ import java.util.List;
  */
 public class YamlTranslationVisitor {
 
-    public static void collectFileTranslations(@NotNull YAMLFile yamlFile, @NotNull YamlTranslationCollector translationCollector) {
+    public static void collectFileTranslations(YAMLFile yamlFile, YamlTranslationCollector translationCollector) {
         for(YAMLKeyValue yamlKeyValue: YamlHelper.getTopLevelKeyValues(yamlFile)) {
             collectItems(yamlKeyValue, translationCollector);
         }
     }
 
-    private static void collectNextLevelElements(@NotNull YAMLCompoundValue yamlCompoundValue, @NotNull List<String> levels, @NotNull YamlTranslationCollector translationCollector) {
+    private static void collectNextLevelElements(YAMLCompoundValue yamlCompoundValue, List<String> levels, YamlTranslationCollector translationCollector) {
         Collection<YAMLKeyValue> yamlKeyValues = PsiTreeUtil.getChildrenOfTypeAsList(yamlCompoundValue, YAMLKeyValue.class);
         for(YAMLKeyValue yamlKeyValue: yamlKeyValues) {
             if(!collectItems(levels, yamlKeyValue, translationCollector)) {
@@ -31,11 +30,11 @@ public class YamlTranslationVisitor {
         }
     }
 
-    private static void collectItems(@NotNull YAMLKeyValue yamlKeyValue, @NotNull YamlTranslationCollector translationCollector ) {
+    private static void collectItems(YAMLKeyValue yamlKeyValue, YamlTranslationCollector translationCollector ) {
         collectItems(new ArrayList<>(), yamlKeyValue, translationCollector);
     }
 
-    private static boolean collectItems(@NotNull List<String> levels, @NotNull YAMLKeyValue yamlKeyValue, @NotNull YamlTranslationCollector translationCollector) {
+    private static boolean collectItems(List<String> levels, YAMLKeyValue yamlKeyValue, YamlTranslationCollector translationCollector) {
         List<YAMLPsiElement> childElements = yamlKeyValue.getYAMLElements();
         String keyText = yamlKeyValue.getKeyText();
         if(StringUtils.isBlank(keyText)) {
@@ -78,7 +77,7 @@ public class YamlTranslationVisitor {
         return true;
     }
 
-    private static boolean callCollectCallback(@NotNull List<String> levels, @NotNull YAMLKeyValue yamlKeyValue, @NotNull YamlTranslationCollector translationCollector, @NotNull String keyText) {
+    private static boolean callCollectCallback(List<String> levels, YAMLKeyValue yamlKeyValue, YamlTranslationCollector translationCollector, String keyText) {
         ArrayList<String> copyLevels = new ArrayList<>(levels);
         copyLevels.add(keyText);
 
@@ -88,7 +87,7 @@ public class YamlTranslationVisitor {
     /**
      * Translation key allow quoted values and also space before and after
      */
-    private static String keyNormalizer(@NotNull String keyName) {
+    private static String keyNormalizer(String keyName) {
         return StringUtils.trim(StringUtils.strip(StringUtils.strip(keyName, "'"), "\""));
     }
 }

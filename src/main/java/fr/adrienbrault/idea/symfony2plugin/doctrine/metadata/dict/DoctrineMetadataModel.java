@@ -1,8 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.dict;
 
 import fr.adrienbrault.idea.symfony2plugin.doctrine.dict.DoctrineModelField;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Collection;
 
@@ -11,18 +10,17 @@ import java.util.Collection;
  */
 public class DoctrineMetadataModel {
 
-    @NotNull
     private final Collection<DoctrineModelField> modelFields;
 
     @Nullable
     private String table;
 
-    public DoctrineMetadataModel(@NotNull Collection<DoctrineModelField> modelFields) {
+    public DoctrineMetadataModel(Collection<DoctrineModelField> modelFields) {
         this.modelFields = modelFields;
     }
 
     @Nullable
-    public DoctrineModelField getField(@NotNull String name) {
+    public DoctrineModelField getField(String name) {
         for (DoctrineModelField field : this.modelFields) {
             if(name.equals(field.getName())) {
                 return field;
@@ -48,7 +46,6 @@ public class DoctrineMetadataModel {
         return this.modelFields.isEmpty() && this.table == null;
     }
 
-    @NotNull
     public Collection<DoctrineModelField> getFields() {
         return modelFields;
     }

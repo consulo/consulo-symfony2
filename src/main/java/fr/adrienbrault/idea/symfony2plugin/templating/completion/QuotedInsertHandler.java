@@ -1,20 +1,17 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.completion;
 
-import com.intellij.codeInsight.completion.InsertHandler;
-import com.intellij.codeInsight.completion.InsertionContext;
-import com.intellij.codeInsight.lookup.LookupElement;
+import consulo.language.editor.completion.lookup.InsertHandler;
+import consulo.language.editor.completion.lookup.InsertionContext;
+import consulo.language.editor.completion.lookup.LookupElement;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.ResourceFileInsertHandler;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 class QuotedInsertHandler implements InsertHandler<LookupElement> {
 
-    @NotNull
     private static final QuotedInsertHandler instance = new QuotedInsertHandler();
 
-    @NotNull
     public static QuotedInsertHandler getInstance(){
         return instance;
     }

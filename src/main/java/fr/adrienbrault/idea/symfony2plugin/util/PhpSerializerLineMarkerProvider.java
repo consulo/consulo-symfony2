@@ -1,17 +1,20 @@
 package fr.adrienbrault.idea.symfony2plugin.util;
 
-import com.intellij.codeInsight.daemon.LineMarkerInfo;
-import com.intellij.codeInsight.daemon.LineMarkerProvider;
-import com.intellij.codeInsight.navigation.NavigationGutterIconBuilder;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.NotNullLazyValue;
-import com.intellij.psi.PsiElement;
+import com.jetbrains.php.lang.PhpLanguage;
 import com.jetbrains.php.lang.lexer.PhpTokenTypes;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
+import consulo.annotation.access.RequiredReadAction;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.application.util.NotNullLazyValue;
+import consulo.language.Language;
+import consulo.language.editor.gutter.LineMarkerInfo;
+import consulo.language.editor.gutter.LineMarkerProvider;
+import consulo.language.editor.ui.navigation.NavigationGutterIconBuilder;
+import consulo.language.psi.PsiElement;
+import consulo.project.Project;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Collection;
 import java.util.List;
@@ -19,15 +22,18 @@ import java.util.List;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class PhpSerializerLineMarkerProvider implements LineMarkerProvider {
     @Nullable
     @Override
-    public LineMarkerInfo<?> getLineMarkerInfo(@NotNull PsiElement psiElement) {
+    @RequiredReadAction
+    public LineMarkerInfo<?> getLineMarkerInfo(PsiElement psiElement) {
         return null;
     }
 
     @Override
-    public void collectSlowLineMarkers(@NotNull List<? extends PsiElement> psiElements, @NotNull Collection<? super LineMarkerInfo<?>> lineMarkerInfos) {
+    @RequiredReadAction
+    public void collectSlowLineMarkers(List<PsiElement> psiElements, Collection<LineMarkerInfo> lineMarkerInfos) {
         if(psiElements.isEmpty() || !Symfony2ProjectComponent.isEnabled(psiElements.get(0))) {
             return;
         }
@@ -41,7 +47,7 @@ public class PhpSerializerLineMarkerProvider implements LineMarkerProvider {
         }
     }
 
-    private void attachSerializerActions(@NotNull Collection<? super LineMarkerInfo<?>> lineMarkerInfos, @NotNull PsiElement leaf) {
+    private void attachSerializerActions(Collection<LineMarkerInfo> lineMarkerInfos, PsiElement leaf) {
         PsiElement phpClassContext = leaf.getContext();
         if(!(phpClassContext instanceof PhpClass)) {
             return;
@@ -53,9 +59,14 @@ public class PhpSerializerLineMarkerProvider implements LineMarkerProvider {
         if (SerializerUtil.hasClassTargetForSerializer(project, fqn)) {
             NavigationGutterIconBuilder<PsiElement> builder = NavigationGutterIconBuilder.create(Symfony2Icons.SYMFONY_LINE_MARKER)
                 .setTooltipText("Navigate to Serializer")
-                .setTargets(NotNullLazyValue.lazy(() -> SerializerUtil.getClassTargetForSerializer(project, fqn)));
+                .setTargets(NotNullLazyValue.createValue(() -> SerializerUtil.getClassTargetForSerializer(project, fqn)));
 
             lineMarkerInfos.add(builder.createLineMarkerInfo(leaf));
         }
+    }
+
+    @Override
+    public Language getLanguage() {
+        return PhpLanguage.INSTANCE;
     }
 }

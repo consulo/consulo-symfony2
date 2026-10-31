@@ -1,11 +1,10 @@
 package fr.adrienbrault.idea.symfony2plugin.config.doctrine;
 
-import com.intellij.codeInsight.completion.InsertHandler;
-import com.intellij.codeInsight.completion.InsertionContext;
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.codeInsight.lookup.LookupElementPresentation;
+import consulo.language.editor.completion.lookup.InsertHandler;
+import consulo.language.editor.completion.lookup.InsertionContext;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.editor.completion.lookup.LookupElementPresentation;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -24,7 +23,6 @@ public class DoctrineTypeLookup extends LookupElement {
         this.insertHandler = insertHandler;
     }
 
-    @NotNull
     @Override
     public String getLookupString() {
         return name;

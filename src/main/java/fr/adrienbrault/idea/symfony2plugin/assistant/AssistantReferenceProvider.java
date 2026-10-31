@@ -1,6 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.assistant;
 
-import com.intellij.psi.PsiReference;
+import consulo.language.psi.PsiReference;
 import com.jetbrains.php.lang.psi.elements.MethodReference;
 import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
 import fr.adrienbrault.idea.symfony2plugin.assistant.reference.MethodParameterSetting;

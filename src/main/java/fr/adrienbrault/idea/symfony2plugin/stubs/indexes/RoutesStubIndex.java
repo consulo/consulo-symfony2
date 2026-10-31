@@ -1,14 +1,19 @@
 package fr.adrienbrault.idea.symfony2plugin.stubs.indexes;
 
-import com.intellij.openapi.vfs.VfsUtil;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.util.PsiTreeUtil;
-import com.intellij.psi.xml.XmlFile;
-import com.intellij.util.indexing.*;
-import com.intellij.util.io.DataExternalizer;
-import com.intellij.util.io.EnumeratorStringDescriptor;
-import com.intellij.util.io.KeyDescriptor;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.virtualFileSystem.util.VirtualFileUtil;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.util.PsiTreeUtil;
+import consulo.xml.language.psi.XmlFile;
+import consulo.index.io.DataIndexer;
+import consulo.index.io.ID;
+import consulo.language.psi.stub.FileBasedIndex;
+import consulo.language.psi.stub.FileBasedIndexExtension;
+import consulo.language.psi.stub.FileContent;
+import consulo.index.io.data.DataExternalizer;
+import consulo.index.io.EnumeratorStringDescriptor;
+import consulo.index.io.KeyDescriptor;
 import com.jetbrains.php.lang.psi.PhpFile;
 import com.jetbrains.php.lang.psi.PhpPsiUtil;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
@@ -19,7 +24,6 @@ import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.externalizer.StubIndexe
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.inputFilter.FileInputFilter;
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.visitor.AnnotationRouteElementVisitor;
 import fr.adrienbrault.idea.symfony2plugin.util.ProjectUtil;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.yaml.psi.YAMLDocument;
 import org.jetbrains.yaml.psi.YAMLFile;
 
@@ -29,19 +33,18 @@ import java.util.Map;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class RoutesStubIndex extends FileBasedIndexExtension<String, StubIndexedRoute> {
 
     public static final ID<String, StubIndexedRoute> KEY = ID.create("fr.adrienbrault.idea.symfony2plugin.routes_object");
     private final KeyDescriptor<String> myKeyDescriptor = new EnumeratorStringDescriptor();
     private static final StubIndexedRouteExternalizer EXTERNALIZER = StubIndexedRouteExternalizer.INSTANCE;
 
-    @NotNull
     @Override
     public ID<String, StubIndexedRoute> getName() {
         return KEY;
     }
 
-    @NotNull
     @Override
     // Index-safe only: no PhpIndex/type resolution here.
     public DataIndexer<String, StubIndexedRoute, FileContent> getIndexer() {
@@ -102,19 +105,16 @@ public class RoutesStubIndex extends FileBasedIndexExtension<String, StubIndexed
 
     }
 
-    @NotNull
     @Override
     public KeyDescriptor<String> getKeyDescriptor() {
         return this.myKeyDescriptor;
     }
 
-    @NotNull
     @Override
     public DataExternalizer<StubIndexedRoute> getValueExternalizer() {
         return EXTERNALIZER;
     }
 
-    @NotNull
     @Override
     public FileBasedIndex.InputFilter getInputFilter() {
         return FileInputFilter.XML_YAML_PHP;
@@ -137,13 +137,13 @@ public class RoutesStubIndex extends FileBasedIndexExtension<String, StubIndexed
             return false;
         }
 
-        VirtualFile baseDir = ProjectUtil.getProjectDir(inputData.getProject());
+        VirtualFile baseDir = ProjectUtil.getProjectDir(psiFile.getProject());
         if(baseDir == null) {
             return false;
         }
 
         // is Test file in path name
-        String relativePath = VfsUtil.getRelativePath(inputData.getFile(), baseDir, '/');
+        String relativePath = VirtualFileUtil.getRelativePath(inputData.getFile(), baseDir, '/');
         if(relativePath != null && (relativePath.contains("/Test/") || relativePath.contains("/Fixtures/"))) {
             return false;
         }

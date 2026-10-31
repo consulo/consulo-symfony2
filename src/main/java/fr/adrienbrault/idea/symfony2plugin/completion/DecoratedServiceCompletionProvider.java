@@ -1,7 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.completion;
 
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.psi.PsiElement;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.psi.PsiElement;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionProvider;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionProviderLookupArguments;
@@ -12,8 +12,7 @@ import fr.adrienbrault.idea.symfony2plugin.dic.ServiceStringLookupElement;
 import fr.adrienbrault.idea.symfony2plugin.dic.container.util.ServiceContainerUtil;
 import fr.adrienbrault.idea.symfony2plugin.stubs.ContainerCollectionResolver;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.ServiceUtil;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.*;
 import java.util.function.Function;
@@ -28,7 +27,7 @@ abstract public class DecoratedServiceCompletionProvider extends GotoCompletionP
     }
 
     @Override
-    public void getLookupElements(@NotNull GotoCompletionProviderLookupArguments arguments) {
+    public void getLookupElements(GotoCompletionProviderLookupArguments arguments) {
         ContainerCollectionResolver.LazyServiceCollector lazyServiceCollector = new ContainerCollectionResolver.LazyServiceCollector(getProject());
         Map<String, ContainerService> services = lazyServiceCollector.getCollector().getServices();
 
@@ -49,7 +48,6 @@ abstract public class DecoratedServiceCompletionProvider extends GotoCompletionP
         );
     }
 
-    @NotNull
     @Override
     public Collection<PsiElement> getPsiTargets(PsiElement element) {
         String decoratesId = GotoCompletionUtil.getTextValueForElement(element);
@@ -66,13 +64,12 @@ abstract public class DecoratedServiceCompletionProvider extends GotoCompletionP
     }
 
     @Nullable
-    abstract public String findClassForElement(@NotNull PsiElement psiElement);
+    abstract public String findClassForElement(PsiElement psiElement);
 
     @Nullable
-    abstract public String findIdForElement(@NotNull PsiElement psiElement);
+    abstract public String findIdForElement(PsiElement psiElement);
 
-    @NotNull
-    private Collection<String> collectDecorateServiceSuggestions(@NotNull ContainerCollectionResolver.LazyServiceCollector lazyServiceCollector) {
+    private Collection<String> collectDecorateServiceSuggestions(ContainerCollectionResolver.LazyServiceCollector lazyServiceCollector) {
         String classForElement = findClassForElement(getElement());
         if(classForElement == null) {
             return Collections.emptyList();
@@ -81,8 +78,7 @@ abstract public class DecoratedServiceCompletionProvider extends GotoCompletionP
         return createSuggestions(lazyServiceCollector, classForElement, findIdForElement(getElement()));
     }
 
-    @NotNull
-    private Collection<String> createSuggestions(@NotNull ContainerCollectionResolver.LazyServiceCollector lazyServiceCollector, @NotNull String aClass, @Nullable String myId) {
+    private Collection<String> createSuggestions(ContainerCollectionResolver.LazyServiceCollector lazyServiceCollector, String aClass, @Nullable String myId) {
         Set<String> servicesMatches = new HashSet<>();
 
         PhpClass phpClass = ServiceUtil.getResolvedClassDefinition(getProject(), aClass, lazyServiceCollector);

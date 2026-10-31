@@ -1,13 +1,28 @@
 package fr.adrienbrault.idea.symfony2plugin.config.xml;
 
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.patterns.XmlPatterns;
-import com.intellij.psi.*;
-import com.intellij.psi.xml.*;
-import com.intellij.util.ProcessingContext;
-import com.intellij.util.containers.ContainerUtil;
 import com.jetbrains.php.lang.psi.elements.Method;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.Language;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiElementResolveResult;
+import consulo.language.psi.PsiPolyVariantReferenceBase;
+import consulo.language.psi.PsiReference;
+import consulo.language.psi.PsiReferenceContributor;
+import consulo.language.psi.PsiReferenceProvider;
+import consulo.language.psi.PsiReferenceRegistrar;
+import consulo.language.psi.ResolveResult;
+import consulo.language.util.ProcessingContext;
+import consulo.project.DumbService;
+import consulo.util.collection.ContainerUtil;
+import consulo.xml.language.XMLLanguage;
+import consulo.xml.language.psi.XmlAttribute;
+import consulo.xml.language.psi.XmlAttributeValue;
+import consulo.xml.language.psi.XmlTag;
+import consulo.xml.language.psi.XmlText;
+import consulo.xml.language.psi.XmlToken;
+import consulo.xml.language.psi.pattern.XmlPatterns;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.config.ClassPublicMethodReference;
 import fr.adrienbrault.idea.symfony2plugin.config.PhpClassReference;
@@ -20,8 +35,7 @@ import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.ServiceUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -29,6 +43,7 @@ import java.util.Collection;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class XmlReferenceContributor extends PsiReferenceContributor {
 
     @Override
@@ -51,9 +66,8 @@ public class XmlReferenceContributor extends PsiReferenceContributor {
         registrar.registerReferenceProvider(
             PlatformPatterns.and(XmlHelper.XML_EXTENSION, XmlHelper.getAutowiringTypePattern()),
             new PsiReferenceProvider() {
-                @NotNull
                 @Override
-                public PsiReference @NotNull [] getReferencesByElement(@NotNull PsiElement psiElement, @NotNull ProcessingContext processingContext) {
+                public PsiReference[] getReferencesByElement(PsiElement psiElement, ProcessingContext processingContext) {
                     String value = getXmlTextValue(psiElement);
                     if (value == null) {
                         return new PsiReference[0];
@@ -62,7 +76,7 @@ public class XmlReferenceContributor extends PsiReferenceContributor {
                 }
 
                 @Override
-                public boolean acceptsTarget(@NotNull PsiElement target) {
+                public boolean acceptsTarget(PsiElement target) {
                     return Symfony2ProjectComponent.isEnabled(target);
                 }
             }
@@ -86,9 +100,8 @@ public class XmlReferenceContributor extends PsiReferenceContributor {
         registrar.registerReferenceProvider(
             PlatformPatterns.and(XmlHelper.XML_EXTENSION, XmlHelper.getParameterClassValuePattern()),
             new PsiReferenceProvider() {
-                @NotNull
                 @Override
-                public PsiReference @NotNull [] getReferencesByElement(@NotNull PsiElement psiElement, @NotNull ProcessingContext processingContext) {
+                public PsiReference[] getReferencesByElement(PsiElement psiElement, ProcessingContext processingContext) {
 
                     if(!Symfony2ProjectComponent.isEnabled(psiElement)) {
                         return new PsiReference[0];
@@ -100,7 +113,7 @@ public class XmlReferenceContributor extends PsiReferenceContributor {
                 }
 
                 @Override
-                public boolean acceptsTarget(@NotNull PsiElement target) {
+                public boolean acceptsTarget(PsiElement target) {
                     return Symfony2ProjectComponent.isEnabled(target);
                 }
             }
@@ -110,9 +123,8 @@ public class XmlReferenceContributor extends PsiReferenceContributor {
         registrar.registerReferenceProvider(
             PlatformPatterns.and(XmlHelper.XML_EXTENSION, XmlHelper.getArgumentValuePattern()),
             new PsiReferenceProvider() {
-                @NotNull
                 @Override
-                public PsiReference @NotNull [] getReferencesByElement(@NotNull PsiElement psiElement, @NotNull ProcessingContext processingContext) {
+                public PsiReference[] getReferencesByElement(PsiElement psiElement, ProcessingContext processingContext) {
                     String value = getXmlTextValue(psiElement);
                     if (value == null || StringUtils.isBlank(value)) {
                         return new PsiReference[0];
@@ -121,7 +133,7 @@ public class XmlReferenceContributor extends PsiReferenceContributor {
                 }
 
                 @Override
-                public boolean acceptsTarget(@NotNull PsiElement target) {
+                public boolean acceptsTarget(PsiElement target) {
                     return Symfony2ProjectComponent.isEnabled(target);
                 }
             }
@@ -131,9 +143,8 @@ public class XmlReferenceContributor extends PsiReferenceContributor {
         registrar.registerReferenceProvider(
             PlatformPatterns.and(XmlHelper.XML_EXTENSION, XmlHelper.getArgumentValueWithTypePattern("constant")),
             new PsiReferenceProvider() {
-                @NotNull
                 @Override
-                public PsiReference @NotNull [] getReferencesByElement(@NotNull PsiElement psiElement, @NotNull ProcessingContext processingContext) {
+                public PsiReference[] getReferencesByElement(PsiElement psiElement, ProcessingContext processingContext) {
                     String value = getXmlTextValue(psiElement);
                     if (value == null || StringUtils.isBlank(value)) {
                         return new PsiReference[0];
@@ -142,7 +153,7 @@ public class XmlReferenceContributor extends PsiReferenceContributor {
                 }
 
                 @Override
-                public boolean acceptsTarget(@NotNull PsiElement target) {
+                public boolean acceptsTarget(PsiElement target) {
                     return Symfony2ProjectComponent.isEnabled(target);
                 }
             }
@@ -158,9 +169,8 @@ public class XmlReferenceContributor extends PsiReferenceContributor {
             ),
 
             new PsiReferenceProvider() {
-                @NotNull
                 @Override
-                public PsiReference @NotNull [] getReferencesByElement(@NotNull PsiElement element, @NotNull ProcessingContext context) {
+                public PsiReference[] getReferencesByElement(PsiElement element, ProcessingContext context) {
 
                     if(!Symfony2ProjectComponent.isEnabled(element)) {
                         return new PsiReference[0];
@@ -174,7 +184,7 @@ public class XmlReferenceContributor extends PsiReferenceContributor {
                 }
 
                 @Override
-                public boolean acceptsTarget(@NotNull PsiElement target) {
+                public boolean acceptsTarget(PsiElement target) {
                     return Symfony2ProjectComponent.isEnabled(target);
                 }
             }
@@ -235,9 +245,8 @@ public class XmlReferenceContributor extends PsiReferenceContributor {
                     .inFile(XmlHelper.getXmlFilePattern())
             ),
             new PsiReferenceProvider() {
-                @NotNull
                 @Override
-                public PsiReference @NotNull [] getReferencesByElement(@NotNull PsiElement element, @NotNull ProcessingContext context) {
+                public PsiReference[] getReferencesByElement(PsiElement element, ProcessingContext context) {
                     if(!Symfony2ProjectComponent.isEnabled(element)) {
                         return new PsiReference[0];
                     }
@@ -252,7 +261,7 @@ public class XmlReferenceContributor extends PsiReferenceContributor {
                 }
 
                 @Override
-                public boolean acceptsTarget(@NotNull PsiElement target) {
+                public boolean acceptsTarget(PsiElement target) {
                     return Symfony2ProjectComponent.isEnabled(target);
                 }
             }
@@ -264,9 +273,8 @@ public class XmlReferenceContributor extends PsiReferenceContributor {
                 XmlHelper.getTagAttributePattern("tag", "event").inside(XmlHelper.getInsideTagPattern("services"))
             ),
             new PsiReferenceProvider() {
-                @NotNull
                 @Override
-                public PsiReference @NotNull [] getReferencesByElement(@NotNull PsiElement element, @NotNull ProcessingContext context) {
+                public PsiReference[] getReferencesByElement(PsiElement element, ProcessingContext context) {
 
                     if(!Symfony2ProjectComponent.isEnabled(element)) {
                         return new PsiReference[0];
@@ -279,7 +287,7 @@ public class XmlReferenceContributor extends PsiReferenceContributor {
                 }
 
                 @Override
-                public boolean acceptsTarget(@NotNull PsiElement target) {
+                public boolean acceptsTarget(PsiElement target) {
                     return Symfony2ProjectComponent.isEnabled(target);
                 }
             }
@@ -287,12 +295,17 @@ public class XmlReferenceContributor extends PsiReferenceContributor {
 
     }
 
+    @Override
+    public Language getLanguage() {
+        return XMLLanguage.INSTANCE;
+    }
+
     /**
      * Returns the text value of the XmlText parent of {@code psiElement}, or {@code null} if the plugin is
      * disabled or the parent is not an {@link XmlText}.
      */
     @Nullable
-    private static String getXmlTextValue(@NotNull PsiElement psiElement) {
+    private static String getXmlTextValue(PsiElement psiElement) {
         if (!Symfony2ProjectComponent.isEnabled(psiElement)) {
             return null;
         }
@@ -307,8 +320,7 @@ public class XmlReferenceContributor extends PsiReferenceContributor {
      * Builds a {@link ClassMethodStringPsiReference} for {@code method} on {@code phpClass}, or returns
      * an empty array if either is {@code null}/missing.
      */
-    @NotNull
-    private static PsiReference[] buildMethodStringReference(@NotNull PsiElement psiElement, @Nullable PhpClass phpClass, @NotNull String method) {
+    private static PsiReference[] buildMethodStringReference(PsiElement psiElement, @Nullable PhpClass phpClass, String method) {
         if (phpClass == null) {
             return new PsiReference[0];
         }
@@ -322,9 +334,8 @@ public class XmlReferenceContributor extends PsiReferenceContributor {
     }
 
     private static class ClassPsiReferenceProvider extends PsiReferenceProvider {
-        @NotNull
         @Override
-        public PsiReference @NotNull [] getReferencesByElement(@NotNull PsiElement psiElement, @NotNull ProcessingContext processingContext) {
+        public PsiReference[] getReferencesByElement(PsiElement psiElement, ProcessingContext processingContext) {
             if(!Symfony2ProjectComponent.isEnabled(psiElement) || !(psiElement instanceof XmlAttributeValue)) {
                 return new PsiReference[0];
             }
@@ -334,7 +345,7 @@ public class XmlReferenceContributor extends PsiReferenceContributor {
             };
         }
 
-        public boolean acceptsTarget(@NotNull PsiElement target) {
+        public boolean acceptsTarget(PsiElement target) {
             return Symfony2ProjectComponent.isEnabled(target);
         }
     }
@@ -345,9 +356,8 @@ public class XmlReferenceContributor extends PsiReferenceContributor {
      * <service id="Foobar\Foobar"/>
      */
     private static class ClassAsIdPsiReferenceProvider extends PsiReferenceProvider {
-        @NotNull
         @Override
-        public PsiReference @NotNull [] getReferencesByElement(@NotNull PsiElement psiElement, @NotNull ProcessingContext processingContext) {
+        public PsiReference[] getReferencesByElement(PsiElement psiElement, ProcessingContext processingContext) {
             if(!Symfony2ProjectComponent.isEnabled(psiElement) || !(psiElement instanceof XmlAttributeValue)) {
                 return new PsiReference[0];
             }
@@ -368,7 +378,7 @@ public class XmlReferenceContributor extends PsiReferenceContributor {
             };
         }
 
-        public boolean acceptsTarget(@NotNull PsiElement target) {
+        public boolean acceptsTarget(PsiElement target) {
             return Symfony2ProjectComponent.isEnabled(target);
         }
     }
@@ -377,9 +387,8 @@ public class XmlReferenceContributor extends PsiReferenceContributor {
      * <factory service="foo" method="create"/>
      */
     private static class FactoryServiceMethodPsiReferenceProvider extends PsiReferenceProvider {
-        @NotNull
         @Override
-        public PsiReference @NotNull [] getReferencesByElement(@NotNull PsiElement psiElement, @NotNull ProcessingContext context) {
+        public PsiReference[] getReferencesByElement(PsiElement psiElement, ProcessingContext context) {
             if(!Symfony2ProjectComponent.isEnabled(psiElement) || !(psiElement instanceof XmlAttributeValue)) {
                 return new PsiReference[0];
             }
@@ -392,15 +401,14 @@ public class XmlReferenceContributor extends PsiReferenceContributor {
             return buildMethodStringReference(psiElement, XmlHelper.getPhpClassForServiceFactory((XmlAttributeValue) psiElement), method);
         }
 
-        public boolean acceptsTarget(@NotNull PsiElement target) {
+        public boolean acceptsTarget(PsiElement target) {
             return Symfony2ProjectComponent.isEnabled(target);
         }
     }
 
     private static class ClassMethodReferenceProvider extends PsiReferenceProvider {
-        @NotNull
         @Override
-        public PsiReference @NotNull [] getReferencesByElement(@NotNull PsiElement psiElement, @NotNull ProcessingContext context) {
+        public PsiReference[] getReferencesByElement(PsiElement psiElement, ProcessingContext context) {
 
             if(!Symfony2ProjectComponent.isEnabled(psiElement)) {
                 return new PsiReference[0];
@@ -419,7 +427,7 @@ public class XmlReferenceContributor extends PsiReferenceContributor {
             return new PsiReference[] { new ClassPublicMethodReference(psiElement, serviceDefinitionClass)};
         }
 
-        public boolean acceptsTarget(@NotNull PsiElement target) {
+        public boolean acceptsTarget(PsiElement target) {
             return Symfony2ProjectComponent.isEnabled(target);
         }
     }
@@ -433,10 +441,9 @@ public class XmlReferenceContributor extends PsiReferenceContributor {
             this.psiElement = psiElement;
         }
 
-        @NotNull
         @Override
-        public ResolveResult @NotNull [] multiResolve(boolean b) {
-            if (com.intellij.openapi.project.DumbService.isDumb(getElement().getProject())) {
+        public ResolveResult[] multiResolve(boolean b) {
+            if (DumbService.isDumb(getElement().getProject())) {
                 return ResolveResult.EMPTY_ARRAY;
             }
 
@@ -455,9 +462,8 @@ public class XmlReferenceContributor extends PsiReferenceContributor {
             return PsiElementResolveResult.createResults(serviceClassTargets);
         }
 
-        @NotNull
         @Override
-        public Object @NotNull [] getVariants() {
+        public Object[] getVariants() {
             return new Object[0];
         }
 
@@ -468,18 +474,16 @@ public class XmlReferenceContributor extends PsiReferenceContributor {
      */
     private static class ServiceIdWithoutParameterReference extends PsiPolyVariantReferenceBase<PsiElement> {
 
-        @NotNull
         private final XmlAttributeValue psiElement;
 
-        private ServiceIdWithoutParameterReference(@NotNull XmlAttributeValue psiElement) {
+        private ServiceIdWithoutParameterReference(XmlAttributeValue psiElement) {
             super(psiElement);
             this.psiElement = psiElement;
         }
 
-        @NotNull
         @Override
-        public ResolveResult @NotNull [] multiResolve(boolean b) {
-            if (com.intellij.openapi.project.DumbService.isDumb(getElement().getProject())) {
+        public ResolveResult[] multiResolve(boolean b) {
+            if (DumbService.isDumb(getElement().getProject())) {
                 return ResolveResult.EMPTY_ARRAY;
             }
 
@@ -487,9 +491,8 @@ public class XmlReferenceContributor extends PsiReferenceContributor {
             return PsiElementResolveResult.createResults(ServiceUtil.getServiceClassTargets(getElement().getProject(), value));
         }
 
-        @NotNull
         @Override
-        public Object @NotNull [] getVariants() {
+        public Object[] getVariants() {
             return new Object[0];
         }
     }
@@ -498,9 +501,8 @@ public class XmlReferenceContributor extends PsiReferenceContributor {
      * <factory class="FooBar" method="cre<caret>ate"/>
      */
     private static class FactoryClassMethodPsiReferenceProvider extends PsiReferenceProvider {
-        @NotNull
         @Override
-        public PsiReference @NotNull [] getReferencesByElement(@NotNull PsiElement psiElement, @NotNull ProcessingContext processingContext) {
+        public PsiReference[] getReferencesByElement(PsiElement psiElement, ProcessingContext processingContext) {
             if(!Symfony2ProjectComponent.isEnabled(psiElement) || !(psiElement instanceof XmlAttributeValue)) {
                 return new PsiReference[0];
             }
@@ -513,22 +515,20 @@ public class XmlReferenceContributor extends PsiReferenceContributor {
             return buildMethodStringReference(psiElement, XmlHelper.getPhpClassForClassFactory((XmlAttributeValue) psiElement), method);
         }
 
-        public boolean acceptsTarget(@NotNull PsiElement target) {
+        public boolean acceptsTarget(PsiElement target) {
             return Symfony2ProjectComponent.isEnabled(target);
         }
     }
 
     private static class ChainPsiReferenceProvider extends PsiReferenceProvider {
-        @NotNull
         private final PsiReferenceProvider[] psiReferenceProviders;
 
-        ChainPsiReferenceProvider(@NotNull PsiReferenceProvider... psiReferenceProviders) {
+        ChainPsiReferenceProvider(PsiReferenceProvider... psiReferenceProviders) {
             this.psiReferenceProviders = psiReferenceProviders;
         }
 
-        @NotNull
         @Override
-        public PsiReference @NotNull [] getReferencesByElement(@NotNull PsiElement psiElement, @NotNull ProcessingContext processingContext) {
+        public PsiReference[] getReferencesByElement(PsiElement psiElement, ProcessingContext processingContext) {
             Collection<PsiReference> psiReferences = new ArrayList<>();
 
             for (PsiReferenceProvider provider : this.psiReferenceProviders) {
@@ -538,28 +538,25 @@ public class XmlReferenceContributor extends PsiReferenceContributor {
             return psiReferences.toArray(new PsiReference[0]);
         }
 
-        public boolean acceptsTarget(@NotNull PsiElement target) {
+        public boolean acceptsTarget(PsiElement target) {
             return Symfony2ProjectComponent.isEnabled(target);
         }
     }
 
     private static class ClassMethodStringPsiReference extends PsiPolyVariantReferenceBase<PsiElement> {
-        @NotNull
         private final String aClass;
 
-        @NotNull
         private final String method;
 
-        ClassMethodStringPsiReference(@NotNull PsiElement psiElement, @NotNull String aClass, @NotNull String method) {
+        ClassMethodStringPsiReference(PsiElement psiElement, String aClass, String method) {
             super(psiElement);
             this.aClass = aClass;
             this.method = method;
         }
 
-        @NotNull
         @Override
-        public ResolveResult @NotNull [] multiResolve(boolean b) {
-            if (com.intellij.openapi.project.DumbService.isDumb(getElement().getProject())) {
+        public ResolveResult[] multiResolve(boolean b) {
+            if (DumbService.isDumb(getElement().getProject())) {
                 return ResolveResult.EMPTY_ARRAY;
             }
 
@@ -571,9 +568,8 @@ public class XmlReferenceContributor extends PsiReferenceContributor {
             return PsiElementResolveResult.createResults(classMethod);
         }
 
-        @NotNull
         @Override
-        public Object @NotNull [] getVariants() {
+        public Object[] getVariants() {
             return new Object[0];
         }
     }

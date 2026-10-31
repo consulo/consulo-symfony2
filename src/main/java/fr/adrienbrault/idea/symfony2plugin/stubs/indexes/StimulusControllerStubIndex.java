@@ -1,29 +1,39 @@
 package fr.adrienbrault.idea.symfony2plugin.stubs.indexes;
 
+import consulo.javascript.ecmascript.psi.ES6FromClause;
 import com.intellij.json.JsonFileType;
 import com.intellij.json.psi.JsonFile;
 import com.intellij.json.psi.JsonObject;
 import com.intellij.json.psi.JsonProperty;
 import com.intellij.json.psi.JsonValue;
-import com.intellij.lang.ecmascript6.psi.ES6FromClause;
-import com.intellij.lang.ecmascript6.psi.ES6ImportDeclaration;
-import com.intellij.lang.javascript.JavaScriptFileType;
-import com.intellij.lang.javascript.TypeScriptFileType;
-import com.intellij.lang.javascript.psi.*;
-import com.intellij.lang.javascript.psi.ecmal4.JSClass;
+import com.intellij.lang.javascript.psi.JSCallExpression;
+import com.intellij.lang.javascript.psi.JSClass;
+import com.intellij.lang.javascript.psi.JSExpression;
+import com.intellij.lang.javascript.psi.JSFile;
+import com.intellij.lang.javascript.psi.JSLiteralExpression;
+import com.intellij.lang.javascript.psi.JSReferenceExpression;
 import com.intellij.lang.javascript.psi.ecmal4.JSReferenceListMember;
-import com.intellij.openapi.fileTypes.FileType;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiRecursiveElementWalkingVisitor;
-import com.intellij.util.indexing.*;
-import com.intellij.util.io.DataExternalizer;
-import com.intellij.util.io.EnumeratorStringDescriptor;
-import com.intellij.util.io.KeyDescriptor;
+import com.intellij.lang.javascript.psi.JSReferenceList;
+import com.intellij.lang.javascript.psi.JSVariable;
+import consulo.javascript.ecmascript.psi.ES6ImportDeclaration;
+import consulo.javascript.language.JavaScriptFileType;
+import consulo.typescript.TypeScriptFileType;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.virtualFileSystem.fileType.FileType;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiRecursiveElementWalkingVisitor;
+import consulo.index.io.DataIndexer;
+import consulo.index.io.ID;
+import consulo.language.psi.stub.FileBasedIndex;
+import consulo.language.psi.stub.FileBasedIndexExtension;
+import consulo.language.psi.stub.FileContent;
+import consulo.index.io.data.DataExternalizer;
+import consulo.index.io.EnumeratorStringDescriptor;
+import consulo.index.io.KeyDescriptor;
 import fr.adrienbrault.idea.symfony2plugin.stubs.dict.StimulusController;
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.externalizer.StimulusControllerExternalizer;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.*;
 
@@ -35,19 +45,20 @@ import java.util.*;
  *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class StimulusControllerStubIndex extends FileBasedIndexExtension<String, StimulusController> {
     public static final ID<String, StimulusController> KEY = ID.create("fr.adrienbrault.idea.symfony2plugin.stimulus_controller_index");
     private static final StimulusControllerExternalizer EXTERNALIZER = StimulusControllerExternalizer.INSTANCE;
     private final KeyDescriptor<String> myKeyDescriptor = new EnumeratorStringDescriptor();
 
     @Override
-    public @NotNull ID<String, StimulusController> getName() {
+    public ID<String, StimulusController> getName() {
         return KEY;
     }
 
     @Override
     // Index-safe only: no PhpIndex/type resolution here.
-    public @NotNull DataIndexer<String, StimulusController, FileContent> getIndexer() {
+    public DataIndexer<String, StimulusController, FileContent> getIndexer() {
         return inputData -> {
             Map<String, StimulusController> map = new HashMap<>();
 
@@ -83,12 +94,12 @@ public class StimulusControllerStubIndex extends FileBasedIndexExtension<String,
      * Walk the AST to find import declarations from '@hotwired/stimulus' or 'stimulus'
      * that import 'Controller'
      */
-    private boolean hasControllerImportFromStimulus(@NotNull JSFile jsFile) {
+    private boolean hasControllerImportFromStimulus(JSFile jsFile) {
         boolean[] hasImport = {false};
 
         jsFile.acceptChildren(new PsiRecursiveElementWalkingVisitor() {
             @Override
-            public void visitElement(@NotNull PsiElement element) {
+            public void visitElement(PsiElement element) {
                 if (hasImport[0]) {
                     return;
                 }
@@ -126,12 +137,12 @@ public class StimulusControllerStubIndex extends FileBasedIndexExtension<String,
      * @return The variable name (e.g., "app") or null if not found
      */
     @Nullable
-    private String findStimulusAppVariable(@NotNull JSFile jsFile) {
+    private String findStimulusAppVariable(JSFile jsFile) {
         String[] appVarName = {null};
 
         jsFile.acceptChildren(new PsiRecursiveElementWalkingVisitor() {
             @Override
-            public void visitElement(@NotNull PsiElement element) {
+            public void visitElement(PsiElement element) {
                 if (appVarName[0] != null) {
                     return;
                 }
@@ -142,7 +153,7 @@ public class StimulusControllerStubIndex extends FileBasedIndexExtension<String,
                     if (initializer instanceof JSCallExpression callExpr) {
                         JSExpression methodExpr = callExpr.getMethodExpression();
                         if (methodExpr instanceof JSReferenceExpression refExpr) {
-                            if ("startStimulusApp".equals(refExpr.getReferenceName())) {
+                            if ("startStimulusApp".equals(refExpr.getReferencedName())) {
                                 appVarName[0] = variable.getName();
                                 return;
                             }
@@ -163,7 +174,7 @@ public class StimulusControllerStubIndex extends FileBasedIndexExtension<String,
      *
      * Pattern: const app = startStimulusApp(); app.register('controller_name', SomeController)
      */
-    private void collectRegisteredControllers(@NotNull JSFile jsFile, @NotNull Map<String, StimulusController> map) {
+    private void collectRegisteredControllers(JSFile jsFile, Map<String, StimulusController> map) {
         String appVarName = findStimulusAppVariable(jsFile);
         if (appVarName == null) {
             return;
@@ -171,16 +182,16 @@ public class StimulusControllerStubIndex extends FileBasedIndexExtension<String,
 
         jsFile.acceptChildren(new PsiRecursiveElementWalkingVisitor() {
             @Override
-            public void visitElement(@NotNull PsiElement element) {
+            public void visitElement(PsiElement element) {
                 if (element instanceof JSCallExpression callExpr) {
                     JSExpression methodExpr = callExpr.getMethodExpression();
                     if (methodExpr instanceof JSReferenceExpression refExpr) {
                         // Check if it's a .register() call
-                        if ("register".equals(refExpr.getReferenceName())) {
+                        if ("register".equals(refExpr.getReferencedName())) {
                             // Check if it's called on the stimulus app variable
                             JSExpression qualifier = refExpr.getQualifier();
                             if (qualifier instanceof JSReferenceExpression qualifierRef) {
-                                if (appVarName.equals(qualifierRef.getReferenceName())) {
+                                if (appVarName.equals(qualifierRef.getReferencedName())) {
                                     JSExpression[] arguments = callExpr.getArguments();
                                     if (arguments.length >= 2 && arguments[0] instanceof JSLiteralExpression literal) {
                                         if (literal.isQuotedLiteral()) {
@@ -204,19 +215,19 @@ public class StimulusControllerStubIndex extends FileBasedIndexExtension<String,
     /**
      * Walk the AST to find class declarations that extend Controller
      */
-    private boolean hasClassExtendingController(@NotNull JSFile jsFile) {
+    private boolean hasClassExtendingController(JSFile jsFile) {
         boolean[] hasClass = {false};
 
         jsFile.acceptChildren(new PsiRecursiveElementWalkingVisitor() {
             @Override
-            public void visitElement(@NotNull PsiElement element) {
+            public void visitElement(PsiElement element) {
                 if (hasClass[0]) {
                     return;
                 }
 
                 if (element instanceof JSClass jsClass) {
                     // Get the extends list and check the text
-                    var extendsList = jsClass.getExtendsList();
+                    JSReferenceList extendsList = jsClass.getExtendsList();
                     if (extendsList != null) {
                         for (JSReferenceListMember member : extendsList.getMembers()) {
                             @Nullable String extendsText = member.getReferenceText();
@@ -241,7 +252,7 @@ public class StimulusControllerStubIndex extends FileBasedIndexExtension<String,
      *             my_component_controller.js -> my-component
      */
     @Nullable
-    private String extractControllerName(@NotNull VirtualFile file) {
+    private String extractControllerName(VirtualFile file) {
         String fileName = file.getNameWithoutExtension();
 
         // Remove _controller or -controller suffix
@@ -261,8 +272,7 @@ public class StimulusControllerStubIndex extends FileBasedIndexExtension<String,
     /**
      * Strip surrounding quotes (single or double) from a string.
      */
-    @NotNull
-    private String stripQuotes(@NotNull String text) {
+    private String stripQuotes(String text) {
         if (text.length() >= 2) {
             char first = text.charAt(0);
             char last = text.charAt(text.length() - 1);
@@ -281,8 +291,7 @@ public class StimulusControllerStubIndex extends FileBasedIndexExtension<String,
      * @param controllerName The base controller name (e.g., "list")
      * @return Full controller name with namespace (e.g., "users--list")
      */
-    @NotNull
-    private String buildNamespaceFromPath(@NotNull VirtualFile file, @NotNull String controllerName) {
+    private String buildNamespaceFromPath(VirtualFile file, String controllerName) {
         StringBuilder namespace = new StringBuilder();
         VirtualFile parent = file.getParent();
 
@@ -327,8 +336,7 @@ public class StimulusControllerStubIndex extends FileBasedIndexExtension<String,
      *
      * This will extract controller names like "@symfony/ux-chartjs/chart"
      */
-    @NotNull
-    private Map<String, StimulusController> indexControllersJson(@NotNull JsonFile jsonFile) {
+    private Map<String, StimulusController> indexControllersJson(JsonFile jsonFile) {
         Map<String, StimulusController> map = new HashMap<>();
 
         JsonObject topLevelObject = getTopLevelObject(jsonFile);
@@ -390,8 +398,7 @@ public class StimulusControllerStubIndex extends FileBasedIndexExtension<String,
      * Get all JsonProperty children from a JsonObject.
      * The PSI API doesn't have a getProperties() method, so we need to iterate through children.
      */
-    @NotNull
-    private List<JsonProperty> getPropertyList(@NotNull JsonObject jsonObject) {
+    private List<JsonProperty> getPropertyList(JsonObject jsonObject) {
         List<JsonProperty> properties = new ArrayList<>();
         for (PsiElement child : jsonObject.getChildren()) {
             if (child instanceof JsonProperty property) {
@@ -405,7 +412,7 @@ public class StimulusControllerStubIndex extends FileBasedIndexExtension<String,
      * Get the top-level JSON object from a JSON file.
      */
     @Nullable
-    private JsonObject getTopLevelObject(@NotNull JsonFile jsonFile) {
+    private JsonObject getTopLevelObject(JsonFile jsonFile) {
         PsiElement[] children = jsonFile.getChildren();
         for (PsiElement child : children) {
             if (child instanceof JsonObject jsonObject) {
@@ -419,20 +426,19 @@ public class StimulusControllerStubIndex extends FileBasedIndexExtension<String,
      * Normalize a controller name from "@symfony/ux-chartjs/chart" to "symfony--ux-chartjs--chart"
      * Removes leading @, converts / to --.
      */
-    @NotNull
-    private String normalizeControllerName(@NotNull String name) {
+    private String normalizeControllerName(String name) {
         return name
             .replace("@", "")
             .replace("/", "--");
     }
 
     @Override
-    public @NotNull KeyDescriptor<String> getKeyDescriptor() {
+    public KeyDescriptor<String> getKeyDescriptor() {
         return this.myKeyDescriptor;
     }
 
     @Override
-    public @NotNull DataExternalizer<StimulusController> getValueExternalizer() {
+    public DataExternalizer<StimulusController> getValueExternalizer() {
         return EXTERNALIZER;
     }
 
@@ -442,8 +448,8 @@ public class StimulusControllerStubIndex extends FileBasedIndexExtension<String,
     }
 
     @Override
-    public FileBasedIndex.@NotNull InputFilter getInputFilter() {
-        return file -> {
+    public FileBasedIndex.InputFilter getInputFilter() {
+        return (project, file) -> {
             // Accept controllers.json files
             FileType fileType = file.getFileType();
 

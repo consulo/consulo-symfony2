@@ -1,8 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.routing.dict;
 
-import com.intellij.util.xmlb.annotations.Tag;
+import consulo.util.xml.serializer.annotation.Tag;
 import fr.adrienbrault.idea.symfony2plugin.ui.dict.AbstractUiFilePath;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -13,7 +12,7 @@ public class RoutingFile extends AbstractUiFilePath {
     public RoutingFile() {
     }
 
-    public RoutingFile(@NotNull String path) {
+    public RoutingFile(String path) {
         this.path = path;
     }
 }

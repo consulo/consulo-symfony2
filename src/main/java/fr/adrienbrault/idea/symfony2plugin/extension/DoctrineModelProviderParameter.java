@@ -1,8 +1,8 @@
 package fr.adrienbrault.idea.symfony2plugin.extension;
 
-import com.intellij.openapi.project.Project;
+import consulo.project.Project;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Collection;
 

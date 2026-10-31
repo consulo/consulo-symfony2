@@ -1,21 +1,19 @@
 package fr.adrienbrault.idea.symfony2plugin.util.yaml;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiFileFactory;
-import com.intellij.psi.PsiRecursiveElementWalkingVisitor;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import consulo.project.Project;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.PsiFileFactory;
+import consulo.language.psi.PsiRecursiveElementWalkingVisitor;
+import org.jspecify.annotations.Nullable;
 import org.jetbrains.yaml.YAMLFileType;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class YamlPsiElementFactory {
-    @Nullable
     @SuppressWarnings("unchecked")
-    public static <T extends PsiElement> T createFromText(@NotNull Project p, final Class<T> aClass, String text) {
+    public static <T extends PsiElement> @Nullable T createFromText(Project p, final Class<T> aClass, String text) {
         final PsiElement[] ret = new PsiElement[]{null};
 
         createDummyFile(p, text).accept(new PsiRecursiveElementWalkingVisitor() {
@@ -32,13 +30,11 @@ public class YamlPsiElementFactory {
     }
 
 
-    @NotNull
     public static PsiFile createDummyFile(Project p, String fileText) {
         return PsiFileFactory.getInstance(p).createFileFromText("DUMMY__." + YAMLFileType.YML.getDefaultExtension(), YAMLFileType.YML, fileText, System.currentTimeMillis(), false);
     }
 
-    @NotNull
-    public static PsiFile createDummyFile(@NotNull Project project, @NotNull String filename, @NotNull String content) {
+    public static PsiFile createDummyFile(Project project, String filename, String content) {
         return PsiFileFactory.getInstance(project).createFileFromText(filename, YAMLFileType.YML, content, System.currentTimeMillis(), false);
     }
 }

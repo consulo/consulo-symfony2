@@ -1,5 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.templating.translation;
 
+import org.junit.jupiter.api.Test;
+
 import com.jetbrains.twig.TwigFileType;
 import fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern;
 
@@ -8,6 +10,8 @@ import fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern;
  * @see fr.adrienbrault.idea.symfony2plugin.templating.TwigTemplateCompletionContributor
  */
 public class TwigTranslationCompletionContributorTest extends TwigTranslationFixturesTestCase {
+
+    @Test
 
     public void testTwigTransCompletion() {
         assertCompletionContains(TwigFileType.INSTANCE, "{{ 'foo'|trans({}, '<caret>') }}", "messages");
@@ -64,6 +68,8 @@ public class TwigTranslationCompletionContributorTest extends TwigTranslationFix
         );
     }
 
+    @Test
+
     public void testTwigTransChoiceCompletion() {
         assertCompletionContains(TwigFileType.INSTANCE, "{{ '<caret>'|transchoice(5) }}", "yaml_weak.symfony.great");
         assertCompletionContains(TwigFileType.INSTANCE, "{% trans_default_domain \"foo\" %}\n{{ '<caret>'|transchoice(5) }}", "foo.symfony.great");
@@ -72,6 +78,8 @@ public class TwigTranslationCompletionContributorTest extends TwigTranslationFix
 
         assertCompletionContains(TwigFileType.INSTANCE, "{{ message|transchoice(5, {'%name%': 'Haehnchen'}, '<caret>') }}", "messages");
     }
+
+    @Test
 
     public void testTwigWeakIndexSubIndexesCompletion() {
         assertCompletionContains(TwigFileType.INSTANCE, "{{ 'foo'|trans({}, '<caret>') }}", "interchange");
@@ -82,6 +90,7 @@ public class TwigTranslationCompletionContributorTest extends TwigTranslationFix
      * @see TwigPattern#getTransDefaultDomainPattern
      * @see fr.adrienbrault.idea.symfony2plugin.templating.TwigTemplateCompletionContributor
      */
+    @Test
     public void testTwigTransDefaultDomainDomainCompletion() {
         assertCompletionContains(TwigFileType.INSTANCE, "{% trans_default_domain '<caret>' %}", "interchange");
         assertCompletionContains(TwigFileType.INSTANCE, "{% trans_default_domain \"<caret>\" %}", "interchange");
@@ -91,6 +100,7 @@ public class TwigTranslationCompletionContributorTest extends TwigTranslationFix
     /**
      * @see TwigPattern#getTranslationTokenTagFromPattern
      */
+    @Test
     public void testTranslationTokenTagFromCompletion() {
         assertCompletionContains(TwigFileType.INSTANCE, "{% trans from \"<caret>\" %}", "interchange");
         assertCompletionContains(TwigFileType.INSTANCE, "{%    trans from \"<caret>\" %}", "interchange");
@@ -100,6 +110,8 @@ public class TwigTranslationCompletionContributorTest extends TwigTranslationFix
 
         assertCompletionNotContains(TwigFileType.INSTANCE, "{% foo from \"<caret>\" %}", "interchange");
     }
+
+    @Test
 
     public void testTranslationCompletionForEmbedTransDefaultDomainScope() {
         assertCompletionContains(TwigFileType.INSTANCE, "" +
@@ -126,6 +138,8 @@ public class TwigTranslationCompletionContributorTest extends TwigTranslationFix
         );
     }
 
+    @Test
+
     public void testTranslationCompletionForEmbedTransDefaultDomainScopeInsideWithParameter() {
         assertCompletionContains(TwigFileType.INSTANCE, "" +
                 "{% trans_default_domain 'interchange' %}" +
@@ -135,6 +149,8 @@ public class TwigTranslationCompletionContributorTest extends TwigTranslationFix
             "xlf_weak.symfony.great"
         );
     }
+
+    @Test
 
     public void testTransDefaultDomainCompletionShouldQuotedStringValue() {
         assertCompletionResultEquals(

@@ -1,8 +1,8 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.util;
 
-import com.intellij.openapi.util.Pair;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.util.PsiTreeUtil;
+import consulo.util.lang.Pair;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.util.PsiTreeUtil;
 import com.jetbrains.php.codeInsight.controlFlow.PhpControlFlowUtil;
 import com.jetbrains.php.codeInsight.controlFlow.PhpInstructionProcessor;
 import com.jetbrains.php.codeInsight.controlFlow.instructions.PhpCallInstruction;
@@ -18,10 +18,9 @@ import fr.adrienbrault.idea.symfony2plugin.util.AnnotationBackportUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpPsiAttributesUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
-import kotlin.Triple;
+import consulo.util.lang.Trinity; // TODO consulo-port: Trinity comes from the Kotlin stdlib (public API shared with PhpTwigTemplateUsageStubIndex, TwigTemplateReferencesSearchExecutor, RenderParameterGotoCompletionRegistrar, TemplatesControllerRelatedGotoCollector); replace together once a Java tuple type is chosen
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.*;
 import java.util.function.Consumer;
@@ -53,7 +52,7 @@ public class PhpMethodVariableResolveUtil {
      * $this->render('foobar.html.twig', $foobar + ['foobar' => $var])
      * $this->render('foobar.html.twig', $foobar += ['foobar' => $var])
      */
-    public static Map<String, PsiVariable> collectMethodVariables(@NotNull Function method, @NotNull Collection<String> templateNames) {
+    public static Map<String, PsiVariable> collectMethodVariables(Function method, Collection<String> templateNames) {
         if (templateNames.isEmpty()) {
             return Collections.emptyMap();
         }
@@ -72,7 +71,7 @@ public class PhpMethodVariableResolveUtil {
         return collectedTypes;
     }
 
-    private static void collectVariablesForPsiElement(@NotNull Function method, @NotNull Map<String, PsiVariable> collectedTypes, @NotNull PsiElement psiElement, int depth, @NotNull ResolveContext context) {
+    private static void collectVariablesForPsiElement(Function method, Map<String, PsiVariable> collectedTypes, PsiElement psiElement, int depth, ResolveContext context) {
         if (depth > MAX_CONTEXT_RESOLVE_DEPTH) {
             return;
         }
@@ -129,17 +128,17 @@ public class PhpMethodVariableResolveUtil {
         }
     }
 
-    private static boolean isArrayContextFunction(@NotNull FunctionReference functionReference) {
+    private static boolean isArrayContextFunction(FunctionReference functionReference) {
         String name = functionReference.getName();
         return name != null && ARRAY_CONTEXT_FUNCTIONS.contains(name.toLowerCase(Locale.ROOT));
     }
 
     private static void collectVariablesForLocalFunctionReference(
-        @NotNull Function method,
-        @NotNull Map<String, PsiVariable> collectedTypes,
-        @NotNull FunctionReference functionReference,
+        Function method,
+        Map<String, PsiVariable> collectedTypes,
+        FunctionReference functionReference,
         int depth,
-        @NotNull ResolveContext context
+        ResolveContext context
     ) {
         if (depth >= MAX_CONTEXT_RESOLVE_DEPTH) {
             return;
@@ -158,7 +157,7 @@ public class PhpMethodVariableResolveUtil {
         }
     }
 
-    private static boolean isLocalContextFunction(@NotNull Function method, @NotNull FunctionReference functionReference, @NotNull Function targetFunction) {
+    private static boolean isLocalContextFunction(Function method, FunctionReference functionReference, Function targetFunction) {
         if (functionReference instanceof MethodReference) {
             if (!(method instanceof Method sourceMethod) || !(targetFunction instanceof Method targetMethod)) {
                 return false;
@@ -178,10 +177,10 @@ public class PhpMethodVariableResolveUtil {
      * <pre>$this->render('foo.html.twig', $this->createTemplateData());</pre>
      */
     private static void collectVariablesForFunctionReturns(
-        @NotNull Function function,
-        @NotNull Map<String, PsiVariable> collectedTypes,
+        Function function,
+        Map<String, PsiVariable> collectedTypes,
         int depth,
-        @NotNull ResolveContext context
+        ResolveContext context
     ) {
         if (depth > MAX_CONTEXT_RESOLVE_DEPTH || !context.visitFunction(function)) {
             return;
@@ -216,8 +215,7 @@ public class PhpMethodVariableResolveUtil {
      *   - renderBlock/renderBlockView: index 2
      * </pre>
      */
-    @NotNull
-    private static List<PsiElement> collectPossibleTemplateArrays(@NotNull Function method, @NotNull Set<String> normalizedTemplateNames) {
+    private static List<PsiElement> collectPossibleTemplateArrays(Function method, Set<String> normalizedTemplateNames) {
         if (normalizedTemplateNames.isEmpty()) {
             return Collections.emptyList();
         }
@@ -276,7 +274,7 @@ public class PhpMethodVariableResolveUtil {
      *   renderBlockView(string $view, string $block, array $parameters = [])
      * </pre>
      */
-    private static int getTemplateParameterIndex(@NotNull FunctionReference methodReference) {
+    private static int getTemplateParameterIndex(FunctionReference methodReference) {
         String methodName = methodReference.getName();
         if ("renderBlock".equalsIgnoreCase(methodName) || "renderBlockView".equalsIgnoreCase(methodName)) {
             return 2;
@@ -292,8 +290,7 @@ public class PhpMethodVariableResolveUtil {
      * @param function should be function / method scope
      * @param variable the variable declaration psi $var = array();
      */
-    @NotNull
-    private static Map<String, PsiVariable> collectOnVariableReferences(@NotNull Function function, @NotNull Variable variable, int depth, @NotNull ResolveContext context) {
+    private static Map<String, PsiVariable> collectOnVariableReferences(Function function, Variable variable, int depth, ResolveContext context) {
         Map<String, PsiVariable> collectedTypes = new HashMap<>();
         if (depth > MAX_CONTEXT_RESOLVE_DEPTH || !context.visitVariable(variable)) {
             return collectedTypes;
@@ -330,7 +327,7 @@ public class PhpMethodVariableResolveUtil {
      * $template['var'] = $foo
      */
     @Nullable
-    private static Pair<String, PsiVariable> getTypesOnArrayIndex(@NotNull ArrayAccessExpression arrayAccessExpression) {
+    private static Pair<String, PsiVariable> getTypesOnArrayIndex(ArrayAccessExpression arrayAccessExpression) {
         ArrayIndex arrayIndex = arrayAccessExpression.getIndex();
         if(arrayIndex != null && arrayIndex.getValue() instanceof StringLiteralExpression) {
 
@@ -359,11 +356,11 @@ public class PhpMethodVariableResolveUtil {
     /**
      *  array('foo' => $var, 'bar' => $bar)
      */
-    public static Map<String, PsiVariable> getTypesOnArrayHash(@NotNull ArrayCreationExpression arrayCreationExpression) {
+    public static Map<String, PsiVariable> getTypesOnArrayHash(ArrayCreationExpression arrayCreationExpression) {
         return getTypesOnArrayHash(null, arrayCreationExpression, 0, new ResolveContext());
     }
 
-    private static Map<String, PsiVariable> getTypesOnArrayHash(@Nullable Function method, @NotNull ArrayCreationExpression arrayCreationExpression, int depth, @NotNull ResolveContext context) {
+    private static Map<String, PsiVariable> getTypesOnArrayHash(@Nullable Function method, ArrayCreationExpression arrayCreationExpression, int depth, ResolveContext context) {
         Map<String, PsiVariable> collectedTypes = new HashMap<>();
 
         for (PsiElement child : arrayCreationExpression.getChildren()) {
@@ -384,7 +381,7 @@ public class PhpMethodVariableResolveUtil {
      * Collects direct string-key array entries.
      * <pre>['foobar' => $var]</pre>
      */
-    private static void collectArrayHashElementTypes(@NotNull Map<String, PsiVariable> collectedTypes, @NotNull ArrayHashElement arrayHashElement) {
+    private static void collectArrayHashElementTypes(Map<String, PsiVariable> collectedTypes, ArrayHashElement arrayHashElement) {
         if (arrayHashElement.getKey() instanceof StringLiteralExpression stringLiteralExpression) {
             String variableName = stringLiteralExpression.getContents();
             Set<String> variableTypes = new HashSet<>();
@@ -405,7 +402,7 @@ public class PhpMethodVariableResolveUtil {
      * Detects PHP array unpack values.
      * <pre>['headline' => 'Foo', ...$templateData, ...$this->createTemplateData()]</pre>
      */
-    private static boolean isArrayUnpackValue(@NotNull PsiElement psiElement) {
+    private static boolean isArrayUnpackValue(PsiElement psiElement) {
         return psiElement instanceof PhpPsiElement &&
             psiElement.getNode().getElementType() == PhpElementTypes.ARRAY_VALUE &&
             psiElement.getNode().findChildByType(PhpTokenTypes.opVARIADIC) != null;
@@ -415,11 +412,11 @@ public class PhpMethodVariableResolveUtil {
         private final Set<Variable> variables = Collections.newSetFromMap(new IdentityHashMap<>());
         private final Set<Function> functions = Collections.newSetFromMap(new IdentityHashMap<>());
 
-        private boolean visitVariable(@NotNull Variable variable) {
+        private boolean visitVariable(Variable variable) {
             return variables.add(variable);
         }
 
-        private boolean visitFunction(@NotNull Function function) {
+        private boolean visitFunction(Function function) {
             return functions.add(function);
         }
     }
@@ -429,7 +426,7 @@ public class PhpMethodVariableResolveUtil {
      * <p>
      * As annotations are not in scope of the method itself
      */
-    public static void visitRenderTemplateFunctions(@NotNull Function function, @NotNull Consumer<Triple<String, PhpNamedElement, FunctionReference>> consumer) {
+    public static void visitRenderTemplateFunctions(Function function, Consumer<Trinity<String, PhpNamedElement, FunctionReference>> consumer) {
         PhpDocComment docComment = function.getDocComment();
         for (PhpDocTag phpDocTag : PsiTreeUtil.getChildrenOfTypeAsList(docComment, PhpDocTag.class)) {
             TemplateRenderVisitor.processDocTag(phpDocTag, consumer);
@@ -453,9 +450,9 @@ public class PhpMethodVariableResolveUtil {
     }
 
     public static class TemplateRenderVisitor {
-        public static void processMethodAttributes(@NotNull Method method, Consumer<Triple<String, PhpNamedElement, FunctionReference>> consumer) {
+        public static void processMethodAttributes(Method method, Consumer<Trinity<String, PhpNamedElement, FunctionReference>> consumer) {
             for (String templateAnnotationClass : TwigUtil.TEMPLATE_ANNOTATION_CLASS) {
-                Collection<@NotNull PhpAttribute> attributes = method.getAttributes(templateAnnotationClass);
+                Collection<PhpAttribute> attributes = method.getAttributes(templateAnnotationClass);
                 for (PhpAttribute attribute : attributes) {
                     if (attribute.getArguments().isEmpty()) {
                         // #[@Template()]
@@ -472,7 +469,7 @@ public class PhpMethodVariableResolveUtil {
             }
         }
 
-        public static void processMethodReference(@NotNull MethodReference methodReference, Consumer<Triple<String, PhpNamedElement, FunctionReference>> consumer) {
+        public static void processMethodReference(MethodReference methodReference, Consumer<Trinity<String, PhpNamedElement, FunctionReference>> consumer) {
             String methodName = methodReference.getName();
             if (methodName == null) {
                 return;
@@ -493,7 +490,7 @@ public class PhpMethodVariableResolveUtil {
         }
 
         @Nullable
-        private static PsiElement findTemplateParameter(@NotNull MethodReference methodReference, @NotNull Collection<String> namedArguments) {
+        private static PsiElement findTemplateParameter(MethodReference methodReference, Collection<String> namedArguments) {
             ParameterList parameterList = methodReference.getParameterList();
             if (parameterList == null) {
                 return null;
@@ -515,7 +512,7 @@ public class PhpMethodVariableResolveUtil {
         }
 
         @Nullable
-        private static PsiElement findTemplateContextParameter(@NotNull FunctionReference methodReference) {
+        private static PsiElement findTemplateContextParameter(FunctionReference methodReference) {
             ParameterList parameterList = methodReference.getParameterList();
             if (parameterList == null) {
                 return null;
@@ -540,8 +537,7 @@ public class PhpMethodVariableResolveUtil {
             return templateParameter;
         }
 
-        @NotNull
-        private static Collection<String> getTemplateNamedArguments(@NotNull MethodReference methodReference) {
+        private static Collection<String> getTemplateNamedArguments(MethodReference methodReference) {
             String methodName = methodReference.getName();
             if (methodName == null) {
                 return Collections.emptyList();
@@ -564,7 +560,7 @@ public class PhpMethodVariableResolveUtil {
         }
 
         @Nullable
-        private static PsiElement findNamedArgument(@NotNull ParameterList parameterList, @NotNull String argumentName) {
+        private static PsiElement findNamedArgument(ParameterList parameterList, String argumentName) {
             for (PsiElement parameter : parameterList.getParameters()) {
                 if (argumentName.equalsIgnoreCase(PsiElementUtils.getNamedArgumentName(parameter))) {
                     return parameter;
@@ -574,7 +570,7 @@ public class PhpMethodVariableResolveUtil {
             return null;
         }
 
-        private static void addTemplateParameterScopes(@NotNull MethodReference methodReference, @NotNull PsiElement parameter, Consumer<Triple<String, PhpNamedElement, FunctionReference>> consumer) {
+        private static void addTemplateParameterScopes(MethodReference methodReference, PsiElement parameter, Consumer<Trinity<String, PhpNamedElement, FunctionReference>> consumer) {
             if (parameter instanceof StringLiteralExpression) {
                 addStringLiteralScope(methodReference, (StringLiteralExpression) parameter, consumer);
             } else if(parameter instanceof TernaryExpression) {
@@ -607,7 +603,7 @@ public class PhpMethodVariableResolveUtil {
             }
         }
 
-        private static void resolvePhpReference(@NotNull MethodReference methodReference, PsiElement parameter, Consumer<Triple<String, PhpNamedElement, FunctionReference>> consumer) {
+        private static void resolvePhpReference(MethodReference methodReference, PsiElement parameter, Consumer<Trinity<String, PhpNamedElement, FunctionReference>> consumer) {
             for (PhpNamedElement phpNamedElement : ((PhpReference) parameter).resolveLocal()) {
                 // foo(self::foo)
                 // foo($this->foo)
@@ -635,7 +631,7 @@ public class PhpMethodVariableResolveUtil {
             }
         }
 
-        private static void addStringLiteralScope(@NotNull MethodReference methodReference, @NotNull StringLiteralExpression defaultValue, Consumer<Triple<String, PhpNamedElement, FunctionReference>> consumer) {
+        private static void addStringLiteralScope(MethodReference methodReference, StringLiteralExpression defaultValue, Consumer<Trinity<String, PhpNamedElement, FunctionReference>> consumer) {
             String contents = defaultValue.getContents();
             if (StringUtils.isBlank(contents) || !contents.endsWith(".twig")) {
                 return;
@@ -653,11 +649,11 @@ public class PhpMethodVariableResolveUtil {
          * "@Template("foobar.html.twig")"
          * "@Template(template="foobar.html.twig")"
          */
-        public static void processDocTag(@NotNull PhpDocTag phpDocTag, Consumer<Triple<String, PhpNamedElement, FunctionReference>> consumer) {
+        public static void processDocTag(PhpDocTag phpDocTag, Consumer<Trinity<String, PhpNamedElement, FunctionReference>> consumer) {
             processDocTag(phpDocTag, AnnotationBackportUtil.getUseImportMap(phpDocTag), consumer);
         }
 
-        public static void processDocTag(@NotNull PhpDocTag phpDocTag, @NotNull Map<String, String> fileImports, Consumer<Triple<String, PhpNamedElement, FunctionReference>> consumer) {
+        public static void processDocTag(PhpDocTag phpDocTag, Map<String, String> fileImports, Consumer<Trinity<String, PhpNamedElement, FunctionReference>> consumer) {
             // "@var" and user non-related tags don't need an action
             if(AnnotationBackportUtil.NON_ANNOTATION_TAGS.contains(phpDocTag.getName())) {
                 return;
@@ -688,7 +684,7 @@ public class PhpMethodVariableResolveUtil {
             }
         }
 
-        private static void visitMethodForGuessing(@NotNull Method methodScope, Consumer<Triple<String, PhpNamedElement, FunctionReference>> consumer) {
+        private static void visitMethodForGuessing(Method methodScope, Consumer<Trinity<String, PhpNamedElement, FunctionReference>> consumer) {
             PhpClass phpClass = methodScope.getContainingClass();
             if (phpClass != null) {
                 // App\Controller\  "MyNice"  Controller
@@ -708,9 +704,9 @@ public class PhpMethodVariableResolveUtil {
             }
         }
 
-        private static void addTemplateWithScope(@NotNull String contents, @NotNull PhpNamedElement scope, @Nullable FunctionReference functionReference, Consumer<Triple<String, PhpNamedElement, FunctionReference>> consumer) {
+        private static void addTemplateWithScope(String contents, PhpNamedElement scope, @Nullable FunctionReference functionReference, Consumer<Trinity<String, PhpNamedElement, FunctionReference>> consumer) {
             String s = TwigUtil.normalizeTemplateName(contents);
-            consumer.accept(new Triple<>(s, scope, functionReference));
+            consumer.accept(new Trinity<>(s, scope, functionReference));
         }
     }
 }

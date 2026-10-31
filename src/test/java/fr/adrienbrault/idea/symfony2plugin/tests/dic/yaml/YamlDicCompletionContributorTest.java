@@ -1,5 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.dic.yaml;
 
+import org.junit.jupiter.api.Test;
+
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
 import org.jetbrains.yaml.YAMLFileType;
 
@@ -26,6 +28,8 @@ public class YamlDicCompletionContributorTest extends SymfonyLightCodeInsightFix
     public String getTestDataPath() {
         return "src/test/java/fr/adrienbrault/idea/symfony2plugin/tests/dic";
     }
+
+    @Test
 
     public void testServiceCompletion() {
 
@@ -68,6 +72,8 @@ public class YamlDicCompletionContributorTest extends SymfonyLightCodeInsightFix
         );
     }
 
+    @Test
+
     public void testServiceCompletionResultsAreUnique() {
         assertCompletionResultsAreUnique(
             YAMLFileType.YML,
@@ -78,6 +84,8 @@ public class YamlDicCompletionContributorTest extends SymfonyLightCodeInsightFix
         );
     }
 
+    @Test
+
     public void testServiceStaticCompletion() {
 
         assertCompletionContains(YAMLFileType.YML, "services:\n" +
@@ -87,6 +95,8 @@ public class YamlDicCompletionContributorTest extends SymfonyLightCodeInsightFix
         );
 
     }
+
+    @Test
 
     public void testClassesCompletion() {
 
@@ -112,6 +122,8 @@ public class YamlDicCompletionContributorTest extends SymfonyLightCodeInsightFix
 
     }
 
+    @Test
+
     public void testClassCompletionResult() {
 
         assertCompletionResultEquals("service.yml",
@@ -133,6 +145,8 @@ public class YamlDicCompletionContributorTest extends SymfonyLightCodeInsightFix
         );
 
     }
+
+    @Test
 
     public void testFactoryClassMethodCompletionResult() {
 
@@ -161,6 +175,8 @@ public class YamlDicCompletionContributorTest extends SymfonyLightCodeInsightFix
         );
 
     }
+
+    @Test
 
     public void testFactoryClassMethodCompletionForStringShortcut() {
         assertCompletionContains(YAMLFileType.YML, "services:\n" +

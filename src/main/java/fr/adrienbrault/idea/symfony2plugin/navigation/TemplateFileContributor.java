@@ -1,20 +1,20 @@
 package fr.adrienbrault.idea.symfony2plugin.navigation;
 
-import com.intellij.navigation.ChooseByNameContributor;
-import com.intellij.navigation.NavigationItem;
-import com.intellij.openapi.project.Project;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.ide.navigation.GotoFileContributor;
+import consulo.navigation.NavigationItem;
+import consulo.project.Project;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
-import icons.TwigIcons;
-import org.jetbrains.annotations.NotNull;
+import com.jetbrains.twig.icons.TwigIcons;
 
 import java.util.Collection;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
-public class TemplateFileContributor implements ChooseByNameContributor {
-    @NotNull
+@ExtensionImpl
+public class TemplateFileContributor implements GotoFileContributor {
     @Override
     public String[] getNames(Project project, boolean b) {
         if(!Symfony2ProjectComponent.isEnabled(project)) {
@@ -25,7 +25,6 @@ public class TemplateFileContributor implements ChooseByNameContributor {
         return twigFileNames.toArray(new String[0]);
     }
 
-    @NotNull
     @Override
     public NavigationItem[] getItemsByName(String templateName, String s2, Project project, boolean b) {
         if(!Symfony2ProjectComponent.isEnabled(project)) {

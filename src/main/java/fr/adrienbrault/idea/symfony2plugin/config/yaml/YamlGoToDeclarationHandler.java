@@ -1,20 +1,22 @@
 package fr.adrienbrault.idea.symfony2plugin.config.yaml;
 
-import com.intellij.codeInsight.navigation.actions.GotoDeclarationHandler;
-import com.intellij.openapi.actionSystem.DataContext;
-import com.intellij.openapi.editor.Editor;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.patterns.PsiElementPattern;
-import com.intellij.patterns.StandardPatterns;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.tree.IElementType;
-import com.intellij.psi.util.PsiTreeUtil;
 import com.jetbrains.php.PhpIndex;
 import com.jetbrains.php.lang.psi.elements.Method;
 import com.jetbrains.php.lang.psi.elements.Parameter;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.codeEditor.Editor;
+import consulo.dataContext.DataContext;
+import consulo.language.ast.IElementType;
+import consulo.language.editor.navigation.GotoDeclarationHandler;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.pattern.PsiElementPattern;
+import consulo.language.pattern.StandardPatterns;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.util.PsiTreeUtil;
+import consulo.localize.LocalizeValue;
+import consulo.virtualFileSystem.VirtualFile;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.config.EventDispatcherSubscriberUtil;
 import fr.adrienbrault.idea.symfony2plugin.config.utils.ConfigUtil;
@@ -31,16 +33,19 @@ import fr.adrienbrault.idea.symfony2plugin.util.dict.ServiceUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.resource.FileResourceUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.jetbrains.yaml.YAMLTokenTypes;
-import org.jetbrains.yaml.psi.*;
+import org.jetbrains.yaml.psi.YAMLKeyValue;
+import org.jetbrains.yaml.psi.YAMLMapping;
+import org.jetbrains.yaml.psi.YAMLScalar;
+import org.jetbrains.yaml.psi.YAMLSequenceItem;
+import org.jspecify.annotations.Nullable;
 
 import java.util.*;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class YamlGoToDeclarationHandler implements GotoDeclarationHandler {
     @Nullable
     @Override
@@ -217,7 +222,7 @@ public class YamlGoToDeclarationHandler implements GotoDeclarationHandler {
      * - "Psr\Log\LoggerInterface $logger" -> "logger"
      */
     @Nullable
-    private static String getBindArgumentName(@NotNull PsiElement psiElement) {
+    private static String getBindArgumentName(PsiElement psiElement) {
         PsiElement context = psiElement.getContext();
         if (!(context instanceof YAMLKeyValue yamlKeyValue)) {
             return null;
@@ -249,7 +254,7 @@ public class YamlGoToDeclarationHandler implements GotoDeclarationHandler {
      * - "Psr\Log\LoggerInterface $logger" -> "Psr\Log\LoggerInterface"
      */
     @Nullable
-    private static String getBindArgumentType(@NotNull PsiElement psiElement) {
+    private static String getBindArgumentType(PsiElement psiElement) {
         PsiElement context = psiElement.getContext();
         if (!(context instanceof YAMLKeyValue yamlKeyValue)) {
             return null;
@@ -272,7 +277,7 @@ public class YamlGoToDeclarationHandler implements GotoDeclarationHandler {
      * - split leaves "$" + "defaultUri" -> "defaultUri"
      */
     @Nullable
-    private static String getBindArgumentNameFromLeaf(@Nullable PsiElement leaf, @NotNull PsiElement key) {
+    private static String getBindArgumentNameFromLeaf(@Nullable PsiElement leaf, PsiElement key) {
         if (leaf == null) {
             return null;
         }
@@ -302,7 +307,7 @@ public class YamlGoToDeclarationHandler implements GotoDeclarationHandler {
         return null;
     }
 
-    private Collection<? extends PsiElement> namedDefaultBindArgumentGoto(@NotNull PsiElement psiElement, @NotNull String parameterName, @Nullable String parameterType) {
+    private Collection<? extends PsiElement> namedDefaultBindArgumentGoto(PsiElement psiElement, String parameterName, @Nullable String parameterType) {
         Collection<PsiElement> psiElements = new HashSet<>();
 
         ServiceContainerUtil.visitNamedArguments(psiElement.getContainingFile(), pair -> {
@@ -315,7 +320,7 @@ public class YamlGoToDeclarationHandler implements GotoDeclarationHandler {
         return psiElements;
     }
 
-    private static boolean isBindArgumentTypeMatch(@NotNull Parameter parameter, @Nullable String parameterType) {
+    private static boolean isBindArgumentTypeMatch(Parameter parameter, @Nullable String parameterType) {
         if (StringUtils.isBlank(parameterType)) {
             return true;
         }
@@ -336,12 +341,11 @@ public class YamlGoToDeclarationHandler implements GotoDeclarationHandler {
         return false;
     }
 
-    @NotNull
-    private static String normalizeBindArgumentType(@NotNull String type) {
+    private static String normalizeBindArgumentType(String type) {
         return StringUtils.stripStart(type.trim(), "\\");
     }
 
-    private Collection<? extends PsiElement> namedArgumentGoto(@NotNull PsiElement psiElement) {
+    private Collection<? extends PsiElement> namedArgumentGoto(PsiElement psiElement) {
         Collection<PsiElement> psiElements = new HashSet<>();
 
         Parameter yamlNamedArgument = ServiceContainerUtil.getYamlNamedArgument(psiElement, new ContainerCollectionResolver.LazyServiceCollector(psiElement.getProject()));
@@ -352,7 +356,7 @@ public class YamlGoToDeclarationHandler implements GotoDeclarationHandler {
         return psiElements;
     }
 
-    private boolean hasNewConst(@NotNull PsiElement psiElement) {
+    private boolean hasNewConst(PsiElement psiElement) {
         PsiElement prevSibling = psiElement.getPrevSibling();
         while (prevSibling != null) {
             IElementType elementType = prevSibling.getNode().getElementType();
@@ -368,8 +372,7 @@ public class YamlGoToDeclarationHandler implements GotoDeclarationHandler {
         return false;
     }
 
-    @NotNull
-    private Collection<PsiElement> classGoToDeclaration(@NotNull PsiElement psiElement, @NotNull String className) {
+    private Collection<PsiElement> classGoToDeclaration(PsiElement psiElement, String className) {
 
         Collection<PsiElement> psiElements = new HashSet<>();
 
@@ -395,8 +398,7 @@ public class YamlGoToDeclarationHandler implements GotoDeclarationHandler {
         return psiElements;
     }
 
-    @NotNull
-    private Collection<PsiElement> serviceGoToDeclaration(@NotNull PsiElement psiElement, @NotNull String serviceId) {
+    private Collection<PsiElement> serviceGoToDeclaration(PsiElement psiElement, String serviceId) {
         serviceId = YamlHelper.trimSpecialSyntaxServiceName(serviceId).toLowerCase();
 
         String serviceClass = ContainerCollectionResolver.resolveService(psiElement.getProject(), serviceId);
@@ -413,8 +415,7 @@ public class YamlGoToDeclarationHandler implements GotoDeclarationHandler {
 
     }
 
-    @NotNull
-    private Collection<PsiElement> parameterGoToDeclaration(@NotNull PsiElement psiElement, @NotNull String psiParameterName) {
+    private Collection<PsiElement> parameterGoToDeclaration(PsiElement psiElement, String psiParameterName) {
         Collection<PsiElement> targets = new ArrayList<>(
             DotEnvUtil.getEnvironmentVariableTargetsForParameter(psiElement.getProject(), psiParameterName)
         );
@@ -428,8 +429,7 @@ public class YamlGoToDeclarationHandler implements GotoDeclarationHandler {
         return targets;
     }
 
-    @NotNull
-    private Collection<PsiElement> constantGoto(@NotNull PsiElement psiElement, @NotNull String tagName) {
+    private Collection<PsiElement> constantGoto(PsiElement psiElement, String tagName) {
         String constantName = tagName.substring(11);
         if(StringUtils.isBlank(constantName)) {
             return Collections.emptyList();
@@ -438,8 +438,7 @@ public class YamlGoToDeclarationHandler implements GotoDeclarationHandler {
         return ServiceContainerUtil.getTargetsForConstant(psiElement.getProject(), constantName);
     }
 
-    @NotNull
-    private Collection<PsiElement> newConstantGoto(@NotNull PsiElement psiElement, @NotNull String constantName) {
+    private Collection<PsiElement> newConstantGoto(PsiElement psiElement, String constantName) {
         if(StringUtils.isBlank(constantName)) {
             return Collections.emptyList();
         }
@@ -447,8 +446,7 @@ public class YamlGoToDeclarationHandler implements GotoDeclarationHandler {
         return ServiceContainerUtil.getTargetsForConstant(psiElement.getProject(), constantName);
     }
 
-    @NotNull
-    private Collection<PsiElement> visitConfigKey(@NotNull PsiElement psiElement) {
+    private Collection<PsiElement> visitConfigKey(PsiElement psiElement) {
         PsiElement parent = psiElement.getParent();
         if(!(parent instanceof YAMLKeyValue)) {
             return Collections.emptyList();
@@ -462,8 +460,7 @@ public class YamlGoToDeclarationHandler implements GotoDeclarationHandler {
         return ConfigUtil.getTreeSignatureTargets(psiElement.getProject(), keyText);
     }
 
-    @NotNull
-    private Collection<PsiElement> getArrayMethodGoto(@NotNull PsiElement psiElement) {
+    private Collection<PsiElement> getArrayMethodGoto(PsiElement psiElement) {
         String text = PsiElementUtils.trimQuote(psiElement.getText());
         if(StringUtils.isBlank(text)) {
             return Collections.emptyList();
@@ -493,8 +490,7 @@ public class YamlGoToDeclarationHandler implements GotoDeclarationHandler {
     /**
      * Factory goto: "factory: 'foo:bar'"
      */
-    @NotNull
-    private Collection<PsiElement> getFactoryStringGoto(@NotNull PsiElement psiElement) {
+    private Collection<PsiElement> getFactoryStringGoto(PsiElement psiElement) {
         PsiElement parent = psiElement.getParent();
         if(!(parent instanceof YAMLScalar)) {
             return Collections.emptyList();
@@ -522,14 +518,12 @@ public class YamlGoToDeclarationHandler implements GotoDeclarationHandler {
         return results;
     }
 
-    @NotNull
-    private Collection<PsiElement> getClassGoto(@NotNull PsiElement psiElement) {
+    private Collection<PsiElement> getClassGoto(PsiElement psiElement) {
         String text = PsiElementUtils.trimQuote(psiElement.getText());
         return new ArrayList<>(PhpElementsUtil.getClassesInterface(psiElement.getProject(), text));
     }
 
-    @NotNull
-    private Collection<PsiElement> getMethodGoto(@NotNull PsiElement psiElement) {
+    private Collection<PsiElement> getMethodGoto(PsiElement psiElement) {
         Collection<PsiElement> results = new ArrayList<>();
 
         PsiElement parent = psiElement.getParent();
@@ -550,8 +544,7 @@ public class YamlGoToDeclarationHandler implements GotoDeclarationHandler {
         return results;
     }
 
-    @NotNull
-    private Collection<PsiElement> getTagMethodGoto(@NotNull PsiElement psiElement) {
+    private Collection<PsiElement> getTagMethodGoto(PsiElement psiElement) {
         String methodName = PsiElementUtils.trimQuote(psiElement.getText());
         if(StringUtils.isBlank(methodName)) {
             return Collections.emptyList();
@@ -575,8 +568,7 @@ public class YamlGoToDeclarationHandler implements GotoDeclarationHandler {
         return Collections.emptyList();
     }
 
-    @NotNull
-    private Collection<PsiElement> attachResourceBundleGoto(@NotNull PsiElement psiElement) {
+    private Collection<PsiElement> attachResourceBundleGoto(PsiElement psiElement) {
         String text = PsiElementUtils.trimQuote(psiElement.getText());
         if(StringUtils.isBlank(text)) {
             return Collections.emptyList();
@@ -597,8 +589,7 @@ public class YamlGoToDeclarationHandler implements GotoDeclarationHandler {
      *     resource: '../src/'
      *     exclude: ...
      */
-    @NotNull
-    private Collection<PsiElement> attachResourceOrExcludeGlobNamespaceElements(@NotNull PsiElement psiElement) {
+    private Collection<PsiElement> attachResourceOrExcludeGlobNamespaceElements(PsiElement psiElement) {
         String resource = PsiElementUtils.trimQuote(psiElement.getText());
         if (StringUtils.isBlank(resource)) {
             return Collections.emptyList();
@@ -637,8 +628,7 @@ public class YamlGoToDeclarationHandler implements GotoDeclarationHandler {
         return new HashSet<>(ServiceIndexUtil.getClassesForServiceDefinition(psiElement.getProject(), virtualFile, service));
     }
 
-    @NotNull
-    private Collection<PsiElement> attachResourceOnPathGoto(@NotNull PsiElement psiElement) {
+    private Collection<PsiElement> attachResourceOnPathGoto(PsiElement psiElement) {
         String text = PsiElementUtils.trimQuote(psiElement.getText());
         if(StringUtils.isBlank(text) || text.startsWith("@")) {
             return Collections.emptyList();
@@ -657,8 +647,7 @@ public class YamlGoToDeclarationHandler implements GotoDeclarationHandler {
      *
      * "!tagged_iterator app.handler"
      */
-    @NotNull
-    private Collection<PsiElement> attachTaggedIteratorClasses(@NotNull PsiElement psiElement) {
+    private Collection<PsiElement> attachTaggedIteratorClasses(PsiElement psiElement) {
         if (psiElement.getNode().getElementType() == YAMLTokenTypes.TAG) {
             // - !tagged_iterator ...
 
@@ -692,8 +681,7 @@ public class YamlGoToDeclarationHandler implements GotoDeclarationHandler {
         return Collections.emptyList();
     }
 
-    @NotNull
-    private Collection<PsiElement> getControllerGoto(@NotNull PsiElement psiElement) {
+    private Collection<PsiElement> getControllerGoto(PsiElement psiElement) {
         String text = PsiElementUtils.trimQuote(psiElement.getText());
         if(StringUtils.isBlank(text)) {
             return Collections.emptyList();
@@ -702,8 +690,7 @@ public class YamlGoToDeclarationHandler implements GotoDeclarationHandler {
         return Arrays.asList(RouteHelper.getMethodsOnControllerShortcut(psiElement.getProject(), text));
     }
 
-    @NotNull
-    private Collection<PsiElement> getTagClassesGoto(@NotNull PsiElement psiElement) {
+    private Collection<PsiElement> getTagClassesGoto(PsiElement psiElement) {
         String tagName = PsiElementUtils.trimQuote(psiElement.getText());
         if(StringUtils.isBlank(tagName)) {
             return Collections.emptyList();
@@ -712,7 +699,7 @@ public class YamlGoToDeclarationHandler implements GotoDeclarationHandler {
         return new ArrayList<>(ServiceUtil.getTaggedClasses(psiElement.getProject(), tagName));
     }
 
-    private Collection<PsiElement> getEventGoto(@NotNull PsiElement psiElement) {
+    private Collection<PsiElement> getEventGoto(PsiElement psiElement) {
         return EventDispatcherSubscriberUtil.getEventPsiElements(psiElement.getProject(), PsiElementUtils.trimQuote(psiElement.getText()));
     }
 
@@ -720,7 +707,7 @@ public class YamlGoToDeclarationHandler implements GotoDeclarationHandler {
      * services:
      *   My<caret>Class: ~
      */
-    private static Collection<PsiElement> getClassesForServiceKey(@NotNull PsiElement psiElement) {
+    private static Collection<PsiElement> getClassesForServiceKey(PsiElement psiElement) {
         PsiElement parent = psiElement.getParent();
         if(parent instanceof YAMLKeyValue) {
             return getClassesForServiceKey((YAMLKeyValue) parent);
@@ -729,8 +716,7 @@ public class YamlGoToDeclarationHandler implements GotoDeclarationHandler {
         return Collections.emptyList();
     }
 
-    @NotNull
-    public static Collection<PsiElement> getClassesForServiceKey(@NotNull YAMLKeyValue yamlKeyValue) {
+    public static Collection<PsiElement> getClassesForServiceKey(YAMLKeyValue yamlKeyValue) {
         String valueText = yamlKeyValue.getKeyText();
         if (StringUtils.isBlank(valueText)) {
             return Collections.emptyList();
@@ -750,10 +736,9 @@ public class YamlGoToDeclarationHandler implements GotoDeclarationHandler {
         return targets;
     }
 
-    @Nullable
     @Override
-    public String getActionText(@NotNull DataContext dataContext) {
-        return null;
+    public LocalizeValue getActionText(DataContext dataContext) {
+        return LocalizeValue.empty();
     }
 
     /**

@@ -1,12 +1,13 @@
 package fr.adrienbrault.idea.symfony2plugin.translation;
 
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiElementResolveResult;
-import com.intellij.psi.PsiPolyVariantReferenceBase;
-import com.intellij.psi.ResolveResult;
+import fr.adrienbrault.idea.symfony2plugin.codeInsight.completion.SymfonyCompletionReference;
+
 import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiElementResolveResult;
+import consulo.language.psi.PsiPolyVariantReferenceBase;
+import consulo.language.psi.ResolveResult;
 import fr.adrienbrault.idea.symfony2plugin.translation.dict.TranslationUtil;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -14,18 +15,17 @@ import java.util.List;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
-public class TranslationReference extends PsiPolyVariantReferenceBase<PsiElement> {
+public class TranslationReference extends PsiPolyVariantReferenceBase<PsiElement> implements SymfonyCompletionReference {
 
     private String domainName;
     private final StringLiteralExpression element;
 
-    public TranslationReference(@NotNull StringLiteralExpression element, String domain) {
+    public TranslationReference(StringLiteralExpression element, String domain) {
         super(element);
         this.domainName = domain;
         this.element = element;
     }
 
-    @NotNull
     @Override
     public ResolveResult[] multiResolve(boolean incompleteCode) {
         List<ResolveResult> results = new ArrayList<>();
@@ -38,9 +38,8 @@ public class TranslationReference extends PsiPolyVariantReferenceBase<PsiElement
         return results.toArray(new ResolveResult[0]);
     }
 
-    @NotNull
     @Override
-    public Object[] getVariants() {
+    public Object[] getCompletionVariants() {
         return TranslationUtil.getTranslationLookupElementsOnDomain(getElement().getProject(), domainName).toArray();
     }
 

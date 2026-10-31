@@ -1,7 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.config.component.parser;
 
 import fr.adrienbrault.idea.symfony2plugin.util.xml.SecureXmlUtil;
-import org.jetbrains.annotations.NotNull;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
@@ -21,7 +20,6 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class ParameterServiceCollector {
 
-    @NotNull
     public static Map<String, String> collect(InputStream stream) {
         try {
             return collect(SecureXmlUtil.createDocumentBuilder().parse(stream));
@@ -30,7 +28,6 @@ public class ParameterServiceCollector {
         }
     }
 
-    @NotNull
     public static Map<String, String> collect(File file) {
         try {
             return collect(SecureXmlUtil.createDocumentBuilder().parse(file));
@@ -39,7 +36,6 @@ public class ParameterServiceCollector {
         }
     }
 
-    @NotNull
     private static Map<String, String> collect(Document document) {
 
         Map<String, String> parameterMap = new ConcurrentHashMap<>();

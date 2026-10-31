@@ -1,33 +1,33 @@
 package fr.adrienbrault.idea.symfony2plugin.doctrine.component;
 
-import com.intellij.codeInsight.completion.CompletionParameters;
-import com.intellij.codeInsight.completion.CompletionProvider;
-import com.intellij.codeInsight.completion.CompletionResultSet;
-import com.intellij.codeInsight.completion.impl.CamelHumpMatcher;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.text.StringUtil;
-import com.intellij.util.ProcessingContext;
 import com.jetbrains.php.PhpIndex;
 import com.jetbrains.php.completion.PhpClassLookupElement;
 import com.jetbrains.php.lang.PhpLangUtil;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
 import com.jetbrains.php.util.PhpContractUtil;
+import consulo.language.editor.completion.CamelHumpMatcher;
+import consulo.language.editor.completion.CompletionParameters;
+import consulo.language.editor.completion.CompletionProvider;
+import consulo.language.editor.completion.CompletionResultSet;
+import consulo.language.util.ProcessingContext;
+import consulo.project.Project;
+import consulo.util.lang.StringUtil;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.util.completion.PhpClassReferenceInsertHandler;
 import fr.adrienbrault.idea.symfony2plugin.util.service.ServiceXmlParserFactory;
-import one.util.streamex.StreamEx;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
-public class PhpEntityClassCompletionProvider extends CompletionProvider<CompletionParameters> {
+public class PhpEntityClassCompletionProvider implements CompletionProvider {
 
-    public void addCompletions(@NotNull CompletionParameters parameters, ProcessingContext context, @NotNull CompletionResultSet resultSet) {
+    @Override
+    public void addCompletions(CompletionParameters parameters, ProcessingContext context, CompletionResultSet resultSet) {
         Project project = parameters.getPosition().getProject();
         if(!Symfony2ProjectComponent.isEnabled(project)) {
             return;
@@ -56,8 +56,9 @@ public class PhpEntityClassCompletionProvider extends CompletionProvider<Complet
     /**
      * Replacment for "PhpCompletionUtil.filterByNamespace(classes, namespaceFqn)"
      */
-    public static Collection<PhpClass> filterByNamespace(@NotNull Collection<PhpClass> classes, @NotNull String namespaceFQN) {
+    public static Collection<PhpClass> filterByNamespace(Collection<PhpClass> classes, String namespaceFQN) {
         PhpContractUtil.assertFqn(namespaceFQN);
-        return StreamEx.of(classes).filter((aClass) -> PhpLangUtil.equalsClassNames(namespaceFQN, StringUtil.trimEnd(aClass.getNamespaceName(), "\\"))).toCollection(HashSet::new);
+        // consulo-port: StreamEx is not available, plain java streams
+        return classes.stream().filter((aClass) -> PhpLangUtil.equalsClassNames(namespaceFQN, StringUtil.trimEnd(aClass.getNamespaceName(), "\\"))).collect(Collectors.toCollection(HashSet::new));
     }
 }

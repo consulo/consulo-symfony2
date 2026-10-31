@@ -1,16 +1,19 @@
 package fr.adrienbrault.idea.symfony2plugin.dic;
 
-import com.intellij.codeInsight.completion.*;
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.codeInsight.lookup.LookupElementWeigher;
-import com.intellij.psi.PsiElement;
-import com.intellij.util.ProcessingContext;
+import consulo.language.editor.completion.CompletionParameters;
+import consulo.language.editor.completion.CompletionProvider;
+import consulo.language.editor.completion.CompletionResultSet;
+import consulo.language.editor.completion.CompletionService;
+import consulo.language.editor.completion.CompletionSorter;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.editor.completion.lookup.LookupElementWeigher;
+import consulo.language.psi.PsiElement;
+import consulo.language.util.ProcessingContext;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.dic.container.suggestion.*;
 import fr.adrienbrault.idea.symfony2plugin.dic.container.util.ServiceContainerUtil;
 import fr.adrienbrault.idea.symfony2plugin.stubs.ContainerCollectionResolver;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.*;
 import java.util.function.Function;
@@ -19,7 +22,7 @@ import java.util.stream.Collectors;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
-public class ServiceCompletionProvider extends CompletionProvider<CompletionParameters> {
+public class ServiceCompletionProvider implements CompletionProvider {
 
     private static final ServiceSuggestionCollector[] COLLECTORS = new ServiceSuggestionCollector[] {
         new XmlConstructServiceSuggestionCollector(),
@@ -30,7 +33,8 @@ public class ServiceCompletionProvider extends CompletionProvider<CompletionPara
         new PhpFluentArgumentServiceSuggestionCollector(),
     };
 
-    public void addCompletions(@NotNull CompletionParameters parameters, ProcessingContext context, @NotNull CompletionResultSet resultSet) {
+    @Override
+    public void addCompletions(CompletionParameters parameters, ProcessingContext context, CompletionResultSet resultSet) {
 
         if(!Symfony2ProjectComponent.isEnabled(parameters.getPosition())) {
             return;
@@ -46,7 +50,7 @@ public class ServiceCompletionProvider extends CompletionProvider<CompletionPara
         addPrioritizedServiceLookupElements(parameters, resultSet, result);
     }
 
-    public static void addPrioritizedServiceLookupElements(@NotNull CompletionParameters parameters, @NotNull CompletionResultSet resultSet, @NotNull PrioritizedLookupResult result) {
+    public static void addPrioritizedServiceLookupElements(CompletionParameters parameters, CompletionResultSet resultSet, PrioritizedLookupResult result) {
         // move known elements to top
         if(!result.getTopStrings().isEmpty()) {
             CompletionSorter completionSorter = CompletionService.getCompletionService()
@@ -59,8 +63,7 @@ public class ServiceCompletionProvider extends CompletionProvider<CompletionPara
         resultSet.addAllElements(result.getLookupElements());
     }
 
-    @NotNull
-    public static PrioritizedLookupResult getLookupElements(@Nullable PsiElement element, @NotNull Collection<ContainerService> services) {
+    public static PrioritizedLookupResult getLookupElements(@Nullable PsiElement element, Collection<ContainerService> services) {
         // collect instance to highlight services
         List<String> servicesForInstance = new ArrayList<>();
 
@@ -86,33 +89,28 @@ public class ServiceCompletionProvider extends CompletionProvider<CompletionPara
 
     public static class PrioritizedLookupResult {
 
-        @NotNull
         private final Collection<LookupElement> lookupElements;
 
-        @NotNull
         private final List<String> topStrings;
 
-        public PrioritizedLookupResult(@NotNull Collection<LookupElement> lookupElements, @NotNull List<String> topStrings) {
+        public PrioritizedLookupResult(Collection<LookupElement> lookupElements, List<String> topStrings) {
             this.lookupElements = lookupElements;
             this.topStrings = topStrings;
         }
 
-        @NotNull
         public Collection<LookupElement> getLookupElements() {
             return lookupElements;
         }
 
-        @NotNull
         public List<String> getTopStrings() {
             return topStrings;
         }
     }
 
     public static class MyLookupElementWeigher extends LookupElementWeigher {
-        @NotNull
         private final List<String> elements;
 
-        public MyLookupElementWeigher(@NotNull List<String> elements) {
+        public MyLookupElementWeigher(List<String> elements) {
             super("topElement");
             this.elements = elements;
 
@@ -122,7 +120,7 @@ public class ServiceCompletionProvider extends CompletionProvider<CompletionPara
 
         @Nullable
         @Override
-        public Comparable weigh(@NotNull LookupElement element) {
+        public Comparable weigh(LookupElement element) {
             String lookupString = element.getLookupString();
             if(!elements.contains(lookupString)) {
                 return 0;

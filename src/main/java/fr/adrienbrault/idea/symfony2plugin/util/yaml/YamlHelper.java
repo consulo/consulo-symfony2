@@ -1,20 +1,22 @@
 package fr.adrienbrault.idea.symfony2plugin.util.yaml;
 
-import com.intellij.openapi.command.WriteCommandAction;
-import com.intellij.openapi.util.Pair;
-import com.intellij.openapi.util.text.StringUtil;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.patterns.PatternCondition;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.patterns.PsiElementPattern;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.impl.source.tree.LeafPsiElement;
-import com.intellij.psi.util.PsiTreeUtil;
-import com.intellij.util.Consumer;
-import com.intellij.util.ObjectUtils;
-import com.intellij.util.ProcessingContext;
-import com.intellij.util.containers.ContainerUtil;
+import org.jetbrains.yaml.psi.YAMLMapping;
+import org.jetbrains.yaml.psi.YAMLScalar;
+import consulo.language.editor.WriteCommandAction;
+import consulo.util.lang.Pair;
+import consulo.util.lang.StringUtil;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.language.pattern.PatternCondition;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.pattern.PsiElementPattern;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.impl.psi.LeafPsiElement;
+import consulo.language.psi.util.PsiTreeUtil;
+import java.util.function.Consumer;
+import consulo.util.lang.ObjectUtil;
+import consulo.language.util.ProcessingContext;
+import consulo.util.collection.ContainerUtil;
 import com.jetbrains.php.config.PhpLanguageLevel;
 import com.jetbrains.php.lang.psi.elements.Parameter;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
@@ -33,15 +35,12 @@ import fr.adrienbrault.idea.symfony2plugin.util.yaml.visitor.YamlServiceTag;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.visitor.YamlTagVisitor;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.jetbrains.yaml.YAMLElementGenerator;
 import org.jetbrains.yaml.YAMLElementTypes;
 import org.jetbrains.yaml.YAMLTokenTypes;
 import org.jetbrains.yaml.YAMLUtil;
 import org.jetbrains.yaml.psi.*;
-import org.jetbrains.yaml.psi.impl.YAMLHashImpl;
-import org.jetbrains.yaml.psi.impl.YAMLPlainTextImpl;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -51,8 +50,7 @@ import java.util.stream.Collectors;
  */
 public class YamlHelper {
 
-    @Nullable
-    static public PsiElement getLocalServiceName(PsiFile psiFile, String findServiceName) {
+    static public @Nullable PsiElement getLocalServiceName(PsiFile psiFile, String findServiceName) {
         return new YamlLocalServiceMap().getLocalServiceName(psiFile, findServiceName);
     }
 
@@ -90,8 +88,7 @@ public class YamlHelper {
      *
      *  FOO: [foobar]
      */
-    @NotNull
-    static public Collection<YAMLSequenceItem> getSequenceItems(@NotNull YAMLKeyValue yamlKeyValue) {
+    static public Collection<YAMLSequenceItem> getSequenceItems(YAMLKeyValue yamlKeyValue) {
         PsiElement yamlSequence = yamlKeyValue.getLastChild();
 
         if(yamlSequence instanceof YAMLSequence) {
@@ -104,16 +101,14 @@ public class YamlHelper {
     /**
      * [ROLE_USER, FEATURE_ALPHA, ROLE_ALLOWED_TO_SWITCH]
      */
-    @NotNull
-    static public Collection<String> getYamlArrayValuesAsString(@NotNull YAMLSequence yamlArray) {
+    static public Collection<String> getYamlArrayValuesAsString(YAMLSequence yamlArray) {
         return new HashSet<>(getYamlArrayValuesAsList(yamlArray));
     }
 
     /**
      * [ROLE_USER, FEATURE_ALPHA, ROLE_ALLOWED_TO_SWITCH]
      */
-    @NotNull
-    static public Collection<String> getYamlArrayValuesAsList(@NotNull YAMLSequence yamlArray) {
+    static public Collection<String> getYamlArrayValuesAsList(YAMLSequence yamlArray) {
         Collection<String> keys = new ArrayList<>();
 
         for (YAMLSequenceItem yamlSequenceItem : yamlArray.getItems()) {
@@ -131,13 +126,11 @@ public class YamlHelper {
         return keys;
     }
 
-    @Nullable
-    public static YAMLKeyValue getYamlKeyValue(@Nullable PsiElement yamlCompoundValue, String keyName) {
+    public static @Nullable YAMLKeyValue getYamlKeyValue(@Nullable PsiElement yamlCompoundValue, String keyName) {
         return getYamlKeyValue(yamlCompoundValue, keyName, false);
     }
 
-    @Nullable
-    public static YAMLKeyValue getYamlKeyValue(@Nullable PsiElement yamlCompoundValue, String keyName, boolean ignoreCase) {
+    public static @Nullable YAMLKeyValue getYamlKeyValue(@Nullable PsiElement yamlCompoundValue, String keyName, boolean ignoreCase) {
         if (!(yamlCompoundValue instanceof YAMLMapping)) {
             return null;
         }
@@ -183,18 +176,15 @@ public class YamlHelper {
             return map;
         }
 
-        @Nullable
-        public PsiElement getLocalServiceName(PsiFile psiFile, String findServiceName) {
+        public @Nullable PsiElement getLocalServiceName(PsiFile psiFile, String findServiceName) {
             return getYamlKeyPath(psiFile, findServiceName, "services");
         }
 
-        @Nullable
-        public PsiElement getLocalParameterName(PsiFile psiFile, String findServiceName) {
+        public @Nullable PsiElement getLocalParameterName(PsiFile psiFile, String findServiceName) {
             return getYamlKeyPath(psiFile, findServiceName, "parameters");
         }
 
-        @Nullable
-        private PsiElement getYamlKeyPath(@NotNull PsiFile psiFile, final @NotNull String findServiceName, @NotNull String rootKey) {
+        private @Nullable PsiElement getYamlKeyPath(PsiFile psiFile, final String findServiceName, String rootKey) {
 
             final Collection<PsiElement> psiElements = new ArrayList<>();
 
@@ -214,7 +204,7 @@ public class YamlHelper {
         }
     }
 
-    public static boolean isValidParameterName(@NotNull String parameterName) {
+    public static boolean isValidParameterName(String parameterName) {
 
         if(parameterName.length() < 3) {
             return false;
@@ -235,8 +225,7 @@ public class YamlHelper {
 
     }
 
-    @NotNull
-    public static String trimSpecialSyntaxServiceName(@NotNull String serviceName) {
+    public static String trimSpecialSyntaxServiceName(String serviceName) {
 
         if(serviceName.startsWith("@")) {
             serviceName = serviceName.substring(1);
@@ -256,8 +245,7 @@ public class YamlHelper {
 
     }
 
-    @Nullable
-    public static String getYamlKeyName(@NotNull YAMLKeyValue yamlKeyValue) {
+    public static @Nullable String getYamlKeyName(YAMLKeyValue yamlKeyValue) {
 
         PsiElement modelName = yamlKeyValue.getKey();
         if(modelName == null) {
@@ -272,8 +260,7 @@ public class YamlHelper {
         return keyName;
     }
 
-    @Nullable
-    public static Set<String> getKeySet(@Nullable YAMLKeyValue yamlKeyValue) {
+    public static @Nullable Set<String> getKeySet(@Nullable YAMLKeyValue yamlKeyValue) {
 
         if(yamlKeyValue == null) {
             return null;
@@ -295,8 +282,7 @@ public class YamlHelper {
         return keySet;
     }
 
-    @Nullable
-    public static YAMLKeyValue getYamlKeyValue(@NotNull YAMLMapping yamlHash, String keyName) {
+    public static @Nullable YAMLKeyValue getYamlKeyValue(YAMLMapping yamlHash, String keyName) {
         return getYamlKeyValue(yamlHash, keyName, false);
     }
 
@@ -305,11 +291,10 @@ public class YamlHelper {
      *   DEBUG_WEB_1: 1
      *   DEBUG_WEB_2: 1
      */
-    @NotNull
-    public static Map<String, YAMLValue> getYamlArrayKeyMap(@NotNull YAMLMapping yamlHash) {
+    public static Map<String, YAMLValue> getYamlArrayKeyMap(YAMLMapping yamlHash) {
         Map<String, YAMLValue> keys = new HashMap<>();
 
-        for(YAMLKeyValue yamlKeyValue: PsiTreeUtil.getChildrenOfAnyType(yamlHash, YAMLKeyValue.class)) {
+        for(YAMLKeyValue yamlKeyValue: PsiTreeUtil.getChildrenOfTypeAsList(yamlHash, YAMLKeyValue.class)) {
             String keyText = yamlKeyValue.getKeyText();
             if (StringUtils.isNotBlank(keyText)) {
                 YAMLValue value = yamlKeyValue.getValue();
@@ -322,8 +307,7 @@ public class YamlHelper {
         return keys;
     }
 
-    @Nullable
-    public static String getYamlKeyValueAsString(@NotNull YAMLMapping yamlHash, @NotNull String keyName) {
+    public static @Nullable String getYamlKeyValueAsString(YAMLMapping yamlHash, String keyName) {
         YAMLKeyValue yamlKeyValue = getYamlKeyValue(yamlHash, keyName, false);
         if(yamlKeyValue == null) {
             return null;
@@ -338,8 +322,7 @@ public class YamlHelper {
     }
 
 
-    @Nullable
-    public static YAMLKeyValue getYamlKeyValue(@Nullable YAMLKeyValue yamlKeyValue, @NotNull String keyName) {
+    public static @Nullable YAMLKeyValue getYamlKeyValue(@Nullable YAMLKeyValue yamlKeyValue, String keyName) {
         return getYamlKeyValue(yamlKeyValue, keyName, false);
     }
 
@@ -347,8 +330,7 @@ public class YamlHelper {
      *  foo:
      *     class: "name"
      */
-    @Nullable
-    public static String getYamlKeyValueAsString(@NotNull YAMLKeyValue yamlKeyValue, @NotNull String keyName) {
+    public static @Nullable String getYamlKeyValueAsString(YAMLKeyValue yamlKeyValue, String keyName) {
         return getYamlKeyValueAsString(yamlKeyValue, keyName, false);
     }
 
@@ -360,8 +342,7 @@ public class YamlHelper {
      *   - "name"
      *   - "test"
      */
-    @NotNull
-    public static Collection<String> getYamlKeyValueStringOrArray(@NotNull YAMLKeyValue yamlKeyValue, @NotNull String keyName) {
+    public static Collection<String> getYamlKeyValueStringOrArray(YAMLKeyValue yamlKeyValue, String keyName) {
         YAMLKeyValue childrenKeyValue = getYamlKeyValue(yamlKeyValue, keyName);
         if (childrenKeyValue == null) {
             return Collections.emptyList();
@@ -396,8 +377,7 @@ public class YamlHelper {
         return "~".equals(scalar.getTextValue()) || "null".equalsIgnoreCase(scalar.getTextValue());
     }
 
-    @Nullable
-    public static String getYamlKeyValueAsString(@NotNull YAMLKeyValue yamlKeyValue, @NotNull String keyName, boolean ignoreCase) {
+    public static @Nullable String getYamlKeyValueAsString(YAMLKeyValue yamlKeyValue, String keyName, boolean ignoreCase) {
 
         PsiElement yamlCompoundValue = yamlKeyValue.getValue();
         if(!(yamlCompoundValue instanceof YAMLCompoundValue)) {
@@ -407,8 +387,7 @@ public class YamlHelper {
         return getYamlKeyValueAsString((YAMLCompoundValue) yamlCompoundValue, keyName, ignoreCase);
     }
 
-    @Nullable
-    public static String getYamlKeyValueAsString(@Nullable YAMLCompoundValue yamlCompoundValue, String keyName, boolean ignoreCase) {
+    public static @Nullable String getYamlKeyValueAsString(@Nullable YAMLCompoundValue yamlCompoundValue, String keyName, boolean ignoreCase) {
         YAMLKeyValue yamlKeyValue1 = getYamlKeyValue(yamlCompoundValue, keyName, ignoreCase);
 
         if(yamlKeyValue1 == null) {
@@ -423,8 +402,7 @@ public class YamlHelper {
         return valueText;
     }
 
-    @Nullable
-    public static YAMLKeyValue getYamlKeyValue(@Nullable YAMLKeyValue yamlKeyValue, String keyName, boolean ignoreCase) {
+    public static @Nullable YAMLKeyValue getYamlKeyValue(@Nullable YAMLKeyValue yamlKeyValue, String keyName, boolean ignoreCase) {
         if(yamlKeyValue == null) {
             return null;
         }
@@ -483,19 +461,19 @@ public class YamlHelper {
         return psiFile.getName().contains("routing") || psiFile.getVirtualFile().getPath().contains("/routing");
     }
 
-    public static boolean isConfigFile(@NotNull PsiFile psiFile) {
+    public static boolean isConfigFile(PsiFile psiFile) {
         return psiFile.getName().contains("config") || psiFile.getVirtualFile().getPath().contains("/config");
     }
 
-    public static boolean isServicesFile(@NotNull PsiFile psiFile) {
+    public static boolean isServicesFile(PsiFile psiFile) {
         return psiFile.getName().contains("services") || psiFile.getVirtualFile().getPath().contains("/services");
     }
 
-    public static boolean isInsideServiceDefinition(@NotNull PsiElement psiElement) {
+    public static boolean isInsideServiceDefinition(PsiElement psiElement) {
         return YamlElementPatternHelper.getInsideServiceKeyPattern().accepts(psiElement);
     }
 
-    public static boolean isInsideServiceArgumentDefinition(@NotNull PsiElement psiElement) {
+    public static boolean isInsideServiceArgumentDefinition(PsiElement psiElement) {
         return isInsideServiceDefinition(psiElement)
             && YamlElementPatternHelper.getInsideKeyValue("arguments", "properties", "calls").accepts(psiElement);
     }
@@ -513,8 +491,7 @@ public class YamlHelper {
      *   tags:
      *     -  { method: "crossHint<caret>" }
      */
-    @Nullable
-    public static String getServiceDefinitionClassFromTagMethod(@NotNull PsiElement psiElement) {
+    public static @Nullable String getServiceDefinitionClassFromTagMethod(PsiElement psiElement) {
         PsiElement yamlScalar = psiElement.getParent();
         if(yamlScalar instanceof YAMLScalar) {
             PsiElement yamlKeyValue = yamlScalar.getParent();
@@ -548,8 +525,7 @@ public class YamlHelper {
      *
      * TODO: can be handled nice know because on new yaml plugin
      */
-    @Nullable
-    public static List<PsiElement> getYamlArrayOnSequenceOrArrayElements(@NotNull YAMLCompoundValue yamlCompoundValue) {
+    public static @Nullable List<PsiElement> getYamlArrayOnSequenceOrArrayElements(YAMLCompoundValue yamlCompoundValue) {
         if (yamlCompoundValue instanceof YAMLSequence) {
             return new ArrayList<>(((YAMLSequence) yamlCompoundValue).getItems());
         }
@@ -566,8 +542,7 @@ public class YamlHelper {
      *
      * @param psiElement any PsiElement that is inside an service definition
      */
-    @Nullable
-    public static YAMLKeyValue findServiceInContext(@NotNull PsiElement psiElement) {
+    public static @Nullable YAMLKeyValue findServiceInContext(PsiElement psiElement) {
 
         YAMLKeyValue serviceSubKey = PsiTreeUtil.getParentOfType(psiElement, YAMLKeyValue.class);
         if(serviceSubKey == null) {
@@ -578,7 +553,7 @@ public class YamlHelper {
 
         // we are inside a YAMLHash element, find most parent array key
         // { name: foo }
-        if(serviceSubKeyCompound instanceof YAMLHashImpl) {
+        if(serviceSubKeyCompound instanceof YAMLMapping && serviceSubKeyCompound.getNode().getElementType() == YAMLElementTypes.HASH) {
             YAMLKeyValue yamlKeyValue = PsiTreeUtil.getParentOfType(serviceSubKeyCompound, YAMLKeyValue.class);
             if(yamlKeyValue == null) {
                 return null;
@@ -614,8 +589,7 @@ public class YamlHelper {
      * @param yamlKeyValue the service key value to find the "tags" key on
      * @return tag names
      */
-    @NotNull
-    public static Set<String> collectServiceTags(@NotNull YAMLKeyValue yamlKeyValue) {
+    public static Set<String> collectServiceTags(YAMLKeyValue yamlKeyValue) {
         YAMLKeyValue tagsKeyValue = YamlHelper.getYamlKeyValue(yamlKeyValue, "tags");
         if(tagsKeyValue == null) {
             return Collections.emptySet();
@@ -657,8 +631,7 @@ public class YamlHelper {
      *  tags:
      *   - { name: foo  }
      */
-    @NotNull
-    public static Collection<YAMLKeyValue> getTaggedServices(@NotNull YAMLFile yamlFile, @NotNull String tag) {
+    public static Collection<YAMLKeyValue> getTaggedServices(YAMLFile yamlFile, String tag) {
         Collection<YAMLKeyValue> yamlKeyValues = new HashSet<>();
 
         for (YAMLKeyValue yamlServiceKeyValue : YamlHelper.getQualifiedKeyValuesInFile(yamlFile, "services")) {
@@ -674,7 +647,7 @@ public class YamlHelper {
     /**
      * TODO: use visitor pattern for all tags, we are using them to often
      */
-    public static void visitTagsOnServiceDefinition(@NotNull YAMLKeyValue yamlServiceKeyValue, @NotNull YamlTagVisitor visitor) {
+    public static void visitTagsOnServiceDefinition(YAMLKeyValue yamlServiceKeyValue, YamlTagVisitor visitor) {
 
         YAMLKeyValue tagTag = YamlHelper.getYamlKeyValue(yamlServiceKeyValue, "tags");
         if(tagTag == null) {
@@ -713,8 +686,7 @@ public class YamlHelper {
     /**
      * Get all children key values of a parent key value
      */
-    @NotNull
-    private static Collection<YAMLKeyValue> getNextKeyValues(@NotNull YAMLKeyValue yamlKeyValue) {
+    private static Collection<YAMLKeyValue> getNextKeyValues(YAMLKeyValue yamlKeyValue) {
 
         final Collection<YAMLKeyValue> yamlKeyValues = new ArrayList<>();
         visitNextKeyValues(yamlKeyValue, yamlKeyValues::add);
@@ -725,7 +697,7 @@ public class YamlHelper {
     /**
      * Visit all children key values of a parent key value
      */
-    private static void visitNextKeyValues(@NotNull YAMLKeyValue yamlKeyValue, @NotNull Consumer<YAMLKeyValue> consumer) {
+    private static void visitNextKeyValues(YAMLKeyValue yamlKeyValue, Consumer<YAMLKeyValue> consumer) {
         List<YAMLPsiElement> yamlElements = yamlKeyValue.getYAMLElements();
 
         // @TODO: multiple?
@@ -739,7 +711,7 @@ public class YamlHelper {
         }
 
         for (YAMLKeyValue keyValue : ((YAMLMapping) next).getKeyValues()) {
-            consumer.consume(keyValue);
+            consumer.accept(keyValue);
         }
     }
 
@@ -750,8 +722,7 @@ public class YamlHelper {
      * parameters:
      *  foo: "foo"
      */
-    @NotNull
-    public static Collection<YAMLKeyValue> getQualifiedKeyValuesInFile(@NotNull YAMLFile yamlFile, @NotNull String firstLevelKeyToVisit) {
+    public static Collection<YAMLKeyValue> getQualifiedKeyValuesInFile(YAMLFile yamlFile, String firstLevelKeyToVisit) {
         YAMLKeyValue parameters = YAMLUtil.getQualifiedKeyInFile(yamlFile, firstLevelKeyToVisit);
         if(parameters == null) {
             return Collections.emptyList();
@@ -766,7 +737,7 @@ public class YamlHelper {
      * parameters:
      *  foo: "foo"
      */
-    public static void visitQualifiedKeyValuesInFile(@NotNull YAMLFile yamlFile, @NotNull String firstLevelKeyToVisit, @NotNull Consumer<YAMLKeyValue> consumer) {
+    public static void visitQualifiedKeyValuesInFile(YAMLFile yamlFile, String firstLevelKeyToVisit, Consumer<YAMLKeyValue> consumer) {
         YAMLKeyValue parameters = YAMLUtil.getQualifiedKeyInFile(yamlFile, firstLevelKeyToVisit);
         if(parameters == null) {
             return;
@@ -775,8 +746,7 @@ public class YamlHelper {
         visitNextKeyValues(parameters, consumer);
     }
 
-    @Nullable
-    public static String getStringValueOfKeyInProbablyMapping(@Nullable YAMLValue node, @NotNull String keyText) {
+    public static @Nullable String getStringValueOfKeyInProbablyMapping(@Nullable YAMLValue node, String keyText) {
         YAMLKeyValue mapping = YAMLUtil.findKeyInProbablyMapping(node, keyText);
         if(mapping == null) {
             return null;
@@ -790,8 +760,7 @@ public class YamlHelper {
         return value.getText();
     }
 
-    @NotNull
-    public static Collection<YAMLKeyValue> getTopLevelKeyValues(@NotNull YAMLFile yamlFile) {
+    public static Collection<YAMLKeyValue> getTopLevelKeyValues(YAMLFile yamlFile) {
         YAMLDocument yamlDocument = PsiTreeUtil.getChildOfType(yamlFile, YAMLDocument.class);
         if(yamlDocument == null) {
             return Collections.emptyList();
@@ -808,8 +777,7 @@ public class YamlHelper {
     /**
      * Returns "@foo" value of ["@foo", "fo<caret>o"]
      */
-    @Nullable
-    public static String getPreviousSequenceItemAsText(@NotNull PsiElement psiElement) {
+    public static @Nullable String getPreviousSequenceItemAsText(PsiElement psiElement) {
         PsiElement yamlScalar = psiElement.getParent();
         if(!(yamlScalar instanceof YAMLScalar)) {
             return null;
@@ -835,8 +803,7 @@ public class YamlHelper {
     }
 
     private interface KeyInsertValueFormatter {
-        @Nullable
-        String format(@NotNull YAMLMapping yamlMapping, @NotNull String chainedKey);
+        @Nullable String format(YAMLMapping yamlMapping, String chainedKey);
     }
 
     /**
@@ -845,8 +812,7 @@ public class YamlHelper {
      *
      * @param formatter any string think of provide qoute
      */
-    @Nullable
-    public static PsiElement insertKeyIntoFile(final @NotNull YAMLFile yamlFile, @NotNull KeyInsertValueFormatter formatter, @NotNull String... keys) {
+    public static @Nullable PsiElement insertKeyIntoFile(final YAMLFile yamlFile, KeyInsertValueFormatter formatter, String... keys) {
         final Pair<YAMLKeyValue, String[]> lastKeyStorage = findLastKnownKeyInFile(yamlFile, keys);
 
         if(lastKeyStorage.getSecond().length == 0) {
@@ -895,8 +861,7 @@ public class YamlHelper {
         return childOfType;
     }
 
-    @Nullable
-    public static PsiElement insertKeyIntoFile(final @NotNull YAMLFile yamlFile, final @NotNull YAMLKeyValue yamlKeyValue, @NotNull String... keys) {
+    public static @Nullable PsiElement insertKeyIntoFile(final YAMLFile yamlFile, final YAMLKeyValue yamlKeyValue, String... keys) {
         String keyText = yamlKeyValue.getKeyText();
 
         return insertKeyIntoFile(yamlFile, (yamlMapping, chainedKey) -> {
@@ -914,18 +879,17 @@ public class YamlHelper {
         }, ArrayUtils.add(keys, keyText));
     }
 
-    public static PsiElement insertKeyIntoFile(final @NotNull YAMLFile yamlFile, final @Nullable String value, @NotNull String... keys) {
+    public static PsiElement insertKeyIntoFile(final YAMLFile yamlFile, final @Nullable String value, String... keys) {
         return insertKeyIntoFile(yamlFile, (yamlMapping, chainedKey) -> " " + value, keys);
     }
 
     /**
      * Find last known KeyValue of key path, so that we can merge new incoming keys
      */
-    @NotNull
-    private static Pair<YAMLKeyValue, String[]> findLastKnownKeyInFile(@NotNull YAMLFile file, @NotNull String... keys) {
+    private static Pair<YAMLKeyValue, String[]> findLastKnownKeyInFile(YAMLFile file, String... keys) {
 
         YAMLKeyValue last = null;
-        YAMLMapping mapping = ObjectUtils.tryCast(file.getDocuments().get(0).getTopLevelValue(), YAMLMapping.class);
+        YAMLMapping mapping = ObjectUtil.tryCast(file.getDocuments().get(0).getTopLevelValue(), YAMLMapping.class);
 
         for (int i = 0; i < keys.length; i++) {
             String s = keys[i];
@@ -940,7 +904,7 @@ public class YamlHelper {
 
             last = keyValue;
 
-            mapping = ObjectUtils.tryCast(keyValue.getValue(), YAMLMapping.class);
+            mapping = ObjectUtil.tryCast(keyValue.getValue(), YAMLMapping.class);
         }
 
         return Pair.create(last, new String[]{});
@@ -954,8 +918,7 @@ public class YamlHelper {
      *   foo: "aaa"
      *
      */
-    @Nullable
-    public static YAMLKeyValue putKeyValue(@NotNull YAMLKeyValue yamlKeyValue, @NotNull String keyName, @NotNull String valueText) {
+    public static @Nullable YAMLKeyValue putKeyValue(YAMLKeyValue yamlKeyValue, String keyName, String valueText) {
 
         // create "foo: foo"
         YAMLKeyValue newYamlKeyValue = YAMLElementGenerator.getInstance(yamlKeyValue.getProject())
@@ -975,7 +938,7 @@ public class YamlHelper {
      * Services id in Symfony 3.3 are allowed to be class names
      * defensive extract by naming strategy
      */
-    public static boolean isClassServiceId(@NotNull String serviceId) {
+    public static boolean isClassServiceId(String serviceId) {
         // foo.bar
         if(serviceId.contains(".")) {
             return false;
@@ -989,7 +952,7 @@ public class YamlHelper {
     /**
      * Returns true if given parameter name is default value for ENV variable.
      */
-    public static boolean isDefaultEnvValue(@NotNull String parameterName) {
+    public static boolean isDefaultEnvValue(String parameterName) {
         return parameterName.length() > 5 && parameterName.startsWith("env(") && parameterName.endsWith(")");
     }
 
@@ -1003,7 +966,7 @@ public class YamlHelper {
      *   calls:
      *      - [onF<caret>oobar, []]
      */
-    public static void visitServiceCall(@NotNull YAMLScalar yamlScalar, @NotNull Consumer<String> consumer) {
+    public static void visitServiceCall(YAMLScalar yamlScalar, Consumer<String> consumer) {
         PsiElement yamlSeq = yamlScalar.getContext();
         if(yamlSeq instanceof YAMLSequenceItem) {
             PsiElement context = yamlSeq.getContext();
@@ -1019,7 +982,7 @@ public class YamlHelper {
                                 // "class" key found use this as valid class name
                                 String valueText = classKeyValue.getValueText();
                                 if(StringUtils.isNotBlank(valueText)) {
-                                    consumer.consume(valueText);
+                                    consumer.accept(valueText);
                                 }
                             } else {
                                 // named services; key is our class name
@@ -1029,7 +992,7 @@ public class YamlHelper {
                                     if(parent instanceof YAMLKeyValue) {
                                         String keyText = ((YAMLKeyValue) parent).getKeyText();
                                         if(!keyText.contains(".") && PhpNameUtil.isValidNamespaceFullName(keyText, PhpLanguageLevel.DEFAULT)) {
-                                            consumer.consume(keyText);
+                                            consumer.accept(keyText);
                                         }
                                     }
                                 }
@@ -1049,7 +1012,7 @@ public class YamlHelper {
      *
      * MyClass: ~
      */
-    private static String getClassFromServiceDefinition(@NotNull YAMLKeyValue yamlKeyValue) {
+    private static String getClassFromServiceDefinition(YAMLKeyValue yamlKeyValue) {
         YAMLMapping parentMapping = yamlKeyValue.getParentMapping();
 
         if(parentMapping != null) {
@@ -1087,7 +1050,7 @@ public class YamlHelper {
      *   calls:
      *      - [onFoobar, [@fo<caret>o]]
      */
-    public static void visitServiceCallArgument(@NotNull YAMLScalar yamlScalar, @NotNull Consumer<ParameterVisitor> consumer) {
+    public static void visitServiceCallArgument(YAMLScalar yamlScalar, Consumer<ParameterVisitor> consumer) {
         PsiElement context = yamlScalar.getContext();
         if(context instanceof YAMLSequenceItem argumentSequenceItem) {
             // [@foobar, @fo<caret>obar]
@@ -1111,7 +1074,7 @@ public class YamlHelper {
                                             if(callYamlKeyValue instanceof YAMLKeyValue) {
                                                 String classFromServiceDefinition = getClassFromServiceDefinition((YAMLKeyValue) callYamlKeyValue);
                                                 if(classFromServiceDefinition != null) {
-                                                    consumer.consume(new ParameterVisitor(
+                                                    consumer.accept(new ParameterVisitor(
                                                         classFromServiceDefinition,
                                                         methodName,
                                                         PsiElementUtils.getPrevSiblingsOfType(argumentSequenceItem, PlatformPatterns.psiElement(YAMLSequenceItem.class)).size())
@@ -1137,15 +1100,14 @@ public class YamlHelper {
      *   calls:
      *      - [onFoobar, [@fo<caret>o]]
      */
-    public static void visitServiceCallArgumentMethodIndex(@NotNull YAMLScalar yamlScalar, @NotNull Consumer<Parameter> consumer) {
+    public static void visitServiceCallArgumentMethodIndex(YAMLScalar yamlScalar, Consumer<Parameter> consumer) {
         YamlHelper.visitServiceCallArgument(yamlScalar, new ParameterResolverConsumer(yamlScalar.getProject(), consumer));
     }
 
     /**
      * Get false or true value for given key or null if not found or invalid value was found
      */
-    @Nullable
-    public static Boolean getYamlKeyValueAsBoolean(@NotNull YAMLKeyValue yamlKeyValue, @NotNull String key) {
+    public static @Nullable Boolean getYamlKeyValueAsBoolean(YAMLKeyValue yamlKeyValue, String key) {
         YAMLKeyValue autowire = YamlHelper.getYamlKeyValue(yamlKeyValue, key);
         if(autowire == null) {
             return null;
@@ -1167,10 +1129,10 @@ public class YamlHelper {
     /**
      * Try to find a valid indent value, which are spaces which we need to fill
      */
-    public static int getIndentSpaceForFile(@NotNull YAMLFile yamlFile) {
+    public static int getIndentSpaceForFile(YAMLFile yamlFile) {
         List<YAMLDocument> documents = yamlFile.getDocuments();
 
-        YAMLMapping mapping = ObjectUtils.tryCast(documents.get(0).getTopLevelValue(), YAMLMapping.class);
+        YAMLMapping mapping = ObjectUtil.tryCast(documents.get(0).getTopLevelValue(), YAMLMapping.class);
         if(mapping != null) {
             // first first INDENT element in mapping
             PsiElementPattern.Capture<PsiElement> pattern = PlatformPatterns
@@ -1196,7 +1158,7 @@ public class YamlHelper {
         return 4;
     }
 
-    public static boolean isStringValue(@NotNull PsiElement psiElement) {
+    public static boolean isStringValue(PsiElement psiElement) {
         // @TODO use new YAMLScalar element
         return PlatformPatterns.psiElement(YAMLTokenTypes.TEXT).accepts(psiElement)
             || PlatformPatterns.psiElement(YAMLTokenTypes.SCALAR_DSTRING).accepts(psiElement)
@@ -1210,13 +1172,12 @@ public class YamlHelper {
         }
 
         @Override
-        public boolean accepts(@NotNull PsiElement psiElement, ProcessingContext processingContext) {
+        public boolean accepts(PsiElement psiElement, ProcessingContext processingContext) {
             return psiElement.getNextSibling() instanceof YAMLMapping;
         }
     }
 
-    @NotNull
-    public static Collection<PhpClass> getPhpClassesInYamlFile(@NotNull YAMLFile yamlFile, @NotNull ContainerCollectionResolver.LazyServiceCollector lazyServiceCollector) {
+    public static Collection<PhpClass> getPhpClassesInYamlFile(YAMLFile yamlFile, ContainerCollectionResolver.LazyServiceCollector lazyServiceCollector) {
         Collection<PhpClass> phpClasses = new HashSet<>(); //TODO
 
         for (YAMLKeyValue keyValue : YamlHelper.getQualifiedKeyValuesInFile(yamlFile, "services")) {
@@ -1237,7 +1198,7 @@ public class YamlHelper {
                 if (keyValue.getKeyText().endsWith("\\")) {
                     phpClasses.addAll(YamlHelper.getNamespaceResourcesClasses(keyValue));
                 }
-            } else if(value instanceof YAMLPlainTextImpl) {
+            } else if(isPlainText(value)) {
                 // Foo\Bar: ~
                 String text = keyValue.getKeyText();
 
@@ -1255,8 +1216,7 @@ public class YamlHelper {
      *  resource: '....'
      *  exclude: '....'
      */
-    @NotNull
-    public static Collection<PhpClass> getNamespaceResourcesClasses(@NotNull YAMLKeyValue yamlKeyValue) {
+    public static Collection<PhpClass> getNamespaceResourcesClasses(YAMLKeyValue yamlKeyValue) {
         PsiFile containingFile = yamlKeyValue.getContainingFile();
         if (containingFile == null) {
             return Collections.emptyList();
@@ -1288,7 +1248,11 @@ public class YamlHelper {
 
         // key: !my_tag <caret>\n
         if (((LeafPsiElement) psiElement).getElementType() == YAMLTokenTypes.EOL) {
-            PsiElement prevElement = PsiTreeUtil.getDeepestVisibleLast(psiElement);
+            // consulo-port: PsiTreeUtil.getDeepestVisibleLast is missing in Consulo, inlined platform implementation
+            PsiElement prevElement = PsiTreeUtil.getDeepestLast(psiElement);
+            if (StringUtil.isEmptyOrSpaces(prevElement.getText())) {
+                prevElement = PsiTreeUtil.prevVisibleLeaf(prevElement);
+            }
             if (prevElement instanceof LeafPsiElement) {
                 if (((LeafPsiElement) prevElement).getElementType() == YAMLTokenTypes.TAG) {
                     return ((LeafPsiElement) prevElement).getText().startsWith("!");
@@ -1304,10 +1268,17 @@ public class YamlHelper {
      * <caret>
      */
     public static boolean isElementAfterEol(PsiElement psiElement) {
-        if (psiElement.getParent() instanceof YAMLPlainTextImpl) {
+        if (isPlainText(psiElement.getParent())) {
             psiElement = psiElement.getParent();
         }
         return PsiElementUtils.getPrevSiblingOfType(psiElement, PlatformPatterns.psiElement(YAMLTokenTypes.EOL)) != null;
     }
 
+
+    /**
+     * A plain (unquoted, not block) scalar, the {@code YAMLPlainTextImpl} of the not exported YAML implementation
+     */
+    public static boolean isPlainText(@Nullable PsiElement element) {
+        return element instanceof YAMLScalar && element.getNode().getElementType() == YAMLElementTypes.SCALAR_PLAIN_VALUE;
+    }
 }

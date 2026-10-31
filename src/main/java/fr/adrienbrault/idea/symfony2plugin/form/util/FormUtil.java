@@ -1,17 +1,5 @@
 package fr.adrienbrault.idea.symfony2plugin.form.util;
 
-import com.intellij.codeInsight.completion.CompletionResultSet;
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.codeInsight.lookup.LookupElementBuilder;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.Key;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.impl.source.xml.XmlDocumentImpl;
-import com.intellij.psi.util.*;
-import com.intellij.psi.xml.XmlAttribute;
-import com.intellij.psi.xml.XmlFile;
-import com.intellij.psi.xml.XmlTag;
 import com.jetbrains.php.PhpIndex;
 import com.jetbrains.php.codeInsight.controlFlow.PhpControlFlowUtil;
 import com.jetbrains.php.codeInsight.controlFlow.PhpInstructionProcessor;
@@ -20,10 +8,25 @@ import com.jetbrains.php.codeInsight.controlFlow.instructions.PhpReturnInstructi
 import com.jetbrains.php.codeInsight.controlFlow.instructions.PhpYieldInstruction;
 import com.jetbrains.php.lang.PhpLanguage;
 import com.jetbrains.php.lang.parser.PhpElementTypes;
-import com.jetbrains.php.lang.psi.PhpFile;
 import com.jetbrains.php.lang.psi.PhpPsiUtil;
 import com.jetbrains.php.lang.psi.elements.*;
 import com.jetbrains.php.lang.psi.resolve.types.PhpType;
+import consulo.application.util.CachedValue;
+import consulo.application.util.CachedValueProvider;
+import consulo.application.util.CachedValuesManager;
+import consulo.language.editor.completion.CompletionResultSet;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.editor.completion.lookup.LookupElementBuilder;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiModificationTracker;
+import consulo.language.psi.util.PsiElementFilter;
+import consulo.language.psi.util.PsiTreeUtil;
+import consulo.project.Project;
+import consulo.util.dataholder.Key;
+import consulo.xml.language.psi.XmlAttribute;
+import consulo.xml.language.psi.XmlFile;
+import consulo.xml.language.psi.XmlTag;
+import consulo.xml.psi.impl.source.xml.XmlDocumentImpl;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.util.DoctrineMetadataUtil;
 import fr.adrienbrault.idea.symfony2plugin.form.FormTypeLookup;
@@ -31,6 +34,9 @@ import fr.adrienbrault.idea.symfony2plugin.form.dict.EnumFormTypeSource;
 import fr.adrienbrault.idea.symfony2plugin.form.dict.FormClass;
 import fr.adrienbrault.idea.symfony2plugin.form.dict.FormTypeClass;
 import fr.adrienbrault.idea.symfony2plugin.form.dict.FormTypeServiceParser;
+import fr.adrienbrault.idea.symfony2plugin.stubs.cache.FileIndexCaches;
+import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.PhpAttributeIndex;
+import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.PhpAttributeIndexUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.MethodMatcher;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpIndexUtil;
@@ -38,10 +44,9 @@ import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
 import fr.adrienbrault.idea.symfony2plugin.util.psi.PsiElementAssertUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.service.ServiceXmlParserFactory;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
-import kotlin.Pair;
+import consulo.util.lang.Pair;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import static fr.adrienbrault.idea.symfony2plugin.util.StringUtils.underscore;
 import org.jetbrains.yaml.psi.YAMLFile;
@@ -54,10 +59,9 @@ import java.util.stream.Collectors;
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class FormUtil {
-    private static final Key<CachedValue<Collection<String[]>>> FORM_EXTENSION_TYPES = new Key<>("SYMFONY_FORM_EXTENSION_TYPES");
+    private static final Key<CachedValue<Collection<FormTypeInfo>>> FORM_EXTENSION_TYPES = new Key<>("SYMFONY_FORM_EXTENSION_TYPES");
 
-    // Per-file cache for form type extraction
-    private static final Key<CachedValue<Collection<String[]>>> FILE_FORM_TYPES = new Key<>("FILE_FORM_TYPES");
+    private record FormTypeInfo(String name, String className, FormTypeClass.Type type) {}
 
     final public static String ABSTRACT_FORM_INTERFACE = "\\Symfony\\Component\\Form\\FormTypeInterface";
     final public static String FORM_EXTENSION_INTERFACE = "\\Symfony\\Component\\Form\\FormTypeExtensionInterface";
@@ -76,6 +80,7 @@ public class FormUtil {
         // Symfony 4
         new MethodMatcher.CallToSignature("\\Symfony\\Bundle\\FrameworkBundle\\Controller\\AbstractController", "createForm"),
         new MethodMatcher.CallToSignature("\\Symfony\\Component\\Form\\FormFactoryInterface", "create"),
+        new MethodMatcher.CallToSignature("\\Symfony\\Component\\Form\\FormFactoryInterface", "createBuilder"),
         new MethodMatcher.CallToSignature("\\Symfony\\Component\\Form\\FormFactory", "createBuilder"),
     };
 
@@ -89,7 +94,7 @@ public class FormUtil {
         return new FormTypeCollector(project).collect().getFormTypeToClass(formType);
     }
 
-    public static Collection<LookupElement> getFormTypeLookupElements(@NotNull Project project) {
+    public static Collection<LookupElement> getFormTypeLookupElements(Project project) {
 
         Collection<LookupElement> lookupElements = new ArrayList<>();
 
@@ -115,7 +120,7 @@ public class FormUtil {
         return lookupElements;
     }
 
-    public static MethodReference[] getFormBuilderTypes(@NotNull Method method) {
+    public static MethodReference[] getFormBuilderTypes(Method method) {
         PsiElementFilter filter = methodReference -> {
             if (methodReference instanceof MethodReference) {
                 String methodName = ((MethodReference) methodReference).getName();
@@ -181,67 +186,67 @@ public class FormUtil {
      * $form->get ..
      */
     @Nullable
-    private static PhpClass resolveFormGetterCall(MethodReference methodReference) {
-
+    public static PhpClass resolveFormGetterCall(MethodReference methodReference) {
         // "$form"->get('field_name');
-        PhpPsiElement variable = methodReference.getFirstPsiChild();
-        if(!(variable instanceof Variable)) {
+        PsiElement form = methodReference.getClassReference();
+        if (form instanceof Variable variable) {
+            // Find the assignment: "$form" = $this->createForm(...);
+            PsiElement declaration = variable.resolve();
+            if (declaration == null || !(declaration.getParent() instanceof AssignmentExpression assignment)) {
+                return null;
+            }
+            // $form = "$this->createForm(new Type(), $entity)";
+            form = assignment.getValue();
+        }
+
+        // $form = $this->"createForm(new Type(), $entity)";
+        if (!(form instanceof MethodReference factoryCall)) {
             return null;
         }
 
-        // find "$form = $this->createForm" createView call
-        PsiElement variableDecl = ((Variable) variable).resolve();
-        if(variableDecl == null) {
+        if (!PhpElementsUtil.isMethodReferenceInstanceOf(factoryCall, FORM_FACTORY_SIGNATURES)
+            && !PhpElementsUtil.isMethodReferenceInstanceOf(factoryCall, PHP_FORM_NAMED_BUILDER_SIGNATURES)) {
             return null;
         }
 
-        // $form = "$this->createForm(new Type(), $entity)";
-        PsiElement assignmentExpression = variableDecl.getParent();
-        if(!(assignmentExpression instanceof AssignmentExpression)) {
+        // $this->createForm("new Type()", $entity), or $this->createForm(type: Type::class);
+        PsiElement type = getFormTypeArgument(factoryCall);
+        if (type == null) {
             return null;
         }
 
-        // $form = "$this->"createForm(new Type(), $entity)";
-        PhpPsiElement calledMethodReference = ((AssignmentExpression) assignmentExpression).getValue();
-        if(!(calledMethodReference instanceof MethodReference)) {
-            return null;
-        }
-
-        return getFormTypeClass((MethodReference) calledMethodReference);
-
-    }
-
-    private static PhpClass getFormTypeClass(@Nullable MethodReference calledMethodReference) {
-        if(calledMethodReference == null || !PhpElementsUtil.isMethodReferenceInstanceOf(calledMethodReference, "\\Symfony\\Component\\Form\\FormFactory", "create")) {
-            return null;
-        }
-
-        // $form = "$this->createForm("new Type()", $entity)";
-        PsiElement formType = PsiElementUtils.getMethodParameterPsiElementAt(calledMethodReference, 0);
-        if(formType == null) {
-            return null;
-        }
-
-        return getFormTypeClassOnParameter(formType);
+        return getFormTypeClassOnParameter(type);
     }
 
     /**
-     * Get form builder field for
-     * $form->get('field');
+     * Returns the type argument of a supported form builder, factory or controller call.
      */
     @Nullable
-    public static Method resolveFormGetterCallMethod(MethodReference methodReference) {
-        PhpClass formPhpClass = FormUtil.resolveFormGetterCall(methodReference);
-        if(formPhpClass == null) {
+    public static PsiElement getFormTypeArgument(MethodReference methodReference) {
+        int typeIndex;
+        if (PhpElementsUtil.isMethodReferenceInstanceOf(methodReference, FORM_FACTORY_SIGNATURES)) {
+            // $this->createForm(Type::class), $factory->create(Type::class), $factory->createBuilder(Type::class)
+            typeIndex = 0;
+        } else if (PhpElementsUtil.isMethodReferenceInstanceOf(methodReference, PHP_FORM_BUILDER_SIGNATURES)
+            || PhpElementsUtil.isMethodReferenceInstanceOf(methodReference, PHP_FORM_NAMED_BUILDER_SIGNATURES)) {
+            // $builder->add('field', Type::class), $builder->create('field', Type::class)
+            // $factory->createNamed('form', Type::class), $factory->createNamedBuilder('form', Type::class)
+            typeIndex = 1;
+        } else {
             return null;
         }
 
-        Method method = formPhpClass.findMethodByName("buildForm");
-        if (method == null) {
+        PsiElement argument = PsiElementUtils.getParameterOrNamedArgument(methodReference.getParameters(), "type", typeIndex);
+        if (argument == null) {
             return null;
         }
 
-        return method;
+        String argumentName = PsiElementUtils.getNamedArgumentName(argument);
+        if (argumentName != null && !"type".equals(argumentName)) {
+            return null;
+        }
+
+        return argument;
     }
 
     /**
@@ -250,7 +255,7 @@ public class FormUtil {
      * $form->get('field', new FileType());
      */
     @Nullable
-    public static PhpClass getFormTypeClassOnParameter(@NotNull PsiElement psiElement) {
+    public static PhpClass getFormTypeClassOnParameter(PsiElement psiElement) {
         switch (psiElement) {
             case StringLiteralExpression stringLiteralExpression -> {
                 return getFormTypeToClass(psiElement.getProject(), stringLiteralExpression.getContents());
@@ -278,7 +283,7 @@ public class FormUtil {
      * @return normalized class FQN with a leading backslash, or {@code null} when the parameter cannot be resolved
      */
     @Nullable
-    public static String getFormTypeFqnOnParameter(@NotNull PsiElement psiElement) {
+    public static String getFormTypeFqnOnParameter(PsiElement psiElement) {
         PhpClass phpClass = getFormTypeClassOnParameter(psiElement);
         if (phpClass == null) {
             return null;
@@ -287,8 +292,7 @@ public class FormUtil {
         return phpClass.getFQN();
     }
 
-    @NotNull
-    public static Collection<String> getFormAliases(@NotNull PhpClass phpClass) {
+    public static Collection<String> getFormAliases(PhpClass phpClass) {
         // check class implements form interface
         if(!PhpElementsUtil.isInstanceOf(phpClass, ABSTRACT_FORM_INTERFACE)) {
             return Collections.emptySet();
@@ -302,7 +306,7 @@ public class FormUtil {
         return Collections.singleton(className);
     }
 
-    public static void attachFormAliasesCompletions(@NotNull PhpClass phpClass, @NotNull CompletionResultSet completionResultSet) {
+    public static void attachFormAliasesCompletions(PhpClass phpClass, CompletionResultSet completionResultSet) {
         for(String alias: getFormAliases(phpClass)) {
             completionResultSet.addElement(LookupElementBuilder.create(alias).withIcon(Symfony2Icons.FORM_TYPE).withTypeText(phpClass.getPresentableFQN(), true));
         }
@@ -315,8 +319,7 @@ public class FormUtil {
      *   - { name: form.type, alias: foo_type_alias  }
      *   - { name: foo  }
      */
-    @NotNull
-    public static Map<String, Set<String>> getTags(@NotNull YAMLFile yamlFile) {
+    public static Map<String, Set<String>> getTags(YAMLFile yamlFile) {
         Map<String, Set<String>> map = new HashMap<>();
 
         for(YAMLKeyValue yamlServiceKeyValue : YamlHelper.getQualifiedKeyValuesInFile(yamlFile, "services")) {
@@ -330,7 +333,7 @@ public class FormUtil {
         return map;
     }
 
-    public static Map<String, Set<String>> getTags(@NotNull XmlFile psiFile) {
+    public static Map<String, Set<String>> getTags(XmlFile psiFile) {
         Map<String, Set<String>> map = new HashMap<>();
 
         XmlDocumentImpl document = PsiTreeUtil.getChildOfType(psiFile, XmlDocumentImpl.class);
@@ -399,59 +402,40 @@ public class FormUtil {
         return tags;
     }
 
-    @NotNull
-    public static Map<String, FormTypeClass> getFormTypeClasses(@NotNull Project project) {
-        Collection<String[]> nameAndClass = CachedValuesManager.getManager(project).getCachedValue(
+    public static Map<String, FormTypeClass> getFormTypeClasses(Project project) {
+        Collection<FormTypeInfo> nameAndClass = CachedValuesManager.getManager(project).getCachedValue(
             project,
             FORM_EXTENSION_TYPES,
             new CachedValueProvider<>() {
                 @Override
-                public @NotNull Result<Collection<String[]>> compute() {
-                    Collection<String[]> items = new ArrayList<>();
+                public Result<Collection<FormTypeInfo>> compute() {
+                    Map<String, FormTypeInfo> items = new HashMap<>();
 
-                    Collection<PhpClass> phpClasses = PhpIndexUtil.getAllSubclasses(project, ABSTRACT_FORM_INTERFACE);
-
-                    // Collect unique files for per-file caching
-                    Set<PsiFile> files = new HashSet<>();
-                    for (PhpClass phpClass : phpClasses) {
+                    // Collect classic form types implementing FormTypeInterface.
+                    for (PhpClass phpClass : PhpIndexUtil.getAllSubclasses(project, ABSTRACT_FORM_INTERFACE)) {
                         if (!isValidFormPhpClass(phpClass)) {
                             continue;
                         }
-                        PsiFile file = phpClass.getContainingFile();
-                        if (file instanceof PhpFile) {
-                            files.add(file);
+
+                        String name = FormUtil.getFormNameOfPhpClass(phpClass);
+                        if (name != null) {
+                            items.put(phpClass.getFQN(), new FormTypeInfo(name, phpClass.getFQN(), FormTypeClass.Type.PLAIN));
                         }
                     }
 
-                    // Parse each file (cached per file)
-                    for (PsiFile file : files) {
-                        Collection<String[]> fileItems = CachedValuesManager.getCachedValue(file, FILE_FORM_TYPES, () -> {
-                            Collection<String[]> result = new ArrayList<>();
-                            // Resolve classes fresh from file inside cache provider
-                            for (PhpClass phpClass : PhpPsiUtil.findAllClasses((PhpFile) file)) {
-                                // Only process classes that implement FormTypeInterface
-                                if (!PhpElementsUtil.isInstanceOf(phpClass, ABSTRACT_FORM_INTERFACE)) {
-                                    continue;
-                                }
+                    // Collect form types declared with #[AsFormType].
+                    for (PhpClass phpClass : PhpAttributeIndexUtil.getClassesWithAttribute(project, PhpAttributeIndex.PhpAttributeIndexer.AS_FORM_TYPE_ATTRIBUTE)) {
+                        if (phpClass.isInterface() || phpClass.isTrait() || phpClass.isEnum() || PhpElementsUtil.isTestClass(phpClass)) {
+                            continue;
+                        }
 
-                                if (!isValidFormPhpClass(phpClass)) {
-                                    continue;
-                                }
-
-                                String name = FormUtil.getFormNameOfPhpClass(phpClass);
-                                if (name == null) {
-                                    continue;
-                                }
-
-                                result.add(new String[]{name, phpClass.getFQN()});
-                            }
-                            return CachedValueProvider.Result.create(result, file);
-                        });
-
-                        items.addAll(fileItems);
+                        String fqn = phpClass.getFQN();
+                        items.put(fqn, new FormTypeInfo(StringUtils.stripStart(fqn, "\\"), fqn, FormTypeClass.Type.ATTRIBUTE));
                     }
 
-                    return Result.create(items, PsiModificationTracker.getInstance(project).forLanguage(PhpLanguage.INSTANCE));
+                    return Result.create(List.copyOf(items.values()),
+                        PsiModificationTracker.getInstance(project).forLanguage(PhpLanguage.INSTANCE),
+                        FileIndexCaches.getModificationTrackerForIndexId(project, PhpAttributeIndex.KEY));
                 }
             },
             false
@@ -459,11 +443,19 @@ public class FormUtil {
 
         Map<String, FormTypeClass> map = new HashMap<>();
 
-        for (String[] item : nameAndClass) {
-            map.put(item[0], new FormTypeClass(item[0], item[1], EnumFormTypeSource.INDEX));
+        for (FormTypeInfo item : nameAndClass) {
+            map.put(item.name(), new FormTypeClass(item.name(), item.className(), EnumFormTypeSource.INDEX, item.type()));
         }
 
         return map;
+    }
+
+    /**
+     * Checks for an own AsFormType declaration or the classic form type interface.
+     */
+    public static boolean isFormType(PhpClass phpClass) {
+        return !phpClass.getAttributes(PhpAttributeIndex.PhpAttributeIndexer.AS_FORM_TYPE_ATTRIBUTE).isEmpty()
+            || PhpElementsUtil.isInstanceOf(phpClass, ABSTRACT_FORM_INTERFACE);
     }
 
     public static boolean isValidFormPhpClass(PhpClass phpClass) {
@@ -489,7 +481,7 @@ public class FormUtil {
             FormTypeServiceParser formTypeServiceParser = ServiceXmlParserFactory.getInstance(project, FormTypeServiceParser.class);
             for(Map.Entry<String, String> entry: formTypeServiceParser.getFormTypeMap().getMap().entrySet()) {
                 String formTypeName = entry.getValue();
-                formTypesMap.put(formTypeName, new FormTypeClass(formTypeName, entry.getKey(), EnumFormTypeSource.COMPILER));
+                formTypesMap.put(formTypeName, new FormTypeClass(formTypeName, entry.getKey(), EnumFormTypeSource.COMPILER, FormTypeClass.Type.PLAIN));
             }
 
             return this;
@@ -547,7 +539,7 @@ public class FormUtil {
      * Replace "hidden" with HiddenType:class
      * @throws Exception
      */
-    public static void replaceFormStringAliasWithClassConstant(@NotNull StringLiteralExpression psiElement) throws Exception {
+    public static void replaceFormStringAliasWithClassConstant(StringLiteralExpression psiElement) throws Exception {
         String contents = psiElement.getContents();
         if(StringUtils.isBlank(contents)) {
             throw new Exception("Empty content");
@@ -566,8 +558,7 @@ public class FormUtil {
      *
      * Concatenation "__NAMESPACE__.'\Foo', "Foo::class" and string 'foo' supported
      */
-    @NotNull
-    public static Collection<String> getFormParentOfPhpClass(@NotNull PhpClass phpClass) {
+    public static Collection<String> getFormParentOfPhpClass(PhpClass phpClass) {
         Method getParent = phpClass.findMethodByName("getParent");
         if(getParent == null) {
             return Collections.emptyList();
@@ -625,7 +616,7 @@ public class FormUtil {
      *
      */
     @Nullable
-    public static String getFormNameOfPhpClass(@NotNull PhpClass phpClass) {
+    public static String getFormNameOfPhpClass(PhpClass phpClass) {
         Method method = phpClass.findOwnMethodByName("getName");
 
         // @TODO: think of interface switches
@@ -682,8 +673,7 @@ public class FormUtil {
      * "return true === true ? FileType::class : Form:class;"
      * "yield Foo::class;"
      */
-    @NotNull
-    public static Collection<String> getFormExtendedType(@NotNull PhpClass phpClass) {
+    public static Collection<String> getFormExtendedType(PhpClass phpClass) {
         Collection<String> types = new HashSet<>();
 
         // public function getExtendedType() { return FileType::class; }
@@ -762,7 +752,7 @@ public class FormUtil {
      * Find form php class scope: FormType or FormExtension
      */
     @Nullable
-    public static String getFormTypeClassFromScope(@NotNull PsiElement psiElement) {
+    public static String getFormTypeClassFromScope(PsiElement psiElement) {
         Method methodScope = PsiTreeUtil.getParentOfType(psiElement, Method.class);
 
         if(methodScope != null) {
@@ -778,8 +768,7 @@ public class FormUtil {
     /**
      * public function getParent() { return ChoiceType::class; }
      */
-    @NotNull
-    public static Collection<String> getFormTypeParentFromOptionResolverScope(@NotNull PsiElement psiElement) {
+    public static Collection<String> getFormTypeParentFromOptionResolverScope(PsiElement psiElement) {
         Method methodScope = PsiTreeUtil.getParentOfType(psiElement, Method.class);
 
         if (methodScope != null && Arrays.stream(FormOptionsUtil.FORM_OPTION_METHODS).anyMatch(s -> s.equalsIgnoreCase(methodScope.getName()))) {
@@ -800,8 +789,7 @@ public class FormUtil {
      *
      * public function getParent() { return ChoiceType::class; }
      */
-    @NotNull
-    public static Collection<String> getFormTypeParentFromFormTypeImplementation(@NotNull PsiElement psiElement) {
+    public static Collection<String> getFormTypeParentFromFormTypeImplementation(PsiElement psiElement) {
         Method methodScope = PsiTreeUtil.getParentOfType(psiElement, Method.class);
 
         if (methodScope != null) {
@@ -814,7 +802,7 @@ public class FormUtil {
         return Collections.emptyList();
     }
 
-    public static Pair<String, Map<String, String>> getGuessedFormFieldParameters(@NotNull PhpIndex phpIndex, @NotNull Project project, @NotNull String key, @NotNull PhpNamedElement phpNamedElement) {
+    public static Pair<String, Map<String, String>> getGuessedFormFieldParameters(PhpIndex phpIndex, Project project, String key, PhpNamedElement phpNamedElement) {
         // method / function
         PhpType phpType = null;
         if (phpNamedElement instanceof Function function) {
@@ -888,8 +876,7 @@ public class FormUtil {
     /**
      * Get all form class which extend the given class by any type e.g. parent, extendTypes
      */
-    @NotNull
-    public static Collection<PhpClass> getParentAndExtendingTypes(@NotNull PhpClass phpClass, @NotNull FormUtil.FormTypeCollector collector) {
+    public static Collection<PhpClass> getParentAndExtendingTypes(PhpClass phpClass, FormUtil.FormTypeCollector collector) {
         Collection<PhpClass> parentClasses = new HashSet<>();
         visitParentFormsRecursive(phpClass, collector, parentClasses, 10);
 
@@ -909,7 +896,7 @@ public class FormUtil {
     /**
      * Visit recursive all parent forms
      */
-    private static void visitParentFormsRecursive(@NotNull PhpClass phpClass, @NotNull FormUtil.FormTypeCollector collector, @NotNull Collection<PhpClass> parentClasses, int depth) {
+    private static void visitParentFormsRecursive(PhpClass phpClass, FormUtil.FormTypeCollector collector, Collection<PhpClass> parentClasses, int depth) {
         Collection<PhpClass> scopedClasses = new HashSet<>();
 
         for (String formParent : FormUtil.getFormParentOfPhpClass(phpClass)) {

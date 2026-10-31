@@ -1,6 +1,8 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.dic.registrar;
 
-import com.intellij.patterns.PlatformPatterns;
+import org.junit.jupiter.api.Test;
+
+import consulo.language.pattern.PlatformPatterns;
 import com.jetbrains.php.lang.PhpFileType;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
 
@@ -17,6 +19,8 @@ public class DicGotoCompletionRegistrarTest extends SymfonyLightCodeInsightFixtu
     public String getTestDataPath() {
         return "src/test/java/fr/adrienbrault/idea/symfony2plugin/tests/dic/registrar/fixtures";
     }
+
+    @Test
 
     public void testParameterContributor() {
         myFixture.copyFileToProject("services.yml");
@@ -35,6 +39,8 @@ public class DicGotoCompletionRegistrarTest extends SymfonyLightCodeInsightFixtu
             );
         }
     }
+
+    @Test
 
     public void testParameterContributorForParameterBagInterfaces() {
         myFixture.copyFileToProject("services.yml");
@@ -62,6 +68,8 @@ public class DicGotoCompletionRegistrarTest extends SymfonyLightCodeInsightFixtu
         }
     }
 
+    @Test
+
     public void testParameterContributorProxied() {
         myFixture.copyFileToProject("services.yml");
 
@@ -79,6 +87,8 @@ public class DicGotoCompletionRegistrarTest extends SymfonyLightCodeInsightFixtu
         }
     }
 
+    @Test
+
     public void testParameterContributorFor() {
         myFixture.copyFileToProject("services.yml");
 
@@ -92,6 +102,8 @@ public class DicGotoCompletionRegistrarTest extends SymfonyLightCodeInsightFixtu
             PlatformPatterns.psiElement()
         );
     }
+
+    @Test
 
     public void testParameterContributorForDefaultAttribute() {
         myFixture.copyFileToProject("services.yml");
@@ -136,6 +148,8 @@ public class DicGotoCompletionRegistrarTest extends SymfonyLightCodeInsightFixtu
         );
     }
 
+    @Test
+
     public void testParameterContributorForNamedAttribute() {
         myFixture.copyFileToProject("services.yml");
 
@@ -165,6 +179,8 @@ public class DicGotoCompletionRegistrarTest extends SymfonyLightCodeInsightFixtu
             PlatformPatterns.psiElement()
         );
     }
+
+    @Test
 
     public void testTagContributorForTaggedIterator() {
         myFixture.copyFileToProject("services.yml");
@@ -204,6 +220,8 @@ public class DicGotoCompletionRegistrarTest extends SymfonyLightCodeInsightFixtu
         );
     }
 
+    @Test
+
     public void testTagContributorForTaggedLocator() {
         myFixture.copyFileToProject("services.yml");
 
@@ -242,6 +260,8 @@ public class DicGotoCompletionRegistrarTest extends SymfonyLightCodeInsightFixtu
         );
     }
 
+    @Test
+
     public void testServiceContributorForNamedAttribute() {
         myFixture.copyFileToProject("services.yml");
 
@@ -269,6 +289,8 @@ public class DicGotoCompletionRegistrarTest extends SymfonyLightCodeInsightFixtu
             PlatformPatterns.psiElement()
         );
     }
+
+    @Test
 
     public void testServiceContributorDecoratesAttribute() {
         myFixture.copyFileToProject("services.yml");
@@ -302,6 +324,8 @@ public class DicGotoCompletionRegistrarTest extends SymfonyLightCodeInsightFixtu
         );
     }
 
+    @Test
+
     public void testTagContributorForAutoconfigureTagsAttribute() {
         myFixture.copyFileToProject("services.yml");
 
@@ -333,6 +357,8 @@ public class DicGotoCompletionRegistrarTest extends SymfonyLightCodeInsightFixtu
             PlatformPatterns.psiElement()
         );
     }
+
+    @Test
 
     public void testTagContributorForAutoconfigureTagAttribute() {
         myFixture.copyFileToProject("services.yml");
@@ -366,6 +392,8 @@ public class DicGotoCompletionRegistrarTest extends SymfonyLightCodeInsightFixtu
         );
     }
 
+    @Test
+
     public void testTagContributorForWhenAttribute() {
         assertCompletionContains(PhpFileType.INSTANCE, "<?php\n" +
                 "use Symfony\\Component\\DependencyInjection\\Attribute\\When;\n" +
@@ -374,6 +402,8 @@ public class DicGotoCompletionRegistrarTest extends SymfonyLightCodeInsightFixtu
             "dev", "test", "prod"
         );
     }
+
+    @Test
 
     public void testParameterContributorForParamAttribute() {
         myFixture.copyFileToProject("services.yml");
@@ -405,6 +435,8 @@ public class DicGotoCompletionRegistrarTest extends SymfonyLightCodeInsightFixtu
         );
     }
 
+    @Test
+
     public void testEnvironmentVariableContributorForEnvFunction() {
         myFixture.copyFileToProject(".env");
 
@@ -419,6 +451,8 @@ public class DicGotoCompletionRegistrarTest extends SymfonyLightCodeInsightFixtu
         );
     }
 
+    @Test
+
     public void testEnvironmentVariableContributorForEnvFunctionWithProcessor() {
         myFixture.copyFileToProject(".env");
 
@@ -427,6 +461,8 @@ public class DicGotoCompletionRegistrarTest extends SymfonyLightCodeInsightFixtu
             PlatformPatterns.psiElement()
         );
     }
+
+    @Test
 
     public void testEnvironmentVariableContributorForEnvAttribute() {
         myFixture.copyFileToProject(".env");
@@ -457,6 +493,8 @@ public class DicGotoCompletionRegistrarTest extends SymfonyLightCodeInsightFixtu
             PlatformPatterns.psiElement()
         );
     }
+
+    @Test
 
     public void testEnvironmentVariableContributorForEnvAttributeWithProcessor() {
         myFixture.copyFileToProject(".env");
@@ -501,6 +539,8 @@ public class DicGotoCompletionRegistrarTest extends SymfonyLightCodeInsightFixtu
         );
     }
 
+    @Test
+
     public void testServiceContributorForAutowireServiceClosure() {
         myFixture.copyFileToProject("services.yml");
 
@@ -543,6 +583,8 @@ public class DicGotoCompletionRegistrarTest extends SymfonyLightCodeInsightFixtu
             PlatformPatterns.psiElement()
         );
     }
+
+    @Test
 
     public void testServiceContributorForAutowireMethodOf() {
         myFixture.copyFileToProject("services.yml");
@@ -587,6 +629,8 @@ public class DicGotoCompletionRegistrarTest extends SymfonyLightCodeInsightFixtu
         );
     }
 
+    @Test
+
     public void testServiceContributorForAutowireCallable() {
         myFixture.copyFileToProject("services.yml");
 
@@ -616,6 +660,8 @@ public class DicGotoCompletionRegistrarTest extends SymfonyLightCodeInsightFixtu
             PlatformPatterns.psiElement()
         );
     }
+
+    @Test
 
     public void testMethodContributorForAutowireCallable() {
         myFixture.copyFileToProject("services.yml");
@@ -659,6 +705,8 @@ public class DicGotoCompletionRegistrarTest extends SymfonyLightCodeInsightFixtu
             PlatformPatterns.psiElement()
         );
     }
+
+    @Test
 
     public void testMethodContributorForAutowireCallableWithClassConstant() {
         myFixture.copyFileToProject("services.yml");

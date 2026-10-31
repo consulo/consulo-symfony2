@@ -1,39 +1,38 @@
 package fr.adrienbrault.idea.symfony2plugin.asset.provider;
 
-import com.intellij.codeInsight.completion.CompletionParameters;
-import com.intellij.codeInsight.completion.CompletionProvider;
-import com.intellij.codeInsight.completion.CompletionResultSet;
-import com.intellij.codeInsight.lookup.LookupElementBuilder;
-import com.intellij.openapi.project.Project;
-import com.intellij.util.PlatformIcons;
-import com.intellij.util.ProcessingContext;
+import consulo.language.editor.completion.CompletionParameters;
+import consulo.language.editor.completion.CompletionProvider;
+import consulo.language.editor.completion.CompletionResultSet;
+import consulo.language.editor.completion.lookup.LookupElementBuilder;
+import consulo.language.util.ProcessingContext;
+import consulo.platform.base.icon.PlatformIconGroup;
+import consulo.project.Project;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.asset.AssetLookupElement;
 import fr.adrienbrault.idea.symfony2plugin.asset.AssetDirectoryReader;
 import fr.adrienbrault.idea.symfony2plugin.asset.AssetFile;
 import fr.adrienbrault.idea.symfony2plugin.twig.assets.TwigNamedAssetsServiceParser;
 import fr.adrienbrault.idea.symfony2plugin.util.service.ServiceXmlParserFactory;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
-public class AssetCompletionProvider extends CompletionProvider<CompletionParameters> {
-    @NotNull
+public class AssetCompletionProvider implements CompletionProvider {
     final private AssetDirectoryReader assetParser;
 
     final private boolean includeCustom;
 
-    public AssetCompletionProvider(@NotNull AssetDirectoryReader assetParser, boolean includeCustom) {
+    public AssetCompletionProvider(AssetDirectoryReader assetParser, boolean includeCustom) {
         this.assetParser = assetParser;
         this.includeCustom = includeCustom;
     }
 
-    public AssetCompletionProvider(@NotNull AssetDirectoryReader assetParser) {
+    public AssetCompletionProvider(AssetDirectoryReader assetParser) {
         this(assetParser, false);
     }
 
-    public void addCompletions(@NotNull CompletionParameters parameters, ProcessingContext context, @NotNull final CompletionResultSet resultSet) {
+    @Override
+    public void addCompletions(CompletionParameters parameters, ProcessingContext context, final CompletionResultSet resultSet) {
         Project project = parameters.getPosition().getProject();
 
         if(!Symfony2ProjectComponent.isEnabled(parameters.getPosition())) {
@@ -47,7 +46,7 @@ public class AssetCompletionProvider extends CompletionProvider<CompletionParame
         if(includeCustom) {
             TwigNamedAssetsServiceParser twigPathServiceParser = ServiceXmlParserFactory.getInstance(project, TwigNamedAssetsServiceParser.class);
             for (String s : twigPathServiceParser.getNamedAssets().keySet()) {
-                resultSet.addElement(LookupElementBuilder.create("@" + s).withIcon(PlatformIcons.FOLDER_ICON).withTypeText("Custom Assets", true));
+                resultSet.addElement(LookupElementBuilder.create("@" + s).withIcon(PlatformIconGroup.nodesFolder()).withTypeText("Custom Assets", true));
             }
         }
     }

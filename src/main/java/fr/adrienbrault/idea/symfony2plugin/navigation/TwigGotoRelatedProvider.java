@@ -1,17 +1,18 @@
 package fr.adrienbrault.idea.symfony2plugin.navigation;
 
-import com.intellij.lang.Language;
-import com.intellij.lang.html.HTMLLanguage;
-import com.intellij.navigation.GotoRelatedItem;
-import com.intellij.navigation.GotoRelatedProvider;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.util.indexing.FileBasedIndex;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.html.language.HTMLLanguage;
+import consulo.language.Language;
+import consulo.language.navigation.GotoRelatedItem;
+import consulo.language.navigation.GotoRelatedProvider;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.stub.FileBasedIndex;
+import consulo.language.psi.util.PsiTreeUtil;
+import consulo.project.Project;
+import consulo.virtualFileSystem.VirtualFile;
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.TwigExtendsStubIndex;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.util.PsiTreeUtil;
 import com.jetbrains.twig.TwigFile;
 import com.jetbrains.twig.TwigLanguage;
 import com.jetbrains.twig.elements.TwigBlockStatement;
@@ -25,20 +26,23 @@ import fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
 import fr.adrienbrault.idea.symfony2plugin.twig.utils.TwigBlockUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
-import icons.TwigIcons;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import com.jetbrains.twig.icons.TwigIcons;
+import org.jspecify.annotations.Nullable;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.function.Function;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class TwigGotoRelatedProvider extends GotoRelatedProvider {
-    @NotNull
     @Override
-    public List<? extends GotoRelatedItem> getItems(@NotNull PsiElement psiElement2) {
+    public List<? extends GotoRelatedItem> getItems(PsiElement psiElement2) {
         Language language = psiElement2.getLanguage();
         if (language != TwigLanguage.INSTANCE && language != HTMLLanguage.INSTANCE) {
             return Collections.emptyList();
@@ -118,7 +122,7 @@ public class TwigGotoRelatedProvider extends GotoRelatedProvider {
         return gotoRelatedItems;
     }
 
-    private void visitFileReferenceElement(@NotNull Project project, @NotNull List<GotoRelatedItem> gotoRelatedItems, @NotNull PsiElement psiElement, @NotNull TwigUtil.TemplateIncludePatterns patterns) {
+    private void visitFileReferenceElement(Project project, List<GotoRelatedItem> gotoRelatedItems, PsiElement psiElement, TwigUtil.TemplateIncludePatterns patterns) {
         TwigUtil.visitTemplateIncludes(psiElement, templateInclude -> {
             for (PsiFile templatePsiElement : TwigUtil.getTemplatePsiElements(project, templateInclude.getTemplateName())) {
                 gotoRelatedItems.add(new RelatedPopupGotoLineMarker.PopupGotoRelatedItem(templatePsiElement, templateInclude.getType().toString().toLowerCase()).withIcon(Symfony2Icons.TWIG_BLOCK_OVERWRITE, Symfony2Icons.TWIG_BLOCK_OVERWRITE));

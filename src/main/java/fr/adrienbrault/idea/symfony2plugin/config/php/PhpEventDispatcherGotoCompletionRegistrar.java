@@ -1,19 +1,20 @@
 package fr.adrienbrault.idea.symfony2plugin.config.php;
 
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.codeInsight.lookup.LookupElementBuilder;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.util.PsiTreeUtil;
 import com.jetbrains.php.lang.PhpLanguage;
 import com.jetbrains.php.lang.parser.PhpElementTypes;
 import com.jetbrains.php.lang.psi.elements.*;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.editor.completion.lookup.LookupElementBuilder;
+import consulo.language.icon.IconDescriptorUpdaters;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.util.PsiTreeUtil;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionProvider;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionRegistrar;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionRegistrarParameter;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -22,6 +23,7 @@ import java.util.Collections;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class PhpEventDispatcherGotoCompletionRegistrar implements GotoCompletionRegistrar {
 
     /**
@@ -34,7 +36,7 @@ public class PhpEventDispatcherGotoCompletionRegistrar implements GotoCompletion
      * ');
      *
      */
-    public void register(@NotNull GotoCompletionRegistrarParameter registrar) {
+    public void register(GotoCompletionRegistrarParameter registrar) {
         registrar.register(PlatformPatterns.psiElement().withParent(StringLiteralExpression.class).withLanguage(PhpLanguage.INSTANCE), psiElement -> {
             if(!(psiElement.getParent() instanceof StringLiteralExpression stringLiteralExpression)) {
                 return null;
@@ -85,7 +87,6 @@ public class PhpEventDispatcherGotoCompletionRegistrar implements GotoCompletion
             this.phpClass = phpClass;
         }
 
-        @NotNull
         @Override
         public Collection<LookupElement> getLookupElements() {
 
@@ -95,7 +96,7 @@ public class PhpEventDispatcherGotoCompletionRegistrar implements GotoCompletion
                 if(method.getAccess().isPublic()) {
                     String name = method.getName();
                     if(!"getSubscribedEvents".equals(name) && !name.startsWith("__") && !name.startsWith("set")) {
-                        elements.add(LookupElementBuilder.create(name).withIcon(method.getIcon()));
+                        elements.add(LookupElementBuilder.create(name).withIcon(IconDescriptorUpdaters.getIcon(method, 0)));
                     }
                 }
             }
@@ -103,7 +104,6 @@ public class PhpEventDispatcherGotoCompletionRegistrar implements GotoCompletion
             return elements;
         }
 
-        @NotNull
         @Override
         public Collection<PsiElement> getPsiTargets(PsiElement element) {
 

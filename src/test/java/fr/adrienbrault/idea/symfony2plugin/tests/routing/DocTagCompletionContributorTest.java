@@ -1,5 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.routing;
 
+import org.junit.jupiter.api.Test;
+
 import com.jetbrains.php.lang.PhpFileType;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
 
@@ -20,6 +22,8 @@ public class DocTagCompletionContributorTest extends SymfonyLightCodeInsightFixt
     public String getTestDataPath() {
         return "src/test/java/fr/adrienbrault/idea/symfony2plugin/tests/routing/fixtures";
     }
+
+    @Test
 
     public void testRouteDocTagCompletion() {
         assertCompletionContains(PhpFileType.INSTANCE,  "<?php new TestClass('<caret>');", "route_foo");

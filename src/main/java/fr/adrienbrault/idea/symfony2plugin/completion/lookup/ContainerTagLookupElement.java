@@ -1,9 +1,8 @@
 package fr.adrienbrault.idea.symfony2plugin.completion.lookup;
 
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.codeInsight.lookup.LookupElementPresentation;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.editor.completion.lookup.LookupElementPresentation;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -22,7 +21,6 @@ public class ContainerTagLookupElement extends LookupElement {
         this.isWeak = isWeak;
     }
 
-    @NotNull
     @Override
     public String getLookupString() {
         return tag;

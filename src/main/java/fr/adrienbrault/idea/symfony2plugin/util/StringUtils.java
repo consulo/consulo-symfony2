@@ -1,7 +1,5 @@
 package fr.adrienbrault.idea.symfony2plugin.util;
 
-import org.jetbrains.annotations.NotNull;
-
 import java.util.Locale;
 
 /**
@@ -40,8 +38,7 @@ public class StringUtils {
         return chaine.substring(0, 1).toUpperCase() + chaine.substring(1);
     }
 
-    @NotNull
-    public static String lcfirst(@NotNull String input){
+    public static String lcfirst(String input){
         if(input.isEmpty()) {
             return input;
         }
@@ -72,17 +69,15 @@ public class StringUtils {
     /**
      * Test for interpolated string "#{segment.typeKey}.html.twig"
      */
-    public static boolean isInterpolatedString(@NotNull String content) {
+    public static boolean isInterpolatedString(String content) {
         return content.matches(".*#\\{[^{]*}.*");
     }
 
-    @NotNull
-    public static String removeEnd(@NotNull String str, @NotNull String suffix) {
+    public static String removeEnd(String str, String suffix) {
         return str.endsWith(suffix) ? str.substring(0, str.length() - suffix.length()) : str;
     }
 
-    @NotNull
-    public static String removeEndIgnoreCase(@NotNull String str, @NotNull String suffix) {
+    public static String removeEndIgnoreCase(String str, String suffix) {
         if (suffix.isEmpty()) return str;
         if (str.length() >= suffix.length() && str.regionMatches(true, str.length() - suffix.length(), suffix, 0, suffix.length())) {
             return str.substring(0, str.length() - suffix.length());
@@ -90,8 +85,7 @@ public class StringUtils {
         return str;
     }
 
-    @NotNull
-    public static String removeStartIgnoreCase(@NotNull String str, @NotNull String prefix) {
+    public static String removeStartIgnoreCase(String str, String prefix) {
         if (prefix.isEmpty()) return str;
         if (str.length() >= prefix.length() && str.regionMatches(true, 0, prefix, 0, prefix.length())) {
             return str.substring(prefix.length());
@@ -103,7 +97,7 @@ public class StringUtils {
      * Replacement for deprecated Apache Commons StringUtils.getFuzzyDistance.
      * Awards +1 per character match, +3 for consecutive matches (case-insensitive).
      */
-    public static int getFuzzyDistance(@NotNull CharSequence term, @NotNull CharSequence query) {
+    public static int getFuzzyDistance(CharSequence term, CharSequence query) {
         String termLower = term.toString().toLowerCase(Locale.ENGLISH);
         String queryLower = query.toString().toLowerCase(Locale.ENGLISH);
 

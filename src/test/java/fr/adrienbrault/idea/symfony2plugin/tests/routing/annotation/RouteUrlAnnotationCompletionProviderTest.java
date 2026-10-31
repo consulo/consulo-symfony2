@@ -1,5 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.routing.annotation;
 
+import org.junit.jupiter.api.Test;
+
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
 
 /**
@@ -16,6 +18,8 @@ public class RouteUrlAnnotationCompletionProviderTest extends SymfonyLightCodeIn
     public String getTestDataPath() {
         return "src/test/java/fr/adrienbrault/idea/symfony2plugin/tests/routing/annotation/fixtures";
     }
+
+    @Test
 
     public void testRouteUrlCompletionForAnnotations() {
         assertCompletionContains("test.php", "<?php\n" +
@@ -44,6 +48,9 @@ public class RouteUrlAnnotationCompletionProviderTest extends SymfonyLightCodeIn
             "/bar"
         );
     }
+
+
+    @Test
 
 
     public void testRouteUrlCompletionForAttribute() {

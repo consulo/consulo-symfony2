@@ -1,5 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.templating.completion;
 
+import org.junit.jupiter.api.Test;
+
 import com.jetbrains.twig.TwigFileType;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
 import fr.adrienbrault.idea.symfony2plugin.util.UxUtil;
@@ -20,6 +22,8 @@ public class TwigHtmlCompletionContributorTest extends SymfonyLightCodeInsightFi
         return "src/test/java/fr/adrienbrault/idea/symfony2plugin/tests/templating/completion/fixtures";
     }
 
+    @Test
+
     public void testThatRouteCompletionInsideHtmlMustProvidePrintPathBlock() {
         assertCompletionResultEquals(
             TwigFileType.INSTANCE,
@@ -33,6 +37,8 @@ public class TwigHtmlCompletionContributorTest extends SymfonyLightCodeInsightFi
             "<form action=\"{{ path('xml_route', {'slug': 'x'}) }}\"></form>"
         );
     }
+
+    @Test
 
     public void testThatTranslationCompletionInsideHtmlMustProvideTransFilter() {
         assertCompletionResultEquals(
@@ -57,6 +63,7 @@ public class TwigHtmlCompletionContributorTest extends SymfonyLightCodeInsightFi
     /**
      * Test that prop completion pattern works for twig component tags.
      */
+    @Test
     public void testThatPropCompletionPatternWorksForTwigComponentTag() {
         myFixture.copyFileToProject("twig_component.yaml", "config/packages/twig_component.yaml");
         myFixture.copyFileToProject("ide-twig.json", "ide-twig.json");
@@ -77,6 +84,7 @@ public class TwigHtmlCompletionContributorTest extends SymfonyLightCodeInsightFi
     /**
      * Test that prop completion provides template props from {% props %} definitions.
      */
+    @Test
     public void testThatPropCompletionProvidesTemplatePropsForTwigComponentTag() {
         // Setup configuration files
         myFixture.copyFileToProject("twig_component.yaml", "config/packages/twig_component.yaml");
@@ -94,6 +102,7 @@ public class TwigHtmlCompletionContributorTest extends SymfonyLightCodeInsightFi
     /**
      * Test that prop completion works with colon prefix for named blocks.
      */
+    @Test
     public void testThatPropCompletionProvidesColonPrefixedProps() {
         // Setup configuration files
         myFixture.copyFileToProject("twig_component.yaml", "config/packages/twig_component.yaml");
@@ -111,6 +120,7 @@ public class TwigHtmlCompletionContributorTest extends SymfonyLightCodeInsightFi
     /**
      * Test that a template prop's type (from its "## <type> <description>" doc comment) is shown on the right.
      */
+    @Test
     public void testThatTemplatePropCompletionShowsTypeFromPropDocblock() {
         myFixture.copyFileToProject("twig_component.yaml", "config/packages/twig_component.yaml");
         myFixture.copyFileToProject("ide-twig.json", "ide-twig.json");
@@ -133,6 +143,7 @@ public class TwigHtmlCompletionContributorTest extends SymfonyLightCodeInsightFi
      * Test that prop completion also fires right after "<twig:PropsAlert <caret>" (caret on whitespace,
      * incomplete tag) where getOriginalPosition() is null.
      */
+    @Test
     public void testThatPropCompletionFiresRightAfterTagNameWhitespace() {
         myFixture.copyFileToProject("twig_component.yaml", "config/packages/twig_component.yaml");
         myFixture.copyFileToProject("ide-twig.json", "ide-twig.json");

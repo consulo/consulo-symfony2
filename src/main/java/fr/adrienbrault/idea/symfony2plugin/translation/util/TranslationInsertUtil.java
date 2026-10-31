@@ -1,16 +1,15 @@
 package fr.adrienbrault.idea.symfony2plugin.translation.util;
 
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.XmlElementFactory;
-import com.intellij.psi.util.PsiTreeUtil;
-import com.intellij.psi.xml.XmlFile;
-import com.intellij.psi.xml.XmlTag;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.util.PsiTreeUtil;
+import consulo.xml.language.psi.XmlElementFactory;
+import consulo.xml.language.psi.XmlFile;
+import consulo.xml.language.psi.XmlTag;
 import fr.adrienbrault.idea.symfony2plugin.translation.dict.TranslationUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.jetbrains.yaml.YAMLTokenTypes;
 import org.jetbrains.yaml.YAMLUtil;
 import org.jetbrains.yaml.psi.YAMLFile;
@@ -24,7 +23,7 @@ import java.util.function.Function;
  */
 public class TranslationInsertUtil {
     @Nullable
-    public static PsiElement invokeTranslation(@NotNull final PsiFile psiFile, @NotNull final String keyName, @NotNull final String translation) {
+    public static PsiElement invokeTranslation(final PsiFile psiFile, final String keyName, final String translation) {
         if(psiFile instanceof YAMLFile) {
             return invokeTranslation((YAMLFile) psiFile, keyName, translation);
         } else if(psiFile instanceof XmlFile && TranslationUtil.isSupportedXlfFile(psiFile)) {
@@ -34,7 +33,7 @@ public class TranslationInsertUtil {
         return null;
     }
 
-    private static PsiElement invokeTranslation(@NotNull final YAMLFile yamlFile, @NotNull final String keyName, @NotNull final String translation) {
+    private static PsiElement invokeTranslation(final YAMLFile yamlFile, final String keyName, final String translation) {
         String[] split = keyName.split("\\.");
         PsiElement psiElement = YamlHelper.insertKeyIntoFile(yamlFile, "'" + translation + "'", split);
         if(psiElement == null) {
@@ -53,7 +52,7 @@ public class TranslationInsertUtil {
     }
 
     @Nullable
-    public static XmlTag invokeTranslation(@NotNull final XmlFile xmlFile, @NotNull final String keyName, @NotNull final String translation) {
+    public static XmlTag invokeTranslation(final XmlFile xmlFile, final String keyName, final String translation) {
         XmlTag rootTag = xmlFile.getRootTag();
         if(rootTag == null) {
             return null;
@@ -123,7 +122,7 @@ public class TranslationInsertUtil {
         return null;
     }
 
-    private static int getIdForNewXlfUnit(@NotNull XmlTag body, @NotNull String subTag) {
+    private static int getIdForNewXlfUnit(XmlTag body, String subTag) {
         int lastId = 0;
 
         for (XmlTag transUnit : body.findSubTags(subTag)) {
@@ -152,13 +151,11 @@ public class TranslationInsertUtil {
      * Remove TODO; moved to core
      */
     @Deprecated
-    @NotNull
-    public static String findEol(@NotNull PsiElement psiElement) {
+    public static String findEol(PsiElement psiElement) {
         return findLineSeparator(psiElement);
     }
 
-    @NotNull
-    public static String findLineSeparator(@NotNull PsiElement psiElement) {
+    public static String findLineSeparator(PsiElement psiElement) {
         for(PsiElement child: YamlHelper.getChildrenFix(psiElement)) {
             if(PlatformPatterns.psiElement(YAMLTokenTypes.EOL).accepts(child)) {
                 return child.getText();

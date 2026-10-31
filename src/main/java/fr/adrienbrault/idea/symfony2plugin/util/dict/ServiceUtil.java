@@ -1,24 +1,25 @@
 package fr.adrienbrault.idea.symfony2plugin.util.dict;
 
-import com.intellij.codeInsight.daemon.RelatedItemLineMarkerInfo;
-import com.intellij.codeInsight.navigation.NavigationGutterIconBuilder;
-import com.intellij.openapi.command.WriteCommandAction;
-import com.intellij.openapi.editor.Editor;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.ui.popup.JBPopupFactory;
-import com.intellij.openapi.util.Key;
-import com.intellij.openapi.util.NotNullLazyValue;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiManager;
-import com.intellij.psi.util.CachedValue;
-import com.intellij.psi.util.CachedValueProvider;
-import com.intellij.psi.util.CachedValuesManager;
-import com.intellij.psi.util.PsiModificationTracker;
-import com.intellij.util.Consumer;
-import com.intellij.util.containers.ContainerUtil;
-import com.intellij.util.indexing.FileBasedIndex;
+import consulo.language.editor.gutter.RelatedItemLineMarkerInfo;
+import consulo.language.editor.ui.navigation.NavigationGutterIconBuilder;
+import consulo.language.editor.WriteCommandAction;
+import consulo.codeEditor.Editor;
+import consulo.project.Project;
+import consulo.ui.ex.popup.JBPopupFactory;
+import consulo.util.dataholder.Key;
+import consulo.application.util.NotNullLazyValue;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.PsiManager;
+import consulo.application.util.CachedValue;
+import consulo.application.util.CachedValueProvider;
+import consulo.application.util.CachedValuesManager;
+import consulo.language.psi.util.LanguageCachedValueUtil;
+import consulo.language.psi.PsiModificationTracker;
+import java.util.function.Consumer;
+import consulo.util.collection.ContainerUtil;
+import consulo.language.psi.stub.FileBasedIndex;
 import com.jetbrains.php.PhpIcons;
 import com.jetbrains.php.PhpIndex;
 import com.jetbrains.php.lang.psi.PhpFile;
@@ -43,8 +44,7 @@ import fr.adrienbrault.idea.symfony2plugin.util.PhpIndexUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.service.ServiceXmlParserFactory;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.*;
 
@@ -142,16 +142,14 @@ public class ServiceUtil {
     /**
      * %test%, service, \Class\Name to PhpClass
      */
-    @Nullable
-    public static PhpClass getResolvedClassDefinition(@NotNull Project project, @NotNull String serviceClassParameterName) {
+    public static @Nullable PhpClass getResolvedClassDefinition(Project project, String serviceClassParameterName) {
         return getResolvedClassDefinition(project, serviceClassParameterName, new ContainerCollectionResolver.LazyServiceCollector(project));
     }
 
     /**
      * %test%, service, \Class\Name to PhpClass
      */
-    @Nullable
-    public static PhpClass getResolvedClassDefinition(@NotNull Project project, @NotNull String serviceClassParameterName, ContainerCollectionResolver.LazyServiceCollector collector) {
+    public static @Nullable PhpClass getResolvedClassDefinition(Project project, String serviceClassParameterName, ContainerCollectionResolver.LazyServiceCollector collector) {
 
         // match parameter
         if(serviceClassParameterName.startsWith("%") && serviceClassParameterName.endsWith("%")) {
@@ -200,7 +198,7 @@ public class ServiceUtil {
 
     }
 
-    public static Collection<PsiElement> getServiceClassTargets(@NotNull Project project, @Nullable String value) {
+    public static Collection<PsiElement> getServiceClassTargets(Project project, @Nullable String value) {
 
         List<PsiElement> resolveResults = new ArrayList<>();
 
@@ -225,8 +223,7 @@ public class ServiceUtil {
     /**
      * Find every service tag that's implements or extends a classes/interface of give class
      */
-    @NotNull
-    public static Set<String> getPhpClassTags(@NotNull PhpClass phpClass) {
+    public static Set<String> getPhpClassTags(PhpClass phpClass) {
         Project project = phpClass.getProject();
 
         ContainerCollectionResolver.ServiceCollector collector = null;
@@ -279,8 +276,7 @@ public class ServiceUtil {
     /**
      * Get "extends" and implements on class level
      */
-    @NotNull
-    public static Set<PhpClass> getSuperClasses(@NotNull PhpClass serviceClass) {
+    public static Set<PhpClass> getSuperClasses(PhpClass serviceClass) {
         Set<PhpClass> phpClasses = new HashSet<>();
         PhpClass superClass = serviceClass.getSuperClass();
 
@@ -308,8 +304,7 @@ public class ServiceUtil {
         return service;
     }
 
-    @NotNull
-    public static Set<String> getServiceTags(@NotNull Project project, @NotNull String serviceId) {
+    public static Set<String> getServiceTags(Project project, String serviceId) {
         Set<String> service = new HashSet<>();
 
         for(Set<String> strings: FileBasedIndex.getInstance().getValues(ServicesTagStubIndex.KEY, serviceId, ServiceIndexUtil.getRestrictedFileTypesScope(project))) {
@@ -323,7 +318,7 @@ public class ServiceUtil {
         return service;
     }
 
-    private static Collection<PhpClass> getTaggedClassesOnIndex(@NotNull Project project, @NotNull String tagName) {
+    private static Collection<PhpClass> getTaggedClassesOnIndex(Project project, String tagName) {
 
         List<PhpClass> phpClasses = new ArrayList<>();
 
@@ -346,13 +341,12 @@ public class ServiceUtil {
         return phpClasses;
     }
 
-    public static boolean isPhpClassTaggedWith(@NotNull PhpClass phpClass, @NotNull String tagName) {
+    public static boolean isPhpClassTaggedWith(PhpClass phpClass, String tagName) {
         return ServiceUtil.getTaggedClassesOnIndex(phpClass.getProject(), tagName).stream()
             .anyMatch(phpClass1 -> phpClass1.getFQN().equalsIgnoreCase(phpClass1.getFQN()));
     }
 
-    @NotNull
-    public static Collection<PhpClass> getTaggedClasses(@NotNull Project project, @NotNull String tagName) {
+    public static Collection<PhpClass> getTaggedClasses(Project project, String tagName) {
 
         Set<String> uniqueClass = new HashSet<>();
 
@@ -388,8 +382,7 @@ public class ServiceUtil {
     /**
      * Resolve "@service" to its class
      */
-    @Nullable
-    public static PhpClass getServiceClass(@NotNull Project project, @NotNull String serviceName) {
+    public static @Nullable PhpClass getServiceClass(Project project, String serviceName) {
 
         serviceName = YamlHelper.trimSpecialSyntaxServiceName(serviceName);
 
@@ -413,8 +406,7 @@ public class ServiceUtil {
     /**
      * Resolve "@service" to its class + proxy ServiceCollector for iteration
      */
-    @Nullable
-    public static PhpClass getServiceClass(@NotNull Project project, @NotNull String serviceName, @NotNull ContainerCollectionResolver.ServiceCollector collector) {
+    public static @Nullable PhpClass getServiceClass(Project project, String serviceName, ContainerCollectionResolver.ServiceCollector collector) {
 
         serviceName = YamlHelper.trimSpecialSyntaxServiceName(serviceName);
         if(serviceName.isEmpty()) {
@@ -432,8 +424,7 @@ public class ServiceUtil {
     /**
      *  Gets all tags on extends/implements path of class
      */
-    @NotNull
-    public static Set<String> getPhpClassServiceTags(@NotNull PhpClass phpClass) {
+    public static Set<String> getPhpClassServiceTags(PhpClass phpClass) {
         Set<String> tags = new HashSet<>();
 
         for (Map.Entry<String, String[]> entry : TAG_INTERFACES.entrySet()) {
@@ -456,7 +447,7 @@ public class ServiceUtil {
     /**
      * Event based decoration of class
      */
-    public static void decorateServiceTag(@NotNull ServiceTag service) {
+    public static void decorateServiceTag(ServiceTag service) {
 
         // @TODO: provide extension
         // form alias
@@ -468,13 +459,11 @@ public class ServiceUtil {
         }
     }
 
-    @NotNull
-    public static Collection<ContainerService> getServiceSuggestionForPhpClass(@NotNull PhpClass phpClass, @NotNull Map<String, ContainerService> serviceMap) {
+    public static Collection<ContainerService> getServiceSuggestionForPhpClass(PhpClass phpClass, Map<String, ContainerService> serviceMap) {
         return getServiceSuggestionForPhpClass(phpClass, serviceMap.values());
     }
 
-    @NotNull
-    public static Collection<ContainerService> getServiceSuggestionForPhpClass(@NotNull PhpClass phpClass, @NotNull Collection<ContainerService> serviceMap) {
+    public static Collection<ContainerService> getServiceSuggestionForPhpClass(PhpClass phpClass, Collection<ContainerService> serviceMap) {
 
         String fqn = StringUtils.stripStart(phpClass.getFQN(), "\\");
 
@@ -506,8 +495,7 @@ public class ServiceUtil {
         return instances;
     }
 
-    @NotNull
-    public static Set<String> getServiceSuggestionsForServiceConstructorIndex(@NotNull Project project, @NotNull String serviceName, int index) {
+    public static Set<String> getServiceSuggestionsForServiceConstructorIndex(Project project, String serviceName, int index) {
         PhpClass phpClass = ServiceUtil.getResolvedClassDefinition(project, serviceName);
         // check type hint on constructor
         if(phpClass == null) {
@@ -533,7 +521,7 @@ public class ServiceUtil {
         return ServiceActionUtil.getPossibleServices(expectedClass, ContainerCollectionResolver.getServices(project));
     }
 
-    public static void insertTagWithPopupDecision(final @NotNull Editor editor, final @NotNull Set<String> phpServiceTags, final @NotNull Consumer<String> consumer) {
+    public static void insertTagWithPopupDecision(final Editor editor, final Set<String> phpServiceTags, final Consumer<String> consumer) {
         final List<String> list = new ArrayList<>(phpServiceTags);
 
         if(phpServiceTags.isEmpty()) {
@@ -542,19 +530,17 @@ public class ServiceUtil {
         }
 
         if(phpServiceTags.size() == 1) {
-            WriteCommandAction.runWriteCommandAction(editor.getProject(), "Service Suggestion Insert", null, () -> consumer.consume(phpServiceTags.iterator().next()));
+            WriteCommandAction.runWriteCommandAction(editor.getProject(), "Service Suggestion Insert", null, () -> consumer.accept(phpServiceTags.iterator().next()));
             return;
         }
 
-        JBPopupFactory.getInstance().createPopupChooserBuilder(list)
+        editor.showPopupInBestPositionFor(JBPopupFactory.getInstance().createPopupChooserBuilder(list)
             .setTitle("Symfony: Tag Suggestion")
-            .setItemChosenCallback(s -> WriteCommandAction.runWriteCommandAction(editor.getProject(), "Service Suggestion Insert", null, () -> consumer.consume(s)))
-            .createPopup()
-            .showInBestPositionFor(editor);
+            .setItemChosenCallback(s -> WriteCommandAction.runWriteCommandAction(editor.getProject(), "Service Suggestion Insert", null, () -> consumer.accept(s)))
+            .createPopup());
     }
 
-    @NotNull
-    public static Collection<ContainerService> getServiceSuggestionsForTypeHint(@NotNull Method method, int index, @NotNull Collection<ContainerService> services) {
+    public static Collection<ContainerService> getServiceSuggestionsForTypeHint(Method method, int index, Collection<ContainerService> services) {
         PhpClass phpClass = PhpElementsUtil.getMethodTypeHintParameterPhpClass(method, index);
         if(phpClass == null) {
             return Collections.emptyList();
@@ -563,8 +549,7 @@ public class ServiceUtil {
         return ServiceUtil.getServiceSuggestionForPhpClass(phpClass, services);
     }
 
-    @NotNull
-    public static String getServiceNameForClass(@NotNull Project project, @NotNull String className) {
+    public static String getServiceNameForClass(Project project, String className) {
         className = StringUtils.stripStart(className, "\\");
 
         ServiceNameStrategyParameter parameter = new ServiceNameStrategyParameter(project, className);
@@ -578,8 +563,7 @@ public class ServiceUtil {
         return className.toLowerCase().replace("\\", "_");
     }
 
-    @Nullable
-    public static NavigationGutterIconBuilder<PsiElement> getLineMarkerForDecoratedServiceId(@NotNull Project project, @NotNull ServiceLineMarker lineMarker, @NotNull Map<String, Collection<ContainerService>> decorated, @NotNull String id) {
+    public static @Nullable NavigationGutterIconBuilder<PsiElement> getLineMarkerForDecoratedServiceId(Project project, ServiceLineMarker lineMarker, Map<String, Collection<ContainerService>> decorated, String id) {
         if(!decorated.containsKey(id)) {
             return null;
         }
@@ -605,8 +589,7 @@ public class ServiceUtil {
      *  $this->getEnvParameters(false)
      *  );
      */
-    @NotNull
-    public static Collection<String> getParameterParameters(@NotNull Project project) {
+    public static Collection<String> getParameterParameters(Project project) {
         return CachedValuesManager.getManager(project).getCachedValue(
             project,
             KERNEL_PARAMETER_CACHE,
@@ -615,8 +598,7 @@ public class ServiceUtil {
         );
     }
 
-    @NotNull
-    private static Collection<String> getParameterParametersInner(@NotNull Project project) {
+    private static Collection<String> getParameterParametersInner(Project project) {
         Collection<String> parameters = new HashSet<>();
 
         Collection<PhpClass> phpClasses = new HashSet<>() {{
@@ -635,7 +617,7 @@ public class ServiceUtil {
 
         // Parse each file (cached per file)
         for (PsiFile file : files) {
-            Collection<String> fileParameters = CachedValuesManager.getCachedValue(file, FILE_KERNEL_PARAMETER_CACHE, () -> {
+            Collection<String> fileParameters = LanguageCachedValueUtil.getCachedValue(file, FILE_KERNEL_PARAMETER_CACHE, () -> {
                 Collection<String> result = new HashSet<>();
                 // Resolve classes fresh from file inside cache provider
                 for (PhpClass phpClass : PhpPsiUtil.findAllClasses((PhpFile) file)) {
@@ -686,7 +668,7 @@ public class ServiceUtil {
      * Extracts array keys from a BinaryExpression, typically used for array union (+) operator.
      * Handles patterns like: return [...] + (condition ? ['key' => value] : [])
      */
-    private static void extractArrayKeysFromBinaryExpression(@NotNull BinaryExpression binaryExpression, @NotNull Collection<String> parameters) {
+    private static void extractArrayKeysFromBinaryExpression(BinaryExpression binaryExpression, Collection<String> parameters) {
         // Process left operand
         extractArrayKeysFromExpression(binaryExpression.getLeftOperand(), parameters);
 
@@ -697,7 +679,7 @@ public class ServiceUtil {
     /**
      * Extracts array keys from various expression types (arrays, ternary, parenthesized, binary).
      */
-    private static void extractArrayKeysFromExpression(@Nullable PsiElement expression, @NotNull Collection<String> parameters) {
+    private static void extractArrayKeysFromExpression(@Nullable PsiElement expression, Collection<String> parameters) {
         if (expression == null) {
             return;
         }
@@ -720,7 +702,7 @@ public class ServiceUtil {
      * Extracts array keys from a TernaryExpression.
      * Handles patterns like: condition ? ['key' => value] : []
      */
-    private static void extractArrayKeysFromTernaryExpression(@NotNull TernaryExpression ternaryExpression, @NotNull Collection<String> parameters) {
+    private static void extractArrayKeysFromTernaryExpression(TernaryExpression ternaryExpression, Collection<String> parameters) {
         extractArrayKeysFromExpression(ternaryExpression.getTrueVariant(), parameters);
         extractArrayKeysFromExpression(ternaryExpression.getFalseVariant(), parameters);
     }
@@ -730,15 +712,14 @@ public class ServiceUtil {
      *
      * <service id="foo_bar_main" decorates="app.mailer"/>
      */
-    @NotNull
-    public static RelatedItemLineMarkerInfo<PsiElement> getLineMarkerForDecoratesServiceId(@NotNull PsiElement psiElement, @NotNull ServiceLineMarker lineMarker, @NotNull String foreignId) {
+    public static RelatedItemLineMarkerInfo<PsiElement> getLineMarkerForDecoratesServiceId(PsiElement psiElement, ServiceLineMarker lineMarker, String foreignId) {
         return NavigationGutterIconBuilder.create(PhpIcons.OVERRIDEN)
             .setTargets(ServiceIndexUtil.getServiceIdDefinitionLazyValue(psiElement.getProject(), Collections.singletonList(foreignId)))
             .setTooltipText(lineMarker == ServiceLineMarker.DECORATE ? "Navigate to decorated service" : "Navigate to parent service")
             .createLineMarkerInfo(psiElement);
     }
 
-    public static boolean isPhpClassAService(@NotNull PhpClass phpClass) {
+    public static boolean isPhpClassAService(PhpClass phpClass) {
         return !ContainerCollectionResolver.ServiceCollector.create(phpClass.getProject())
             .convertClassNameToServices(phpClass.getFQN())
             .isEmpty();

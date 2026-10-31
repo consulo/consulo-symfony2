@@ -1,11 +1,12 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.templating.path;
 
-import com.intellij.openapi.util.Condition;
-import com.intellij.util.containers.ContainerUtil;
+import org.junit.jupiter.api.Test;
+
+import consulo.util.lang.function.Condition;
+import consulo.util.collection.ContainerUtil;
 import fr.adrienbrault.idea.symfony2plugin.templating.path.TwigPath;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 
@@ -22,6 +23,8 @@ public class JsonFileIndexTwigNamespacesTest extends SymfonyLightCodeInsightFixt
         return "src/test/java/fr/adrienbrault/idea/symfony2plugin/tests/templating/path/fixtures";
     }
 
+    @Test
+
     public void testThatNamespaceAndPathIsAddedToNamespaceList() {
 
         List<TwigPath> twigNamespaces = TwigUtil.getTwigNamespaces(getProject());
@@ -35,11 +38,15 @@ public class JsonFileIndexTwigNamespacesTest extends SymfonyLightCodeInsightFixt
         assertEquals(true, foo.isCustomPath());
     }
 
+    @Test
+
     public void testThatPathValueIsNormalized() {
         List<TwigPath> twigNamespaces = TwigUtil.getTwigNamespaces(getProject());
         assertEquals("src/foo/res", ContainerUtil.find(twigNamespaces, new MyTwigPathNamespaceCondition("foo1")).getPath());
         assertEquals("src/foo", ContainerUtil.find(twigNamespaces, new MyTwigPathNamespaceCondition("bar")).getPath());
     }
+
+    @Test
 
     public void testThatBundleNamespaceIsSupported() {
         TwigPath fooBundle = ContainerUtil.find(TwigUtil.getTwigNamespaces(getProject()), new MyTwigPathNamespaceCondition("FooBundle"));
@@ -51,10 +58,9 @@ public class JsonFileIndexTwigNamespacesTest extends SymfonyLightCodeInsightFixt
 
     private static class MyTwigPathNamespaceCondition implements Condition<TwigPath> {
 
-        @NotNull
         private final String namespace;
 
-        public MyTwigPathNamespaceCondition(@NotNull String namespace) {
+        public MyTwigPathNamespaceCondition(String namespace) {
             this.namespace = namespace;
         }
 

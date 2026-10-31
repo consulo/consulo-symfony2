@@ -1,7 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.profiler.dict;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -12,22 +11,19 @@ import java.util.List;
  */
 public class LocalProfilerRequest implements ProfilerRequestInterface {
 
-    @NotNull
     private final List<String> separatedLine = new ArrayList<>();
 
-    @NotNull
     private Object[] collectors = new Object[] {};
 
-    public LocalProfilerRequest(@NotNull String[] separatedLine) {
+    public LocalProfilerRequest(String[] separatedLine) {
         Collections.addAll(this.separatedLine, separatedLine);
     }
 
-    public LocalProfilerRequest(@NotNull String[] separatedLine, @NotNull Object... collectors) {
+    public LocalProfilerRequest(String[] separatedLine, Object... collectors) {
         this(separatedLine);
         this.collectors = collectors;
     }
 
-    @NotNull
     public String getHash() {
         return this.separatedLine.get(0);
     }
@@ -51,12 +47,10 @@ public class LocalProfilerRequest implements ProfilerRequestInterface {
         return this.separatedLine.get(2);
     }
 
-    @NotNull
     public String getUrl() {
         return this.separatedLine.get(3);
     }
 
-    @NotNull
     @Override
     public String getProfilerUrl() {
         return "_profiler/" + this.getHash();
@@ -76,7 +70,7 @@ public class LocalProfilerRequest implements ProfilerRequestInterface {
     }
 
     @SuppressWarnings("unchecked")
-    public <T> T getCollector(Class<T> classFactory) {
+    public <T> @Nullable T getCollector(Class<T> classFactory) {
         for (Object collector : collectors) {
             if(classFactory.isAssignableFrom(collector.getClass())) {
                 return (T) collector;

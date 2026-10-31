@@ -1,7 +1,9 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.dic;
 
-import com.intellij.ide.highlighter.XmlFileType;
-import com.intellij.patterns.PlatformPatterns;
+import org.junit.jupiter.api.Test;
+
+import consulo.xml.language.XmlFileType;
+import consulo.language.pattern.PlatformPatterns;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
 import org.jetbrains.yaml.YAMLFileType;
 
@@ -19,6 +21,8 @@ public class TaggedParameterGotoCompletionRegistrarTest extends SymfonyLightCode
     public String getTestDataPath() {
         return "src/test/java/fr/adrienbrault/idea/symfony2plugin/tests/dic/fixtures";
     }
+
+    @Test
 
     public void testThatYamlTaggedParameterProvidesNavigation() {
         assertNavigationMatch(
@@ -46,6 +50,8 @@ public class TaggedParameterGotoCompletionRegistrarTest extends SymfonyLightCode
         );
     }
 
+    @Test
+
     public void testThatYamlTaggedParameterProvidesCompletion() {
         assertCompletionContains(
             YAMLFileType.YML,
@@ -70,6 +76,8 @@ public class TaggedParameterGotoCompletionRegistrarTest extends SymfonyLightCode
         );
     }
 
+    @Test
+
     public void testThatXmlTaggedParameterProvidesNavigation() {
         assertNavigationMatch(
             XmlFileType.INSTANCE,
@@ -81,6 +89,8 @@ public class TaggedParameterGotoCompletionRegistrarTest extends SymfonyLightCode
             PlatformPatterns.psiElement()
         );
     }
+
+    @Test
 
     public void testThatXmlTaggedParameterProvidesCompletion() {
         assertCompletionContains(

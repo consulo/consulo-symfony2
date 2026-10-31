@@ -1,10 +1,11 @@
 package fr.adrienbrault.idea.symfony2plugin.templating;
 
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.codeInsight.lookup.LookupElementBuilder;
-import com.intellij.openapi.project.Project;
-import com.intellij.psi.PsiElement;
-import com.intellij.util.containers.ContainerUtil;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.editor.completion.lookup.LookupElementBuilder;
+import consulo.project.Project;
+import consulo.language.psi.PsiElement;
+import consulo.util.collection.ContainerUtil;
+import consulo.annotation.component.ExtensionImpl;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionProvider;
@@ -15,8 +16,7 @@ import fr.adrienbrault.idea.symfony2plugin.templating.dict.TwigExtensionLookupEl
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigExtensionParser;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -31,9 +31,10 @@ import java.util.Map;
  *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class GuardGotoCompletionRegistrar implements GotoCompletionRegistrar {
     @Override
-    public void register(@NotNull GotoCompletionRegistrarParameter registrar) {
+    public void register(GotoCompletionRegistrarParameter registrar) {
         // {% guard <caret> %}
         // Completion for "function", "filter", "test" keywords
         registrar.register(TwigPattern.getGuardTypePattern(), psiElement -> {
@@ -64,7 +65,6 @@ public class GuardGotoCompletionRegistrar implements GotoCompletionRegistrar {
             super(psiElement);
         }
 
-        @NotNull
         @Override
         public Collection<LookupElement> getLookupElements() {
             Collection<LookupElement> lookupElements = new ArrayList<>();
@@ -76,7 +76,6 @@ public class GuardGotoCompletionRegistrar implements GotoCompletionRegistrar {
             return lookupElements;
         }
 
-        @NotNull
         @Override
         public Collection<PsiElement> getPsiTargets(PsiElement element) {
             return Collections.emptyList();
@@ -95,7 +94,6 @@ public class GuardGotoCompletionRegistrar implements GotoCompletionRegistrar {
             super(psiElement);
         }
 
-        @NotNull
         @Override
         public Collection<LookupElement> getLookupElements() {
             Collection<LookupElement> lookupElements = new ArrayList<>();
@@ -123,7 +121,6 @@ public class GuardGotoCompletionRegistrar implements GotoCompletionRegistrar {
             return lookupElements;
         }
 
-        @NotNull
         @Override
         public Collection<PsiElement> getPsiTargets(PsiElement element) {
             String text = element.getText();
@@ -164,10 +161,10 @@ public class GuardGotoCompletionRegistrar implements GotoCompletionRegistrar {
          *              ^-------^
          */
         @Nullable
-        private String getGuardType(@NotNull PsiElement element) {
+        private String getGuardType(PsiElement element) {
             PsiElement prevIdentifier = PsiElementUtils.getPrevSiblingOfType(
                 element,
-                com.intellij.patterns.PlatformPatterns.psiElement(com.jetbrains.twig.TwigTokenTypes.IDENTIFIER)
+                consulo.language.pattern.PlatformPatterns.psiElement(com.jetbrains.twig.TwigTokenTypes.IDENTIFIER)
             );
 
             if (prevIdentifier != null) {

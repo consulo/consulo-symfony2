@@ -1,9 +1,8 @@
 package fr.adrienbrault.idea.symfony2plugin.profiler.factory;
 
-import com.intellij.openapi.project.Project;
+import consulo.project.Project;
 import fr.adrienbrault.idea.symfony2plugin.profiler.ProfilerIndexInterface;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -15,7 +14,7 @@ public class ProfilerFactoryUtil {
     };
 
     @Nullable
-    public static ProfilerIndexInterface createIndex(@NotNull Project project) {
+    public static ProfilerIndexInterface createIndex(Project project) {
         for (ProfilerFactoryInterface factory : PROFILER) {
             if(!factory.accepts(project)) {
                 continue;

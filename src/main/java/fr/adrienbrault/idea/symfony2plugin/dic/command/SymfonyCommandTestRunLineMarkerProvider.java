@@ -1,21 +1,26 @@
 package fr.adrienbrault.idea.symfony2plugin.dic.command;
 
-import com.intellij.execution.lineMarker.ExecutorAction;
-import com.intellij.execution.lineMarker.RunLineMarkerContributor;
-import com.intellij.icons.AllIcons;
-import com.intellij.openapi.actionSystem.AnAction;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiElement;
-import com.intellij.util.EnvironmentUtil;
-import com.intellij.util.ObjectUtils;
+import com.jetbrains.php.lang.PhpLanguage;
 import com.jetbrains.php.lang.lexer.PhpTokenTypes;
 import com.jetbrains.php.lang.psi.PhpPsiUtil;
-import com.jetbrains.php.lang.psi.elements.*;
+import com.jetbrains.php.lang.psi.elements.Method;
+import com.jetbrains.php.lang.psi.elements.PhpClass;
+import com.jetbrains.php.lang.psi.elements.PhpNamedElement;
+import consulo.annotation.access.RequiredReadAction;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.execution.icon.ExecutionIconGroup;
+import consulo.execution.lineMarker.ExecutorAction;
+import consulo.execution.lineMarker.RunLineMarkerContributor;
+import consulo.language.Language;
+import consulo.language.psi.PsiElement;
+import consulo.process.local.EnvironmentUtil;
+import consulo.project.Project;
+import consulo.ui.ex.action.AnAction;
+import consulo.util.lang.ObjectUtil;
+import consulo.virtualFileSystem.VirtualFile;
 import fr.adrienbrault.idea.symfony2plugin.util.ProjectUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.SymfonyCommandUtil;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -25,9 +30,11 @@ import java.util.List;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class SymfonyCommandTestRunLineMarkerProvider extends RunLineMarkerContributor {
     @Override
-    public @Nullable Info getInfo(@NotNull PsiElement leaf) {
+    @RequiredReadAction
+    public @Nullable Info getInfo(PsiElement leaf) {
         PhpNamedElement commandTarget = getCommandTargetContext(leaf);
         if (commandTarget == null) {
             return null;
@@ -50,7 +57,7 @@ public class SymfonyCommandTestRunLineMarkerProvider extends RunLineMarkerContri
             actions.add(new SymfonyCommandRunAction(
                 SymfonyCommandRunConfiguration.ExecutionMode.PHP_INTERPRETER,
                 "Run '" + commandName + "' with bin/console",
-                AllIcons.RunConfigurations.TestState.Run
+                ExecutionIconGroup.gutterRun()
             ));
         }
 
@@ -58,21 +65,26 @@ public class SymfonyCommandTestRunLineMarkerProvider extends RunLineMarkerContri
             actions.add(new SymfonyCommandRunAction(
                 SymfonyCommandRunConfiguration.ExecutionMode.SYMFONY_CLI,
                 "Run '" + commandName + "' with Symfony CLI",
-                AllIcons.RunConfigurations.TestState.Run
+                ExecutionIconGroup.gutterRun()
             ));
         }
 
         return new Info(
-            AllIcons.RunConfigurations.TestState.Run,
-            actions.toArray(AnAction.EMPTY_ARRAY),
-            psiElement -> "Run Symfony Command"
+            ExecutionIconGroup.gutterRun(),
+            psiElement -> "Run Symfony Command",
+            actions.toArray(AnAction.EMPTY_ARRAY)
         );
     }
 
+    @Override
+    public Language getLanguage() {
+        return PhpLanguage.INSTANCE;
+    }
+
     @Nullable
-    public static PhpNamedElement getCommandTargetContext(@NotNull PsiElement leaf) {
+    public static PhpNamedElement getCommandTargetContext(PsiElement leaf) {
         if (PhpPsiUtil.isOfType(leaf, PhpTokenTypes.IDENTIFIER)) {
-            PhpNamedElement element = ObjectUtils.tryCast(leaf.getParent(), PhpNamedElement.class);
+            PhpNamedElement element = ObjectUtil.tryCast(leaf.getParent(), PhpNamedElement.class);
             if (element != null && element.getNameIdentifier() == leaf) {
                 if (element instanceof Method method && !SymfonyCommandUtil.getCommandNameFromMethod(method).isEmpty()) {
                     return method;
@@ -87,8 +99,7 @@ public class SymfonyCommandTestRunLineMarkerProvider extends RunLineMarkerContri
         return null;
     }
 
-    @NotNull
-    public static List<String> getCommandNames(@NotNull PhpNamedElement target) {
+    public static List<String> getCommandNames(PhpNamedElement target) {
         if (target instanceof Method method) {
             return SymfonyCommandUtil.getCommandNameFromMethod(method);
         }

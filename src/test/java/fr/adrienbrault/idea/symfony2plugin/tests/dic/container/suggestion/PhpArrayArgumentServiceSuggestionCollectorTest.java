@@ -1,5 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.dic.container.suggestion;
 
+import org.junit.jupiter.api.Test;
+
 import com.jetbrains.php.lang.PhpFileType;
 import com.jetbrains.php.lang.psi.PhpPsiElementFactory;
 import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
@@ -25,6 +27,8 @@ public class PhpArrayArgumentServiceSuggestionCollectorTest extends SymfonyLight
         return "src/test/java/fr/adrienbrault/idea/symfony2plugin/tests/dic/container/suggestion/fixtures";
     }
 
+    @Test
+
     public void testPositionalConstructorArgument() {
         assertCompletionLookupContainsPresentableItem(PhpFileType.INSTANCE, "<?php\n" +
                 "namespace Symfony\\Component\\DependencyInjection\\Loader\\Configurator;\n" +
@@ -38,6 +42,8 @@ public class PhpArrayArgumentServiceSuggestionCollectorTest extends SymfonyLight
             lookupElement -> "foo_bar_apple".equals(lookupElement.getItemText()) && lookupElement.isItemTextBold()
         );
     }
+
+    @Test
 
     public void testNamedConstructorArgument() {
         assertCompletionLookupContainsPresentableItem(PhpFileType.INSTANCE, "<?php\n" +
@@ -53,6 +59,8 @@ public class PhpArrayArgumentServiceSuggestionCollectorTest extends SymfonyLight
         );
     }
 
+    @Test
+
     public void testRawAtStringInsideArguments() {
         assertCompletionLookupContainsPresentableItem(PhpFileType.INSTANCE, "<?php\n" +
                 "namespace Symfony\\Component\\DependencyInjection\\Loader\\Configurator;\n" +
@@ -66,6 +74,8 @@ public class PhpArrayArgumentServiceSuggestionCollectorTest extends SymfonyLight
             lookupElement -> "foo_bar_apple".equals(lookupElement.getItemText()) && lookupElement.isItemTextBold()
         );
     }
+
+    @Test
 
     public void testNonArgumentKeyDoesNotPrioritize() {
         StringLiteralExpression element = PhpPsiElementFactory.createFromText(getProject(), StringLiteralExpression.class,

@@ -1,8 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.stubs.indexes.externalizer;
 
-import com.intellij.util.io.DataExternalizer;
-import com.intellij.util.io.EnumeratorStringDescriptor;
-import org.jetbrains.annotations.NotNull;
+import consulo.index.io.data.DataExternalizer;
+import consulo.index.io.EnumeratorStringDescriptor;
 
 import java.io.DataInput;
 import java.io.DataOutput;
@@ -20,7 +19,7 @@ public class StringSetDataExternalizer implements DataExternalizer<Set<String>> 
 
     public static StringSetDataExternalizer INSTANCE = new StringSetDataExternalizer();
 
-    public synchronized void save(@NotNull DataOutput out, Set<String> value) throws IOException {
+    public synchronized void save(DataOutput out, Set<String> value) throws IOException {
         out.writeInt(value.size());
 
         for (String s : value) {
@@ -28,7 +27,7 @@ public class StringSetDataExternalizer implements DataExternalizer<Set<String>> 
         }
     }
 
-    public synchronized Set<String> read(@NotNull DataInput in) throws IOException {
+    public synchronized Set<String> read(DataInput in) throws IOException {
         Set<String> set = new HashSet<>();
 
         for(int r = in.readInt(); r > 0; --r) {

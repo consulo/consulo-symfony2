@@ -1,14 +1,24 @@
 package fr.adrienbrault.idea.symfony2plugin.completion;
 
-import com.intellij.codeInsight.completion.*;
-import com.intellij.codeInsight.lookup.LookupElementPresentation;
-import com.intellij.openapi.project.Project;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.psi.PsiDocumentManager;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.codeStyle.CodeStyleManager;
-import com.intellij.util.ProcessingContext;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.Language;
+import consulo.language.editor.completion.CompletionContributor;
+import consulo.language.editor.completion.CompletionParameters;
+import consulo.language.editor.completion.CompletionProvider;
+import consulo.language.editor.completion.CompletionResultSet;
+import consulo.language.editor.completion.CompletionType;
+import consulo.language.editor.completion.lookup.InsertHandler;
+import consulo.language.editor.completion.lookup.InsertionContext;
+import consulo.language.editor.completion.lookup.LookupElementPresentation;
+import consulo.language.icon.IconDescriptorUpdaters;
+import consulo.project.Project;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiDocumentManager;
+import consulo.language.psi.PsiElement;
+import consulo.language.codeStyle.CodeStyleManager;
+import consulo.language.util.ProcessingContext;
 import com.jetbrains.php.PhpIndex;
+import com.jetbrains.php.lang.PhpLanguage;
 import com.jetbrains.php.completion.insert.PhpInsertHandlerUtil;
 import com.jetbrains.php.lang.lexer.PhpTokenTypes;
 import com.jetbrains.php.lang.psi.elements.FieldReference;
@@ -22,20 +32,20 @@ import fr.adrienbrault.idea.symfony2plugin.form.util.FormOptionsUtil;
 import fr.adrienbrault.idea.symfony2plugin.form.util.FormUtil;
 import fr.adrienbrault.idea.symfony2plugin.templating.variable.resolver.FormFieldResolver;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
-import kotlin.Pair;
+import consulo.util.lang.Pair;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl(order = "after PhpCompletionContributor") // upstream order="last"
 public class PhpIncompleteCompletionContributor extends CompletionContributor {
     public PhpIncompleteCompletionContributor() {
-        extend(CompletionType.BASIC, PlatformPatterns.psiElement(), new CompletionProvider<>() {
+        extend(CompletionType.BASIC, PlatformPatterns.psiElement(), new CompletionProvider() {
             @Override
-            protected void addCompletions(@NotNull CompletionParameters completionParameters, @NotNull ProcessingContext processingContext, @NotNull CompletionResultSet completionResultSet) {
+            public void addCompletions(CompletionParameters completionParameters, ProcessingContext processingContext, CompletionResultSet completionResultSet) {
                 PsiElement psiElement = completionParameters.getOriginalPosition();
                 if (!Symfony2ProjectComponent.isEnabled(psiElement)) {
                     return;
@@ -87,8 +97,13 @@ public class PhpIncompleteCompletionContributor extends CompletionContributor {
         });
     }
 
-    private class MyInsertHandler implements InsertHandler<com.intellij.codeInsight.lookup.LookupElement> {
-        public void handleInsert(@NotNull InsertionContext context, @NotNull com.intellij.codeInsight.lookup.LookupElement item) {
+    @Override
+    public Language getLanguage() {
+        return PhpLanguage.INSTANCE;
+    }
+
+    private class MyInsertHandler implements InsertHandler<consulo.language.editor.completion.lookup.LookupElement> {
+        public void handleInsert(InsertionContext context, consulo.language.editor.completion.lookup.LookupElement item) {
             context.getDocument().deleteString(context.getStartOffset(), context.getTailOffset());
             context.commitDocument();
 
@@ -150,15 +165,15 @@ public class PhpIncompleteCompletionContributor extends CompletionContributor {
         }
     }
 
-    private class MyLookupElement extends com.intellij.codeInsight.lookup.LookupElement {
+    private class MyLookupElement extends consulo.language.editor.completion.lookup.LookupElement {
         private final String key;
         private final String lookupElement;
 
         private final PhpNamedElement phpNamedElement;
         private final String typeText;
-        private final @NotNull boolean exists;
+        private final boolean exists;
 
-        public MyLookupElement(@NotNull String key, @NotNull String lookupElement, @NotNull PhpNamedElement phpNamedElement, @NotNull String typeText, boolean exists) {
+        public MyLookupElement(String key, String lookupElement, PhpNamedElement phpNamedElement, String typeText, boolean exists) {
             this.key = key;
             this.lookupElement = lookupElement;
             this.phpNamedElement = phpNamedElement;
@@ -167,7 +182,7 @@ public class PhpIncompleteCompletionContributor extends CompletionContributor {
         }
 
         @Override
-        public void renderElement(@NotNull LookupElementPresentation presentation) {
+        public void renderElement(LookupElementPresentation presentation) {
             super.renderElement(presentation);
 
             if (this.exists) {
@@ -177,17 +192,17 @@ public class PhpIncompleteCompletionContributor extends CompletionContributor {
                 presentation.setTypeText(typeText, Symfony2Icons.SYMFONY_AI);
             }
 
-            presentation.setIcon(phpNamedElement.getIcon());
+            presentation.setIcon(IconDescriptorUpdaters.getIcon(phpNamedElement, 0));
             presentation.setTypeIconRightAligned(true);
         }
 
         @Override
-        public @NotNull String getLookupString() {
+        public String getLookupString() {
             return lookupElement + "('" + getKey() + "')";
         }
 
         @Override
-        public void handleInsert(@NotNull InsertionContext context) {
+        public void handleInsert(InsertionContext context) {
             new MyInsertHandler().handleInsert(context, this);
         }
 

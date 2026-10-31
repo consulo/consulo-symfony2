@@ -1,6 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.util.service;
 
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.w3c.dom.Document;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
@@ -17,8 +17,7 @@ import fr.adrienbrault.idea.symfony2plugin.util.xml.SecureXmlUtil;
  */
 abstract public class AbstractServiceParser implements ServiceParserInterface {
 
-    @Nullable
-    protected NodeList parserer(InputStream file) {
+    protected @Nullable NodeList parserer(InputStream file) {
 
         Document document;
         try {

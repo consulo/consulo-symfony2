@@ -1,5 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.templating.variable.resolver;
 
+import org.junit.jupiter.api.Test;
+
 import com.jetbrains.php.lang.PhpFileType;
 import fr.adrienbrault.idea.symfony2plugin.templating.variable.TwigTypeContainer;
 import fr.adrienbrault.idea.symfony2plugin.templating.variable.dict.PsiVariable;
@@ -13,6 +15,7 @@ import java.util.Collections;
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class FormVarsResolverTest extends SymfonyLightCodeInsightFixtureTestCase {
+    @Test
     public void testResolveAttachesFormVarsForFormViewDataHolder() {
         configureFormViewVarsFixture();
 
@@ -32,6 +35,8 @@ public class FormVarsResolverTest extends SymfonyLightCodeInsightFixtureTestCase
             "form_attr"
         );
     }
+
+    @Test
 
     public void testResolveDoesNotUseFormViewClassWithoutFormViewDataHolder() {
         configureFormViewVarsFixture();

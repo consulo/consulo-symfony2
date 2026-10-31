@@ -1,29 +1,41 @@
 package fr.adrienbrault.idea.symfony2plugin.config.xml;
 
-import com.intellij.ide.highlighter.XmlFileType;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.patterns.*;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.impl.source.xml.XmlDocumentImpl;
-import com.intellij.psi.util.PsiTreeUtil;
-import com.intellij.psi.xml.*;
-import com.intellij.util.Consumer;
-import com.intellij.util.ProcessingContext;
 import com.jetbrains.php.lang.psi.elements.Function;
 import com.jetbrains.php.lang.psi.elements.Method;
 import com.jetbrains.php.lang.psi.elements.Parameter;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
+import consulo.language.pattern.ElementPattern;
+import consulo.language.pattern.PatternCondition;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.pattern.PsiElementPattern;
+import consulo.language.pattern.PsiFilePattern;
+import consulo.language.pattern.StandardPatterns;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.util.PsiTreeUtil;
+import consulo.language.util.ProcessingContext;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.xml.language.XmlFileType;
+import consulo.xml.language.psi.XmlAttribute;
+import consulo.xml.language.psi.XmlAttributeValue;
+import consulo.xml.language.psi.XmlDocument;
+import consulo.xml.language.psi.XmlFile;
+import consulo.xml.language.psi.XmlTag;
+import consulo.xml.language.psi.XmlTagValue;
+import consulo.xml.language.psi.XmlTokenType;
+import consulo.xml.language.psi.pattern.XmlAttributeValuePattern;
+import consulo.xml.language.psi.pattern.XmlPatterns;
+import consulo.xml.psi.impl.source.xml.XmlDocumentImpl;
 import fr.adrienbrault.idea.symfony2plugin.dic.ParameterResolverConsumer;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.ServiceUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.visitor.ParameterVisitor;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.*;
+import java.util.function.Consumer;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -31,7 +43,7 @@ import java.util.*;
 public class XmlHelper {
     public static final PsiElementPattern.Capture<PsiElement> XML_EXTENSION = PlatformPatterns.psiElement().inFile(PlatformPatterns.psiFile().with(new PatternCondition<PsiElement>("xml extension") {
         @Override
-        public boolean accepts(@NotNull PsiElement psiElement, ProcessingContext processingContext) {
+        public boolean accepts(PsiElement psiElement, ProcessingContext processingContext) {
             PsiFile containingFile = psiElement.getContainingFile();
             return containingFile != null && isXmlFileExtension(containingFile);
         }
@@ -276,7 +288,7 @@ public class XmlHelper {
     /**
      * <argument type="constant">Foo\Bar::CONST</argument>
      */
-    public static PsiElementPattern.Capture<PsiElement> getArgumentValueWithTypePattern(@NotNull String type) {
+    public static PsiElementPattern.Capture<PsiElement> getArgumentValueWithTypePattern(String type) {
         return XmlPatterns
             .psiElement(XmlTokenType.XML_DATA_CHARACTERS)
             .withParent(XmlPatterns
@@ -390,7 +402,7 @@ public class XmlHelper {
      *  <default key="_controller">Foo:Demo:hello</default>
      * </route>
      */
-    public static PsiElementPattern.Capture<PsiElement> getRouteDefaultWithKeyAttributePattern(@NotNull String key) {
+    public static PsiElementPattern.Capture<PsiElement> getRouteDefaultWithKeyAttributePattern(String key) {
         return XmlPatterns
             .psiElement(XmlTokenType.XML_DATA_CHARACTERS)
             .withParent(XmlPatterns
@@ -544,7 +556,7 @@ public class XmlHelper {
      * @return raw class attribute value
      */
     @Nullable
-    public static String getServiceDefinitionClass(@NotNull PsiElement psiInsideService) {
+    public static String getServiceDefinitionClass(PsiElement psiInsideService) {
 
         // search for parent service definition
         XmlTag callXmlTag = PsiTreeUtil.getParentOfType(psiInsideService, XmlTag.class);
@@ -563,7 +575,7 @@ public class XmlHelper {
      * <service class="Foobar"/> => Foobar
      */
     @Nullable
-    public static String getClassFromServiceDefinition(@NotNull XmlTag xmlTag) {
+    public static String getClassFromServiceDefinition(XmlTag xmlTag) {
         String classAttribute = xmlTag.getAttributeValue("class");
         if(StringUtils.isNotBlank(classAttribute)) {
             return classAttribute;
@@ -583,7 +595,7 @@ public class XmlHelper {
      * <factory class="FooBar" method="cre<caret>ate"/>
      */
     @Nullable
-    public static PhpClass getPhpClassForClassFactory(@NotNull XmlAttributeValue xmlAttributeValue) {
+    public static PhpClass getPhpClassForClassFactory(XmlAttributeValue xmlAttributeValue) {
         String method = xmlAttributeValue.getValue();
         if(StringUtils.isBlank(method)) {
             return null;
@@ -603,7 +615,7 @@ public class XmlHelper {
     }
 
     @Nullable
-    public static PhpClass getPhpClassForServiceFactory(@NotNull XmlAttributeValue xmlAttributeValue) {
+    public static PhpClass getPhpClassForServiceFactory(XmlAttributeValue xmlAttributeValue) {
         String method = xmlAttributeValue.getValue();
         if(StringUtils.isBlank(method)) {
             return null;
@@ -629,7 +641,7 @@ public class XmlHelper {
      *   </call>
      * </service>
      */
-    public static void visitServiceCallArgument(@NotNull XmlAttributeValue xmlAttributeValue, @NotNull Consumer<ParameterVisitor> consumer) {
+    public static void visitServiceCallArgument(XmlAttributeValue xmlAttributeValue, Consumer<ParameterVisitor> consumer) {
         // search for parent service definition
         PsiElement xmlAttribute = xmlAttributeValue.getParent();
         if(xmlAttribute instanceof XmlAttribute) {
@@ -649,7 +661,7 @@ public class XmlHelper {
                                 if(serviceTag != null && "service".equals(serviceTag.getName())) {
                                     String className = XmlHelper.getClassFromServiceDefinition(serviceTag);
                                     if(className != null) {
-                                        consumer.consume(new ParameterVisitor(
+                                        consumer.accept(new ParameterVisitor(
                                             className,
                                             methodName,
                                             getArgumentIndex((XmlTag) xmlArgumentTag)
@@ -672,7 +684,7 @@ public class XmlHelper {
      *   calls:
      *      - [onFoobar, [@fo<caret>o]]
      */
-    public static void visitServiceCallArgumentMethodIndex(@NotNull XmlAttributeValue xmlAttribute, @NotNull Consumer<Parameter> consumer) {
+    public static void visitServiceCallArgumentMethodIndex(XmlAttributeValue xmlAttribute, Consumer<Parameter> consumer) {
         visitServiceCallArgument(xmlAttribute, new ParameterResolverConsumer(xmlAttribute.getProject(), consumer));
     }
 
@@ -691,7 +703,7 @@ public class XmlHelper {
      *     </call>
      * </service>
      */
-    public static int getArgumentIndex(@NotNull XmlTag argumentTag) {
+    public static int getArgumentIndex(XmlTag argumentTag) {
         String indexAttr = argumentTag.getAttributeValue("index");
         if(indexAttr != null) {
             try {
@@ -756,7 +768,7 @@ public class XmlHelper {
      *     <argument/>
      * </service>
      */
-    public static int getArgumentIndex(@NotNull XmlTag argumentTag, @NotNull Function function) {
+    public static int getArgumentIndex(XmlTag argumentTag, Function function) {
         String indexAttr = argumentTag.getAttributeValue("index");
         if(indexAttr != null) {
             try {
@@ -785,7 +797,7 @@ public class XmlHelper {
      *     <arg<caret>ument/>
      * </foo>
      */
-    private static int getArgumentIndexByCount(@NotNull XmlTag xmlTag) {
+    private static int getArgumentIndexByCount(XmlTag xmlTag) {
         PsiElement psiElement = xmlTag;
         int index = 0;
 
@@ -813,7 +825,7 @@ public class XmlHelper {
             .withParent(XmlTag.class);
     }
 
-    public static boolean isXmlFileExtension(@NotNull PsiFile psiFile) {
+    public static boolean isXmlFileExtension(PsiFile psiFile) {
         if (psiFile.getFileType() != XmlFileType.INSTANCE) {
             return false;
         }

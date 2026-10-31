@@ -1,18 +1,17 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.util;
 
-import com.intellij.openapi.editor.Document;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.TextRange;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiDocumentManager;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.ElementManipulators;
-import com.intellij.psi.impl.source.tree.LeafPsiElement;
+import consulo.document.Document;
+import consulo.project.Project;
+import consulo.document.util.TextRange;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.language.psi.PsiDocumentManager;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.ElementManipulators;
+import consulo.language.psi.LeafPsiElement;
 import com.jetbrains.twig.TwigFile;
 import com.jetbrains.twig.TwigTokenTypes;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Collection;
 
@@ -32,12 +31,12 @@ public final class TemplateMoveRenameUtil {
 
     /**
      * Updates the content of a PHP string literal (e.g. a {@code render()} argument) to
-     * {@code newTemplateName} using the element's registered {@link com.intellij.psi.ElementManipulator}.
+     * {@code newTemplateName} using the element's registered {@link consulo.language.psi.ElementManipulator}.
      *
      * @return the (possibly replaced) element, or {@code null} if no manipulator is registered.
      */
     @Nullable
-    public static PsiElement applyToStringLiteralElement(@NotNull PsiElement element, @NotNull String newTemplateName) {
+    public static PsiElement applyToStringLiteralElement(PsiElement element, String newTemplateName) {
         var manipulator = ElementManipulators.getManipulator(element);
         if (manipulator == null) {
             return null;
@@ -56,9 +55,9 @@ public final class TemplateMoveRenameUtil {
      */
     @Nullable
     public static PsiElement applyRangeReplacement(
-            @NotNull PsiElement element,
-            @NotNull TextRange rangeInElement,
-            @NotNull String newText) {
+            PsiElement element,
+            TextRange rangeInElement,
+            String newText) {
 
         PsiFile containingFile = element.getContainingFile();
         if (containingFile == null) {
@@ -91,8 +90,7 @@ public final class TemplateMoveRenameUtil {
      *   <li>No match → first name in {@code newNames}
      * </ul>
      */
-    @NotNull
-    public static String pickBestTemplateName(@NotNull Collection<String> newNames, @NotNull String oldName) {
+    public static String pickBestTemplateName(Collection<String> newNames, String oldName) {
         if (newNames.size() == 1) {
             return newNames.iterator().next();
         }
@@ -115,8 +113,7 @@ public final class TemplateMoveRenameUtil {
      *   <li>{@code "foo/bar.twig"} → {@code ""}
      * </ul>
      */
-    @NotNull
-    public static String extractNamespacePrefix(@NotNull String templateName) {
+    public static String extractNamespacePrefix(String templateName) {
         if (templateName.startsWith("@")) {
             int slash = templateName.indexOf('/');
             return slash > 0 ? templateName.substring(0, slash) : templateName;
@@ -140,8 +137,7 @@ public final class TemplateMoveRenameUtil {
      *   <li>{@code "bar.html.twig" + "baz.html.twig" -> "baz.html.twig"}</li>
      * </ul>
      */
-    @NotNull
-    public static String renameTemplateName(@NotNull String oldTemplateName, @NotNull String newFileName) {
+    public static String renameTemplateName(String oldTemplateName, String newFileName) {
         int slash = oldTemplateName.lastIndexOf('/');
         int colon = oldTemplateName.lastIndexOf(':');
         int separator = Math.max(slash, colon);
@@ -159,9 +155,9 @@ public final class TemplateMoveRenameUtil {
      * Twig namespaces (i.e. we cannot compute a logical name for the new location).
      */
     @Nullable
-    public static String resolveNewTemplateName(@NotNull Project project,
-                                                @NotNull VirtualFile newVirtualFile,
-                                                @NotNull String oldTemplateName) {
+    public static String resolveNewTemplateName(Project project,
+                                                VirtualFile newVirtualFile,
+                                                String oldTemplateName) {
         Collection<String> newNames = TwigUtil.getTemplateNamesForFile(project, newVirtualFile);
         if (newNames.isEmpty()) {
             return null;
@@ -183,9 +179,9 @@ public final class TemplateMoveRenameUtil {
      * @return {@code true} if the replacement was applied, {@code false} otherwise
      */
     public static boolean applyToTwigFileByOffset(
-            @NotNull PsiFile containingFile,
+            PsiFile containingFile,
             int absoluteOffset,
-            @NotNull String newTemplateName) {
+            String newTemplateName) {
 
         if (!(containingFile instanceof TwigFile)) {
             return false;
@@ -204,7 +200,7 @@ public final class TemplateMoveRenameUtil {
         PsiElement leaf = containingFile.findElementAt(absoluteOffset);
 
         while (leaf != null
-                && !(leaf instanceof LeafPsiElement && ((LeafPsiElement) leaf).getElementType() == TwigTokenTypes.STRING_TEXT)) {
+                && !(leaf instanceof LeafPsiElement && leaf.getNode().getElementType() == TwigTokenTypes.STRING_TEXT)) {
             if (leaf instanceof PsiFile) {
                 leaf = null;
                 break;

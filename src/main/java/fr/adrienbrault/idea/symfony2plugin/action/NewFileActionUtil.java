@@ -1,56 +1,64 @@
 package fr.adrienbrault.idea.symfony2plugin.action;
 
-import com.intellij.ide.IdeView;
-import com.intellij.openapi.actionSystem.AnActionEvent;
-import com.intellij.openapi.actionSystem.DataContext;
-import com.intellij.openapi.actionSystem.LangDataKeys;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.io.StreamUtil;
-import com.intellij.psi.PsiDirectory;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
 import com.jetbrains.php.roots.PhpNamespaceCompositeProvider;
-import fr.adrienbrault.idea.symfony2plugin.util.*;
+import consulo.dataContext.DataContext;
+import consulo.language.editor.util.IdeView;
+import consulo.language.psi.PsiDirectory;
+import consulo.project.Project;
+import consulo.ui.ex.action.AnActionEvent;
+import consulo.util.io.StreamUtil;
+import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
+import fr.adrienbrault.idea.symfony2plugin.util.PhpIndexUtil;
+import fr.adrienbrault.idea.symfony2plugin.util.StringUtils;
+import fr.adrienbrault.idea.symfony2plugin.util.SymfonyBundleUtil;
+import fr.adrienbrault.idea.symfony2plugin.util.SymfonyCommandUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.SymfonyBundle;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.SymfonyCommand;
 import fr.adrienbrault.idea.symfony2plugin.util.psi.PhpBundleFileFactory;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class NewFileActionUtil {
 
-    public static PsiDirectory getSelectedDirectoryFromAction(@NotNull AnActionEvent event) {
+    public static @Nullable PsiDirectory getSelectedDirectoryFromAction(AnActionEvent event) {
         DataContext dataContext = event.getDataContext();
-        IdeView view = LangDataKeys.IDE_VIEW.getData(dataContext);
+        IdeView view = dataContext.getData(IdeView.KEY);
         if (view == null) {
             return null;
         }
 
-        PsiDirectory @NotNull [] directories = view.getDirectories();
+        PsiDirectory[] directories = view.getDirectories();
         return directories.length == 0 ? null : directories[0];
 
     }
 
-    public static boolean isInGivenDirectoryScope(@NotNull AnActionEvent event, @NotNull String... directoryName) {
+    public static boolean isInGivenDirectoryScope(AnActionEvent event, String... directoryName) {
         DataContext dataContext = event.getDataContext();
-        IdeView view = LangDataKeys.IDE_VIEW.getData(dataContext);
+        IdeView view = dataContext.getData(IdeView.KEY);
         if (view == null) {
             return false;
         }
 
-        PsiDirectory @NotNull [] directories = view.getDirectories();
+        PsiDirectory[] directories = view.getDirectories();
         if (directories.length == 0) {
             return false;
         }
 
-        List<@NotNull String> list = Arrays.asList(directoryName);
+        List<String> list = Arrays.asList(directoryName);
 
         if (list.contains(directories[0].getName())) {
             return true;
@@ -64,7 +72,7 @@ public class NewFileActionUtil {
         return false;
     }
 
-    public static String guessCommandTemplateType(@NotNull Project project, @NotNull String namespace) {
+    public static String guessCommandTemplateType(Project project, String namespace) {
         // Check if InvokableCommand is available (Symfony 7.3+)
         if (PhpElementsUtil.hasClassOrInterface(project, "\\Symfony\\Component\\Console\\Command\\InvokableCommand")) {
             String normalizedNamespace = "\\" + org.apache.commons.lang3.StringUtils.strip(namespace, "\\") + "\\";
@@ -105,7 +113,7 @@ public class NewFileActionUtil {
         return "command_configure";
     }
 
-    public static String guessControllerTemplateType(@NotNull Project project) {
+    public static String guessControllerTemplateType(Project project) {
         if (PhpElementsUtil.hasClassOrInterface(project, "\\Symfony\\Component\\Routing\\Attribute\\Route")) {
             return "controller_attributes";
         }
@@ -113,7 +121,7 @@ public class NewFileActionUtil {
         return "controller_annotations";
     }
 
-    public static String getCommandPrefix(@NotNull PsiDirectory psiDirectory) {
+    public static String getCommandPrefix(PsiDirectory psiDirectory) {
         List<String> strings = PhpNamespaceCompositeProvider.INSTANCE.suggestNamespaces(psiDirectory).stream().filter(s -> !s.isBlank()).toList();
         if (!strings.isEmpty()) {
             Collection<SymfonyCommand> commands = SymfonyCommandUtil.getCommands(psiDirectory.getProject());
@@ -164,14 +172,13 @@ public class NewFileActionUtil {
     }
 
 
-    @Nullable
-    public static String getFileTemplateContent(@NotNull String filename) {
+    public static @Nullable String getFileTemplateContent(String filename) {
         try (InputStream inputStream = PhpBundleFileFactory.class.getResourceAsStream(filename)) {
             if (inputStream == null) {
                 return null;
             }
             // replace on windows, just for secure reasons
-            byte[] bytes = StreamUtil.readBytes(inputStream);
+            byte[] bytes = StreamUtil.loadFromStream(inputStream);
             return new String(bytes, StandardCharsets.UTF_8).replace("\r\n", "\n");
         } catch (IOException e) {
             return null;

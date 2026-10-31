@@ -1,22 +1,21 @@
 package fr.adrienbrault.idea.symfony2plugin.util;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.Key;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.util.CachedValue;
-import com.intellij.psi.util.CachedValueProvider;
-import com.intellij.psi.util.CachedValuesManager;
-import com.intellij.psi.util.PsiModificationTracker;
 import com.jetbrains.php.lang.psi.elements.*;
 import com.jetbrains.php.lang.psi.stubs.indexes.expectedArguments.PhpExpectedFunctionScalarArgument;
+import consulo.application.util.CachedValue;
+import consulo.application.util.CachedValueProvider;
+import consulo.application.util.CachedValuesManager;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiModificationTracker;
+import consulo.project.Project;
+import consulo.util.dataholder.Key;
 import fr.adrienbrault.idea.symfony2plugin.dic.ConsoleCommandServiceParser;
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.PhpAttributeIndex;
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.PhpAttributeIndexUtil;
-import fr.adrienbrault.idea.symfony2plugin.util.service.ServiceXmlParserFactory;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.SymfonyCommand;
+import fr.adrienbrault.idea.symfony2plugin.util.service.ServiceXmlParserFactory;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -30,8 +29,7 @@ public class SymfonyCommandUtil {
 
     private static final Key<CachedValue<Map<String, SymfonyCommand>>> SYMFONY_COMMAND_NAME_MAP = new Key<>("SYMFONY_COMMAND_NAME_MAP");
 
-    @NotNull
-    public static Collection<SymfonyCommand> getCommands(@NotNull Project project) {
+    public static Collection<SymfonyCommand> getCommands(Project project) {
         Map<String, SymfonyCommand> cachedValue = CachedValuesManager.getManager(project).getCachedValue(
             project,
             SYMFONY_COMMAND_NAME_MAP,
@@ -95,19 +93,19 @@ public class SymfonyCommandUtil {
         return result.values().stream().collect(Collectors.toList());
     }
 
-    private static void putClassCommands(@NotNull Map<String, SymfonyCommand> symfonyCommands, @NotNull PhpClass phpClass) {
+    private static void putClassCommands(Map<String, SymfonyCommand> symfonyCommands, PhpClass phpClass) {
         for (String commandName : getCommandNameFromClass(phpClass)) {
             symfonyCommands.put(commandName, new SymfonyCommand(commandName, phpClass.getFQN()));
         }
     }
 
     @Nullable
-    public static PhpClass resolveCommandClass(@NotNull Project project, @NotNull SymfonyCommand command) {
+    public static PhpClass resolveCommandClass(Project project, SymfonyCommand command) {
         return PhpElementsUtil.getClassInterface(project, command.getFqn());
     }
 
     @Nullable
-    public static Method resolveCommandMethod(@NotNull Project project, @NotNull SymfonyCommand command) {
+    public static Method resolveCommandMethod(Project project, SymfonyCommand command) {
         if (!command.isMethodCommand()) {
             return null;
         }
@@ -117,7 +115,7 @@ public class SymfonyCommandUtil {
     }
 
     @Nullable
-    public static PhpNamedElement resolveCommandTarget(@NotNull Project project, @NotNull SymfonyCommand command) {
+    public static PhpNamedElement resolveCommandTarget(Project project, SymfonyCommand command) {
         Method method = resolveCommandMethod(project, command);
         if (method != null) {
             return method;
@@ -126,8 +124,7 @@ public class SymfonyCommandUtil {
         return resolveCommandClass(project, command);
     }
 
-    @NotNull
-    private static String normalizeFqn(@NotNull String fqn) {
+    private static String normalizeFqn(String fqn) {
         return fqn.startsWith("\\") ? fqn : "\\" + fqn;
     }
 
@@ -136,8 +133,7 @@ public class SymfonyCommandUtil {
      * Supports both traditional configure() methods with addOption() calls
      * and modern #[Option] attributes on __invoke() method parameters.
      */
-    @NotNull
-    public static Map<String, CommandOption> getCommandOptions(@NotNull PhpClass phpClass) {
+    public static Map<String, CommandOption> getCommandOptions(PhpClass phpClass) {
         Map<String, CommandOption> options = new HashMap<>();
 
         // Collect options from traditional configure() method
@@ -169,8 +165,7 @@ public class SymfonyCommandUtil {
         return options;
     }
 
-    @NotNull
-    public static Map<String, CommandOption> getCommandOptions(@NotNull Method commandMethod) {
+    public static Map<String, CommandOption> getCommandOptions(Method commandMethod) {
         Map<String, CommandOption> options = new HashMap<>();
 
         for (Parameter parameter : commandMethod.getParameters()) {
@@ -183,8 +178,7 @@ public class SymfonyCommandUtil {
         return options;
     }
 
-    @NotNull
-    public static Map<String, CommandOption> getCommandOptions(@NotNull Project project, @NotNull SymfonyCommand command) {
+    public static Map<String, CommandOption> getCommandOptions(Project project, SymfonyCommand command) {
         Method method = resolveCommandMethod(project, command);
         if (method != null) {
             return getCommandOptions(method);
@@ -198,12 +192,11 @@ public class SymfonyCommandUtil {
      * Parses a setDefinition() method call and extracts options from new InputOption() instances.
      * Handles both single instances and arrays of instances.
      */
-    @NotNull
-    private static Map<String, CommandOption> parseSetDefinitionCall(@NotNull MethodReference methodRef) {
+    private static Map<String, CommandOption> parseSetDefinitionCall(MethodReference methodRef) {
         Map<String, CommandOption> options = new HashMap<>();
 
         // Collect all new InputOption() expressions within the setDefinition call
-        Collection<NewExpression> newExpressions = com.intellij.psi.util.PsiTreeUtil.collectElementsOfType(methodRef, NewExpression.class);
+        Collection<NewExpression> newExpressions = consulo.language.psi.util.PsiTreeUtil.collectElementsOfType(methodRef, NewExpression.class);
         for (NewExpression newExpression : newExpressions) {
             // Check if this is a new InputOption() instance
             if (PhpElementsUtil.getNewExpressionPhpClassWithInstance(newExpression, "Symfony\\Component\\Console\\Input\\InputOption") != null) {
@@ -222,7 +215,7 @@ public class SymfonyCommandUtil {
      * or new InputOption(name, shortcut, mode, description, default).
      */
     @Nullable
-    private static CommandOption parseOptionFromParameters(@NotNull PsiElement[] parameters) {
+    private static CommandOption parseOptionFromParameters(PsiElement[] parameters) {
         if (parameters.length == 0) {
             return null;
         }
@@ -244,7 +237,7 @@ public class SymfonyCommandUtil {
      * Parses a #[Option] attribute from a parameter and extracts the option name, shortcut, and metadata.
      */
     @Nullable
-    private static CommandOption parseOptionAttribute(@NotNull Parameter parameter) {
+    private static CommandOption parseOptionAttribute(Parameter parameter) {
         // Check for Option attribute (only the valid FQN)
         Collection<PhpAttribute> attributes = parameter.getAttributes("\\Symfony\\Component\\Console\\Attribute\\Option");
 
@@ -298,8 +291,7 @@ public class SymfonyCommandUtil {
      * setDefinition() with new InputArgument() instances,
      * and modern #[Argument] attributes on __invoke() method parameters.
      */
-    @NotNull
-    public static Map<String, CommandArgument> getCommandArguments(@NotNull PhpClass phpClass) {
+    public static Map<String, CommandArgument> getCommandArguments(PhpClass phpClass) {
         Map<String, CommandArgument> arguments = new HashMap<>();
 
         // Collect arguments from traditional configure() method
@@ -331,8 +323,7 @@ public class SymfonyCommandUtil {
         return arguments;
     }
 
-    @NotNull
-    public static Map<String, CommandArgument> getCommandArguments(@NotNull Method commandMethod) {
+    public static Map<String, CommandArgument> getCommandArguments(Method commandMethod) {
         Map<String, CommandArgument> arguments = new HashMap<>();
 
         for (Parameter parameter : commandMethod.getParameters()) {
@@ -345,8 +336,7 @@ public class SymfonyCommandUtil {
         return arguments;
     }
 
-    @NotNull
-    public static Map<String, CommandArgument> getCommandArguments(@NotNull Project project, @NotNull SymfonyCommand command) {
+    public static Map<String, CommandArgument> getCommandArguments(Project project, SymfonyCommand command) {
         Method method = resolveCommandMethod(project, command);
         if (method != null) {
             return getCommandArguments(method);
@@ -362,12 +352,11 @@ public class SymfonyCommandUtil {
      * @param methodRef The setDefinition method reference
      * @return Map of argument names to CommandArgument objects
      */
-    @NotNull
-    private static Map<String, CommandArgument> parseSetDefinitionCallForArguments(@NotNull MethodReference methodRef) {
+    private static Map<String, CommandArgument> parseSetDefinitionCallForArguments(MethodReference methodRef) {
         Map<String, CommandArgument> arguments = new HashMap<>();
 
         // Collect all new InputArgument() expressions within the setDefinition call
-        Collection<NewExpression> newExpressions = com.intellij.psi.util.PsiTreeUtil.collectElementsOfType(methodRef, NewExpression.class);
+        Collection<NewExpression> newExpressions = consulo.language.psi.util.PsiTreeUtil.collectElementsOfType(methodRef, NewExpression.class);
         for (NewExpression newExpression : newExpressions) {
             // Check if this is a new InputArgument() instance
             if (PhpElementsUtil.getNewExpressionPhpClassWithInstance(newExpression, "Symfony\\Component\\Console\\Input\\InputArgument") != null) {
@@ -386,7 +375,7 @@ public class SymfonyCommandUtil {
      * or new InputArgument(name, mode, description, default).
      */
     @Nullable
-    private static CommandArgument parseArgumentFromParameters(@NotNull PsiElement[] parameters) {
+    private static CommandArgument parseArgumentFromParameters(PsiElement[] parameters) {
         if (parameters.length == 0) {
             return null;
         }
@@ -407,7 +396,7 @@ public class SymfonyCommandUtil {
      * Parses a #[Argument] attribute from a parameter and extracts the argument metadata.
      */
     @Nullable
-    private static CommandArgument parseArgumentAttribute(@NotNull Parameter parameter) {
+    private static CommandArgument parseArgumentAttribute(Parameter parameter) {
         // Check for Argument attribute
         Collection<PhpAttribute> attributes = parameter.getAttributes("\\Symfony\\Component\\Console\\Attribute\\Argument");
 
@@ -460,8 +449,7 @@ public class SymfonyCommandUtil {
      *   <li>{@code configure()} method with {@code $this->setName('...')} call (Symfony 2.0+)</li>
      * </ul>
      */
-    @NotNull
-    public static List<String> getCommandNameFromClass(@NotNull PhpClass phpClass) {
+    public static List<String> getCommandNameFromClass(PhpClass phpClass) {
         // #[AsCommand] attribute - works for both styles (with and without extends Command)
         List<String> attributeNames = getCommandNamesFromAsCommandAttributes(phpClass);
         if (!attributeNames.isEmpty()) {
@@ -500,8 +488,7 @@ public class SymfonyCommandUtil {
         return Collections.emptyList();
     }
 
-    @NotNull
-    public static List<String> getCommandNameFromMethod(@NotNull Method method) {
+    public static List<String> getCommandNameFromMethod(Method method) {
         if (!method.getAccess().isPublic()) {
             return Collections.emptyList();
         }
@@ -509,8 +496,7 @@ public class SymfonyCommandUtil {
         return getCommandNamesFromAsCommandAttributes(method);
     }
 
-    @NotNull
-    private static List<String> getCommandNamesFromAsCommandAttributes(@NotNull PhpAttributesOwner element) {
+    private static List<String> getCommandNamesFromAsCommandAttributes(PhpAttributesOwner element) {
         for (PhpAttribute attribute : element.getAttributes(AS_COMMAND_ATTRIBUTE)) {
             String name = PhpPsiAttributesUtil.getAttributeValueByNameAsStringWithDefaultParameterFallback(attribute, "name");
             List<String> names = new ArrayList<>();
@@ -530,8 +516,8 @@ public class SymfonyCommandUtil {
     }
 
     public record CommandOption(
-        @NotNull PsiElement target,
-        @NotNull String name,
+        PsiElement target,
+        String name,
         @Nullable String shortcut,
         @Nullable String description,
         @Nullable String defaultValue
@@ -539,8 +525,8 @@ public class SymfonyCommandUtil {
     }
 
     public record CommandArgument(
-        @NotNull PsiElement target,
-        @NotNull String name,
+        PsiElement target,
+        String name,
         @Nullable String description,
         @Nullable String defaultValue
     ) {

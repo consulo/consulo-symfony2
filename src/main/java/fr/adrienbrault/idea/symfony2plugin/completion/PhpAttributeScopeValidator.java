@@ -1,9 +1,9 @@
 package fr.adrienbrault.idea.symfony2plugin.completion;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.project.DumbService;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.impl.source.tree.LeafPsiElement;
+import consulo.project.Project;
+import consulo.project.DumbService;
+import consulo.language.psi.LeafPsiElement;
+import consulo.language.psi.PsiElement;
 import com.jetbrains.php.lang.parser.PhpElementTypes;
 import com.jetbrains.php.lang.psi.PhpPsiUtil;
 import com.jetbrains.php.lang.psi.elements.*;
@@ -12,8 +12,7 @@ import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.UxTemplateStubIndex;
 import fr.adrienbrault.idea.symfony2plugin.stubs.util.IndexUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Collection;
 
@@ -41,7 +40,7 @@ public class PhpAttributeScopeValidator {
     private static final String ABSTRACT_CONTROLLER_CLASS = "\\Symfony\\Bundle\\FrameworkBundle\\Controller\\AbstractController";
     private static final String AS_CONTROLLER_ATTRIBUTE = "\\Symfony\\Component\\HttpKernel\\Attribute\\AsController";
 
-    public static boolean isControllerClass(@NotNull PhpClass phpClass) {
+    public static boolean isControllerClass(PhpClass phpClass) {
         if (DumbService.isDumb(phpClass.getProject())) {
             return false;
         }
@@ -82,7 +81,7 @@ public class PhpAttributeScopeValidator {
      * @return PhpClass, Method, Field
      */
     @Nullable
-    public static PhpNamedElement getValidAttributeScope(@NotNull PsiElement element) {
+    public static PhpNamedElement getValidAttributeScope(PsiElement element) {
         Method method = getMethod(element);
         if (method != null) {
             return method;
@@ -106,7 +105,7 @@ public class PhpAttributeScopeValidator {
      * @param project The project
      * @return true if we should provide attribute completions, false otherwise
      */
-    public static boolean shouldProvideAttributeCompletions(@NotNull PsiElement element, @NotNull Project project) {
+    public static boolean shouldProvideAttributeCompletions(PsiElement element, Project project) {
         if (DumbService.isDumb(project)) {
             return false;
         }
@@ -188,7 +187,7 @@ public class PhpAttributeScopeValidator {
      * @param element The PSI element to check
      * @return The public method if found, null otherwise
      */
-    public static @Nullable Method getMethod(@NotNull PsiElement element) {
+    public static @Nullable Method getMethod(PsiElement element) {
         if (element.getParent() instanceof Method method) {
             return method;
         } else if (PhpPsiUtil.getNextSiblingIgnoreWhitespace(element, true) instanceof Method method) {
@@ -206,7 +205,7 @@ public class PhpAttributeScopeValidator {
      * @param element The PSI element to check
      * @return The PhpClass if found, null otherwise
      */
-    public static @Nullable PhpClass getPhpClass(@NotNull PsiElement element) {
+    public static @Nullable PhpClass getPhpClass(PsiElement element) {
         // with a use statement given or non use or namespace:
         // # use App;
         // #<caret>
@@ -263,7 +262,7 @@ public class PhpAttributeScopeValidator {
      * @param element The PSI element to check
      * @return The Field if found, null otherwise
      */
-    public static @Nullable Field getField(@NotNull PsiElement element) {
+    public static @Nullable Field getField(PsiElement element) {
         PsiElement nextSiblingIgnoreWhitespace = PhpPsiUtil.getNextSiblingIgnoreWhitespace(element, true);
         if (nextSiblingIgnoreWhitespace instanceof PhpModifierList phpModifierList) {
             if (phpModifierList.getNextPsiSibling() instanceof Field field) {
@@ -278,7 +277,7 @@ public class PhpAttributeScopeValidator {
         if (nextSiblingIgnoreWhitespace instanceof PhpAttributesList phpAttributesList) {
             PsiElement parent = phpAttributesList.getParent();
             if (parent instanceof PhpClassFieldsList phpClassFieldsList) {
-                Collection<@NotNull Field> fields = phpClassFieldsList.getFields();
+                Collection<Field> fields = phpClassFieldsList.getFields();
                 if (!fields.isEmpty()) {
                     return fields.iterator().next();
                 }
@@ -307,7 +306,7 @@ public class PhpAttributeScopeValidator {
     /**
      * Check if the class has the #[AsTwigComponent] attribute
      */
-    private static boolean hasAsTwigComponentAttribute(@NotNull PhpClass phpClass) {
+    private static boolean hasAsTwigComponentAttribute(PhpClass phpClass) {
         return !phpClass.getAttributes(AS_TWIG_COMPONENT_ATTRIBUTE_FQN).isEmpty();
     }
 
@@ -318,7 +317,7 @@ public class PhpAttributeScopeValidator {
      * - It extends AbstractExtension or implements ExtensionInterface, OR
      * - Any other public method in the class already has an AsTwig* attribute
      */
-    private static boolean isTwigExtensionClass(@NotNull PhpClass phpClass) {
+    private static boolean isTwigExtensionClass(PhpClass phpClass) {
         // Check if the class name ends with "TwigExtension"
         if (phpClass.getName().endsWith("TwigExtension")) {
             return true;
@@ -356,7 +355,7 @@ public class PhpAttributeScopeValidator {
      * - There are existing component classes (from index) in the same namespace
      * (e.g., App\Twig\Components\Button, Foo\Components\Form\Input)
      */
-    public static boolean isTwigComponentClass(@NotNull Project project, @NotNull PhpClass phpClass) {
+    public static boolean isTwigComponentClass(Project project, PhpClass phpClass) {
         String fqn = phpClass.getFQN();
         if (fqn.isBlank()) {
             return false;
@@ -397,7 +396,7 @@ public class PhpAttributeScopeValidator {
         return false;
     }
 
-    public static boolean isDoctrineEntityClass(@NotNull PhpClass phpClass) {
+    public static boolean isDoctrineEntityClass(PhpClass phpClass) {
         // Check if the class has the #[Entity] attribute
         if (!phpClass.getAttributes(DOCTRINE_ENTITY_ATTRIBUTE_FQN).isEmpty()) {
             return true;
@@ -411,7 +410,7 @@ public class PhpAttributeScopeValidator {
         return fqn.contains("\\Entity\\");
     }
 
-    public static boolean isCommandActionMethod(@NotNull Method method) {
+    public static boolean isCommandActionMethod(Method method) {
         if (!method.getAccess().isPublic() || method.isStatic()) {
             return false;
         }
@@ -434,7 +433,7 @@ public class PhpAttributeScopeValidator {
         return false;
     }
 
-    public static boolean isCommandClass(@NotNull PhpClass phpClass) {
+    public static boolean isCommandClass(PhpClass phpClass) {
         if (phpClass.getName().endsWith("Command")) {
             return true;
         }
@@ -460,7 +459,7 @@ public class PhpAttributeScopeValidator {
         return false;
     }
 
-    private static boolean isConsoleParameterType(@NotNull PhpType type) {
+    private static boolean isConsoleParameterType(PhpType type) {
         for (String typeString : type.getTypes()) {
             String normalizedType = StringUtils.stripStart(typeString, "\\");
 

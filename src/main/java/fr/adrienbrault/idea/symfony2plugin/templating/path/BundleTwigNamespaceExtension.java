@@ -1,13 +1,13 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.path;
 
-import com.intellij.psi.PsiDirectory;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.psi.PsiDirectory;
 import fr.adrienbrault.idea.symfony2plugin.extension.TwigNamespaceExtension;
 import fr.adrienbrault.idea.symfony2plugin.extension.TwigNamespaceExtensionParameter;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.SymfonyBundleUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.VfsExUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.SymfonyBundle;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -18,10 +18,10 @@ import java.util.Collection;
  *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl(order = "after GlobalAppTwigNamespaceExtension")
 public class BundleTwigNamespaceExtension implements TwigNamespaceExtension {
-    @NotNull
     @Override
-    public Collection<TwigPath> getNamespaces(@NotNull TwigNamespaceExtensionParameter parameter) {
+    public Collection<TwigPath> getNamespaces(TwigNamespaceExtensionParameter parameter) {
         Collection<TwigPath> twigPaths = new ArrayList<>();
 
         Collection<SymfonyBundle> symfonyBundles = new SymfonyBundleUtil(parameter.getProject()).getBundles();

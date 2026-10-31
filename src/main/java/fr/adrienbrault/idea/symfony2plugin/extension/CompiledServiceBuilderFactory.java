@@ -1,7 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.extension;
 
-import com.intellij.openapi.project.Project;
-import org.jetbrains.annotations.NotNull;
+import consulo.project.Project;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -10,11 +9,10 @@ import org.jetbrains.annotations.NotNull;
 @Deprecated
 public interface CompiledServiceBuilderFactory {
 
-    @NotNull
     Builder create();
 
     interface Builder {
-        void build(@NotNull CompiledServiceBuilderArguments args);
-        boolean isModified(@NotNull Project project);
+        void build(CompiledServiceBuilderArguments args);
+        boolean isModified(Project project);
     }
 }

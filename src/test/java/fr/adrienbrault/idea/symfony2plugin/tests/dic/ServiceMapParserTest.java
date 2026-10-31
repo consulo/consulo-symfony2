@@ -1,10 +1,12 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.dic;
 
+import org.junit.jupiter.api.Test;
+
+import fr.adrienbrault.idea.symfony2plugin.tests.JUnit3Assert;
+
 import fr.adrienbrault.idea.symfony2plugin.dic.ServiceMap;
 import fr.adrienbrault.idea.symfony2plugin.dic.ServiceMapParser;
 import fr.adrienbrault.idea.symfony2plugin.dic.container.ServiceInterface;
-import org.junit.Assert;
-import org.junit.Test;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
@@ -13,7 +15,7 @@ import java.nio.charset.StandardCharsets;
  * @author Adrien Brault <adrien.brault@gmail.com>
  * @see fr.adrienbrault.idea.symfony2plugin.dic.ServiceMapParser
  */
-public class ServiceMapParserTest extends Assert {
+public class ServiceMapParserTest extends JUnit3Assert {
 
     @Test
     public void testParse() throws Exception {

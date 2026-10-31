@@ -1,11 +1,10 @@
 package fr.adrienbrault.idea.symfony2plugin.dic.container.suggestion.utils;
 
-import com.intellij.util.containers.ContainerUtil;
+import consulo.util.collection.ContainerUtil;
 import fr.adrienbrault.idea.symfony2plugin.dic.ContainerService;
 import fr.adrienbrault.idea.symfony2plugin.dic.container.dict.ServiceTypeHint;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.ServiceUtil;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -15,8 +14,7 @@ import java.util.Collections;
  */
 public class ServiceSuggestionUtil {
 
-    @NotNull
-    private static Collection<String> createServiceCollection(@NotNull ServiceTypeHint serviceTypeHint, @NotNull Collection<ContainerService> serviceMap) {
+    private static Collection<String> createServiceCollection(ServiceTypeHint serviceTypeHint, Collection<ContainerService> serviceMap) {
         Collection<ContainerService> suggestions = ServiceUtil.getServiceSuggestionsForTypeHint(
             serviceTypeHint.getMethod(),
             serviceTypeHint.getIndex(),
@@ -30,8 +28,7 @@ public class ServiceSuggestionUtil {
         return ContainerUtil.map(suggestions, ContainerService::getName);
     }
 
-    @NotNull
-    public static Collection<String> createSuggestions(@Nullable ServiceTypeHint serviceTypeHint, @NotNull Collection<ContainerService> serviceMap) {
+    public static Collection<String> createSuggestions(@Nullable ServiceTypeHint serviceTypeHint, Collection<ContainerService> serviceMap) {
         if(serviceTypeHint == null) {
             return Collections.emptyList();
         }

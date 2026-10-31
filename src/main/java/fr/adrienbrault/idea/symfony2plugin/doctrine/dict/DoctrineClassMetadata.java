@@ -1,7 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.doctrine.dict;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Internal data class holding parsed Doctrine class metadata (className, repositoryClass, tableName).
@@ -9,7 +8,7 @@ import org.jetbrains.annotations.Nullable;
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public record DoctrineClassMetadata(
-    @NotNull String className,
+    String className,
     @Nullable String repositoryClass,
     @Nullable String tableName
 ) {

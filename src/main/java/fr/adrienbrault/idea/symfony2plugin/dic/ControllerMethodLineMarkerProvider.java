@@ -1,11 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.dic;
 
-import com.intellij.codeInsight.daemon.LineMarkerInfo;
-import com.intellij.codeInsight.daemon.LineMarkerProvider;
-import com.intellij.codeInsight.navigation.NavigationGutterIconBuilder;
-import com.intellij.navigation.GotoRelatedItem;
-import com.intellij.openapi.extensions.ExtensionPointName;
-import com.intellij.psi.PsiElement;
+import com.jetbrains.php.lang.PhpLanguage;
 import com.jetbrains.php.lang.lexer.PhpTokenTypes;
 import com.jetbrains.php.lang.psi.elements.Method;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
@@ -13,10 +8,18 @@ import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.extension.ControllerActionGotoRelatedCollector;
 import fr.adrienbrault.idea.symfony2plugin.extension.ControllerActionGotoRelatedCollectorParameter;
 import fr.adrienbrault.idea.symfony2plugin.util.FileLineMarkerUtil;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import consulo.annotation.access.RequiredReadAction;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.component.extension.ExtensionPointName;
+import consulo.language.Language;
+import consulo.language.editor.gutter.LineMarkerInfo;
+import consulo.language.editor.gutter.LineMarkerProvider;
+import consulo.language.editor.ui.navigation.NavigationGutterIconBuilder;
+import consulo.language.navigation.GotoRelatedItem;
+import consulo.language.psi.PsiElement;
+import consulo.ui.image.Image;
+import org.jspecify.annotations.Nullable;
 
-import javax.swing.*;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -24,18 +27,21 @@ import java.util.List;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class ControllerMethodLineMarkerProvider implements LineMarkerProvider {
 
-    private static final ExtensionPointName<ControllerActionGotoRelatedCollector> EP_NAME = new ExtensionPointName<>("fr.adrienbrault.idea.symfony2plugin.extension.ControllerActionGotoRelatedCollector");
+    private static final ExtensionPointName<ControllerActionGotoRelatedCollector> EP_NAME = ExtensionPointName.create(ControllerActionGotoRelatedCollector.class);
 
     @Nullable
     @Override
-    public LineMarkerInfo<?> getLineMarkerInfo(@NotNull PsiElement psiElement) {
+    @RequiredReadAction
+    public LineMarkerInfo<?> getLineMarkerInfo(PsiElement psiElement) {
         return null;
     }
 
     @Override
-    public void collectSlowLineMarkers(@NotNull List<? extends PsiElement> psiElements, @NotNull Collection<? super LineMarkerInfo<?>> results) {
+    @RequiredReadAction
+    public void collectSlowLineMarkers(List<PsiElement> psiElements, Collection<LineMarkerInfo> results) {
         if (psiElements.isEmpty() || !Symfony2ProjectComponent.isEnabled(psiElements.get(0))) {
             return;
         }
@@ -53,7 +59,7 @@ public class ControllerMethodLineMarkerProvider implements LineMarkerProvider {
     }
 
     @Nullable
-    public LineMarkerInfo<?> collect(@NotNull PsiElement psiElement, Method method) {
+    public LineMarkerInfo<?> collect(PsiElement psiElement, Method method) {
         if (!method.getAccess().isPublic()) {
             return null;
         }
@@ -68,7 +74,7 @@ public class ControllerMethodLineMarkerProvider implements LineMarkerProvider {
             GotoRelatedItem gotoRelatedItem = gotoRelatedItems.get(0);
 
             // hell: find any possible small icon
-            Icon icon = null;
+            Image icon = null;
             if (gotoRelatedItem instanceof RelatedPopupGotoLineMarker.PopupGotoRelatedItem) {
                 icon = ((RelatedPopupGotoLineMarker.PopupGotoRelatedItem) gotoRelatedItem).getSmallIcon();
             }
@@ -105,5 +111,10 @@ public class ControllerMethodLineMarkerProvider implements LineMarkerProvider {
         }
 
         return gotoRelatedItems;
+    }
+
+    @Override
+    public Language getLanguage() {
+        return PhpLanguage.INSTANCE;
     }
 }

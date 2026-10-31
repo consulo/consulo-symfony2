@@ -1,242 +1,362 @@
+/*
+ * Copyright 2013-2026 consulo.io
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package fr.adrienbrault.idea.symfony2plugin.tests;
 
-import com.intellij.codeInsight.completion.CodeCompletionHandlerBase;
-import com.intellij.codeInsight.completion.CompletionProgressIndicator;
-import com.intellij.codeInsight.completion.CompletionType;
-import com.intellij.codeInsight.daemon.LineMarkerInfo;
-import com.intellij.codeInsight.daemon.LineMarkerProvider;
-import com.intellij.codeInsight.daemon.LineMarkerProviders;
-import com.intellij.codeInsight.daemon.RelatedItemLineMarkerInfo;
-import com.intellij.codeInsight.intention.IntentionAction;
-import com.intellij.codeInsight.intention.IntentionManager;
-import com.intellij.codeInsight.lookup.Lookup;
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.codeInsight.lookup.LookupElementPresentation;
-import com.intellij.codeInsight.navigation.actions.GotoDeclarationHandler;
-import com.intellij.codeInspection.*;
-import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.navigation.GotoRelatedItem;
-import com.intellij.openapi.command.CommandProcessor;
-import com.intellij.openapi.editor.Document;
-import com.intellij.openapi.fileTypes.FileType;
-import com.intellij.openapi.fileTypes.LanguageFileType;
-import com.intellij.openapi.util.Pair;
-import com.intellij.openapi.util.TextRange;
-import com.intellij.openapi.vfs.VfsUtil;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.patterns.ElementPattern;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.psi.*;
-import com.intellij.psi.search.GlobalSearchScope;
-import com.intellij.psi.tree.IElementType;
-import com.intellij.psi.util.PsiTreeUtil;
-import com.intellij.testFramework.fixtures.LightJavaCodeInsightFixtureTestCase;
-import com.intellij.util.containers.ContainerUtil;
-import com.intellij.util.indexing.FileBasedIndex;
-import com.intellij.util.indexing.ID;
-import com.intellij.util.ui.UIUtil;
 import com.jetbrains.php.lang.psi.elements.Function;
 import com.jetbrains.php.lang.psi.elements.Method;
 import com.jetbrains.php.lang.psi.elements.PhpReference;
-import fr.adrienbrault.idea.symfony2plugin.Settings;
-import fr.adrienbrault.idea.symfony2plugin.util.FileLineMarkerUtil;
-import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
+import consulo.application.Application;
+import consulo.application.WriteAction;
+import consulo.document.util.TextRange;
+import consulo.it.AllowLogError;
+import consulo.it.CodeInsightTestFixture;
+import consulo.it.HeadlessProjectExtension;
+import consulo.it.HeadlessProjects;
+import consulo.it.HeadlessUIThread;
+import consulo.language.ast.IElementType;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.editor.completion.lookup.LookupElementPresentation;
+import consulo.language.editor.gutter.LineMarkerInfo;
+import consulo.language.editor.gutter.LineMarkerProvider;
+import consulo.language.editor.gutter.RelatedItemLineMarkerInfo;
+import consulo.language.editor.inspection.LocalInspectionTool;
+import consulo.language.editor.inspection.ProblemDescriptor;
+import consulo.language.editor.inspection.ProblemsHolder;
+import consulo.language.editor.inspection.scheme.InspectionManager;
+import consulo.language.editor.intention.IntentionAction;
+import consulo.language.editor.intention.IntentionManager;
+import consulo.language.editor.WriteCommandAction;
+import consulo.language.editor.inspection.InspectionTool;
+import consulo.language.editor.inspection.InspectionToolState;
+import consulo.language.editor.navigation.GotoDeclarationHandler;
+import consulo.language.navigation.GotoRelatedItem;
+import consulo.language.file.LanguageFileType;
+import consulo.language.pattern.ElementPattern;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiElementVisitor;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.PsiPolyVariantReference;
+import consulo.language.psi.PsiRecursiveElementVisitor;
+import consulo.language.psi.PsiReference;
+import consulo.language.psi.ResolveResult;
+import consulo.language.psi.scope.GlobalSearchScope;
+import consulo.language.psi.stub.FileBasedIndex;
+import consulo.index.io.ID;
+import consulo.language.psi.util.PsiTreeUtil;
+import consulo.module.content.ModuleRootManager;
+import consulo.module.content.layer.ModifiableRootModel;
+import consulo.php.module.extension.PhpMutableModuleExtension;
+import consulo.project.Project;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.virtualFileSystem.fileType.FileType;
+import fr.adrienbrault.idea.symfony2plugin.module.extension.SymfonyMutableModuleExtension;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtendWith;
 
-import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
-import static java.util.function.Function.identity;
-
 /**
+ * The base of the plugin's tests, in the shape of upstream's {@code SymfonyLightCodeInsightFixtureTestCase} on
+ * IntelliJ's light fixture: a headless project with one module that has the PHP and the Symfony module extensions,
+ * {@link #setUp()} and {@link #tearDown()} like JUnit 3, and the body of a test holding the read lock like the
+ * event dispatch thread.
+ *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
-public abstract class SymfonyLightCodeInsightFixtureTestCase extends LightJavaCodeInsightFixtureTestCase {
+@ExtendWith(HeadlessProjectExtension.class)
+// TODO the XML plugin outside the IDE: XmlReferenceContributor registers its comment references with a provider type of
+//  ide-impl as its last provider
+@AllowLogError("consulo.language.impl.internal.psi.resolve.reference.ReferenceProvidersRegistryImpl")
+public abstract class SymfonyLightCodeInsightFixtureTestCase extends JUnit3Assert {
+    protected SymfonyTestFixture myFixture;
 
-    @Override
-    public void setUp() throws Exception {
-        super.setUp();
-        Settings.getInstance(myFixture.getProject()).pluginEnabled = true;
+    @BeforeEach
+    public final void setUpFixture(CodeInsightTestFixture fixture) throws Exception {
+        myFixture = new SymfonyTestFixture(fixture, this::getTestDataPath);
+        WriteAction.run(() -> {
+            ModifiableRootModel model = ModuleRootManager.getInstance(fixture.getModule()).getModifiableModel();
+            PhpMutableModuleExtension<?> php = model.getExtensionWithoutCheck(PhpMutableModuleExtension.class);
+            assertNotNull("PHP module extension", php);
+            php.setEnabled(true);
+            SymfonyMutableModuleExtension symfony = model.getExtensionWithoutCheck(SymfonyMutableModuleExtension.class);
+            assertNotNull("Symfony module extension", symfony);
+            symfony.setEnabled(true);
+            model.commit();
+        });
+        HeadlessProjects.awaitIdle(fixture.getProject());
+
+        // the setup of a test reads like its body, its writes let the read lock go
+        TestReadLock.acquire();
+        setUp();
     }
 
-    public void assertCompletionContains(LanguageFileType languageFileType, String configureByText, String... lookupStrings) {
-
-        myFixture.configureByText(languageFileType, configureByText);
-        myFixture.completeBasic();
-
-        checkContainsCompletion(lookupStrings);
-    }
-
-    public void assertAtTextCompletionContains(String findByText, String... lookupStrings) {
-
-        final PsiElement element = myFixture.findElementByText(findByText, PsiElement.class);
-        assert element != null : "No element found by text: " + findByText;
-        myFixture.getEditor().getCaretModel().moveToOffset(element.getTextOffset() + 1);
-        myFixture.completeBasic();
-
-        checkContainsCompletion(lookupStrings);
-    }
-
-    public void assertCompletionNotContains(String filename, String configureByText, String... lookupStrings) {
-
-        myFixture.configureByText(filename, configureByText);
-        myFixture.completeBasic();
-
-        assertCompletionResultsNotContain(lookupStrings);
-    }
-
-
-    public void assertCompletionResultsAreUnique(
-        @NotNull LanguageFileType languageFileType,
-        @NotNull String configureByText,
-        @NotNull String... lookupStrings
-    ) {
-        myFixture.configureByText(languageFileType, configureByText);
-        myFixture.completeBasic();
-
-        var results = myFixture.getLookupElementStrings();
-        if (results != null) {
-            var duplicates = results.stream()
-                .filter(result -> Arrays.asList(lookupStrings).contains(result))
-                .collect(Collectors.groupingBy(identity()))
-                .entrySet()
-                .stream()
-                .filter(result -> result.getValue().size() > 1)
-                .map(Map.Entry::getKey)
-                .collect(Collectors.toList());
-
-            assertTrue("The following results are duplicated: " + String.join(", ", duplicates), duplicates.isEmpty());
+    @AfterEach
+    public final void tearDownFixture() throws Exception {
+        TestReadLock.release();
+        try {
+            tearDown();
+        }
+        finally {
+            myFixture.tearDown();
         }
     }
 
-    public void assertCompletionNotContains(LanguageFileType languageFileType, String configureByText, String... lookupStrings) {
+    /**
+     * Like JUnit 3: runs before every test, a test class overrides it calling {@code super.setUp()}
+     */
+    public void setUp() throws Exception {
+    }
 
-        myFixture.configureByText(languageFileType, configureByText);
+    public void tearDown() throws Exception {
+    }
+
+    /**
+     * Runs code which changes the document itself - like an insert handler - on the UI thread like the IDE, without the
+     * read lock of the test body; the test class needs {@link consulo.it.AllowWriteLockUnderUIThread}
+     */
+    protected void withoutReadLock(Runnable runnable) {
+        try {
+            TestReadLock.withoutRead(() -> {
+                HeadlessUIThread.run(runnable);
+                return null;
+            });
+        }
+        catch (RuntimeException e) {
+            throw e;
+        }
+        catch (Exception e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    /**
+     * A write command of the test body on the UI thread like the IDE, which holds the read lock: the lock is let go for
+     * the command; the test class needs {@link consulo.it.AllowWriteLockUnderUIThread}
+     */
+    protected void runWriteCommand(Project project, Runnable runnable) {
+        try {
+            TestReadLock.withoutRead(() -> {
+                HeadlessUIThread.run(() -> WriteCommandAction.runWriteCommandAction(project, runnable));
+                return null;
+            });
+        }
+        catch (RuntimeException e) {
+            throw e;
+        }
+        catch (Exception e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    protected String getTestDataPath() {
+        return "src/test/java";
+    }
+
+    public Project getProject() {
+        return myFixture.getProject();
+    }
+
+    // ------------------------------------------------------------------------------------------------------------------------------------
+    // completion
+
+    public void assertCompletionContains(FileType fileType, String configureByText, String... lookupStrings) {
+        myFixture.configureByText(fileType, configureByText);
         myFixture.completeBasic();
+        completionContainsAssert(lookupStrings);
+    }
 
+    public void assertCompletionContains(String filename, String configureByText, String... lookupStrings) {
+        myFixture.configureByText(filename, configureByText);
+        myFixture.completeBasic();
+        completionContainsAssert(lookupStrings);
+    }
+
+    public void assertAtTextCompletionContains(String findByText, String... lookupStrings) {
+        PsiElement element = myFixture.findElementByText(findByText, PsiElement.class);
+        assertNotNull("No element found by text: " + findByText, element);
+        myFixture.configureFromExistingVirtualFile(myFixture.getFile().getVirtualFile());
+        throw new UnsupportedOperationException("moving the caret of a configured file is not ported");
+    }
+
+    public void assertCompletionNotContains(FileType fileType, String configureByText, String... lookupStrings) {
+        myFixture.configureByText(fileType, configureByText);
+        myFixture.completeBasic();
         assertCompletionResultsNotContain(lookupStrings);
+    }
+
+    public void assertCompletionNotContains(String filename, String configureByText, String... lookupStrings) {
+        myFixture.configureByText(filename, configureByText);
+        myFixture.completeBasic();
+        assertCompletionResultsNotContain(lookupStrings);
+    }
+
+    public void assertCompletionResultsAreUnique(FileType fileType, String configureByText, String... lookupStrings) {
+        myFixture.configureByText(fileType, configureByText);
+        myFixture.completeBasic();
+        List<String> results = myFixture.getLookupElementStrings();
+        if (results != null) {
+            List<String> duplicates = results.stream()
+                .filter(result -> Arrays.asList(lookupStrings).contains(result))
+                .collect(Collectors.groupingBy(result -> result))
+                .entrySet().stream()
+                .filter(entry -> entry.getValue().size() > 1)
+                .map(java.util.Map.Entry::getKey)
+                .toList();
+            assertTrue("The following results are duplicated: " + String.join(", ", duplicates), duplicates.isEmpty());
+        }
     }
 
     protected void assertCompletionResultsNotContain(String... lookupStrings) {
         assertTrue("Expected at least one forbidden completion", lookupStrings.length > 0);
         List<String> results = myFixture.getLookupElementStrings();
         assertNotNull("Expected completion lookup results", results);
-
-        List<String> unexpected = Arrays.stream(lookupStrings)
-            .filter(results::contains)
-            .toList();
+        List<String> unexpected = Arrays.stream(lookupStrings).filter(results::contains).toList();
         assertTrue("Unexpected completion results: " + unexpected, unexpected.isEmpty());
     }
 
-    public void assertCompletionContains(String filename, String configureByText, String... lookupStrings) {
-
-        myFixture.configureByText(filename, configureByText);
+    public void assertCompletionIsEmpty(FileType fileType, String configureByText) {
+        myFixture.configureByText(fileType, configureByText);
         myFixture.completeBasic();
-
-        completionContainsAssert(lookupStrings);
-    }
-
-    public void assertCompletionIsEmpty(LanguageFileType languageFileType, String configureByText) {
-
-        myFixture.configureByText(languageFileType, configureByText);
-        myFixture.completeBasic();
-
         List<String> lookupElements = myFixture.getLookupElementStrings();
-
-        if (lookupElements == null) {
-            return;
+        if (lookupElements != null && !lookupElements.isEmpty()) {
+            fail("Failed that completion is empty: " + lookupElements);
         }
-
-        if (!lookupElements.isEmpty()) {
-            fail("Failed that completion is empty.");
-        }
-    }
-
-    protected void createFileInProjectRoot(@NotNull String relativePath, String content) {
-        VirtualFile[] created = new VirtualFile[1];
-
-        ApplicationManager.getApplication().runWriteAction(() -> {
-            try {
-                String[] parts = relativePath.split("/");
-                VirtualFile baseDir = getProject().getBaseDir();
-                VirtualFile directory = VfsUtil.createDirectoryIfMissing(
-                    baseDir,
-                    StringUtils.join(Arrays.copyOf(parts, parts.length - 1), "/")
-                );
-
-                created[0] = directory.createChildData(this, parts[parts.length - 1]);
-                if (content != null) {
-                    created[0].setBinaryContent(content.getBytes());
-                }
-            } catch (IOException ignored) {
-            }
-        });
-
     }
 
     private void completionContainsAssert(String[] lookupStrings) {
-        if(lookupStrings.length == 0) {
+        if (lookupStrings.length == 0) {
             fail("No lookup element given");
         }
-
         List<String> lookupElements = myFixture.getLookupElementStrings();
-        if(lookupElements == null || lookupElements.isEmpty()) {
+        if (lookupElements == null || lookupElements.isEmpty()) {
             fail(String.format("failed that empty completion contains %s", Arrays.toString(lookupStrings)));
         }
-
         for (String s : lookupStrings) {
-            if(!lookupElements.contains(s)) {
-                fail(String.format("failed that completion contains %s in %s", s, lookupElements.toString()));
+            if (!lookupElements.contains(s)) {
+                fail(String.format("failed that completion contains %s in %s", s, lookupElements));
             }
         }
     }
 
-    public void assertNavigationContains(LanguageFileType languageFileType, String configureByText, String targetShortcut) {
-        myFixture.configureByText(languageFileType, configureByText);
+    public void assertCompletionLookupContainsPresentableItem(FileType fileType, String configureByText, LookupElementPresentationAssert.Assert presentationAssert) {
+        myFixture.configureByText(fileType, configureByText);
+        myFixture.completeBasic();
+        LookupElement[] lookupElements = myFixture.getLookupElements();
+        if (lookupElements == null) {
+            fail("failed to find lookup presentable on empty collection");
+        }
+        for (LookupElement lookupElement : lookupElements) {
+            LookupElementPresentation presentation = new LookupElementPresentation();
+            lookupElement.renderElement(presentation);
+            if (presentationAssert.match(presentation)) {
+                return;
+            }
+        }
+        fail("failed to find lookup presentable");
+    }
+
+    public void assertCompletionLookupTailEquals(FileType fileType, String configureByText, String lookupString, String tailText) {
+        myFixture.configureByText(fileType, configureByText);
+        myFixture.completeBasic();
+        for (LookupElement lookupElement : myFixture.getLookupElements()) {
+            if (!lookupElement.getLookupString().equals(lookupString)) {
+                continue;
+            }
+            LookupElementPresentation presentation = new LookupElementPresentation();
+            lookupElement.renderElement(presentation);
+            if (presentation.getTailText() == null) {
+                fail(String.format("failed to check '%s'", lookupString));
+            }
+            if (!presentation.getTailText().equals(tailText)) {
+                fail(String.format("failed that on '%s' '%s' is equal '%s'", lookupString, tailText, presentation.getTailText()));
+            }
+            return;
+        }
+        fail(String.format("failed to check '%s' because it's unknown", lookupString));
+    }
+
+    public void assertCompletionResultEquals(String filename, String complete, String result) {
+        throw new UnsupportedOperationException("completing with the insert handler of a lookup element is not ported");
+    }
+
+    public void assertCompletionResultEquals(FileType fileType, String complete, String result) {
+        throw new UnsupportedOperationException("completing with the insert handler of a lookup element is not ported");
+    }
+
+    // ------------------------------------------------------------------------------------------------------------------------------------
+    // navigation
+
+    private List<PsiElement> gotoDeclarationTargets(PsiElement psiElement, int offset) {
+        List<PsiElement> targets = new ArrayList<>();
+        for (GotoDeclarationHandler handler : Application.get().getExtensionList(GotoDeclarationHandler.class)) {
+            PsiElement[] handlerTargets = handler.getGotoDeclarationTargets(psiElement, offset, myFixture.getEditor());
+            if (handlerTargets != null) {
+                for (PsiElement target : handlerTargets) {
+                    if (target != null) {
+                        targets.add(target);
+                    }
+                }
+            }
+        }
+        return targets;
+    }
+
+    private PsiElement elementAtCaret() {
         PsiElement psiElement = myFixture.getFile().findElementAt(myFixture.getCaretOffset());
-        assertNavigationContains(psiElement, targetShortcut);
+        if (psiElement == null) {
+            fail("No element at caret found");
+        }
+        return psiElement;
+    }
+
+    public void assertNavigationContains(FileType fileType, String configureByText, String targetShortcut) {
+        myFixture.configureByText(fileType, configureByText);
+        assertNavigationContains(elementAtCaret(), targetShortcut);
     }
 
     public void assertNavigationContains(PsiElement psiElement, String targetShortcut) {
-
-        if(!targetShortcut.startsWith("\\")) {
-            targetShortcut = "\\" + targetShortcut;
-        }
-
+        String target = targetShortcut.startsWith("\\") ? targetShortcut : "\\" + targetShortcut;
         Set<String> classTargets = new HashSet<>();
-
-        for (GotoDeclarationHandler gotoDeclarationHandler : GotoDeclarationHandler.EP_NAME.getExtensionList()) {
-            PsiElement[] gotoDeclarationTargets = gotoDeclarationHandler.getGotoDeclarationTargets(psiElement, 0, myFixture.getEditor());
-            if(gotoDeclarationTargets != null) {
-
-                for (PsiElement gotoDeclarationTarget : gotoDeclarationTargets) {
-                    if(gotoDeclarationTarget instanceof Method) {
-
-                        String meName = ((Method) gotoDeclarationTarget).getName();
-
-                        String clName = ((Method) gotoDeclarationTarget).getContainingClass().getPresentableFQN();
-                        if(!clName.startsWith("\\")) {
-                            clName = "\\" + clName;
-                        }
-
-                        classTargets.add(clName + "::" + meName);
-                    } else if(gotoDeclarationTarget instanceof Function) {
-                        classTargets.add("\\" + ((Function) gotoDeclarationTarget).getName());
-                    }
-                }
-
+        for (PsiElement gotoDeclarationTarget : gotoDeclarationTargets(psiElement, 0)) {
+            if (gotoDeclarationTarget instanceof Method method) {
+                String clName = method.getContainingClass().getPresentableFQN();
+                classTargets.add((clName.startsWith("\\") ? clName : "\\" + clName) + "::" + method.getName());
+            }
+            else if (gotoDeclarationTarget instanceof Function function) {
+                classTargets.add("\\" + function.getName());
             }
         }
-
-        if(!classTargets.contains(targetShortcut)) {
-            fail(String.format("failed that PsiElement (%s) navigate to %s on %s", psiElement.toString(), targetShortcut, classTargets.toString()));
+        if (!classTargets.contains(target)) {
+            fail(String.format("failed that PsiElement (%s) navigate to %s on %s", psiElement, target, classTargets));
         }
-
     }
 
-    public void assertNavigationMatchWithParent(LanguageFileType languageFileType, String configureByText, IElementType iElementType) {
-        assertNavigationMatch(languageFileType, configureByText, PlatformPatterns.psiElement().withParent(PlatformPatterns.psiElement(iElementType)));
+    public void assertNavigationMatchWithParent(FileType fileType, String configureByText, IElementType elementType) {
+        assertNavigationMatch(fileType, configureByText, PlatformPatterns.psiElement().withParent(PlatformPatterns.psiElement(elementType)));
     }
 
     public void assertNavigationMatch(String filename, String configureByText, ElementPattern<?> pattern) {
@@ -244,350 +364,244 @@ public abstract class SymfonyLightCodeInsightFixtureTestCase extends LightJavaCo
         assertNavigationMatch(pattern);
     }
 
-    public void assertNavigationMatch(LanguageFileType languageFileType, String configureByText, ElementPattern<?> pattern) {
-        myFixture.configureByText(languageFileType, configureByText);
+    public void assertNavigationMatch(FileType fileType, String configureByText, ElementPattern<?> pattern) {
+        myFixture.configureByText(fileType, configureByText);
         assertNavigationMatch(pattern);
     }
 
-    public void assertNavigationMatch(LanguageFileType languageFileType, String configureByText) {
-        myFixture.configureByText(languageFileType, configureByText);
-        assertNavigationMatch(PlatformPatterns.psiElement());
+    public void assertNavigationMatch(FileType fileType, String configureByText) {
+        assertNavigationMatch(fileType, configureByText, PlatformPatterns.psiElement());
     }
 
     public void assertNavigationMatch(String filename, String configureByText) {
-        myFixture.configureByText(filename, configureByText);
-        assertNavigationMatch(PlatformPatterns.psiElement());
+        assertNavigationMatch(filename, configureByText, PlatformPatterns.psiElement());
     }
 
-    public void assertNavigationIsEmpty(LanguageFileType languageFileType, String configureByText) {
-        myFixture.configureByText(languageFileType, configureByText);
+    public void assertNavigationIsEmpty(FileType fileType, String configureByText) {
+        myFixture.configureByText(fileType, configureByText);
         assertNavigationIsEmpty();
     }
 
-    public void assertNavigationIsEmpty(String content, String configureByText) {
-        myFixture.configureByText(content, configureByText);
+    public void assertNavigationIsEmpty(String filename, String configureByText) {
+        myFixture.configureByText(filename, configureByText);
         assertNavigationIsEmpty();
     }
 
     private void assertNavigationIsEmpty() {
-        PsiElement psiElement = myFixture.getFile().findElementAt(myFixture.getCaretOffset());
-        for (GotoDeclarationHandler gotoDeclarationHandler : GotoDeclarationHandler.EP_NAME.getExtensionList()) {
-            PsiElement[] gotoDeclarationTargets = gotoDeclarationHandler.getGotoDeclarationTargets(psiElement, 0, myFixture.getEditor());
-            if(gotoDeclarationTargets != null && gotoDeclarationTargets.length > 0) {
-                fail(String.format("failed that PsiElement (%s) navigate is empty; found target in '%s'", psiElement.toString(), gotoDeclarationHandler.getClass()));
+        PsiElement psiElement = elementAtCaret();
+        for (GotoDeclarationHandler handler : Application.get().getExtensionList(GotoDeclarationHandler.class)) {
+            PsiElement[] targets = handler.getGotoDeclarationTargets(psiElement, 0, myFixture.getEditor());
+            if (targets != null && targets.length > 0) {
+                fail(String.format("failed that PsiElement (%s) navigate is empty; found target in '%s'", psiElement, handler.getClass()));
             }
         }
     }
 
     public void assertNavigationMatch(ElementPattern<?> pattern) {
-
-        PsiElement psiElement = myFixture.getFile().findElementAt(myFixture.getCaretOffset());
-
+        PsiElement psiElement = elementAtCaret();
         Set<String> targetStrings = new HashSet<>();
-
-        for (GotoDeclarationHandler gotoDeclarationHandler : GotoDeclarationHandler.EP_NAME.getExtensionList()) {
-
-            PsiElement[] gotoDeclarationTargets = gotoDeclarationHandler.getGotoDeclarationTargets(psiElement, myFixture.getCaretOffset(), myFixture.getEditor());
-            if(gotoDeclarationTargets == null) {
-                continue;
-            }
-
-            for (PsiElement gotoDeclarationTarget : gotoDeclarationTargets) {
-                targetStrings.add(gotoDeclarationTarget.toString());
-                if(pattern.accepts(gotoDeclarationTarget)) {
-                    return;
-                }
+        for (PsiElement target : gotoDeclarationTargets(psiElement, myFixture.getCaretOffset())) {
+            targetStrings.add(target.toString());
+            if (pattern.accepts(target)) {
+                return;
             }
         }
-
-        fail(String.format("failed that PsiElement (%s) navigate matches one of %s", psiElement.toString(), targetStrings));
+        fail(String.format("failed that PsiElement (%s) navigate matches one of %s", psiElement, targetStrings));
     }
 
-    public void assertNavigationContainsFile(LanguageFileType languageFileType, String configureByText, String targetShortcut) {
-        myFixture.configureByText(languageFileType, configureByText);
-        PsiElement psiElement = myFixture.getFile().findElementAt(myFixture.getCaretOffset());
+    public void assertNavigationContainsFile(FileType fileType, String configureByText, String targetShortcut) {
+        myFixture.configureByText(fileType, configureByText);
+        PsiElement psiElement = elementAtCaret();
+        for (PsiElement target : gotoDeclarationTargets(psiElement, 0)) {
+            if (target instanceof PsiFile file && file.getVirtualFile().getUrl().endsWith(targetShortcut)) {
+                return;
+            }
+        }
+        fail(String.format("failed that PsiElement (%s) navigate to file %s", psiElement, targetShortcut));
+    }
 
-        Set<String> targets = new HashSet<>();
+    // ------------------------------------------------------------------------------------------------------------------------------------
+    // references
 
-        for (GotoDeclarationHandler gotoDeclarationHandler : GotoDeclarationHandler.EP_NAME.getExtensionList()) {
-            PsiElement[] gotoDeclarationTargets = gotoDeclarationHandler.getGotoDeclarationTargets(psiElement, 0, myFixture.getEditor());
-            if (gotoDeclarationTargets != null && gotoDeclarationTargets.length > 0) {
-                for (PsiElement gotoDeclarationTarget : gotoDeclarationTargets) {
-                    if(gotoDeclarationTarget instanceof PsiFile) {
-                        targets.add(((PsiFile) gotoDeclarationTarget).getVirtualFile().getUrl());
+    public void assertPhpReferenceResolveTo(FileType fileType, String configureByText, ElementPattern<?> pattern) {
+        PsiElement resolve = assertGetPhpReference(fileType, configureByText).resolve();
+        if (!pattern.accepts(resolve)) {
+            fail(String.format("failed pattern matches element of '%s'", resolve == null ? "null" : resolve.toString()));
+        }
+    }
+
+    public void assertPhpReferenceNotResolveTo(FileType fileType, String configureByText, ElementPattern<?> pattern) {
+        assertFalse(pattern.accepts(assertGetPhpReference(fileType, configureByText).resolve()));
+    }
+
+    public void assertPhpReferenceSignatureEquals(FileType fileType, String configureByText, String typeSignature) {
+        assertEquals(typeSignature, assertGetPhpReference(fileType, configureByText).getSignature());
+    }
+
+    public void assertPhpReferenceSignatureContains(FileType fileType, String configureByText, String typeSignature) {
+        assertTrue(assertGetPhpReference(fileType, configureByText).getSignature().contains(typeSignature));
+    }
+
+    private PhpReference assertGetPhpReference(FileType fileType, String configureByText) {
+        myFixture.configureByText(fileType, configureByText);
+        PhpReference reference = PsiTreeUtil.getParentOfType(elementAtCaret(), PhpReference.class);
+        if (reference == null) {
+            fail("Element is not PhpReference.");
+        }
+        return reference;
+    }
+
+    public void assertReferenceMatchOnParent(String file, String contents, ElementPattern<?> pattern) {
+        myFixture.configureByText(file, contents);
+        assertReferences(pattern, elementAtCaret().getParent());
+    }
+
+    public void assertReferenceMatchOnParent(FileType fileType, String contents, ElementPattern<?> pattern) {
+        myFixture.configureByText(fileType, contents);
+        assertReferences(pattern, elementAtCaret().getParent());
+    }
+
+    public void assertReferenceMatch(FileType fileType, String contents, ElementPattern<?> pattern) {
+        myFixture.configureByText(fileType, contents);
+        assertReferences(pattern, elementAtCaret());
+    }
+
+    private void assertReferences(ElementPattern<?> pattern, PsiElement psiElement) {
+        for (PsiReference reference : psiElement.getReferences()) {
+            if (pattern.accepts(reference.resolve())) {
+                return;
+            }
+            if (reference instanceof PsiPolyVariantReference polyVariantReference) {
+                for (ResolveResult resolveResult : polyVariantReference.multiResolve(true)) {
+                    if (pattern.accepts(resolveResult.getElement())) {
+                        return;
                     }
                 }
             }
         }
-
-        // its possible to have memory fields,
-        // so simple check for ending conditions
-        // temp:///src/interchange.en.xlf
-        for (String target : targets) {
-            if(target.endsWith(targetShortcut)) {
-                return;
-            }
-        }
-
-        fail(String.format("failed that PsiElement (%s) navigate to file %s", psiElement.toString(), targetShortcut));
+        fail(String.format("Fail that '%s' match given pattern", psiElement));
     }
 
-    public void assertCompletionLookupContainsPresentableItem(LanguageFileType languageFileType, String configureByText, LookupElementPresentationAssert.Assert presentationAssert) {
-
-        myFixture.configureByText(languageFileType, configureByText);
-        myFixture.completeBasic();
-
-        LookupElement[] lookupElements = myFixture.getLookupElements();
-        if(lookupElements == null) {
-            fail("failed to find lookup presentable on empty collection");
-        }
-
-        for (LookupElement lookupElement : lookupElements) {
-            LookupElementPresentation presentation = new LookupElementPresentation();
-            lookupElement.renderElement(presentation);
-
-            if(presentationAssert.match(presentation)) {
-                return;
-            }
-        }
-
-        fail("failed to find lookup presentable");
+    protected PsiElement findElementAt(FileType fileType, String content) {
+        myFixture.configureByText(fileType, content);
+        return elementAtCaret();
     }
 
-    public void assertCompletionLookupTailEquals(LanguageFileType languageFileType, String configureByText, String lookupString, String tailText) {
+    // ------------------------------------------------------------------------------------------------------------------------------------
+    // index
 
-        myFixture.configureByText(languageFileType, configureByText);
-        myFixture.completeBasic();
-
-        for (LookupElement lookupElement : myFixture.getLookupElements()) {
-
-            if(!lookupElement.getLookupString().equals(lookupString)) {
-                continue;
-            }
-
-            LookupElementPresentation presentation = new LookupElementPresentation();
-            lookupElement.renderElement(presentation);
-
-            if(presentation.getTailText() == null) {
-                fail(String.format("failed to check '%s'", lookupString));
-            }
-
-            if(!presentation.getTailText().equals(tailText)) {
-                fail(String.format("failed that on '%s' '%s' is equal '%s'", lookupString, tailText, presentation.getTailText()));
-            }
-
-            return;
-
-        }
-
-        fail(String.format("failed to check '%s' because it's unknown", lookupString));
-    }
-
-    public void assertPhpReferenceResolveTo(LanguageFileType languageFileType, String configureByText, ElementPattern<?> pattern) {
-        myFixture.configureByText(languageFileType, configureByText);
-        PsiElement psiElement = myFixture.getFile().findElementAt(myFixture.getCaretOffset());
-
-        psiElement = PsiTreeUtil.getParentOfType(psiElement, PhpReference.class);
-        if (psiElement == null) {
-            fail("Element is not PhpReference.");
-        }
-
-        PsiElement resolve = ((PhpReference) psiElement).resolve();
-        if(!pattern.accepts(resolve)) {
-            fail(String.format("failed pattern matches element of '%s'", resolve == null ? "null" : resolve.toString()));
-        }
-
-        assertTrue(pattern.accepts(resolve));
-    }
-
-    public void assertPhpReferenceNotResolveTo(LanguageFileType languageFileType, String configureByText, ElementPattern<?> pattern) {
-        myFixture.configureByText(languageFileType, configureByText);
-        PsiElement psiElement = myFixture.getFile().findElementAt(myFixture.getCaretOffset());
-
-        psiElement = PsiTreeUtil.getParentOfType(psiElement, PhpReference.class);
-        if (psiElement == null) {
-            fail("Element is not PhpReference.");
-        }
-
-        assertFalse(pattern.accepts(((PhpReference) psiElement).resolve()));
-    }
-
-    public void assertPhpReferenceSignatureEquals(LanguageFileType languageFileType, String configureByText, String typeSignature) {
-        PsiElement psiElement = assertGetPhpReference(languageFileType, configureByText);
-        assertEquals(typeSignature, ((PhpReference) psiElement).getSignature());
-    }
-
-    public void assertPhpReferenceSignatureContains(LanguageFileType languageFileType, String configureByText, String typeSignature) {
-        PsiElement psiElement = assertGetPhpReference(languageFileType, configureByText);
-        assertTrue(((PhpReference) psiElement).getSignature().contains(typeSignature));
-    }
-
-    @NotNull
-    private PsiElement assertGetPhpReference(LanguageFileType languageFileType, String configureByText) {
-        myFixture.configureByText(languageFileType, configureByText);
-        PsiElement psiElement = myFixture.getFile().findElementAt(myFixture.getCaretOffset());
-
-        psiElement = PsiTreeUtil.getParentOfType(psiElement, PhpReference.class);
-        if (psiElement == null) {
-            fail("Element is not PhpReference.");
-        }
-
-        return psiElement;
-    }
-
-    public void assertCompletionResultEquals(String filename, String complete, String result) {
-            myFixture.configureByText(filename, complete);
-            myFixture.completeBasic();
-            myFixture.checkResult(result);
-    }
-
-    public void assertCompletionResultEquals(@NotNull FileType fileType, @NotNull String contents, @NotNull String result, @NotNull LookupElementInsert.Assert assertion) {
-        myFixture.configureByText(fileType, contents);
-        UIUtil.invokeAndWaitIfNeeded(new MyLookupElementConditionalInsertRunnable(assertion));
-        myFixture.checkResult(result);
-    }
-
-    public void assertCompletionResultEquals(LanguageFileType languageFileType, String complete, String result) {
-        myFixture.configureByText(languageFileType, complete);
-        myFixture.completeBasic();
-        myFixture.checkResult(result);
-    }
-
-    public void assertCheckHighlighting(String filename, String result) {
-        myFixture.configureByText(filename, result);
-        myFixture.checkHighlighting();
-    }
-
-    public void assertIndexContains(@NotNull ID<String, ?> id, @NotNull String... keys) {
+    public void assertIndexContains(ID<String, ?> id, String... keys) {
         assertIndex(id, false, keys);
     }
 
-    public void assertIndexNotContains(@NotNull ID<String, ?> id, @NotNull String... keys) {
+    public void assertIndexNotContains(ID<String, ?> id, String... keys) {
         assertIndex(id, true, keys);
     }
 
-    public void assertIndex(@NotNull ID<String, ?> id, boolean notCondition, @NotNull String... keys) {
+    public void assertIndex(ID<String, ?> id, boolean notCondition, String... keys) {
         for (String key : keys) {
-
-            final Collection<VirtualFile> virtualFiles = new ArrayList<>();
-
+            Collection<VirtualFile> virtualFiles = new ArrayList<>();
             FileBasedIndex.getInstance().getFilesWithKey(id, new HashSet<>(Collections.singletonList(key)), virtualFile -> {
                 virtualFiles.add(virtualFile);
                 return true;
             }, GlobalSearchScope.allScope(getProject()));
 
-            if(notCondition && !virtualFiles.isEmpty()) {
-                fail(String.format("Fail that ID '%s' not contains '%s'", id.toString(), key));
-            } else if(!notCondition && virtualFiles.isEmpty()) {
-                fail(String.format("Fail that ID '%s' contains '%s'", id.toString(), key));
+            if (notCondition && !virtualFiles.isEmpty()) {
+                fail(String.format("Fail that ID '%s' not contains '%s'", id, key));
+            }
+            else if (!notCondition && virtualFiles.isEmpty()) {
+                fail(String.format("Fail that ID '%s' contains '%s'", id, key));
             }
         }
     }
 
-    public void assertIndexContainsKeyWithValue(@NotNull ID<String, String> id, @NotNull String key, @NotNull String value) {
+    public void assertIndexContainsKeyWithValue(ID<String, String> id, String key, String value) {
         assertContainsElements(FileBasedIndex.getInstance().getValues(id, key, GlobalSearchScope.allScope(getProject())), value);
     }
 
-    public <T> void assertIndexContainsKeyWithValue(@NotNull ID<String, T> id, @NotNull String key, @NotNull IndexValue.Assert<T> tAssert) {
+    public <T> void assertIndexContainsKeyWithValue(ID<String, T> id, String key, IndexValue.Assert<T> tAssert) {
         List<T> values = FileBasedIndex.getInstance().getValues(id, key, GlobalSearchScope.allScope(getProject()));
         for (T t : values) {
-            if(tAssert.match(t)) {
+            if (tAssert.match(t)) {
                 return;
             }
         }
-
         fail(String.format("Fail that Key '%s' matches on of '%s' values", key, values.size()));
     }
 
-    public void assertLocalInspectionContains(@NotNull Class<? extends LocalInspectionTool> inspectionClass, String filename, String content, String contains) {
-        Set<String> matches = new HashSet<>();
+    // ------------------------------------------------------------------------------------------------------------------------------------
+    // inspections and intentions
 
-        Pair<List<ProblemDescriptor>, Integer> localInspectionsAtCaret = getLocalInspectionsAtCaret(inspectionClass, filename, content);
-        for (ProblemDescriptor result : localInspectionsAtCaret.getFirst()) {
+    public void assertLocalInspectionContains(Class<? extends LocalInspectionTool> inspectionClass, String filename, String content, String contains) {
+        Set<String> matches = new HashSet<>();
+        int caretOffset = configureForInspection(filename, content);
+        for (ProblemDescriptor result : getLocalInspections(inspectionClass)) {
             TextRange textRange = result.getPsiElement().getTextRange();
-            if (textRange.contains(localInspectionsAtCaret.getSecond()) && result.toString().equals(contains)) {
+            String description = result.getDescriptionTemplate().get();
+            if (textRange.contains(caretOffset) && description.equals(contains)) {
                 return;
             }
-
-            matches.add(result.toString());
+            matches.add(description);
         }
-
         fail(String.format("Fail matches '%s' with one of %s", contains, matches));
     }
 
-    public void assertIntentionIsAvailable(LanguageFileType languageFileType, String configureByText, String intentionText) {
-        myFixture.configureByText(languageFileType, configureByText);
-        PsiElement psiElement = myFixture.getFile().findElementAt(myFixture.getCaretOffset());
-
-        Set<String> items = new HashSet<>();
-
-        for (IntentionAction intentionAction : IntentionManager.getInstance().getIntentionActions()) {
-            if(!intentionAction.isAvailable(getProject(), getEditor(), psiElement.getContainingFile())) {
-                continue;
-            }
-
-            String text = intentionAction.getText();
-            items.add(text);
-
-            if(!text.equals(intentionText)) {
-                continue;
-            }
-
-            return;
-        }
-
-        fail(String.format("Fail intention action '%s' is available in element '%s' with '%s'", intentionText, psiElement.getText(), items));
-    }
-
-    public void assertLocalInspectionNotContains(@NotNull Class<? extends LocalInspectionTool> inspectionClass, String filename, String content, String contains) {
-        Pair<List<ProblemDescriptor>, Integer> localInspectionsAtCaret = getLocalInspectionsAtCaret(inspectionClass, filename, content);
-
-        for (ProblemDescriptor result : localInspectionsAtCaret.getFirst()) {
+    public void assertLocalInspectionNotContains(Class<? extends LocalInspectionTool> inspectionClass, String filename, String content, String contains) {
+        int caretOffset = configureForInspection(filename, content);
+        for (ProblemDescriptor result : getLocalInspections(inspectionClass)) {
             TextRange textRange = result.getPsiElement().getTextRange();
-            if (textRange.contains(localInspectionsAtCaret.getSecond()) && result.toString().contains(contains)) {
+            if (textRange.contains(caretOffset) && result.getDescriptionTemplate().get().contains(contains)) {
                 fail(String.format("Fail inspection not contains '%s'", contains));
             }
         }
     }
 
-    private Pair<List<ProblemDescriptor>, Integer> getLocalInspectionsAtCaret(@NotNull Class<? extends LocalInspectionTool> inspectionClass, @NotNull String filename, @NotNull String content) {
-
-        PsiElement psiFile = myFixture.configureByText(filename, content);
-
+    private int configureForInspection(String filename, String content) {
+        myFixture.configureByText(filename, content);
         int caretOffset = myFixture.getCaretOffset();
-        if(caretOffset <= 0) {
+        if (caretOffset <= 0) {
             fail("Please provide <caret> tag");
         }
+        return caretOffset;
+    }
 
-        ProblemsHolder problemsHolder = new ProblemsHolder(InspectionManager.getInstance(getProject()), psiFile.getContainingFile(), false);
-
-        boolean inspectionFound = false;
-        for (LocalInspectionEP localInspectionEP : LocalInspectionEP.LOCAL_INSPECTION.getExtensions()) {
-            // Filter extension metadata before instantiating unrelated IDE inspections.
-            if (!inspectionClass.getName().equals(localInspectionEP.implementationClass)) {
-                continue;
-            }
-
-            LocalInspectionTool inspection = inspectionClass.cast(localInspectionEP.getInstance());
-            inspectionFound = true;
-            final PsiElementVisitor psiElementVisitor = inspection.buildVisitor(problemsHolder, false);
-
-            psiFile.acceptChildren(new PsiRecursiveElementVisitor() {
-                @Override
-                public void visitElement(@NotNull PsiElement element) {
-                    psiElementVisitor.visitElement(element);
-                    super.visitElement(element);
-                }
-            });
-
-            psiElementVisitor.visitFile(psiFile.getContainingFile());
-        }
-
-        if (!inspectionFound) {
+    private List<ProblemDescriptor> getLocalInspections(Class<? extends LocalInspectionTool> inspectionClass) {
+        PsiFile psiFile = myFixture.getFile();
+        ProblemsHolder problemsHolder = InspectionManager.getInstance(getProject()).createProblemsHolder(psiFile, false);
+        InspectionTool tool = Application.get().getExtensionPoint(InspectionTool.class).findExtension(inspectionClass);
+        if (tool == null) {
             fail("Inspection is not registered: " + inspectionClass.getName());
         }
+        LocalInspectionTool inspection = (LocalInspectionTool) tool;
+        InspectionToolState<?> stateProvider = inspection.createStateProvider();
+        Object state = stateProvider == null ? null : stateProvider.getState();
+        PsiElementVisitor visitor = inspection.buildVisitor(problemsHolder, false, null, state);
+        psiFile.acceptChildren(new PsiRecursiveElementVisitor() {
+            @Override
+            public void visitElement(PsiElement element) {
+                visitor.visitElement(element);
+                super.visitElement(element);
+            }
+        });
+        visitor.visitFile(psiFile);
+        return problemsHolder.getResults();
+    }
 
-        return Pair.create(problemsHolder.getResults(), caretOffset);
+    public void assertIntentionIsAvailable(FileType fileType, String configureByText, String intentionText) {
+        myFixture.configureByText(fileType, configureByText);
+        PsiElement psiElement = elementAtCaret();
+        Set<String> items = new HashSet<>();
+        for (IntentionAction intentionAction : IntentionManager.getInstance().getIntentionActions()) {
+            if (!intentionAction.isAvailable(getProject(), myFixture.getEditor(), psiElement.getContainingFile())) {
+                continue;
+            }
+            String text = intentionAction.getText().get();
+            items.add(text);
+            if (text.equals(intentionText)) {
+                return;
+            }
+        }
+        fail(String.format("Fail intention action '%s' is available in element '%s' with '%s'", intentionText, psiElement.getText(), items));
     }
 
     protected void createDummyFiles(String... files) {
@@ -596,106 +610,41 @@ public abstract class SymfonyLightCodeInsightFixtureTestCase extends LightJavaCo
         }
     }
 
-    private void checkContainsCompletion(String[] lookupStrings) {
-        completionContainsAssert(lookupStrings);
+    protected void createFileInProjectRoot(String relativePath, String content) {
+        myFixture.addFileToProjectRoot(relativePath, content == null ? "" : content);
     }
 
-    public void assertLineMarker(@NotNull PsiElement psiElement, @NotNull LineMarker.Assert assertMatch) {
+    // ------------------------------------------------------------------------------------------------------------------------------------
+    // line markers
 
-        final List<PsiElement> elements = collectPsiElementsRecursive(psiElement);
-
-        for (LineMarkerProvider lineMarkerProvider : LineMarkerProviders.getInstance().allForLanguage(psiElement.getLanguage())) {
+    public void assertLineMarker(PsiElement psiElement, LineMarker.Assert assertMatch) {
+        List<PsiElement> elements = collectPsiElementsRecursive(psiElement);
+        for (LineMarkerProvider lineMarkerProvider : LineMarkerProvider.forLanguage(psiElement.getLanguage())) {
             Collection<LineMarkerInfo> lineMarkerInfos = new ArrayList<>();
             lineMarkerProvider.collectSlowLineMarkers(elements, lineMarkerInfos);
-
-            if(lineMarkerInfos.isEmpty()) {
-                continue;
-            }
-
             for (LineMarkerInfo lineMarkerInfo : lineMarkerInfos) {
-                if(assertMatch.match(lineMarkerInfo)) {
+                if (assertMatch.match(lineMarkerInfo)) {
                     return;
                 }
             }
         }
-
         fail(String.format("Fail that '%s' matches on of '%s' PsiElements", assertMatch.getClass(), elements.size()));
     }
 
-    public void assertLineMarkerIsEmpty(@NotNull PsiElement psiElement) {
-
-        final List<PsiElement> elements = collectPsiElementsRecursive(psiElement);
-
-        for (LineMarkerProvider lineMarkerProvider : LineMarkerProviders.getInstance().allForLanguage(psiElement.getLanguage())) {
+    public void assertLineMarkerIsEmpty(PsiElement psiElement) {
+        List<PsiElement> elements = collectPsiElementsRecursive(psiElement);
+        for (LineMarkerProvider lineMarkerProvider : LineMarkerProvider.forLanguage(psiElement.getLanguage())) {
             Collection<LineMarkerInfo> lineMarkerInfos = new ArrayList<>();
             lineMarkerProvider.collectSlowLineMarkers(elements, lineMarkerInfos);
-
-            if(!lineMarkerInfos.isEmpty()) {
+            if (!lineMarkerInfos.isEmpty()) {
                 fail(String.format("Fail that line marker is empty because it matches '%s'", lineMarkerProvider.getClass()));
             }
         }
     }
 
-    public void assertReferenceMatchOnParent(@NotNull String file, @NotNull String contents, @NotNull ElementPattern<?> pattern) {
-        myFixture.configureByText(file, contents);
-        assertReferenceMatchOnParent(pattern);
-    }
-
-    public void assertReferenceMatchOnParent(@NotNull FileType fileType, @NotNull String contents, @NotNull ElementPattern<?> pattern) {
-        myFixture.configureByText(fileType, contents);
-        assertReferenceMatchOnParent(pattern);
-    }
-
-    private void assertReferenceMatchOnParent(@NotNull ElementPattern<?> pattern) {
-        PsiElement psiElement = myFixture.getFile().findElementAt(myFixture.getCaretOffset());
-        if(psiElement == null) {
-            fail("Fail to find element in caret");
-        }
-
-        PsiElement parent = psiElement.getParent();
-        if(parent == null) {
-            fail("Fail to find parent element in caret");
-        }
-
-        assertReferences(pattern, parent);
-    }
-
-    public void assertReferenceMatch(@NotNull FileType fileType, @NotNull String contents, @NotNull ElementPattern<?> pattern) {
-        myFixture.configureByText(fileType, contents);
-        PsiElement psiElement = myFixture.getFile().findElementAt(myFixture.getCaretOffset());
-        if(psiElement == null) {
-            fail("Fail to find element in caret");
-        }
-
-        assertReferences(pattern, psiElement);
-    }
-
-    private void assertReferences(@NotNull ElementPattern<?> pattern, PsiElement psiElement) {
-        for (PsiReference reference : psiElement.getReferences()) {
-            // single resolve; should also match first multi by design
-            PsiElement element = reference.resolve();
-            if (pattern.accepts(element)) {
-                return;
-            }
-
-            // multiResolve support
-            if(reference instanceof PsiPolyVariantReference) {
-                for (ResolveResult resolveResult : ((PsiPolyVariantReference) reference).multiResolve(true)) {
-                    if (pattern.accepts(resolveResult.getElement())) {
-                        return;
-                    }
-                }
-            }
-        }
-
-        fail(String.format("Fail that '%s' match given pattern", psiElement.toString()));
-    }
-
-    @NotNull
-    private List<PsiElement> collectPsiElementsRecursive(@NotNull PsiElement psiElement) {
-        final List<PsiElement> elements = new ArrayList<>();
+    private List<PsiElement> collectPsiElementsRecursive(PsiElement psiElement) {
+        List<PsiElement> elements = new ArrayList<>();
         elements.add(psiElement.getContainingFile());
-
         psiElement.acceptChildren(new PsiRecursiveElementVisitor() {
             @Override
             public void visitElement(PsiElement element) {
@@ -706,172 +655,57 @@ public abstract class SymfonyLightCodeInsightFixtureTestCase extends LightJavaCo
         return elements;
     }
 
-    @NotNull
-    protected PsiElement findElementAt(@NotNull FileType fileType, @NotNull String content) {
-        myFixture.configureByText(fileType, content);
-        PsiElement psiElement = myFixture.getFile().findElementAt(myFixture.getCaretOffset());
-
-        if(psiElement == null) {
-            fail("No element at caret found");
-        }
-
-        return psiElement;
-    }
-
     public static class IndexValue {
         public interface Assert<T> {
-            boolean match(@NotNull T value);
+            boolean match(T value);
         }
     }
 
     public static class LineMarker {
         public interface Assert {
-            boolean match(@NotNull LineMarkerInfo markerInfo);
+            boolean match(LineMarkerInfo markerInfo);
         }
 
         public static class ToolTipEqualsAssert implements Assert {
-            @NotNull
-            private final String toolTip;
+            private final String myToolTip;
 
-            public ToolTipEqualsAssert(@NotNull String toolTip) {
-                this.toolTip = toolTip;
+            public ToolTipEqualsAssert(String toolTip) {
+                myToolTip = toolTip;
             }
 
             @Override
-            public boolean match(@NotNull LineMarkerInfo markerInfo) {
-                return markerInfo.getLineMarkerTooltip() != null && markerInfo.getLineMarkerTooltip().equals(toolTip);
-            }
-        }
-
-        public static class ToolTipEqualsAndFileAnchorAssert implements Assert {
-            @NotNull
-            private final String toolTip;
-            @NotNull
-            private final PsiFile psiFile;
-
-            public ToolTipEqualsAndFileAnchorAssert(@NotNull String toolTip, @NotNull PsiFile psiFile) {
-                this.toolTip = toolTip;
-                this.psiFile = psiFile;
-            }
-
-            @Override
-            public boolean match(@NotNull LineMarkerInfo markerInfo) {
-                if(markerInfo.getLineMarkerTooltip() == null || !markerInfo.getLineMarkerTooltip().equals(toolTip)) {
-                    return false;
-                }
-
-                FileLineMarkerUtil.LineMarkerAnchor expectedAnchor = FileLineMarkerUtil.getFileLineMarkerAnchor(psiFile);
-                if(markerInfo.getElement() != expectedAnchor.element() || markerInfo.startOffset != expectedAnchor.textRange().getStartOffset() || markerInfo.endOffset != expectedAnchor.textRange().getEndOffset()) {
-                    return false;
-                }
-
-                Document document = PsiDocumentManager.getInstance(psiFile.getProject()).getDocument(psiFile);
-                return document != null
-                    && markerInfo.endOffset > markerInfo.startOffset
-                    && document.getLineNumber(markerInfo.startOffset) == document.getLineNumber(markerInfo.endOffset - 1);
+            public boolean match(LineMarkerInfo markerInfo) {
+                return myToolTip.equals(markerInfo.getLineMarkerTooltip());
             }
         }
 
         public static class TargetAcceptsPattern implements Assert {
+            private final String myToolTip;
+            private final ElementPattern<? extends PsiElement> myPattern;
 
-            @NotNull
-            private final String toolTip;
-            @NotNull
-            private final ElementPattern<? extends PsiElement> pattern;
-
-            public TargetAcceptsPattern(@NotNull String toolTip, @NotNull ElementPattern<? extends PsiElement> pattern) {
-                this.toolTip = toolTip;
-                this.pattern = pattern;
+            public TargetAcceptsPattern(String toolTip, ElementPattern<? extends PsiElement> pattern) {
+                myToolTip = toolTip;
+                myPattern = pattern;
             }
 
             @Override
-            public boolean match(@NotNull LineMarkerInfo markerInfo) {
-                if(markerInfo.getLineMarkerTooltip() == null || !markerInfo.getLineMarkerTooltip().equals(toolTip)) {
+            public boolean match(LineMarkerInfo markerInfo) {
+                if (!myToolTip.equals(markerInfo.getLineMarkerTooltip()) || !(markerInfo instanceof RelatedItemLineMarkerInfo<?> relatedInfo)) {
                     return false;
                 }
-
-                if(!(markerInfo instanceof RelatedItemLineMarkerInfo)) {
-                    return false;
-                }
-
-                for (Object o : ((RelatedItemLineMarkerInfo) markerInfo).createGotoRelatedItems()) {
-                    if(o instanceof GotoRelatedItem && this.pattern.accepts(((GotoRelatedItem) o).getElement())) {
+                for (GotoRelatedItem item : relatedInfo.createGotoRelatedItems()) {
+                    if (myPattern.accepts(item.getElement())) {
                         return true;
                     }
                 }
-
                 return false;
-            }
-        }
-    }
-
-    public static class LookupElementInsert {
-        public interface Assert {
-            boolean match(@NotNull LookupElement lookupElement);
-        }
-
-        public static class Icon implements Assert {
-
-            @NotNull
-            private final javax.swing.Icon icon;
-
-            public Icon(@NotNull javax.swing.Icon icon) {
-                this.icon = icon;
-            }
-
-            @Override
-            public boolean match(@NotNull LookupElement lookupElement) {
-                LookupElementPresentation presentation = new LookupElementPresentation();
-                lookupElement.renderElement(presentation);
-                return presentation.getIcon() == this.icon;
             }
         }
     }
 
     public static class LookupElementPresentationAssert {
         public interface Assert {
-            boolean match(@NotNull LookupElementPresentation lookupElement);
-        }
-    }
-
-    private class MyLookupElementConditionalInsertRunnable implements Runnable {
-
-        @NotNull
-        private final LookupElementInsert.Assert insert;
-
-        public MyLookupElementConditionalInsertRunnable(@NotNull LookupElementInsert.Assert insert) {
-            this.insert = insert;
-        }
-
-        @Override
-        public void run() {
-            CommandProcessor.getInstance().executeCommand(getProject(), () -> {
-                final CodeCompletionHandlerBase handler = new CodeCompletionHandlerBase(CompletionType.BASIC) {
-
-                    @Override
-                    protected void completionFinished(final CompletionProgressIndicator indicator, boolean hasModifiers) {
-
-                        // find our lookup element
-                        final LookupElement lookupElement = ContainerUtil.find(
-                            indicator.getLookup().getItems(),
-                            insert::match
-                        );
-
-                        if(lookupElement == null) {
-                            fail("No matching lookup element found");
-                        }
-
-                        // overwrite behavior and force completion + insertHandler
-                        CommandProcessor.getInstance().executeCommand(indicator.getProject(), () -> {
-                            CommandProcessor.getInstance().setCurrentCommandGroupId("Completion" + indicator.hashCode());
-                            indicator.getLookup().finishLookup(Lookup.AUTO_INSERT_SELECT_CHAR, lookupElement);
-                        }, "Autocompletion", null);
-                    }
-                };
-
-                handler.invokeCompletion(getProject(), getEditor());
-                PsiDocumentManager.getInstance(getProject()).commitAllDocuments();
-            }, null, null);
+            boolean match(LookupElementPresentation lookupElement);
         }
     }
 }

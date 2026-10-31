@@ -1,15 +1,15 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.completion;
 
-import com.intellij.codeInsight.completion.CompletionParameters;
-import com.intellij.codeInsight.completion.CompletionProvider;
-import com.intellij.codeInsight.completion.CompletionResultSet;
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.codeInsight.lookup.LookupElementBuilder;
-import com.intellij.openapi.project.Project;
-import com.intellij.psi.PsiElement;
-import com.intellij.util.ProcessingContext;
 import com.jetbrains.php.lang.psi.elements.Function;
 import com.jetbrains.php.lang.psi.elements.PhpNamedElement;
+import consulo.language.editor.completion.CompletionParameters;
+import consulo.language.editor.completion.CompletionProvider;
+import consulo.language.editor.completion.CompletionResultSet;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.editor.completion.lookup.LookupElementBuilder;
+import consulo.language.psi.PsiElement;
+import consulo.language.util.ProcessingContext;
+import consulo.project.Project;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.templating.dict.TwigExtension;
@@ -20,7 +20,6 @@ import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpDocArrayShapeUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpDocArrayShapeUtil.ShapeKey;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -39,11 +38,11 @@ import java.util.regex.Pattern;
  *
  * @author Hugo Alliaume <hugo@alliau.me>
  */
-public class TwigFunctionHashCompletionProvider extends CompletionProvider<CompletionParameters> {
+public class TwigFunctionHashCompletionProvider implements CompletionProvider {
     private static final Pattern TWIG_NAME = Pattern.compile("[a-zA-Z_][a-zA-Z0-9_]*");
 
     @Override
-    protected void addCompletions(@NotNull CompletionParameters parameters, @NotNull ProcessingContext context, @NotNull CompletionResultSet resultSet) {
+    public void addCompletions(CompletionParameters parameters, ProcessingContext context, CompletionResultSet resultSet) {
         PsiElement position = parameters.getPosition();
         if (!Symfony2ProjectComponent.isEnabled(position)) {
             return;
@@ -77,7 +76,7 @@ public class TwigFunctionHashCompletionProvider extends CompletionProvider<Compl
         completionResultSet.addAllElements(lookupElements.values());
     }
 
-    private static int getParameterIndex(@NotNull TwigExtension twigExtension, int argumentIndex) {
+    private static int getParameterIndex(TwigExtension twigExtension, int argumentIndex) {
         int parameterIndex = argumentIndex;
         if ("true".equals(twigExtension.getOption("needs_environment"))) {
             parameterIndex++;
@@ -90,8 +89,7 @@ public class TwigFunctionHashCompletionProvider extends CompletionProvider<Compl
         return parameterIndex;
     }
 
-    @NotNull
-    private static List<LookupElement> createLookupElements(@NotNull Function function, int parameterIndex, @NotNull FunctionHash hash) {
+    private static List<LookupElement> createLookupElements(Function function, int parameterIndex, FunctionHash hash) {
         List<LookupElement> lookupElements = new ArrayList<>();
 
         String valueKey = hash.valueKey();
@@ -110,8 +108,7 @@ public class TwigFunctionHashCompletionProvider extends CompletionProvider<Compl
         return lookupElements;
     }
 
-    @NotNull
-    private static LookupElement createKeyLookupElement(@NotNull ShapeKey key, boolean quoted) {
+    private static LookupElement createKeyLookupElement(ShapeKey key, boolean quoted) {
         String name = key.name();
         boolean needsQuotes = !quoted && !TWIG_NAME.matcher(name).matches();
         String lookupString = needsQuotes ? "'" + name + "'" : name;

@@ -1,7 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.dic;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Collections;
 import java.util.Comparator;
@@ -53,7 +52,7 @@ public class ContainerService {
     @Nullable
     private Set<String> cachedDecorationInnerNames;
 
-    public ContainerService(@NotNull String name, @Nullable String className, @NotNull ContainerServiceMetadata metadata) {
+    public ContainerService(String name, @Nullable String className, ContainerServiceMetadata metadata) {
         this.name = name;
         this.className = className;
         addMetadata(metadata);
@@ -68,12 +67,12 @@ public class ContainerService {
         return className;
     }
 
-    public void addClassName(@NotNull String className) {
+    public void addClassName(String className) {
         this.classVariants.add(className);
         this.cachedClassNames = null;
     }
 
-    public void addMetadata(@NotNull ContainerServiceMetadata metadata) {
+    public void addMetadata(ContainerServiceMetadata metadata) {
         if (this.metadata.add(metadata)) {
             this.cachedMetadataAutowire = null;
             this.cachedMetadataAutoconfigure = null;
@@ -89,7 +88,6 @@ public class ContainerService {
         }
     }
 
-    @NotNull
     public Set<String> getClassNames() {
         if (cachedClassNames != null) {
             return cachedClassNames;
@@ -127,12 +125,10 @@ public class ContainerService {
         return cachedPrivate = metadata != null && !metadata.publicService();
     }
 
-    @NotNull
     public String getName() {
         return name;
     }
 
-    @NotNull
     public List<ContainerServiceMetadata> getMetadata() {
         return metadata.stream().sorted(METADATA_PRIORITY).toList();
     }
@@ -179,7 +175,6 @@ public class ContainerService {
         return cachedResourcePrototypeMetadata = false;
     }
 
-    @NotNull
     public Set<String> getResourceServiceIds() {
         if (cachedResourceServiceIds != null) {
             return cachedResourceServiceIds;
@@ -196,7 +191,6 @@ public class ContainerService {
         return cachedResourceServiceIds = Collections.unmodifiableSet(resourceServiceIds);
     }
 
-    @NotNull
     public Set<String> getTags() {
         if (cachedTags != null) {
             return cachedTags;
@@ -210,7 +204,6 @@ public class ContainerService {
         return cachedTags = Collections.unmodifiableSet(tags);
     }
 
-    @NotNull
     public Set<String> getParents() {
         if (cachedParents != null) {
             return cachedParents;
@@ -219,7 +212,6 @@ public class ContainerService {
         return cachedParents = collectScalarValues(ContainerServiceMetadata::parent);
     }
 
-    @NotNull
     public Set<String> getDecoratesValues() {
         if (cachedDecorates != null) {
             return cachedDecorates;
@@ -228,7 +220,6 @@ public class ContainerService {
         return cachedDecorates = collectScalarValues(ContainerServiceMetadata::decorates);
     }
 
-    @NotNull
     public Set<String> getDecorationInnerNames() {
         if (cachedDecorationInnerNames != null) {
             return cachedDecorationInnerNames;
@@ -246,7 +237,7 @@ public class ContainerService {
         return cachedDeprecated = metadata != null && metadata.deprecated();
     }
 
-    public boolean hasSourceKind(@NotNull ContainerServiceMetadata.SourceKind sourceKind) {
+    public boolean hasSourceKind(ContainerServiceMetadata.SourceKind sourceKind) {
         for (ContainerServiceMetadata containerServiceMetadata : metadata) {
             if (containerServiceMetadata.sourceKind() == sourceKind) {
                 return true;
@@ -261,8 +252,7 @@ public class ContainerService {
         return metadata.stream().min(METADATA_PRIORITY).orElse(null);
     }
 
-    @NotNull
-    private Set<String> collectScalarValues(@NotNull Function<ContainerServiceMetadata, String> extractor) {
+    private Set<String> collectScalarValues(Function<ContainerServiceMetadata, String> extractor) {
         Set<String> values = new LinkedHashSet<>();
         for (ContainerServiceMetadata containerServiceMetadata : getMetadata()) {
             String value = extractor.apply(containerServiceMetadata);

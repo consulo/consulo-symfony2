@@ -1,10 +1,9 @@
 package fr.adrienbrault.idea.symfony2plugin.util.completion;
 
-import com.intellij.codeInsight.completion.InsertHandler;
-import com.intellij.codeInsight.completion.InsertionContext;
-import com.intellij.codeInsight.lookup.LookupElement;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
-import org.jetbrains.annotations.NotNull;
+import consulo.language.editor.completion.lookup.InsertHandler;
+import consulo.language.editor.completion.lookup.InsertionContext;
+import consulo.language.editor.completion.lookup.LookupElement;
 
 /**
 * simplified PhpReferenceInsertHandler which not use trailing quote
@@ -13,7 +12,7 @@ public class PhpClassReferenceInsertHandler implements InsertHandler<LookupEleme
 
     private static final PhpClassReferenceInsertHandler instance = new PhpClassReferenceInsertHandler();
 
-    public void handleInsert(@NotNull InsertionContext context, @NotNull LookupElement lookupElement) {
+    public void handleInsert(InsertionContext context, LookupElement lookupElement) {
         Object object = lookupElement.getObject();
 
         if (!(object instanceof PhpClass aClass)) {

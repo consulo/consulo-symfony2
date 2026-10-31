@@ -1,7 +1,5 @@
 package fr.adrienbrault.idea.symfony2plugin.codeInsight;
 
-import org.jetbrains.annotations.NotNull;
-
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
@@ -10,5 +8,5 @@ public interface GotoCompletionProviderInterfaceEx extends GotoCompletionProvide
      * Extended lookup element implementation
      * allowing resultSet modification
      */
-    default void getLookupElements(@NotNull GotoCompletionProviderLookupArguments arguments) {}
+    default void getLookupElements(GotoCompletionProviderLookupArguments arguments) {}
 }

@@ -1,16 +1,13 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.dict;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class TwigMacro {
-    @NotNull
     private final String name;
 
-    @NotNull
     private final String template;
 
     @Nullable
@@ -19,12 +16,12 @@ public class TwigMacro {
     @Nullable
     private String parameter;
 
-    public TwigMacro(@NotNull String name, @NotNull String template) {
+    public TwigMacro(String name, String template) {
         this.name = name;
         this.template = template;
     }
 
-    public TwigMacro(@NotNull String name, @NotNull String template, @NotNull String originalName) {
+    public TwigMacro(String name, String template, String originalName) {
         this(name, template);
         this.originalName = originalName;
     }
@@ -34,12 +31,10 @@ public class TwigMacro {
         return originalName;
     }
 
-    @NotNull
     public String getName() {
         return name;
     }
 
-    @NotNull
     public String getTemplate() {
         return template;
     }
@@ -49,7 +44,6 @@ public class TwigMacro {
         return parameter;
     }
 
-    @NotNull
     public TwigMacro withParameter(@Nullable String parameter) {
         this.parameter = parameter;
         return this;

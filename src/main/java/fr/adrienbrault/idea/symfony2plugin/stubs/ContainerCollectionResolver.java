@@ -1,14 +1,18 @@
 package fr.adrienbrault.idea.symfony2plugin.stubs;
 
-import com.intellij.openapi.extensions.ExtensionPointName;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.Key;
-import com.intellij.psi.search.GlobalSearchScope;
-import com.intellij.psi.util.CachedValue;
-import com.intellij.psi.util.CachedValueProvider;
-import com.intellij.psi.util.CachedValuesManager;
-import com.intellij.openapi.vfs.VirtualFileManager;
-import com.intellij.util.indexing.FileBasedIndex;
+import consulo.component.extension.ExtensionPointName;
+import consulo.project.Project;
+import consulo.util.dataholder.Key;
+import consulo.language.psi.scope.GlobalSearchScope;
+import consulo.application.util.CachedValue;
+import consulo.application.util.CachedValueProvider;
+import consulo.application.util.CachedValuesManager;
+import consulo.virtualFileSystem.VirtualFileManager;
+import consulo.language.psi.stub.FileBasedIndex;
+import consulo.language.psi.PsiModificationTracker;
+import com.jetbrains.php.PhpIndex;
+import com.jetbrains.php.lang.PhpLanguage;
+import com.jetbrains.php.lang.psi.elements.PhpClass;
 import fr.adrienbrault.idea.symfony2plugin.config.component.parser.ParameterServiceParser;
 import fr.adrienbrault.idea.symfony2plugin.dic.ContainerParameter;
 import fr.adrienbrault.idea.symfony2plugin.dic.ContainerService;
@@ -25,16 +29,18 @@ import fr.adrienbrault.idea.symfony2plugin.stubs.cache.FileIndexCaches;
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.ContainerBuilderStubIndex;
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.ContainerParameterStubIndex;
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.PhpAttributeIndex;
+import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.PhpAttributeIndexUtil;
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.ServicesDefinitionStubIndex;
 import fr.adrienbrault.idea.symfony2plugin.dic.container.util.ServiceContainerUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.SymfonyVarDirectoryWatcher;
 import fr.adrienbrault.idea.symfony2plugin.util.SymfonyVarDirectoryWatcherKt;
+import fr.adrienbrault.idea.symfony2plugin.util.PhpIndexUtil;
+import fr.adrienbrault.idea.symfony2plugin.util.SymfonyUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.ServiceUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.service.ServiceXmlParserFactory;
-import com.intellij.openapi.vfs.VirtualFile;
+import consulo.virtualFileSystem.VirtualFile;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.*;
 
@@ -53,31 +59,32 @@ public class ContainerCollectionResolver {
     private static final Key<CachedValue<Map<String, ResourceBasedService>>> RESOURCE_BASED_SERVICES_CACHE = new Key<>("SYMFONY_RESOURCE_BASED_SERVICES_CACHE");
     private static final Key<CachedValue<ParameterCollector>> SYMFONY_PARAMETER_COLLECTOR_CACHE = new Key<>("SYMFONY_PARAMETER_COLLECTOR_CACHE");
     private static final Key<CachedValue<Set<String>>> EXCLUDED_CLASSES_CACHE = new Key<>("SYMFONY_EXCLUDED_CLASSES_CACHE");
+    private static final Key<CachedValue<AutoconfigurationExcludedClasses>> AUTOCONFIGURATION_EXCLUDED_CLASSES_CACHE = new Key<>("SYMFONY_AUTOCONFIGURATION_EXCLUDED_CLASSES_CACHE");
 
-    private static final ExtensionPointName<fr.adrienbrault.idea.symfony2plugin.extension.ServiceCollector> EXTENSIONS = new ExtensionPointName<>(
-        "fr.adrienbrault.idea.symfony2plugin.extension.ServiceCollector"
+    private static final ExtensionPointName<fr.adrienbrault.idea.symfony2plugin.extension.ServiceCollector> EXTENSIONS = ExtensionPointName.create(
+        fr.adrienbrault.idea.symfony2plugin.extension.ServiceCollector.class
     );
 
-    private static final ExtensionPointName<fr.adrienbrault.idea.symfony2plugin.extension.ServiceParameterCollector> EXTENSIONS_PARAMETER = new ExtensionPointName<>(
-        "fr.adrienbrault.idea.symfony2plugin.extension.ServiceParameterCollector"
+    private static final ExtensionPointName<fr.adrienbrault.idea.symfony2plugin.extension.ServiceParameterCollector> EXTENSIONS_PARAMETER = ExtensionPointName.create(
+        fr.adrienbrault.idea.symfony2plugin.extension.ServiceParameterCollector.class
     );
 
-    public static Collection<String> getServiceNames(@NotNull Project project) {
+    public static Collection<String> getServiceNames(Project project) {
         return ServiceCollector.create(project).getNames();
     }
 
-    public static boolean hasServiceName(@NotNull LazyServiceCollector lazyServiceCollector, @NotNull String serviceName) {
+    public static boolean hasServiceName(LazyServiceCollector lazyServiceCollector, String serviceName) {
         // @TODO: we dont need a collection here; stop on first match
         return lazyServiceCollector.getCollector().getNames().contains(serviceName);
     }
 
     @Nullable
-    public static ContainerService getService(@NotNull Project project, @NotNull String serviceName) {
+    public static ContainerService getService(Project project, String serviceName) {
         Map<String, ContainerService> services = getServices(project);
         return services.getOrDefault(serviceName, null);
     }
 
-    public static Map<String, ContainerService> getServices(@NotNull Project project) {
+    public static Map<String, ContainerService> getServices(Project project) {
         return ServiceCollector.create(project).getServices();
     }
 
@@ -85,8 +92,7 @@ public class ContainerCollectionResolver {
      * Collect services defined via resource patterns (e.g., "App\: resource: '../src/'").
      * These are auto-loaded services that should be available for autocompletion and type providers.
      */
-    @NotNull
-    private static Map<String, ResourceBasedService> getResourceBasedServices(@NotNull Project project) {
+    private static Map<String, ResourceBasedService> getResourceBasedServices(Project project) {
         return CachedValuesManager.getManager(project).getCachedValue(
             project,
             RESOURCE_BASED_SERVICES_CACHE,
@@ -101,8 +107,7 @@ public class ContainerCollectionResolver {
         );
     }
 
-    @NotNull
-    private static Map<String, ResourceBasedService> getResourceBasedServicesInner(@NotNull Project project) {
+    private static Map<String, ResourceBasedService> getResourceBasedServicesInner(Project project) {
         Map<String, ResourceBasedService> services = new HashMap<>();
 
         // Collect keys first to avoid nested index access inside processAllKeys
@@ -157,8 +162,7 @@ public class ContainerCollectionResolver {
         return services;
     }
 
-    @NotNull
-    private static ContainerServiceMetadata toMetadata(@NotNull ServiceInterface service, @NotNull ContainerServiceMetadata.SourceKind sourceKind) {
+    private static ContainerServiceMetadata toMetadata(ServiceInterface service, ContainerServiceMetadata.SourceKind sourceKind) {
         return new ContainerServiceMetadata(
             service.getId().endsWith("\\") ? service.getId() : null,
             service.isLazy(),
@@ -178,7 +182,7 @@ public class ContainerCollectionResolver {
         );
     }
 
-    private static void addCompiledContainerService(@NotNull Map<String, ContainerService> services, @NotNull ServiceInterface entry) {
+    private static void addCompiledContainerService(Map<String, ContainerService> services, ServiceInterface entry) {
         if (entry.getClassName() == null) {
             return;
         }
@@ -193,7 +197,7 @@ public class ContainerCollectionResolver {
     }
 
     @Nullable
-    public static String resolveService(@NotNull Project project, @NotNull String serviceName) {
+    public static String resolveService(Project project, String serviceName) {
         return ServiceCollector.create(project).resolve(serviceName);
     }
 
@@ -207,7 +211,6 @@ public class ContainerCollectionResolver {
             this.project = project;
         }
 
-        @NotNull
         public ServiceCollector getCollector() {
 
             if(this.serviceCollector == null) {
@@ -216,7 +219,6 @@ public class ContainerCollectionResolver {
 
             return this.serviceCollector;
         }
-        @NotNull
         public ParameterCollector getParameterCollector() {
 
             if(this.parameterCollector == null) {
@@ -236,25 +238,24 @@ public class ContainerCollectionResolver {
      * @return class name or unchanged item
      */
     @Nullable
-    public static String resolveParameter(@NotNull Project project, @NotNull String paramOrClassName) {
+    public static String resolveParameter(Project project, String paramOrClassName) {
         return resolveParameter(ParameterCollector.create(project), paramOrClassName);
     }
 
-    @NotNull
-    public static Map<String, ContainerParameter> getParameters(@NotNull Project project) {
+    public static Map<String, ContainerParameter> getParameters(Project project) {
         return ParameterCollector.create(project).getParameters();
     }
 
     @Nullable
-    public static String resolveParameter(@NotNull ParameterCollector parameterCollector, @NotNull String paramOrClassName) {
+    public static String resolveParameter(ParameterCollector parameterCollector, String paramOrClassName) {
         return parameterCollector.resolve(paramOrClassName);
     }
 
-    public static Set<String> getParameterNames(@NotNull Project project) {
+    public static Set<String> getParameterNames(Project project) {
         return ParameterCollector.create(project).getNames();
     }
 
-    public static boolean hasParameterName(@NotNull LazyServiceCollector lazyServiceCollector, @NotNull String parameterName) {
+    public static boolean hasParameterName(LazyServiceCollector lazyServiceCollector, String parameterName) {
         return lazyServiceCollector.getParameterCollector().getNames().contains(parameterName);
     }
 
@@ -263,8 +264,7 @@ public class ContainerCollectionResolver {
      * Get all class FQNs that have the #[Exclude] attribute (without leading backslash).
      * These classes should be excluded from service discovery.
      */
-    @NotNull
-    private static Set<String> getExcludedClasses(@NotNull Project project) {
+    private static Set<String> getExcludedClasses(Project project) {
         return CachedValuesManager.getManager(project).getCachedValue(
             project,
             EXCLUDED_CLASSES_CACHE,
@@ -295,9 +295,79 @@ public class ContainerCollectionResolver {
         );
     }
 
+    /**
+     * FrameworkBundle's Symfony 7.3+ exclusions, collected through attribute and inheritance indexes.
+     * Attribute exclusions are kept separate because container.ignore_attributes disables only those.
+     */
+    private static AutoconfigurationExcludedClasses getAutoconfigurationExcludedClasses(Project project) {
+        return CachedValuesManager.getManager(project).getCachedValue(
+            project,
+            AUTOCONFIGURATION_EXCLUDED_CLASSES_CACHE,
+            () -> {
+                Set<String> attributes = new HashSet<>();
+                for (String attribute : PhpAttributeIndex.PhpAttributeIndexer.AUTOCONFIGURATION_EXCLUDE_ATTRIBUTES) {
+                    for (PhpAttributeIndex.AttributeTarget target : PhpAttributeIndexUtil.getTargetsWithAttributeScope(project, attribute, PhpAttributeIndex.TargetScope.PHP_CLASS)) {
+                        attributes.add(target.classFqn().toLowerCase(Locale.ROOT));
+                    }
+                }
+
+                Set<String> types = new HashSet<>();
+                for (String type : List.of(
+                    "\\Symfony\\Component\\DependencyInjection\\Compiler\\CompilerPassInterface",
+                    "\\Symfony\\Component\\Validator\\Constraint",
+                    "\\PHPUnit\\Framework\\TestCase",
+                    "\\UnitEnum"
+                )) {
+                    types.add(StringUtils.stripStart(type, "\\").toLowerCase(Locale.ROOT));
+                    PhpIndexUtil.getAllSubclasses(project, type).forEach(phpClass ->
+                        types.add(StringUtils.stripStart(phpClass.getFQN(), "\\").toLowerCase(Locale.ROOT))
+                    );
+                }
+
+                return CachedValueProvider.Result.create(
+                    new AutoconfigurationExcludedClasses(Set.copyOf(attributes), Set.copyOf(types)),
+                    FileIndexCaches.getModificationTrackerForIndexId(project, PhpAttributeIndex.KEY),
+                    // TODO consulo-port: no StubIndex#getPerFileElementTypeModificationTracker / PhpFileElementType.FILE, using the php language PSI tracker
+                    PsiModificationTracker.getInstance(project).forLanguage(PhpLanguage.INSTANCE)
+                );
+            },
+            false
+        );
+    }
+
+    private record AutoconfigurationExcludedClasses(Set<String> attributes, Set<String> types) {
+        private boolean contains(Project project, ContainerService service) {
+            // The compiled container is authoritative and may retain excluded definitions in its debug dump.
+            if (service.hasSourceKind(ContainerServiceMetadata.SourceKind.COMPILED_CONTAINER)) {
+                return service.getMetadata().stream()
+                    .filter(metadata -> metadata.sourceKind() == ContainerServiceMetadata.SourceKind.COMPILED_CONTAINER)
+                    .anyMatch(metadata -> metadata.tags().contains("container.excluded"));
+            }
+
+            List<ContainerServiceMetadata> metadata = service.getMetadata();
+            if (metadata.isEmpty() || !metadata.getFirst().autoconfigure()) {
+                return false;
+            }
+
+            boolean ignoreAttributes = metadata.getFirst().tags().contains("container.ignore_attributes");
+            for (String className : service.getClassNames()) {
+                String fqn = StringUtils.stripStart(className, "\\").toLowerCase(Locale.ROOT);
+                if (types.contains(fqn) || (!ignoreAttributes && attributes.contains(fqn))) {
+                    return true;
+                }
+
+                // PHP's inheritance index does not include enums' implicit UnitEnum implementation.
+                if (PhpIndex.getInstance(project).getClassesByFQN(className).stream().anyMatch(PhpClass::isEnum)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
     public static class ServiceCollector {
 
-        @NotNull
         final private Project project;
 
         @Nullable
@@ -309,8 +379,9 @@ public class ContainerCollectionResolver {
         @Nullable
         private Set<String> serviceNamesCache;
         private Map<String, Set<String>> serviceClassNameCache;
+        private Set<String> autoconfigurationExcludedServiceNames = Collections.emptySet();
 
-        private ServiceCollector(@NotNull Project project) {
+        private ServiceCollector(Project project) {
             this.project = project;
         }
 
@@ -336,7 +407,6 @@ public class ContainerCollectionResolver {
             return null;
         }
 
-        @NotNull
         public Map<String, ContainerService> getServices() {
             if(this.servicesCache != null) {
                 return this.servicesCache;
@@ -451,11 +521,23 @@ public class ContainerCollectionResolver {
                 });
             }
 
+            if (SymfonyUtil.isVersionGreaterThenEquals(project, "7.3")) {
+                AutoconfigurationExcludedClasses autoconfigurationExclusions = getAutoconfigurationExcludedClasses(project);
+                Set<String> excludedServiceNames = new HashSet<>();
+                services.entrySet().removeIf(entry -> {
+                    if (autoconfigurationExclusions.contains(project, entry.getValue())) {
+                        excludedServiceNames.add(entry.getKey());
+                        return true;
+                    }
+                    return false;
+                });
+                this.autoconfigurationExcludedServiceNames = Set.copyOf(excludedServiceNames);
+            }
+
             return this.servicesCache = services;
         }
 
-        @NotNull
-        private Map<String, ContainerService> collectAliases(@NotNull Collection<ServiceInterface> aliases, @NotNull Map<String, ContainerService> currentServices) {
+        private Map<String, ContainerService> collectAliases(Collection<ServiceInterface> aliases, Map<String, ContainerService> currentServices) {
             Map<String, ContainerService> items = new HashMap<>();
 
             for (ServiceInterface service : aliases) {
@@ -471,8 +553,7 @@ public class ContainerCollectionResolver {
             return items;
         }
 
-        @NotNull
-        private Map<String, ContainerService> collectDecorated(@NotNull Collection<ServiceInterface> decorated, @NotNull Map<String, ContainerService> currentServices) {
+        private Map<String, ContainerService> collectDecorated(Collection<ServiceInterface> decorated, Map<String, ContainerService> currentServices) {
             Map<String, ContainerService> items = new HashMap<>();
 
             for (ServiceInterface service : decorated) {
@@ -495,7 +576,7 @@ public class ContainerCollectionResolver {
             return items;
         }
 
-        public Set<String> convertClassNameToServices(@NotNull String fqnClassName) {
+        public Set<String> convertClassNameToServices(String fqnClassName) {
             if (this.serviceClassNameCache == null) {
                 Map<String, Set<String>> result = new HashMap<>();
                 for (Map.Entry<String, ContainerService> entry: this.getServices().entrySet()) {
@@ -551,6 +632,11 @@ public class ContainerCollectionResolver {
                 serviceNames.removeAll(excludedClasses);
             }
 
+            if (SymfonyUtil.isVersionGreaterThenEquals(project, "7.3")) {
+                getServices();
+                serviceNames.removeAll(this.autoconfigurationExcludedServiceNames);
+            }
+
             return this.serviceNamesCache = serviceNames;
         }
 
@@ -559,7 +645,7 @@ public class ContainerCollectionResolver {
             return (this.parameterCollector != null) ? this.parameterCollector : (this.parameterCollector = ParameterCollector.create(this.project));
         }
 
-        public static ServiceCollector create(@NotNull Project project) {
+        public static ServiceCollector create(Project project) {
             return CachedValuesManager.getManager(project).getCachedValue(
                 project,
                 SYMFONY_SERVICE_COLLECTOR_CACHE,
@@ -568,6 +654,9 @@ public class ContainerCollectionResolver {
                     // Keep this cache tied to concrete service data sources instead of broad PSI invalidation.
                     FileIndexCaches.getModificationTrackerForIndexId(project, ServicesDefinitionStubIndex.KEY),
                     FileIndexCaches.getModificationTrackerForIndexId(project, PhpAttributeIndex.KEY),
+                    // PHP stubs include inheritance and Kernel::VERSION, both used by autoconfiguration exclusions.
+                    // TODO consulo-port: no StubIndex#getPerFileElementTypeModificationTracker / PhpFileElementType.FILE, using the php language PSI tracker
+                    PsiModificationTracker.getInstance(project).forLanguage(PhpLanguage.INSTANCE),
                     SymfonyVarDirectoryWatcherKt.getSymfonyVarDirectoryWatcher(project).getModificationTracker(SymfonyVarDirectoryWatcher.Scope.CONTAINER),
                     VirtualFileManager.VFS_STRUCTURE_MODIFICATIONS
                 ),
@@ -575,31 +664,29 @@ public class ContainerCollectionResolver {
             );
         }
 
-        @NotNull
-        private static ContainerService toContainerService(@NotNull ResourceBasedService service) {
+        private static ContainerService toContainerService(ResourceBasedService service) {
             return new ContainerService(service.id(), service.className(), service.metadata());
         }
     }
 
     private record ResourceBasedService(
-        @NotNull String id,
+        String id,
         @Nullable String className,
-        @NotNull ContainerServiceMetadata metadata
+        ContainerServiceMetadata metadata
     ) {
     }
 
     public static class ParameterCollector {
-        @NotNull
         private final Project project;
 
         @Nullable
         private Map<String, ContainerParameter> containerParameterMap;
 
-        private ParameterCollector(@NotNull Project project) {
+        private ParameterCollector(Project project) {
             this.project = project;
         }
 
-        public static ParameterCollector create(@NotNull Project project) {
+        public static ParameterCollector create(Project project) {
             return CachedValuesManager.getManager(project).getCachedValue(
                 project,
                 SYMFONY_PARAMETER_COLLECTOR_CACHE,
@@ -645,7 +732,6 @@ public class ContainerCollectionResolver {
             return paramOrClassName;
         }
 
-        @NotNull
         private Map<String, ContainerParameter> getParameters() {
             if(this.containerParameterMap != null) {
                 return this.containerParameterMap;
@@ -721,7 +807,6 @@ public class ContainerCollectionResolver {
             return this.containerParameterMap = parametersMap;
         }
 
-        @NotNull
         private Set<String> getNames() {
             return getParameters().keySet();
         }

@@ -1,6 +1,8 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.dic.container.util;
 
-import com.intellij.openapi.vfs.VirtualFile;
+import org.junit.jupiter.api.Test;
+
+import consulo.virtualFileSystem.VirtualFile;
 import fr.adrienbrault.idea.symfony2plugin.dic.container.util.ServiceContainerUtil;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
 
@@ -19,6 +21,8 @@ public class ServiceContainerUtilResourceTest extends SymfonyLightCodeInsightFix
         return "src/test/java/fr/adrienbrault/idea/symfony2plugin/tests/dic/container/util/fixtures";
     }
 
+    @Test
+
     public void testResolveBaseDirectoryFromResourcePatternSimple() {
         myFixture.copyFileToProject("resource_services.yaml", "config/services.yaml");
         myFixture.copyFileToProject("resource_FooService.php", "src/Service/FooService.php");
@@ -31,6 +35,8 @@ public class ServiceContainerUtilResourceTest extends SymfonyLightCodeInsightFix
         assertNotNull(dir);
         assertEquals("src", dir.getName());
     }
+
+    @Test
 
     public void testResolveBaseDirectoryFromResourcePatternWithGlobStar() {
         myFixture.copyFileToProject("resource_services.yaml", "config/services.yaml");
@@ -45,6 +51,8 @@ public class ServiceContainerUtilResourceTest extends SymfonyLightCodeInsightFix
         assertEquals("src", dir.getName());
     }
 
+    @Test
+
     public void testResolveBaseDirectoryFromResourcePatternWithBraceGlob() {
         myFixture.copyFileToProject("resource_services.yaml", "config/services.yaml");
         myFixture.copyFileToProject("resource_FooService.php", "src/Service/FooService.php");
@@ -58,6 +66,8 @@ public class ServiceContainerUtilResourceTest extends SymfonyLightCodeInsightFix
         assertEquals("src", dir.getName());
     }
 
+    @Test
+
     public void testResolveBaseDirectoryFromResourcePatternNonExistentReturnsNull() {
         myFixture.copyFileToProject("resource_services.yaml", "config/services.yaml");
 
@@ -68,6 +78,8 @@ public class ServiceContainerUtilResourceTest extends SymfonyLightCodeInsightFix
         VirtualFile dir = ServiceContainerUtil.resolveBaseDirectoryFromResourcePattern("../nonexistent/", configFile);
         assertNull(dir);
     }
+
+    @Test
 
     public void testGetPhpClassFromResourcesOptimizedReturnsMatchingClass() {
         myFixture.copyFileToProject("resource_services.yaml", "config/services.yaml");
@@ -87,6 +99,8 @@ public class ServiceContainerUtilResourceTest extends SymfonyLightCodeInsightFix
         assertTrue("Expected FooService to be resolved", classes.contains("\\App\\Service\\FooService"));
     }
 
+    @Test
+
     public void testGetPhpClassFromResourcesWithExactFileResource() {
         myFixture.copyFileToProject("resource_services.yaml", "config/services.yaml");
         myFixture.copyFileToProject("resource_FooService.php", "src/Service/FooService.php");
@@ -104,6 +118,8 @@ public class ServiceContainerUtilResourceTest extends SymfonyLightCodeInsightFix
 
         assertTrue("Expected FooService to be resolved for exact file resource", classes.contains("\\App\\Service\\FooService"));
     }
+
+    @Test
 
     public void testGetPhpClassFromResourcesOptimizedExcludesAbstractClass() {
         myFixture.copyFileToProject("resource_services.yaml", "config/services.yaml");
@@ -125,6 +141,8 @@ public class ServiceContainerUtilResourceTest extends SymfonyLightCodeInsightFix
         assertTrue("FooService must be included", classes.contains("\\App\\Service\\FooService"));
     }
 
+    @Test
+
     public void testGetPhpClassFromResourcesWithExcludePattern() {
         myFixture.copyFileToProject("resource_services.yaml", "config/services.yaml");
         myFixture.copyFileToProject("resource_FooService.php", "src/Service/FooService.php");
@@ -142,6 +160,8 @@ public class ServiceContainerUtilResourceTest extends SymfonyLightCodeInsightFix
 
         assertFalse("FooService must be excluded", classes.contains("\\App\\Service\\FooService"));
     }
+
+    @Test
 
     public void testGetPhpClassFromResourcesOptimizedWithMultipleResources() {
         myFixture.copyFileToProject("resource_services.yaml", "config/services.yaml");
@@ -171,6 +191,8 @@ public class ServiceContainerUtilResourceTest extends SymfonyLightCodeInsightFix
         assertTrue("BarController must be included via second resource", controllerClasses.contains("\\App\\Controller\\BarController"));
     }
 
+    @Test
+
     public void testGetPhpClassFromResourcesWithMultipleExcludes() {
         myFixture.copyFileToProject("resource_services.yaml", "config/services.yaml");
         myFixture.copyFileToProject("resource_FooService.php", "src/Service/FooService.php");
@@ -192,6 +214,8 @@ public class ServiceContainerUtilResourceTest extends SymfonyLightCodeInsightFix
         assertFalse("AbstractService must be excluded", classes.contains("App\\Service\\AbstractService"));
     }
 
+    @Test
+
     public void testGetPhpClassFromResourcesNonMatchingNamespaceReturnsEmpty() {
         myFixture.copyFileToProject("resource_services.yaml", "config/services.yaml");
         myFixture.copyFileToProject("resource_FooService.php", "src/Service/FooService.php");
@@ -209,6 +233,8 @@ public class ServiceContainerUtilResourceTest extends SymfonyLightCodeInsightFix
 
         assertTrue("No classes should match a non-existing namespace", classes.isEmpty());
     }
+
+    @Test
 
     public void testGetPhpClassFromResourcesWithPhpConfigFile() {
         myFixture.addFileToProject("config/services.php", "<?php\n" +
@@ -237,6 +263,8 @@ public class ServiceContainerUtilResourceTest extends SymfonyLightCodeInsightFix
 
         assertContainsElements(classes, "\\App\\Service\\FooService");
     }
+
+    @Test
 
     public void testGetPhpClassFromResourcesWithPhpConfigRootNamespaceDirectory() {
         myFixture.addFileToProject("config/services.php", "<?php\n" +

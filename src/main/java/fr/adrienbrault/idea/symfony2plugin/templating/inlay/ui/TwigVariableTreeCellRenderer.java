@@ -1,45 +1,35 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.inlay.ui;
 
-import com.intellij.icons.AllIcons;
-import com.intellij.ui.ColoredTreeCellRenderer;
-import com.intellij.ui.SimpleTextAttributes;
 import com.jetbrains.php.PhpIcons;
-import org.jetbrains.annotations.NotNull;
-
-import javax.swing.*;
-import javax.swing.tree.DefaultMutableTreeNode;
+import consulo.platform.base.icon.PlatformIconGroup;
+import consulo.ui.TextAttribute;
+import consulo.ui.TextItemPresentation;
+import consulo.ui.image.Image;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
-public class TwigVariableTreeCellRenderer extends ColoredTreeCellRenderer {
+public class TwigVariableTreeCellRenderer {
+    private TwigVariableTreeCellRenderer() {
+    }
 
-    @Override
-    public void customizeCellRenderer(
-        @NotNull JTree tree,
-        Object value,
-        boolean selected,
-        boolean expanded,
-        boolean leaf,
-        int row,
-        boolean hasFocus
-    ) {
-        if (!(value instanceof DefaultMutableTreeNode treeNode)) return;
-        if (!(treeNode.getUserObject() instanceof TwigVariableTreeNode node)) return;
-
-        Icon icon;
+    public static void render(TwigVariableTreeNode node, TextItemPresentation presentation) {
+        Image icon;
         if (node.isList()) {
-            icon = AllIcons.Nodes.DataTables;
-        } else if (node.isBool()) {
-            icon = AllIcons.Nodes.Variable;
-        } else if (node.isPropertyNode()) {
+            icon = PlatformIconGroup.uidesignerTable(); // TODO consulo-port: no AllIcons.Nodes.DataTables icon
+        }
+        else if (node.isBool()) {
+            icon = PlatformIconGroup.nodesVariable();
+        }
+        else if (node.isPropertyNode()) {
             icon = PhpIcons.CLASS_ATTRIBUTE;
-        } else {
+        }
+        else {
             icon = PhpIcons.CLASS;
         }
-        setIcon(icon);
+        presentation.withIcon(icon);
 
-        append(node.name(), SimpleTextAttributes.REGULAR_ATTRIBUTES);
-        append("  " + node.getTypeDisplay(), SimpleTextAttributes.GRAYED_ATTRIBUTES);
+        presentation.append(node.name(), TextAttribute.REGULAR);
+        presentation.append("  " + node.getTypeDisplay(), TextAttribute.GRAYED);
     }
 }

@@ -1,13 +1,12 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.completion;
 
-import com.intellij.codeInsight.completion.InsertionContext;
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.codeInsight.lookup.LookupElementPresentation;
-import com.intellij.openapi.editor.Editor;
-import com.intellij.openapi.editor.Document;
+import consulo.codeEditor.Editor;
+import consulo.document.Document;
+import consulo.language.editor.completion.lookup.InsertionContext;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.editor.completion.lookup.LookupElementPresentation;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Lookup element for Twig component blocks that inserts {@code <twig:block name="..."></twig:block>}
@@ -19,18 +18,18 @@ public class TwigComponentBlockLookupElement extends LookupElement {
     private final String blockName;
     private final String typeText;
 
-    public TwigComponentBlockLookupElement(@NotNull String blockName, @Nullable String typeText) {
+    public TwigComponentBlockLookupElement(String blockName, @Nullable String typeText) {
         this.blockName = blockName;
         this.typeText = typeText;
     }
 
     @Override
-    public @NotNull String getLookupString() {
+    public String getLookupString() {
         return "twig:block name=\"" + blockName + "\"";
     }
 
     @Override
-    public void renderElement(@NotNull LookupElementPresentation presentation) {
+    public void renderElement(LookupElementPresentation presentation) {
         presentation.setItemText(getLookupString());
         presentation.setIcon(Symfony2Icons.SYMFONY);
 
@@ -41,7 +40,7 @@ public class TwigComponentBlockLookupElement extends LookupElement {
     }
 
     @Override
-    public void handleInsert(@NotNull InsertionContext context) {
+    public void handleInsert(InsertionContext context) {
         Editor editor = context.getEditor();
         Document document = editor.getDocument();
 

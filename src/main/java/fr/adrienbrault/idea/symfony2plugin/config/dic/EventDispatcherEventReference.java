@@ -1,12 +1,13 @@
 package fr.adrienbrault.idea.symfony2plugin.config.dic;
 
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiElementResolveResult;
-import com.intellij.psi.PsiPolyVariantReferenceBase;
-import com.intellij.psi.ResolveResult;
+import fr.adrienbrault.idea.symfony2plugin.codeInsight.completion.SymfonyCompletionReference;
+
 import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiElementResolveResult;
+import consulo.language.psi.PsiPolyVariantReferenceBase;
+import consulo.language.psi.ResolveResult;
 import fr.adrienbrault.idea.symfony2plugin.config.EventDispatcherSubscriberUtil;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -14,21 +15,20 @@ import java.util.List;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
-public class EventDispatcherEventReference extends PsiPolyVariantReferenceBase<PsiElement> {
+public class EventDispatcherEventReference extends PsiPolyVariantReferenceBase<PsiElement> implements SymfonyCompletionReference {
 
     private final String eventName;
 
-    public EventDispatcherEventReference(@NotNull PsiElement element, String eventName) {
+    public EventDispatcherEventReference(PsiElement element, String eventName) {
         super(element);
         this.eventName = eventName;
     }
 
-    public EventDispatcherEventReference(@NotNull StringLiteralExpression element) {
+    public EventDispatcherEventReference(StringLiteralExpression element) {
         super(element);
         this.eventName = element.getContents();
     }
 
-    @NotNull
     @Override
     public ResolveResult[] multiResolve(boolean incompleteCode) {
 
@@ -41,9 +41,8 @@ public class EventDispatcherEventReference extends PsiPolyVariantReferenceBase<P
         return resolveResults.toArray(new ResolveResult[0]);
     }
 
-    @NotNull
     @Override
-    public Object[] getVariants() {
+    public Object[] getCompletionVariants() {
         return EventDispatcherSubscriberUtil.getEventNameLookupElements(getElement().getProject()).toArray();
     }
 }

@@ -1,5 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.templating;
 
+import org.junit.jupiter.api.Test;
+
 import com.jetbrains.php.lang.PhpFileType;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
 
@@ -16,6 +18,8 @@ public class PhpTemplateGlobalStringGoToDeclarationHandlerTest extends SymfonyLi
             "app/Resources/views/layout.html.twig"
         );
     }
+
+    @Test
 
     public void testTemplateGoTo() {
 

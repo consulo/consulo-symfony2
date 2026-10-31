@@ -1,27 +1,30 @@
 package fr.adrienbrault.idea.symfony2plugin.codeInspection;
 
-import com.intellij.codeInspection.ProblemDescriptor;
-import com.intellij.codeInspection.ProblemHighlightType;
-import com.intellij.codeInspection.ProblemsHolder;
-import com.intellij.openapi.project.Project;
-import com.intellij.psi.PsiElement;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
+import consulo.language.editor.inspection.ProblemDescriptor;
+import consulo.language.editor.inspection.ProblemHighlightType;
+import consulo.language.editor.inspection.ProblemsHolder;
+import consulo.language.psi.PsiElement;
+import consulo.project.Project;
 import fr.adrienbrault.idea.symfony2plugin.codeInspection.quickfix.CreateMethodQuickFix;
 import fr.adrienbrault.idea.symfony2plugin.routing.Route;
 import fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper;
 import fr.adrienbrault.idea.symfony2plugin.routing.dic.ControllerClassOnShortcutReturn;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+import java.util.Set;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class InspectionUtil {
 
-    public static void inspectController(@NotNull PsiElement psiElement, @NotNull String controllerName, @NotNull ProblemsHolder holder, final @NotNull LazyControllerNameResolve lazyControllerNameResolve) {
+    public static void inspectController(PsiElement psiElement, String controllerName, ProblemsHolder holder, final LazyControllerNameResolve lazyControllerNameResolve) {
 
         List<PsiElement> psiElements = Arrays.asList(RouteHelper.getMethodsOnControllerShortcut(psiElement.getProject(), controllerName));
         if(!psiElements.isEmpty()) {
@@ -38,7 +41,7 @@ public class InspectionUtil {
 
         final Project project = shortcutReturn.getPhpClass().getProject();
         final String finalActionName = actionName;
-        holder.registerProblem(psiElement, "Create Method", ProblemHighlightType.GENERIC_ERROR_OR_WARNING, new CreateMethodQuickFix(shortcutReturn.getPhpClass(), actionName, (@NotNull ProblemDescriptor problemDescriptor, @NotNull PhpClass phpClass, @NotNull String functionName) -> {
+        holder.registerProblem(psiElement, "Create Method", ProblemHighlightType.GENERIC_ERROR_OR_WARNING, new CreateMethodQuickFix(shortcutReturn.getPhpClass(), actionName, (ProblemDescriptor problemDescriptor, PhpClass phpClass, String functionName) -> {
 
             // attach route parameter inside method
             String parameters = "";

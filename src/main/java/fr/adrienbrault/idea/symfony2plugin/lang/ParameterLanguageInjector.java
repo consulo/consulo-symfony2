@@ -1,21 +1,23 @@
 package fr.adrienbrault.idea.symfony2plugin.lang;
 
-import com.intellij.lang.Language;
-import com.intellij.lang.injection.MultiHostInjector;
-import com.intellij.lang.injection.MultiHostRegistrar;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiLanguageInjectionHost;
-import com.jetbrains.php.lang.psi.elements.*;
-import com.jetbrains.php.lang.psi.elements.impl.StringLiteralExpressionImpl;
+import com.jetbrains.php.lang.psi.elements.AssignmentExpression;
+import com.jetbrains.php.lang.psi.elements.MethodReference;
+import com.jetbrains.php.lang.psi.elements.ParameterList;
+import com.jetbrains.php.lang.psi.elements.PhpPsiElement;
+import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
+import com.jetbrains.php.lang.psi.elements.Variable;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.Language;
+import consulo.language.inject.MultiHostInjector;
+import consulo.language.inject.MultiHostRegistrar;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiLanguageInjectionHost;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.util.MethodMatcher;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
-import java.util.Collections;
-import java.util.List;
-
+@ExtensionImpl
 public class ParameterLanguageInjector implements MultiHostInjector {
 
     private static final MethodMatcher.CallToSignature[] CSS_SELECTOR_SIGNATURES = {
@@ -57,14 +59,14 @@ public class ParameterLanguageInjector implements MultiHostInjector {
     public ParameterLanguageInjector() {
     }
 
-    @NotNull
     @Override
-    public List<? extends Class<? extends PsiElement>> elementsToInjectIn() {
-        return Collections.singletonList(StringLiteralExpressionImpl.class);
+    public Class<? extends PsiElement> getElementClass() {
+        // consulo-port: consulo-php has no StringLiteralExpressionImpl, the injector map also matches interfaces
+        return StringLiteralExpression.class;
     }
 
     @Override
-    public void getLanguagesToInject(@NotNull MultiHostRegistrar registrar, @NotNull PsiElement element) {
+    public void injectLanguages(MultiHostRegistrar registrar, PsiElement element) {
         if (!(element instanceof StringLiteralExpression) || !((PsiLanguageInjectionHost) element).isValidHost()) {
             return;
         }
@@ -72,7 +74,7 @@ public class ParameterLanguageInjector implements MultiHostInjector {
             return;
         }
 
-        final StringLiteralExpressionImpl expr = (StringLiteralExpressionImpl) element;
+        final StringLiteralExpression expr = (StringLiteralExpression) element;
 
         PsiElement parent = expr.getParent();
 
@@ -114,7 +116,7 @@ public class ParameterLanguageInjector implements MultiHostInjector {
 
     }
 
-    private void injectLanguage(@NotNull MultiHostRegistrar registrar, @NotNull StringLiteralExpressionImpl element, MethodLanguageInjection languageInjection) {
+    private void injectLanguage(MultiHostRegistrar registrar, StringLiteralExpression element, MethodLanguageInjection languageInjection) {
         Language language = languageInjection.getLanguage();
         if (language == null) {
             return;
@@ -138,8 +140,7 @@ public class ParameterLanguageInjector implements MultiHostInjector {
             this.signatures = signatures;
         }
 
-        @Nullable
-        public Language getLanguage() {
+        public @Nullable Language getLanguage() {
             return Language.findLanguageByID(this.language);
         }
 

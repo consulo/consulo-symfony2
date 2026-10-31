@@ -1,10 +1,13 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.dic;
 
-import com.intellij.codeInsight.lookup.LookupElementPresentation;
+import org.junit.jupiter.api.Test;
+
+import fr.adrienbrault.idea.symfony2plugin.tests.JUnit3Assert;
+
+import consulo.language.editor.completion.lookup.LookupElementPresentation;
 import fr.adrienbrault.idea.symfony2plugin.dic.ContainerService;
 import fr.adrienbrault.idea.symfony2plugin.dic.ContainerServiceMetadata;
 import fr.adrienbrault.idea.symfony2plugin.dic.ServiceStringLookupElement;
-import junit.framework.TestCase;
 
 import java.util.Collections;
 
@@ -12,7 +15,9 @@ import java.util.Collections;
  * @author Daniel Espendiller <daniel@espendiller.net>
  * @see fr.adrienbrault.idea.symfony2plugin.dic.ServiceStringLookupElement
  */
-public class ServiceStringLookupElementTest extends TestCase {
+public class ServiceStringLookupElementTest extends JUnit3Assert {
+
+    @Test
 
     public void testServiceLookupPresentableRendering() {
         ContainerService service = new ContainerService("foo", "DateTime", new ContainerServiceMetadata(
@@ -42,6 +47,8 @@ public class ServiceStringLookupElementTest extends TestCase {
         assertEquals("DateTime", presentation.getTypeText());
         assertTrue(presentation.isStrikeout());
     }
+
+    @Test
 
     public void testServiceLookupPresentableRenderingLegacy() {
         ServiceStringLookupElement element = new ServiceStringLookupElement(new ContainerService(

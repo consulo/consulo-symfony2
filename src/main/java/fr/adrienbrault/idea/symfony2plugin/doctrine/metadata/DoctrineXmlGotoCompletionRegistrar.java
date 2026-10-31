@@ -1,15 +1,15 @@
 package fr.adrienbrault.idea.symfony2plugin.doctrine.metadata;
 
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.patterns.XmlPatterns;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.xml.XmlAttributeValue;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiElement;
+import consulo.xml.language.psi.XmlAttributeValue;
+import consulo.xml.language.psi.pattern.XmlPatterns;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionProvider;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionRegistrar;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionRegistrarParameter;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.util.DoctrineMetadataUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -18,10 +18,11 @@ import java.util.Collections;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class DoctrineXmlGotoCompletionRegistrar implements GotoCompletionRegistrar {
 
     @Override
-    public void register(@NotNull GotoCompletionRegistrarParameter registrar) {
+    public void register(GotoCompletionRegistrarParameter registrar) {
         registrar.register(XmlPatterns.psiElement().withParent(PlatformPatterns.or(
             DoctrineMetadataPattern.getXmlModelClass(),
             DoctrineMetadataPattern.getXmlRepositoryClass(),
@@ -39,7 +40,6 @@ public class DoctrineXmlGotoCompletionRegistrar implements GotoCompletionRegistr
             super(element);
         }
 
-        @NotNull
         @Override
         public Collection<PsiElement> getPsiTargets(PsiElement element) {
             PsiElement parent = element.getParent();

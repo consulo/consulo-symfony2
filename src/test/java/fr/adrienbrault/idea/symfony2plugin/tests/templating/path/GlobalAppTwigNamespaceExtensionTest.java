@@ -1,5 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.templating.path;
 
+import org.junit.jupiter.api.Test;
+
 import fr.adrienbrault.idea.symfony2plugin.Settings;
 import fr.adrienbrault.idea.symfony2plugin.extension.TwigNamespaceExtensionParameter;
 import fr.adrienbrault.idea.symfony2plugin.templating.path.GlobalAppTwigNamespaceExtension;
@@ -14,6 +16,7 @@ import java.util.Collection;
  * @see fr.adrienbrault.idea.symfony2plugin.templating.path.GlobalAppTwigNamespaceExtension
  */
     public class GlobalAppTwigNamespaceExtensionTest extends SymfonyLightCodeInsightFixtureTestCase {
+    @Test
     public void testThatBundleNamespacesAreAdded() {
         myFixture.addFileToProject("app/Resources/views/foo.html.twig", "");
         myFixture.addFileToProject("templates/foo.html.twig", "");
@@ -32,6 +35,8 @@ import java.util.Collection;
         );
     }
 
+    @Test
+
     public void testThatCustomAppDirectoryIsSupported() {
         Settings.getInstance(getProject()).directoryToApp = "foo/app";
         myFixture.addFileToProject("foo/app/Resources/views/foo.html.twig", "");
@@ -45,6 +50,8 @@ import java.util.Collection;
         );
     }
 
+    @Test
+
     public void testThatCustomAppDirectoryIsSupportedForWindows() {
         Settings.getInstance(getProject()).directoryToApp = "foo\\app";
         myFixture.addFileToProject("foo/app/Resources/views/foo.html.twig", "");
@@ -57,6 +64,8 @@ import java.util.Collection;
             .findFirst()
         );
     }
+
+    @Test
 
     public void testThatAppDirectoryInRootIsAlwaysSupported() {
         Settings.getInstance(getProject()).directoryToApp = "foo\\app";

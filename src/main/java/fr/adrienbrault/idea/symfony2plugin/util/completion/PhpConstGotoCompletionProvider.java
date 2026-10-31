@@ -1,13 +1,5 @@
 package fr.adrienbrault.idea.symfony2plugin.util.completion;
 
-import com.intellij.codeInsight.completion.CompletionResultSet;
-import com.intellij.codeInsight.completion.CompletionUtil;
-import com.intellij.codeInsight.completion.InsertHandler;
-import com.intellij.codeInsight.completion.InsertionContext;
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.openapi.actionSystem.ActionManager;
-import com.intellij.openapi.keymap.KeymapUtil;
-import com.intellij.psi.PsiElement;
 import com.jetbrains.php.PhpBundle;
 import com.jetbrains.php.PhpIndex;
 import com.jetbrains.php.completion.PhpCompletionUtil;
@@ -17,10 +9,17 @@ import com.jetbrains.php.completion.insert.PhpInsertHandlerUtil;
 import com.jetbrains.php.lang.psi.elements.Field;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
 import com.jetbrains.php.lang.psi.elements.PhpNamedElement;
+import consulo.language.editor.completion.CompletionResultSet;
+import consulo.language.editor.completion.CompletionUtilCore;
+import consulo.language.editor.completion.lookup.InsertHandler;
+import consulo.language.editor.completion.lookup.InsertionContext;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.psi.PsiElement;
+import consulo.ui.ex.action.ActionManager;
+import consulo.ui.ex.keymap.util.KeymapUtil;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionProvider;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionProviderLookupArguments;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -33,22 +32,22 @@ public class PhpConstGotoCompletionProvider extends GotoCompletionProvider {
     private static final String[] SPECIAL_STUB_CONSTANTS = new String[]{"true", "false", "null"};
     private static final String SCOPE_OPERATOR = "::";
 
-    public PhpConstGotoCompletionProvider(@NotNull PsiElement element) {
+    public PhpConstGotoCompletionProvider(PsiElement element) {
         super(element);
     }
 
     @Override
-    public void getLookupElements(@NotNull GotoCompletionProviderLookupArguments arguments) {
+    public void getLookupElements(GotoCompletionProviderLookupArguments arguments) {
         PhpIndex phpIndex = PhpIndex.getInstance(this.getProject());
         CompletionResultSet resultSet = arguments.getResultSet();
 
         var elementText = getElement().getText();
         var scopeOperatorPos = elementText.indexOf(SCOPE_OPERATOR);
-        var cursorPos = elementText.indexOf(CompletionUtil.DUMMY_IDENTIFIER_TRIMMED);
+        var cursorPos = elementText.indexOf(CompletionUtilCore.DUMMY_IDENTIFIER_TRIMMED);
 
         // Class constants:  !php/const Foo::<caret>
         if (scopeOperatorPos > -1 && scopeOperatorPos < cursorPos) {
-            var prefix = elementText.replace(CompletionUtil.DUMMY_IDENTIFIER_TRIMMED, "");
+            var prefix = elementText.replace(CompletionUtilCore.DUMMY_IDENTIFIER_TRIMMED, "");
             var classFQN = prefix.substring(0, scopeOperatorPos);
             var phpClass = PhpElementsUtil.getClassInterface(this.getProject(), classFQN);
 
@@ -121,11 +120,11 @@ public class PhpConstGotoCompletionProvider extends GotoCompletionProvider {
 
     private static class MyPhpLookupElement extends PhpLookupElement {
 
-        MyPhpLookupElement(@NotNull PhpNamedElement namedElement) {
+        MyPhpLookupElement(PhpNamedElement namedElement) {
             super(namedElement);
         }
 
-        MyPhpLookupElement(@NotNull PhpNamedElement namedElement, @NotNull String lookupString) {
+        MyPhpLookupElement(PhpNamedElement namedElement, String lookupString) {
             super(namedElement);
             this.lookupString = lookupString;
         }
@@ -139,7 +138,7 @@ public class PhpConstGotoCompletionProvider extends GotoCompletionProvider {
     public static class PhpClassWithScopeOperatorInsertHandler extends PhpReferenceTrimBackslashInsertHandler {
         private static final PhpClassWithScopeOperatorInsertHandler instance = new PhpClassWithScopeOperatorInsertHandler();
 
-        public void handleInsert(@NotNull InsertionContext context, @NotNull LookupElement lookupElement) {
+        public void handleInsert(InsertionContext context, LookupElement lookupElement) {
             super.handleInsert(context, lookupElement);
 
             if (context.getCompletionChar() == ':') {

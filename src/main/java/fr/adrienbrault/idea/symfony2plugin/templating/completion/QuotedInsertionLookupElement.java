@@ -1,25 +1,22 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.completion;
 
-import com.intellij.codeInsight.completion.InsertionContext;
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.codeInsight.lookup.LookupElementPresentation;
-import com.intellij.psi.PsiElement;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import consulo.language.editor.completion.lookup.InsertionContext;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.editor.completion.lookup.LookupElementPresentation;
+import consulo.language.psi.PsiElement;
+import org.jspecify.annotations.Nullable;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class QuotedInsertionLookupElement extends LookupElement {
 
-    @NotNull
     private final LookupElement lookupElement;
 
-    public QuotedInsertionLookupElement(@NotNull LookupElement lookupElement) {
+    public QuotedInsertionLookupElement(LookupElement lookupElement) {
         this.lookupElement = lookupElement;
     }
 
-    @NotNull
     @Override
     public String getLookupString() {
         return this.lookupElement.getLookupString();

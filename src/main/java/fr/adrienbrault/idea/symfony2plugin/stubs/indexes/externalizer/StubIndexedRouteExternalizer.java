@@ -1,8 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.stubs.indexes.externalizer;
 
-import com.intellij.util.io.DataExternalizer;
+import consulo.index.io.data.DataExternalizer;
 import fr.adrienbrault.idea.symfony2plugin.stubs.dict.StubIndexedRoute;
-import org.jetbrains.annotations.NotNull;
 
 import java.io.DataInput;
 import java.io.DataOutput;
@@ -18,7 +17,7 @@ public class StubIndexedRouteExternalizer implements DataExternalizer<StubIndexe
     public static final StubIndexedRouteExternalizer INSTANCE = new StubIndexedRouteExternalizer();
 
     @Override
-    public void save(@NotNull DataOutput out, StubIndexedRoute value) throws IOException {
+    public void save(DataOutput out, StubIndexedRoute value) throws IOException {
         out.writeUTF(value.getName());
         writeNullableString(out, value.getController());
         writeNullableString(out, value.getPath());
@@ -30,7 +29,7 @@ public class StubIndexedRouteExternalizer implements DataExternalizer<StubIndexe
     }
 
     @Override
-    public StubIndexedRoute read(@NotNull DataInput in) throws IOException {
+    public StubIndexedRoute read(DataInput in) throws IOException {
         StubIndexedRoute route = new StubIndexedRoute(in.readUTF());
         route.setController(readNullableString(in));
         route.setPath(readNullableString(in));
@@ -43,14 +42,14 @@ public class StubIndexedRouteExternalizer implements DataExternalizer<StubIndexe
         return route;
     }
 
-    private static void writeNullableString(@NotNull DataOutput out, String value) throws IOException {
+    private static void writeNullableString(DataOutput out, String value) throws IOException {
         out.writeBoolean(value != null);
         if (value != null) {
             out.writeUTF(value);
         }
     }
 
-    private static String readNullableString(@NotNull DataInput in) throws IOException {
+    private static String readNullableString(DataInput in) throws IOException {
         return in.readBoolean() ? in.readUTF() : null;
     }
 }

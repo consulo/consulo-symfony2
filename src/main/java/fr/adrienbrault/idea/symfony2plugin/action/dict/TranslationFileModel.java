@@ -1,10 +1,10 @@
 package fr.adrienbrault.idea.symfony2plugin.action.dict;
 
-import com.intellij.openapi.vfs.VfsUtil;
-import com.intellij.psi.PsiFile;
+import consulo.language.psi.PsiFile;
+import consulo.virtualFileSystem.util.VirtualFileUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.ProjectUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.SymfonyBundle;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -14,7 +14,7 @@ public class TranslationFileModel {
     final private PsiFile psiFile;
     private int weight = 0;
     private boolean enabled = false;
-    private SymfonyBundle symfonyBundle;
+    private @Nullable SymfonyBundle symfonyBundle;
     private boolean boldness = false;
 
     public TranslationFileModel(PsiFile psiFile) {
@@ -33,9 +33,8 @@ public class TranslationFileModel {
         this.weight += weight;
     }
 
-    @Nullable
-    public String getRelativePath() {
-        return VfsUtil.getRelativePath(psiFile.getVirtualFile(), ProjectUtil.getProjectDir(psiFile), '/');
+    public @Nullable String getRelativePath() {
+        return VirtualFileUtil.getRelativePath(psiFile.getVirtualFile(), ProjectUtil.getProjectDir(psiFile), '/');
     }
 
     public String getDomain() {
@@ -56,8 +55,7 @@ public class TranslationFileModel {
         return enabled;
     }
 
-    @Nullable
-    public SymfonyBundle getSymfonyBundle() {
+    public @Nullable SymfonyBundle getSymfonyBundle() {
         return symfonyBundle;
     }
 

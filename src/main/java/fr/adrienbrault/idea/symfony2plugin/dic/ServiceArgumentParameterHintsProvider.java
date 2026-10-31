@@ -1,20 +1,24 @@
 package fr.adrienbrault.idea.symfony2plugin.dic;
 
-import com.intellij.codeInsight.hints.HintInfo;
-import com.intellij.codeInsight.hints.InlayInfo;
-import com.intellij.codeInsight.hints.InlayParameterHintsProvider;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.Pair;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.xml.XmlAttribute;
-import com.intellij.psi.xml.XmlAttributeValue;
-import com.intellij.psi.xml.XmlTag;
-import com.intellij.psi.xml.XmlText;
 import com.jetbrains.php.lang.psi.elements.Function;
 import com.jetbrains.php.lang.psi.elements.Method;
 import com.jetbrains.php.lang.psi.elements.Parameter;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
 import com.jetbrains.php.lang.psi.resolve.types.PhpType;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.Language;
+import consulo.language.editor.inlay.HintInfo;
+import consulo.language.editor.inlay.InlayInfo;
+import consulo.language.editor.inlay.InlayParameterHintsProvider;
+import consulo.language.psi.PsiElement;
+import consulo.localize.LocalizeValue;
+import consulo.project.Project;
+import consulo.util.lang.Pair;
+import consulo.xml.language.XMLLanguage;
+import consulo.xml.language.psi.XmlAttribute;
+import consulo.xml.language.psi.XmlAttributeValue;
+import consulo.xml.language.psi.XmlTag;
+import consulo.xml.language.psi.XmlText;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.config.xml.XmlHelper;
 import fr.adrienbrault.idea.symfony2plugin.dic.container.dict.ServiceTypeHint;
@@ -24,8 +28,7 @@ import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.ServiceUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.jetbrains.yaml.psi.YAMLScalar;
 
 import java.util.ArrayList;
@@ -36,8 +39,8 @@ import java.util.Set;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class ServiceArgumentParameterHintsProvider implements InlayParameterHintsProvider {
-    @NotNull
     @Override
     public List<InlayInfo> getParameterHints(PsiElement psiElement) {
         if(!Symfony2ProjectComponent.isEnabled(psiElement)) {
@@ -60,20 +63,29 @@ public class ServiceArgumentParameterHintsProvider implements InlayParameterHint
         return null;
     }
 
-    @NotNull
     @Override
     public Set<String> getDefaultBlackList() {
         return Collections.emptySet();
     }
 
     @Override
-    public String getInlayPresentation(@NotNull String inlayText) {
+    public String getInlayPresentation(String inlayText) {
         // remove ":"
         return inlayText;
     }
+
+    @Override
+    public LocalizeValue getPreviewFileText() {
+        return LocalizeValue.empty();
+    }
+
+    @Override
+    public Language getLanguage() {
+        return XMLLanguage.INSTANCE;
+    }
     
     @Nullable
-    private Match getTypeHint(@NotNull PsiElement psiElement) {
+    private Match getTypeHint(PsiElement psiElement) {
         if(psiElement instanceof YAMLScalar) {
             // arguments: [@foobar]
             ServiceTypeHint serviceTypeHint = ServiceContainerUtil.getYamlConstructorTypeHint(
@@ -154,7 +166,7 @@ public class ServiceArgumentParameterHintsProvider implements InlayParameterHint
     }
 
     @Nullable
-    private Pair<String, Method> getParamater(@NotNull Project project, @NotNull String aClass, @NotNull java.util.function.Function<Void, Integer> function) {
+    private Pair<String, Method> getParamater(Project project, String aClass, java.util.function.Function<Void, Integer> function) {
         if(StringUtils.isNotBlank(aClass)) {
             PhpClass phpClass = ServiceUtil.getResolvedClassDefinition(project, aClass);
             if(phpClass != null) {
@@ -177,7 +189,7 @@ public class ServiceArgumentParameterHintsProvider implements InlayParameterHint
     }
 
     @Nullable
-    private Pair<String, Method> findMethodParameterHint(@NotNull XmlTag argumentTag) {
+    private Pair<String, Method> findMethodParameterHint(XmlTag argumentTag) {
         PsiElement serviceTag = argumentTag.getParent();
         if("service".equalsIgnoreCase(((XmlTag) serviceTag).getName())) {
             String aClass = XmlHelper.getClassFromServiceDefinition((XmlTag) serviceTag);
@@ -190,7 +202,7 @@ public class ServiceArgumentParameterHintsProvider implements InlayParameterHint
     }
 
     @Nullable
-    private String attachMethodInstances(@NotNull Function function, int parameterIndex) {
+    private String attachMethodInstances(Function function, int parameterIndex) {
         Parameter[] constructorParameter = function.getParameters();
         if(parameterIndex >= constructorParameter.length) {
             return null;
@@ -201,8 +213,7 @@ public class ServiceArgumentParameterHintsProvider implements InlayParameterHint
         return createTypeHintFromParameter(function.getProject(), parameter);
     }
 
-    @NotNull
-    private String createTypeHintFromParameter(@NotNull Project project, Parameter parameter) {
+    private String createTypeHintFromParameter(Project project, Parameter parameter) {
         String className = parameter.getDeclaredType().toString();
         if(PhpType.isNotExtendablePrimitiveType(className)) {
             return parameter.getName();
@@ -221,5 +232,5 @@ public class ServiceArgumentParameterHintsProvider implements InlayParameterHint
         return parameter.getName();
     }
 
-    private record Match(@NotNull String parameter, int targetOffset) {}
+    private record Match(String parameter, int targetOffset) {}
 }

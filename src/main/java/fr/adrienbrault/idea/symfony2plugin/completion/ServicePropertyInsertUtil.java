@@ -1,9 +1,9 @@
 package fr.adrienbrault.idea.symfony2plugin.completion;
 
-import com.intellij.application.options.CodeStyle;
-import com.intellij.codeInsight.completion.PrefixMatcher;
-import com.intellij.openapi.project.Project;
-import com.intellij.psi.PsiElement;
+import consulo.language.codeStyle.CodeStyle;
+import consulo.application.util.matcher.PrefixMatcher;
+import consulo.project.Project;
+import consulo.language.psi.PsiElement;
 import com.jetbrains.php.PhpIndex;
 import com.jetbrains.php.config.PhpLanguageFeature;
 import com.jetbrains.php.config.PhpLanguageLevel;
@@ -22,8 +22,7 @@ import com.jetbrains.php.refactoring.changeSignature.PhpParameterInfo;
 import com.jetbrains.php.refactoring.introduce.introduceField.PhpIntroduceFieldHandler;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -36,11 +35,11 @@ import static fr.adrienbrault.idea.symfony2plugin.util.StringUtils.*;
 public class ServicePropertyInsertUtil {
     private static final String[] CLASS_TYPE_NAMES = {"interface", "abstract", "decorator"};
 
-    public static List<String> getInjectionService(@NotNull Project project, @NotNull String propertyNameFind) {
+    public static List<String> getInjectionService(Project project, String propertyNameFind) {
         return getInjectionService(project, propertyNameFind, null);
     }
 
-    public static List<String> getInjectionService(@NotNull Project project, @NotNull String propertyNameFindRaw, @Nullable String methodName) {
+    public static List<String> getInjectionService(Project project, String propertyNameFindRaw, @Nullable String methodName) {
         // @TODO: fill this list based on project usage
 
         final Set<String> propertyNameFind = new HashSet<>();
@@ -175,7 +174,7 @@ public class ServicePropertyInsertUtil {
         }
 
         @Override
-        public boolean prefixMatches(@NotNull String fqn) {
+        public boolean prefixMatches(String fqn) {
             if (fqn.contains("\\") && fqn.toLowerCase().contains("\\test\\")) {
                 return false;
             }
@@ -188,7 +187,7 @@ public class ServicePropertyInsertUtil {
         }
 
         @Override
-        public @NotNull PrefixMatcher cloneWithPrefix(@NotNull String prefix) {
+        public PrefixMatcher cloneWithPrefix(String prefix) {
             return new NonGarbageClassPrefixMatcher();
         }
     }
@@ -197,7 +196,7 @@ public class ServicePropertyInsertUtil {
         private final String fqn;
         private int weight = 0;
 
-        public Match(@NotNull String fqn, int weight) {
+        public Match(String fqn, int weight) {
             this.fqn = fqn;
             this.modifyWeight(weight);
         }
@@ -207,12 +206,12 @@ public class ServicePropertyInsertUtil {
         }
     }
 
-    private static boolean hasMethodMatch(@NotNull String methodName, Collection<PhpClass> anyByFQN) {
+    private static boolean hasMethodMatch(String methodName, Collection<PhpClass> anyByFQN) {
         return anyByFQN.stream()
             .anyMatch(phpClass -> phpClass.findMethodByName(methodName) != null);
     }
 
-    private static String normalizeClassTypeKeywords(@NotNull String classPropertyName) {
+    private static String normalizeClassTypeKeywords(String classPropertyName) {
         classPropertyName = classPropertyName.replaceAll("_", "").toLowerCase();
 
         for (String replace : CLASS_TYPE_NAMES) {
@@ -223,7 +222,7 @@ public class ServicePropertyInsertUtil {
         return classPropertyName;
     }
 
-    public static void appendPropertyInjection(@NotNull PhpClass phpClass, @NotNull String propertyName, @NotNull String typePhpClass) {
+    public static void appendPropertyInjection(PhpClass phpClass, String propertyName, String typePhpClass) {
         Method constructor = PhpIntroduceFieldHandler.getOrCreateConstructor(phpClass);
         if (constructor == null) {
             return;
@@ -264,13 +263,13 @@ public class ServicePropertyInsertUtil {
         }
     }
 
-    private static void addParameterAfter(@NotNull Function function, @NotNull Parameter parameter, @NotNull Parameter parameterToInsertAfter) {
+    private static void addParameterAfter(Function function, Parameter parameter, Parameter parameterToInsertAfter) {
         PsiElement parameterList = PhpPsiUtil.getChildOfType(function, PhpElementTypes.PARAMETER_LIST);
         assert parameterList != null;
         parameterList.addAfter(parameter, parameterList.addAfter(PhpPsiElementFactory.createComma(parameterList.getProject()), parameterToInsertAfter));
     }
 
-    public static boolean shouldUsePropertyPromotion(@NotNull Function function) {
+    public static boolean shouldUsePropertyPromotion(Function function) {
         Parameter[] parameters = function.getParameters();
         if (parameters.length == 0) {
             return PhpLanguageLevel.current(function.getProject()).hasFeature(PhpLanguageFeature.PROPERTY_PROMOTION);

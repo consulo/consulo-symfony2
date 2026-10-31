@@ -1,22 +1,21 @@
 package fr.adrienbrault.idea.symfony2plugin.completion;
 
-import com.intellij.codeInsight.completion.InsertHandler;
-import com.intellij.codeInsight.completion.InsertionContext;
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.openapi.editor.Document;
-import com.intellij.openapi.editor.Editor;
-import com.intellij.openapi.project.Project;
-import com.intellij.psi.PsiDocumentManager;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.util.PsiTreeUtil;
+import consulo.language.editor.completion.lookup.InsertHandler;
+import consulo.language.editor.completion.lookup.InsertionContext;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.document.Document;
+import consulo.codeEditor.Editor;
+import consulo.project.Project;
+import consulo.language.psi.PsiDocumentManager;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.util.PsiTreeUtil;
 import com.jetbrains.php.codeInsight.PhpCodeInsightUtil;
 import com.jetbrains.php.lang.psi.elements.*;
 import fr.adrienbrault.idea.symfony2plugin.util.CodeUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpIndexUtil;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Collection;
 import java.util.Map;
@@ -36,13 +35,13 @@ import java.util.Objects;
  *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
-public record PhpDoctrineAttributeInsertHandler(@NotNull String attributeFqn, @NotNull String shortClassName)
+public record PhpDoctrineAttributeInsertHandler(String attributeFqn, String shortClassName)
     implements InsertHandler<LookupElement> {
 
     private static final String DOCTRINE_MAPPING_NAMESPACE = "\\Doctrine\\ORM\\Mapping";
 
     @Override
-    public void handleInsert(@NotNull InsertionContext context, @NotNull LookupElement item) {
+    public void handleInsert(InsertionContext context, LookupElement item) {
         Editor editor = context.getEditor();
         Document document = editor.getDocument();
         Project project = context.getProject();
@@ -188,7 +187,7 @@ public record PhpDoctrineAttributeInsertHandler(@NotNull String attributeFqn, @N
      *
      * @return The alias to use (e.g., "ORM", "DoctrineORM"), or null for direct class import
      */
-    private static String findDoctrineOrmAliasInNamespaceScope(@NotNull PhpClass currentPhpClass) {
+    private static String findDoctrineOrmAliasInNamespaceScope(PhpClass currentPhpClass) {
         String fqn = currentPhpClass.getFQN();
         String namespacePrefix = fqn.substring(0, fqn.lastIndexOf("\\"));
 
@@ -219,7 +218,7 @@ public record PhpDoctrineAttributeInsertHandler(@NotNull String attributeFqn, @N
      *
      * @return The alias used (e.g., "ORM", "DoctrineORM"), or null if no alias found
      */
-    private static String getOrmAttributeAlias(@NotNull PhpClass phpClass) {
+    private static String getOrmAttributeAlias(PhpClass phpClass) {
         // Check use statements to see if there's an alias for Doctrine\ORM\Mapping
         PhpPsiElement scopeForUseOperator = PhpCodeInsightUtil.findScopeForUseOperator(phpClass);
         if (scopeForUseOperator != null) {
@@ -239,7 +238,7 @@ public record PhpDoctrineAttributeInsertHandler(@NotNull String attributeFqn, @N
      *
      * @return true if the class has any Doctrine ORM attribute on class, fields, or methods
      */
-    private static boolean hasDoctrineOrmAttribute(@NotNull PhpClass phpClass) {
+    private static boolean hasDoctrineOrmAttribute(PhpClass phpClass) {
         // Check class-level attributes
         if (hasDoctrineOrmAttributeInCollection(phpClass.getAttributes())) {
             return true;
@@ -267,7 +266,7 @@ public record PhpDoctrineAttributeInsertHandler(@NotNull String attributeFqn, @N
      *
      * @return true if any attribute is from Doctrine\ORM\Mapping namespace
      */
-    private static boolean hasDoctrineOrmAttributeInCollection(@NotNull Collection<PhpAttribute> attributes) {
+    private static boolean hasDoctrineOrmAttributeInCollection(Collection<PhpAttribute> attributes) {
         if (attributes.isEmpty()) {
             return false;
         }

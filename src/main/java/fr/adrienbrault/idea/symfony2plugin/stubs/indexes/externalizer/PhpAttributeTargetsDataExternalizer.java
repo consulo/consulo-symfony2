@@ -1,9 +1,8 @@
 package fr.adrienbrault.idea.symfony2plugin.stubs.indexes.externalizer;
 
-import com.intellij.util.io.DataExternalizer;
-import com.intellij.util.io.EnumeratorStringDescriptor;
+import consulo.index.io.data.DataExternalizer;
+import consulo.index.io.EnumeratorStringDescriptor;
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.PhpAttributeIndex;
-import org.jetbrains.annotations.NotNull;
 
 import java.io.DataInput;
 import java.io.DataOutput;
@@ -19,7 +18,7 @@ public class PhpAttributeTargetsDataExternalizer implements DataExternalizer<Lis
     public static final PhpAttributeTargetsDataExternalizer INSTANCE = new PhpAttributeTargetsDataExternalizer();
 
     @Override
-    public synchronized void save(@NotNull DataOutput out, List<PhpAttributeIndex.AttributeTarget> value) throws IOException {
+    public synchronized void save(DataOutput out, List<PhpAttributeIndex.AttributeTarget> value) throws IOException {
         out.writeInt(value.size());
 
         for (PhpAttributeIndex.AttributeTarget target : value) {
@@ -38,7 +37,7 @@ public class PhpAttributeTargetsDataExternalizer implements DataExternalizer<Lis
     }
 
     @Override
-    public synchronized List<PhpAttributeIndex.AttributeTarget> read(@NotNull DataInput in) throws IOException {
+    public synchronized List<PhpAttributeIndex.AttributeTarget> read(DataInput in) throws IOException {
         List<PhpAttributeIndex.AttributeTarget> targets = new ArrayList<>();
 
         for (int i = in.readInt(); i > 0; --i) {

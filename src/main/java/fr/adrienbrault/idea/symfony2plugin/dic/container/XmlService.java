@@ -1,8 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.dic.container;
 
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
@@ -18,7 +17,6 @@ import java.util.Set;
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class XmlService implements ServiceInterface {
-    @NotNull
     final private String id;
 
     @Nullable
@@ -38,12 +36,11 @@ public class XmlService implements ServiceInterface {
 
     private Collection<String> tags;
 
-    private XmlService(@NotNull String id) {
+    private XmlService(String id) {
         this.id = id;
         this.tags = Collections.emptyList();
     }
 
-    @NotNull
     @Override
     public String getId() {
         return id;
@@ -109,26 +106,23 @@ public class XmlService implements ServiceInterface {
         return decorationInnerName;
     }
 
-    @NotNull
     @Override
     public Collection<String> getResource() {
         return Collections.emptyList();
     }
 
-    @NotNull
     @Override
     public Collection<String> getExclude() {
         return Collections.emptyList();
     }
 
-    @NotNull
     @Override
     public Collection<String> getTags() {
         return this.tags;
     }
 
     @Nullable
-    public static XmlService createFromXml(@NotNull Element node) {
+    public static XmlService createFromXml(Element node) {
         // empty id does not interest us
         String id = node.getAttribute("id");
         if(StringUtils.isBlank(id)) {
@@ -212,8 +206,7 @@ public class XmlService implements ServiceInterface {
         return xmlService;
     }
 
-    @NotNull
-    public static XmlService create(@NotNull String id, @NotNull String className, boolean isPublic, boolean lazy, boolean anAbstract, boolean autowire, boolean autoconfigure) {
+    public static XmlService create(String id, String className, boolean isPublic, boolean lazy, boolean anAbstract, boolean autowire, boolean autoconfigure) {
         XmlService xmlService = new XmlService(id);
 
         xmlService.className = className;

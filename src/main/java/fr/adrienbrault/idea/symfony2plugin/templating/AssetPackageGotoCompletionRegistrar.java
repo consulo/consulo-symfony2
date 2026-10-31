@@ -1,14 +1,15 @@
 package fr.adrienbrault.idea.symfony2plugin.templating;
 
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.codeInsight.lookup.LookupElementBuilder;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiManager;
-import com.intellij.util.PlatformIcons;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.editor.completion.lookup.LookupElementBuilder;
+import consulo.project.Project;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiManager;
+import consulo.platform.base.icon.PlatformIconGroup;
 import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
+import consulo.annotation.component.ExtensionImpl;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.asset.AssetDirectoryReader;
 import fr.adrienbrault.idea.symfony2plugin.asset.AssetFile;
@@ -23,7 +24,6 @@ import fr.adrienbrault.idea.symfony2plugin.util.MethodMatcher;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.service.ServiceXmlParserFactory;
 import org.apache.commons.lang3.ArrayUtils;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -38,9 +38,10 @@ import java.util.HashSet;
  *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class AssetPackageGotoCompletionRegistrar implements GotoCompletionRegistrar {
     @Override
-    public void register(@NotNull GotoCompletionRegistrarParameter registrar) {
+    public void register(GotoCompletionRegistrarParameter registrar) {
         registrar.register(
             PlatformPatterns.psiElement().withParent(PhpElementsUtil.getMethodWithFirstStringOrNamedArgumentPattern()), psiElement -> {
                 PsiElement context = psiElement.getContext();
@@ -70,7 +71,6 @@ public class AssetPackageGotoCompletionRegistrar implements GotoCompletionRegist
             super(element);
         }
 
-        @NotNull
         @Override
         public Collection<LookupElement> getLookupElements() {
             Project project = this.getProject();
@@ -85,13 +85,12 @@ public class AssetPackageGotoCompletionRegistrar implements GotoCompletionRegist
 
             TwigNamedAssetsServiceParser twigPathServiceParser = ServiceXmlParserFactory.getInstance(project, TwigNamedAssetsServiceParser.class);
             for (String s : twigPathServiceParser.getNamedAssets().keySet()) {
-                items.add(LookupElementBuilder.create("@" + s).withIcon(PlatformIcons.FOLDER_ICON).withTypeText("Custom Assets", true));
+                items.add(LookupElementBuilder.create("@" + s).withIcon(PlatformIconGroup.nodesFolder()).withTypeText("Custom Assets", true));
             }
 
             return items;
         }
 
-        @NotNull
         @Override
         public Collection<PsiElement> getPsiTargets(PsiElement element) {
             String contents = GotoCompletionUtil.getTextValueForElement(element);

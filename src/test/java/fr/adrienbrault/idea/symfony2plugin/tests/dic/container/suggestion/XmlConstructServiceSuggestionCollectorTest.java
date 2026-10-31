@@ -1,6 +1,8 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.dic.container.suggestion;
 
-import com.intellij.ide.highlighter.XmlFileType;
+import org.junit.jupiter.api.Test;
+
+import consulo.xml.language.XmlFileType;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
 
 /**
@@ -18,6 +20,8 @@ public class XmlConstructServiceSuggestionCollectorTest extends SymfonyLightCode
     public String getTestDataPath() {
         return "src/test/java/fr/adrienbrault/idea/symfony2plugin/tests/dic/container/suggestion/fixtures";
     }
+
+    @Test
 
     public void testServiceSuggestionForCallArguments() {
         assertCompletionLookupContainsPresentableItem(XmlFileType.INSTANCE, "" +

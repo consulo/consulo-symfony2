@@ -1,25 +1,24 @@
 package fr.adrienbrault.idea.symfony2plugin.stubs.indexes.visitor;
 
-import com.intellij.patterns.ElementPattern;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.util.PsiTreeUtil;
-import com.intellij.util.containers.ContainerUtil;
 import com.jetbrains.php.lang.documentation.phpdoc.PhpDocUtil;
 import com.jetbrains.php.lang.documentation.phpdoc.parser.PhpDocElementTypes;
 import com.jetbrains.php.lang.documentation.phpdoc.psi.PhpDocComment;
 import com.jetbrains.php.lang.documentation.phpdoc.psi.tags.PhpDocTag;
 import com.jetbrains.php.lang.psi.elements.*;
+import consulo.language.pattern.ElementPattern;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.util.PsiTreeUtil;
+import consulo.util.collection.ContainerUtil;
 import de.espend.idea.php.annotation.util.AnnotationUtil;
 import fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper;
 import fr.adrienbrault.idea.symfony2plugin.stubs.dict.StubIndexedRoute;
 import fr.adrienbrault.idea.symfony2plugin.util.AnnotationBackportUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpPsiAttributesUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
-import kotlin.Pair;
+import consulo.util.lang.Pair;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.*;
 import java.util.function.Consumer;
@@ -32,29 +31,27 @@ import java.util.regex.Pattern;
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class AnnotationRouteElementVisitor {
-    @NotNull
     private final Map<String, StubIndexedRoute> map;
 
     @Nullable
     private Map<String, String> fileImports;
 
-    @NotNull
     private final Consumer<Pair<String, PsiElement>> consumer;
 
     @Nullable
     private ElementPattern<PsiElement> phpDocAttributeListPattern;
 
-    public AnnotationRouteElementVisitor(@NotNull Consumer<Pair<String, PsiElement>> consumer) {
+    public AnnotationRouteElementVisitor(Consumer<Pair<String, PsiElement>> consumer) {
         this.consumer = consumer;
         this.map = new HashMap<>();
     }
 
-    public AnnotationRouteElementVisitor(@NotNull Map<String, StubIndexedRoute> map) {
+    public AnnotationRouteElementVisitor(Map<String, StubIndexedRoute> map) {
         this.map = map;
         this.consumer = c -> {};
     }
 
-    public void visitFile(@NotNull PhpClass phpClass) {
+    public void visitFile(PhpClass phpClass) {
         for (Method method : phpClass.getOwnMethods()) {
             PhpDocComment docComment = method.getDocComment();
             if (docComment != null) {
@@ -74,7 +71,7 @@ public class AnnotationRouteElementVisitor {
         }
     }
 
-    private void visitPhpDocTag(@NotNull PhpDocTag phpDocTag) {
+    private void visitPhpDocTag(PhpDocTag phpDocTag) {
 
         // "@var" and user non-related tags don't need an action
         if(AnnotationBackportUtil.NON_ANNOTATION_TAGS.contains(phpDocTag.getName())) {
@@ -139,7 +136,7 @@ public class AnnotationRouteElementVisitor {
         }
     }
 
-    private void visitPhpAttributesList(@NotNull PhpAttributesList phpAttributesList, @NotNull Method method, @NotNull PhpClass phpClass, boolean classLevel) {
+    private void visitPhpAttributesList(PhpAttributesList phpAttributesList, Method method, PhpClass phpClass, boolean classLevel) {
         PsiElement parent = phpAttributesList.getParent();
 
         // prefix on class scope
@@ -216,7 +213,7 @@ public class AnnotationRouteElementVisitor {
      * Extract route name of parent class "@Route(name="foo_")"
      */
     @Nullable
-    private String getRouteNamePrefix(@NotNull PhpDocTag phpDocTag) {
+    private String getRouteNamePrefix(PhpDocTag phpDocTag) {
         PhpClass phpClass = PsiTreeUtil.getParentOfType(phpDocTag, PhpClass.class);
         if (phpClass == null) {
             return null;
@@ -245,7 +242,7 @@ public class AnnotationRouteElementVisitor {
         return null;
     }
 
-    private void extractMethods(@NotNull PhpDocTag phpDocTag, @NotNull StubIndexedRoute route) {
+    private void extractMethods(PhpDocTag phpDocTag, StubIndexedRoute route) {
         PsiElement phpDoc = phpDocTag.getParent();
         if(!(phpDoc instanceof PhpDocComment)) {
             return;
@@ -283,13 +280,11 @@ public class AnnotationRouteElementVisitor {
     }
 
 
-    @NotNull
     private ElementPattern<PsiElement> getPhpDocAttributeListPattern() {
         return phpDocAttributeListPattern != null ? phpDocAttributeListPattern : (phpDocAttributeListPattern = PlatformPatterns.psiElement(PhpDocElementTypes.phpDocAttributeList));
     }
 
-    @NotNull
-    private Map<String, String> getFileImports(@NotNull PhpDocTag phpDocTag) {
+    private Map<String, String> getFileImports(PhpDocTag phpDocTag) {
         return fileImports != null ? fileImports : (fileImports = AnnotationBackportUtil.getUseImportMap(phpDocTag));
     }
 
@@ -297,7 +292,7 @@ public class AnnotationRouteElementVisitor {
      * FooController::fooAction
      */
     @Nullable
-    private String getController(@NotNull PhpDocTag phpDocTag) {
+    private String getController(PhpDocTag phpDocTag) {
         Method method = AnnotationBackportUtil.getMethodScope(phpDocTag);
         if(method == null) {
             return null;
@@ -310,7 +305,7 @@ public class AnnotationRouteElementVisitor {
      * FooController::fooAction
      */
     @Nullable
-    private String getController(@NotNull Method method) {
+    private String getController(Method method) {
         PhpClass containingClass = method.getContainingClass();
         if(containingClass == null) {
             return null;
@@ -323,7 +318,7 @@ public class AnnotationRouteElementVisitor {
         );
     }
 
-    private String getController(@NotNull PhpClass phpClass) {
+    private String getController(PhpClass phpClass) {
         if(phpClass.findOwnMethodByName("__invoke") == null) {
             return null;
         }
@@ -336,7 +331,7 @@ public class AnnotationRouteElementVisitor {
     }
 
     @Nullable
-    private String getClassRoutePattern(@NotNull PhpDocTag phpDocTag) {
+    private String getClassRoutePattern(PhpDocTag phpDocTag) {
         PhpClass phpClass = PsiTreeUtil.getParentOfType(phpDocTag, PhpClass.class);
         if(phpClass == null) {
             return null;

@@ -1,7 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.dic.container;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Collection;
 
@@ -10,7 +9,6 @@ import java.util.Collection;
  */
 public interface ServiceInterface {
 
-    @NotNull
     String getId();
 
     @Nullable
@@ -40,12 +38,9 @@ public interface ServiceInterface {
     @Nullable
     String getDecorationInnerName();
 
-    @NotNull
     Collection<String> getResource();
 
-    @NotNull
     Collection<String> getExclude();
 
-    @NotNull
     Collection<String> getTags();
 }

@@ -1,6 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.completion.constant;
 
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -30,8 +30,7 @@ public class EnumConstantFilter {
         return field;
     }
 
-    @Nullable
-    public String[] getStringValues() {
+    public String @Nullable [] getStringValues() {
         return stringValues;
     }
 

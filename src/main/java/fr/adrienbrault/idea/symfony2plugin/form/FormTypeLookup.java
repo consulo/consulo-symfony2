@@ -1,10 +1,9 @@
 package fr.adrienbrault.idea.symfony2plugin.form;
 
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.codeInsight.lookup.LookupElementPresentation;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.editor.completion.lookup.LookupElementPresentation;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -20,7 +19,6 @@ public class FormTypeLookup extends LookupElement {
         this.name = name;
     }
 
-    @NotNull
     @Override
     public String getLookupString() {
         return name;

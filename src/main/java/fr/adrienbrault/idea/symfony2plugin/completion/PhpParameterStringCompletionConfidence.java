@@ -1,25 +1,26 @@
 package fr.adrienbrault.idea.symfony2plugin.completion;
 
-import com.intellij.codeInsight.completion.CompletionConfidence;
-import com.intellij.openapi.editor.Editor;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.util.ThreeState;
+import com.jetbrains.php.lang.PhpLanguage;
 import com.jetbrains.php.lang.psi.PhpFile;
 import com.jetbrains.php.lang.psi.elements.*;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.Language;
+import consulo.language.editor.completion.CompletionConfidence;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.util.lang.ThreeState;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl(id = "asTrue") // upstream order="first": plain first is rejected for plugins; no PHP confidence to precede
 public class PhpParameterStringCompletionConfidence extends CompletionConfidence {
 
-    @NotNull
     @Override
-    public ThreeState shouldSkipAutopopup(@NotNull Editor editor, @NotNull PsiElement contextElement, @NotNull PsiFile psiFile, int offset) {
+    public ThreeState shouldSkipAutopopup(PsiElement contextElement, PsiFile psiFile, int offset) {
         if (!Symfony2ProjectComponent.isEnabled(contextElement)) {
             return ThreeState.UNSURE;
         }
@@ -56,5 +57,10 @@ public class PhpParameterStringCompletionConfidence extends CompletionConfidence
         }
 
         return ThreeState.UNSURE;
+    }
+
+    @Override
+    public Language getLanguage() {
+        return PhpLanguage.INSTANCE;
     }
 }

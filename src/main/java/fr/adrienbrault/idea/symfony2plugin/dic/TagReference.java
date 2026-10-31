@@ -1,19 +1,20 @@
 package fr.adrienbrault.idea.symfony2plugin.dic;
 
-import com.intellij.openapi.project.DumbService;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiElementResolveResult;
-import com.intellij.psi.PsiPolyVariantReferenceBase;
-import com.intellij.psi.ResolveResult;
+import fr.adrienbrault.idea.symfony2plugin.codeInsight.completion.SymfonyCompletionReference;
+
+import consulo.project.DumbService;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiElementResolveResult;
+import consulo.language.psi.PsiPolyVariantReferenceBase;
+import consulo.language.psi.ResolveResult;
 import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
 import fr.adrienbrault.idea.symfony2plugin.util.completion.TagNameCompletionProvider;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.ServiceUtil;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
-public class TagReference extends PsiPolyVariantReferenceBase<PsiElement> {
+public class TagReference extends PsiPolyVariantReferenceBase<PsiElement> implements SymfonyCompletionReference {
 
     private final String tagName;
 
@@ -22,12 +23,11 @@ public class TagReference extends PsiPolyVariantReferenceBase<PsiElement> {
         this.tagName = tagName;
     }
 
-    public TagReference(@NotNull StringLiteralExpression element) {
+    public TagReference(StringLiteralExpression element) {
         super(element);
         tagName = element.getContents();
     }
 
-    @NotNull
     @Override
     public ResolveResult[] multiResolve(boolean incompleteCode) {
         if (DumbService.isDumb(getElement().getProject())) {
@@ -36,9 +36,8 @@ public class TagReference extends PsiPolyVariantReferenceBase<PsiElement> {
         return PsiElementResolveResult.createResults(ServiceUtil.getTaggedClasses(getElement().getProject(), this.tagName));
     }
 
-    @NotNull
     @Override
-    public Object[] getVariants() {
+    public Object[] getCompletionVariants() {
         if (DumbService.isDumb(getElement().getProject())) {
             return new Object[0];
         }

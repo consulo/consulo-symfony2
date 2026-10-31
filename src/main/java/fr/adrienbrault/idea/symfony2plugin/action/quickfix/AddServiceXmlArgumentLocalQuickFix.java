@@ -1,12 +1,12 @@
 package fr.adrienbrault.idea.symfony2plugin.action.quickfix;
 
-import com.intellij.codeInspection.LocalQuickFix;
-import com.intellij.codeInspection.ProblemDescriptor;
-import com.intellij.openapi.project.Project;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.xml.XmlTag;
+import consulo.language.editor.inspection.LocalQuickFix;
+import consulo.language.editor.inspection.ProblemDescriptor;
+import consulo.language.psi.PsiElement;
+import consulo.localize.LocalizeValue;
+import consulo.project.Project;
+import consulo.xml.language.psi.XmlTag;
 import fr.adrienbrault.idea.symfony2plugin.action.ServiceActionUtil;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 
@@ -21,20 +21,13 @@ public class AddServiceXmlArgumentLocalQuickFix implements LocalQuickFix {
         this.args = args;
     }
 
-    @NotNull
     @Override
-    public String getName() {
-        return "Symfony: missing argument";
-    }
-
-    @NotNull
-    @Override
-    public String getFamilyName() {
-        return "Symfony";
+    public LocalizeValue getName() {
+        return LocalizeValue.localizeTODO("Symfony: missing argument");
     }
 
     @Override
-    public void applyFix(final @NotNull Project project, @NotNull ProblemDescriptor problemDescriptor) {
+    public void applyFix(final Project project, ProblemDescriptor problemDescriptor) {
 
         final PsiElement parent = problemDescriptor.getPsiElement().getParent();
         if(!(parent instanceof XmlTag)) {

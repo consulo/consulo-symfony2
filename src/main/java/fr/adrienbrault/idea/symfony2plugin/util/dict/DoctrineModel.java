@@ -1,8 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.util.dict;
 
 import com.jetbrains.php.lang.psi.elements.PhpClass;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -13,37 +12,33 @@ public class DoctrineModel {
     private String doctrineNamespace;
     private String doctrineShortcut = null;
 
-    public DoctrineModel(@NotNull PhpClass phpClass) {
+    public DoctrineModel(PhpClass phpClass) {
         this.phpClass = phpClass;
     }
 
-    public DoctrineModel(@NotNull PhpClass phpClass, @Nullable String doctrineShortcut) {
+    public DoctrineModel(PhpClass phpClass, @Nullable String doctrineShortcut) {
         this.phpClass = phpClass;
         this.doctrineShortcut = doctrineShortcut;
     }
 
-    public DoctrineModel(@NotNull PhpClass phpClass, @Nullable String doctrineShortcut, @Nullable String doctrineNamespace) {
+    public DoctrineModel(PhpClass phpClass, @Nullable String doctrineShortcut, @Nullable String doctrineNamespace) {
         this(phpClass, doctrineShortcut);
         this.doctrineNamespace = doctrineNamespace;
     }
 
-    @Nullable
-    public String getDoctrineShortcut() {
+    public @Nullable String getDoctrineShortcut() {
         return doctrineShortcut;
     }
 
-    @NotNull
     public PhpClass getPhpClass() {
         return phpClass;
     }
 
-    @Nullable
-    public String getDoctrineNamespace() {
+    public @Nullable String getDoctrineNamespace() {
         return doctrineNamespace;
     }
 
-    @Nullable
-    public String getRepositoryName() {
+    public @Nullable String getRepositoryName() {
 
         String className = phpClass.getPresentableFQN();
         if(doctrineShortcut == null) {

@@ -1,8 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.dic.attribute.value;
 
-import com.intellij.psi.PsiElement;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import consulo.language.psi.PsiElement;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Collection;
 
@@ -12,23 +11,20 @@ import java.util.Collection;
 public interface AttributeValueInterface {
 
     @Nullable
-    String getString(@NotNull String key);
+    String getString(String key);
 
-    @NotNull
-    Collection<String> getStringArray(@NotNull String key);
-
-    @Nullable
-    Boolean getBoolean(@NotNull String key);
+    Collection<String> getStringArray(String key);
 
     @Nullable
-    String getString(@NotNull String key, @Nullable String defaultValue);
+    Boolean getBoolean(String key);
 
     @Nullable
-    Boolean getBoolean(@NotNull String key, @Nullable Boolean defaultValue);
+    String getString(String key, @Nullable String defaultValue);
 
-    @NotNull
+    @Nullable
+    Boolean getBoolean(String key, @Nullable Boolean defaultValue);
+
     Collection<String> getTags();
 
-    @NotNull
     PsiElement getPsiElement();
 }

@@ -1,14 +1,13 @@
 package fr.adrienbrault.idea.symfony2plugin.config.component;
 
-import com.intellij.codeInsight.completion.InsertHandler;
-import com.intellij.codeInsight.completion.InsertionContext;
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.codeInsight.lookup.LookupElementPresentation;
+import consulo.language.editor.completion.lookup.InsertHandler;
+import consulo.language.editor.completion.lookup.InsertionContext;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.editor.completion.lookup.LookupElementPresentation;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
 import fr.adrienbrault.idea.symfony2plugin.dic.ContainerParameter;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -19,17 +18,16 @@ public class ParameterLookupElement extends LookupElement {
     protected InsertHandler<LookupElement> insertHandler = null;
     protected final ContainerParameter containerParameter;
 
-    public ParameterLookupElement(@NotNull ContainerParameter containerParameter) {
+    public ParameterLookupElement(ContainerParameter containerParameter) {
         this.containerParameter = containerParameter;
     }
 
-    public ParameterLookupElement(@NotNull ContainerParameter containerParameter, @Nullable InsertHandler<LookupElement> insertHandler, @Nullable Object psiElement) {
+    public ParameterLookupElement(ContainerParameter containerParameter, @Nullable InsertHandler<LookupElement> insertHandler, @Nullable Object psiElement) {
         this.insertHandler = insertHandler;
         this.psiElement = psiElement;
         this.containerParameter = containerParameter;
     }
 
-    @NotNull
     @Override
     public Object getObject() {
         return this.psiElement != null ? this.psiElement : this;
@@ -41,7 +39,6 @@ public class ParameterLookupElement extends LookupElement {
         }
     }
 
-    @NotNull
     @Override
     public String getLookupString() {
         return containerParameter.getName();

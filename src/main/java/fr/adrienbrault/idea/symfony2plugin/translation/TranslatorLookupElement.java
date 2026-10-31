@@ -1,21 +1,18 @@
 package fr.adrienbrault.idea.symfony2plugin.translation;
 
-import com.intellij.codeInsight.completion.InsertHandler;
-import com.intellij.codeInsight.completion.InsertionContext;
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.codeInsight.lookup.LookupElementPresentation;
+import consulo.language.editor.completion.lookup.InsertHandler;
+import consulo.language.editor.completion.lookup.InsertionContext;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.editor.completion.lookup.LookupElementPresentation;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class TranslatorLookupElement extends LookupElement {
-    @NotNull
     private final String translationString;
 
-    @NotNull
     private final String domain;
 
     @Nullable
@@ -23,23 +20,22 @@ public class TranslatorLookupElement extends LookupElement {
 
     private boolean isWeak;
 
-    public TranslatorLookupElement(@NotNull String translationString, @NotNull String domain) {
+    public TranslatorLookupElement(String translationString, String domain) {
         this.translationString = translationString;
         this.domain = domain;
     }
 
-    public TranslatorLookupElement(@NotNull String translationString, @NotNull String domain, @NotNull InsertHandler<TranslatorLookupElement> insertHandler) {
+    public TranslatorLookupElement(String translationString, String domain, InsertHandler<TranslatorLookupElement> insertHandler) {
         this.translationString = translationString;
         this.domain = domain;
         this.insertHandler = insertHandler;
     }
 
-    public TranslatorLookupElement(@NotNull String translationString, @NotNull String domain, boolean isWeak) {
+    public TranslatorLookupElement(String translationString, String domain, boolean isWeak) {
         this(translationString, domain);
         this.isWeak = isWeak;
     }
 
-    @NotNull
     @Override
     public String getLookupString() {
         return translationString;
@@ -64,7 +60,6 @@ public class TranslatorLookupElement extends LookupElement {
         }
     }
 
-    @NotNull
     public String getDomain() {
         return domain;
     }

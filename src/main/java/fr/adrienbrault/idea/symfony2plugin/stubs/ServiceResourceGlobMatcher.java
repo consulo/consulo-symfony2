@@ -1,10 +1,9 @@
 package fr.adrienbrault.idea.symfony2plugin.stubs;
 
-import com.intellij.openapi.util.io.FileUtil;
-import com.intellij.openapi.vfs.VirtualFile;
+import consulo.util.io.FileUtil;
+import consulo.virtualFileSystem.VirtualFile;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -27,16 +26,15 @@ public class ServiceResourceGlobMatcher {
     private final List<Pattern> resourceMatchers;
     private final List<Pattern> excludeMatchers;
 
-    private ServiceResourceGlobMatcher(@NotNull List<Pattern> resourceMatchers, @NotNull List<Pattern> excludeMatchers) {
+    private ServiceResourceGlobMatcher(List<Pattern> resourceMatchers, List<Pattern> excludeMatchers) {
         this.resourceMatchers = resourceMatchers;
         this.excludeMatchers = excludeMatchers;
     }
 
-    @NotNull
     public static ServiceResourceGlobMatcher create(
-        @NotNull VirtualFile serviceFileAsBase,
-        @NotNull Collection<String> resources,
-        @NotNull Collection<String> excludes
+        VirtualFile serviceFileAsBase,
+        Collection<String> resources,
+        Collection<String> excludes
     ) {
         return new ServiceResourceGlobMatcher(
             compileMatchers(serviceFileAsBase, resources),
@@ -47,7 +45,7 @@ public class ServiceResourceGlobMatcher {
     /**
      * Matches a candidate class file against the compiled resource patterns and excludes.
      */
-    public boolean matches(@NotNull VirtualFile phpClassFile) {
+    public boolean matches(VirtualFile phpClassFile) {
         if (this.resourceMatchers.isEmpty()) {
             return false;
         }
@@ -65,8 +63,7 @@ public class ServiceResourceGlobMatcher {
     /**
      * Compiles all non-blank resource or exclude patterns relative to the service file.
      */
-    @NotNull
-    private static List<Pattern> compileMatchers(@NotNull VirtualFile serviceFileAsBase, @NotNull Collection<String> patterns) {
+    private static List<Pattern> compileMatchers(VirtualFile serviceFileAsBase, Collection<String> patterns) {
         List<Pattern> matchers = new ArrayList<>();
 
         for (String pattern : patterns.stream().filter(StringUtils::isNoneBlank).toList()) {
@@ -84,7 +81,7 @@ public class ServiceResourceGlobMatcher {
      * Uses IntelliJ Ant conversion for simple patterns and falls back to the Symfony-aware converter otherwise.
      */
     @Nullable
-    private static Pattern compileMatcher(@NotNull VirtualFile serviceFileAsBase, @NotNull String pattern) {
+    private static Pattern compileMatcher(VirtualFile serviceFileAsBase, String pattern) {
         String matcherPatternPath = resolveMatcherPatternPath(serviceFileAsBase, pattern);
         if (matcherPatternPath == null) {
             return null;
@@ -113,7 +110,7 @@ public class ServiceResourceGlobMatcher {
      * Expands a resource pattern relative to the service file and preserves the previous recursive-directory semantics.
      */
     @Nullable
-    private static String resolveMatcherPatternPath(@NotNull VirtualFile serviceFileAsBase, @NotNull String pattern) {
+    private static String resolveMatcherPatternPath(VirtualFile serviceFileAsBase, String pattern) {
         String normalizedPath = pattern.replace("\\\\", "/");
 
         VirtualFile serviceFile = serviceFileAsBase.getParent();
@@ -148,7 +145,7 @@ public class ServiceResourceGlobMatcher {
     /**
      * Converts the supported Symfony glob subset to a regex body.
      */
-    private static boolean appendGlobRegex(@NotNull String pattern, @NotNull StringBuilder regex) {
+    private static boolean appendGlobRegex(String pattern, StringBuilder regex) {
         // Supports the Symfony patterns used here: *, **, ?, and simple {a,b} groups.
         for (int i = 0; i < pattern.length(); i++) {
             char c = pattern.charAt(i);
@@ -204,14 +201,14 @@ public class ServiceResourceGlobMatcher {
      * Detects patterns that can be delegated to IntelliJ's Ant-pattern conversion without changing semantics.
      * Brace groups and recursive wildcards stay on the custom conversion path.
      */
-    private static boolean isAntSafePattern(@NotNull String pattern) {
+    private static boolean isAntSafePattern(String pattern) {
         return !pattern.contains("{") && !pattern.contains("}") && !pattern.contains("**");
     }
 
     /**
      * Finds the closing brace for a simple top-level "{a,b}" group.
      */
-    private static int findClosingBrace(@NotNull String pattern, int start) {
+    private static int findClosingBrace(String pattern, int start) {
         for (int i = start + 1; i < pattern.length(); i++) {
             char c = pattern.charAt(i);
             if (c == '{') {
@@ -229,7 +226,7 @@ public class ServiceResourceGlobMatcher {
     /**
      * Escapes regex metacharacters while keeping path separators normalized to '/'.
      */
-    private static void appendEscapedChar(@NotNull StringBuilder regex, char c) {
+    private static void appendEscapedChar(StringBuilder regex, char c) {
         if ("\\.[]{}()+-^$|".indexOf(c) >= 0) {
             regex.append("\\");
         }
@@ -240,8 +237,7 @@ public class ServiceResourceGlobMatcher {
     /**
      * Normalizes path separators to the VFS-style '/' form used by the matcher.
      */
-    @NotNull
-    private static String normalizePath(@NotNull String path) {
+    private static String normalizePath(String path) {
         return path.replace('\\', '/');
     }
 }

@@ -1,11 +1,16 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.util;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.Key;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.util.*;
+import consulo.project.Project;
+import consulo.util.dataholder.Key;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.application.util.CachedValue;
+import consulo.application.util.CachedValueProvider;
+import consulo.application.util.CachedValuesManager;
+import consulo.language.psi.PsiModificationTracker;
+import consulo.language.psi.util.LanguageCachedValueUtil;
+import consulo.language.psi.util.PsiTreeUtil;
 import com.jetbrains.php.PhpIcons;
 import com.jetbrains.php.PhpIndex;
 import com.jetbrains.php.lang.PhpLanguage;
@@ -19,10 +24,9 @@ import fr.adrienbrault.idea.symfony2plugin.templating.dict.TwigExtension;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import consulo.ui.image.Image;
+import org.jspecify.annotations.Nullable;
 
-import javax.swing.*;
 import java.util.*;
 
 /**
@@ -45,8 +49,7 @@ public class TwigExtensionParser  {
         FUNCTION_METHOD, FUNCTION_NODE, SIMPLE_FUNCTION, FILTER, SIMPLE_TEST, OPERATOR
     }
 
-    @NotNull
-    public static Map<String, TwigExtension> getFunctions(@NotNull Project project) {
+    public static Map<String, TwigExtension> getFunctions(Project project) {
         return CachedValuesManager.getManager(project).getCachedValue(
             project,
             FUNCTION_CACHE,
@@ -55,8 +58,7 @@ public class TwigExtensionParser  {
         );
     }
 
-    @NotNull
-    public static Map<String, TwigExtension> getFilters(@NotNull Project project) {
+    public static Map<String, TwigExtension> getFilters(Project project) {
         return CachedValuesManager.getManager(project).getCachedValue(
             project,
             FILTERS_CACHE,
@@ -65,8 +67,7 @@ public class TwigExtensionParser  {
         );
     }
 
-    @NotNull
-    public static Map<String, TwigExtension> getSimpleTest(@NotNull Project project) {
+    public static Map<String, TwigExtension> getSimpleTest(Project project) {
         return CachedValuesManager.getManager(project).getCachedValue(
             project,
             TEST_CACHE,
@@ -75,8 +76,7 @@ public class TwigExtensionParser  {
         );
     }
 
-    @NotNull
-    public static Map<String, TwigExtension> getOperators(@NotNull Project project) {
+    public static Map<String, TwigExtension> getOperators(Project project) {
         return CachedValuesManager.getManager(project).getCachedValue(
             project,
             OPERATORS_CACHE,
@@ -85,8 +85,7 @@ public class TwigExtensionParser  {
         );
     }
 
-    @NotNull
-    private static Set<PsiFile> collectPhpFiles(@NotNull Collection<PhpClass> phpClasses) {
+    private static Set<PsiFile> collectPhpFiles(Collection<PhpClass> phpClasses) {
         Set<PsiFile> files = new HashSet<>();
         for (PhpClass phpClass : phpClasses) {
             PsiFile file = phpClass.getContainingFile();
@@ -97,13 +96,12 @@ public class TwigExtensionParser  {
         return files;
     }
 
-    @NotNull
-    private static Map<String, TwigExtension> parseFilters(@NotNull Project project, @NotNull Collection<PhpClass> phpClasses) {
+    private static Map<String, TwigExtension> parseFilters(Project project, Collection<PhpClass> phpClasses) {
         Map<String, TwigExtension> extensions = new HashMap<>();
 
         // Parse each file (cached per file for filters only)
         for (PsiFile file : collectPhpFiles(phpClasses)) {
-            Map<String, TwigExtension> fileExtensions = CachedValuesManager.getCachedValue(file, FILE_FILTERS_CACHE, () -> {
+            Map<String, TwigExtension> fileExtensions = LanguageCachedValueUtil.getCachedValue(file, FILE_FILTERS_CACHE, () -> {
                 Map<String, TwigExtension> result = new HashMap<>();
                 // Resolve classes fresh from file inside cache provider
                 for (PhpClass phpClass : PhpPsiUtil.findAllClasses((PhpFile) file)) {
@@ -141,13 +139,12 @@ public class TwigExtensionParser  {
         return Collections.unmodifiableMap(extensions);
     }
 
-    @NotNull
-    private static Map<String, TwigExtension> parseFunctions(@NotNull Project project, @NotNull Collection<PhpClass> phpClasses) {
+    private static Map<String, TwigExtension> parseFunctions(Project project, Collection<PhpClass> phpClasses) {
         Map<String, TwigExtension> extensions = new HashMap<>();
 
         // Parse each file (cached per file for functions only)
         for (PsiFile file : collectPhpFiles(phpClasses)) {
-            Map<String, TwigExtension> fileExtensions = CachedValuesManager.getCachedValue(file, FILE_FUNCTIONS_CACHE, () -> {
+            Map<String, TwigExtension> fileExtensions = LanguageCachedValueUtil.getCachedValue(file, FILE_FUNCTIONS_CACHE, () -> {
                 Map<String, TwigExtension> result = new HashMap<>();
                 // Resolve classes fresh from file inside cache provider
                 for (PhpClass phpClass : PhpPsiUtil.findAllClasses((PhpFile) file)) {
@@ -185,13 +182,12 @@ public class TwigExtensionParser  {
         return Collections.unmodifiableMap(extensions);
     }
 
-    @NotNull
-    private static Map<String, TwigExtension> parseTests(@NotNull Project project, @NotNull Collection<PhpClass> phpClasses) {
+    private static Map<String, TwigExtension> parseTests(Project project, Collection<PhpClass> phpClasses) {
         Map<String, TwigExtension> extensions = new HashMap<>();
 
         // Parse each file (cached per file for tests only)
         for (PsiFile file : collectPhpFiles(phpClasses)) {
-            Map<String, TwigExtension> fileExtensions = CachedValuesManager.getCachedValue(file, FILE_TESTS_CACHE, () -> {
+            Map<String, TwigExtension> fileExtensions = LanguageCachedValueUtil.getCachedValue(file, FILE_TESTS_CACHE, () -> {
                 Map<String, TwigExtension> result = new HashMap<>();
                 // Resolve classes fresh from file inside cache provider
                 for (PhpClass phpClass : PhpPsiUtil.findAllClasses((PhpFile) file)) {
@@ -226,13 +222,12 @@ public class TwigExtensionParser  {
         return Collections.unmodifiableMap(extensions);
     }
 
-    @NotNull
-    private static Map<String, TwigExtension> parseOperators(@NotNull Project project, @NotNull Collection<PhpClass> phpClasses) {
+    private static Map<String, TwigExtension> parseOperators(Project project, Collection<PhpClass> phpClasses) {
         Map<String, TwigExtension> extensions = new HashMap<>();
 
         // Parse each file (cached per file for operators only)
         for (PsiFile file : collectPhpFiles(phpClasses)) {
-            Map<String, TwigExtension> fileExtensions = CachedValuesManager.getCachedValue(file, FILE_OPERATORS_CACHE, () -> {
+            Map<String, TwigExtension> fileExtensions = LanguageCachedValueUtil.getCachedValue(file, FILE_OPERATORS_CACHE, () -> {
                 Map<String, TwigExtension> result = new HashMap<>();
                 // Resolve classes fresh from file inside cache provider
                 for (PhpClass phpClass : PhpPsiUtil.findAllClasses((PhpFile) file)) {
@@ -346,8 +341,7 @@ public class TwigExtensionParser  {
         return String.format("#M#C\\%s.%s", StringUtils.stripStart(nodeClass, "\\"), "compile");
     }
 
-    @NotNull
-    private static Collection<String> getReturnClassTypes(@NotNull Project project, @Nullable String signature) {
+    private static Collection<String> getReturnClassTypes(Project project, @Nullable String signature) {
         if (signature == null) {
             return Collections.emptySet();
         }
@@ -372,7 +366,7 @@ public class TwigExtensionParser  {
      * new BinaryOperatorExpressionParser(BitwiseOrBinary::class, 'b-or', 16)
      * new UnaryOperatorExpressionParser(NotUnary::class, 'not', 70)
      */
-    private static void parseExpressionParsers(@NotNull Method method, @NotNull Map<String, TwigExtension> operators) {
+    private static void parseExpressionParsers(Method method, Map<String, TwigExtension> operators) {
         for (NewExpression newExpression : PhpElementsUtil.collectNewExpressionsInsideControlFlow(method)) {
             int aliasIndex;
             if (PhpElementsUtil.isNewExpressionPhpClassWithInstance(newExpression, "Twig\\ExpressionParser\\Infix\\BinaryOperatorExpressionParser")) {
@@ -400,7 +394,7 @@ public class TwigExtensionParser  {
      * Parses aliases from named or positional arguments:
      * new BinaryOperatorExpressionParser(ElvisBinary::class, '?:', 5, aliases: ['? :'])
      */
-    private static void addExpressionParserAliases(@NotNull Map<String, TwigExtension> operators, @NotNull PsiElement[] parameters, int positionalAliasIndex) {
+    private static void addExpressionParserAliases(Map<String, TwigExtension> operators, PsiElement[] parameters, int positionalAliasIndex) {
         PsiElement aliases = PsiElementUtils.getParameterOrNamedArgument(parameters, "aliases", positionalAliasIndex);
 
         if (aliases instanceof ArrayCreationExpression arrayCreationExpression) {
@@ -412,7 +406,7 @@ public class TwigExtensionParser  {
         }
     }
 
-    private static void parseOperators(@NotNull Method method, @NotNull Map<String, TwigExtension> filters) {
+    private static void parseOperators(Method method, Map<String, TwigExtension> filters) {
         final PhpClass containingClass = method.getContainingClass();
         if (containingClass == null) {
             return;
@@ -465,8 +459,7 @@ public class TwigExtensionParser  {
         }
     }
 
-    @NotNull
-    public static Icon getIcon(@NotNull TwigExtensionType twigExtensionType) {
+    public static Image getIcon(TwigExtensionType twigExtensionType) {
         if (twigExtensionType == TwigExtensionType.FUNCTION_NODE) {
             return PhpIcons.CONSTRUCTOR;
         }
@@ -495,7 +488,7 @@ public class TwigExtensionParser  {
     }
 
     @Nullable
-    public static PsiElement getExtensionTarget(@NotNull Project project, @NotNull TwigExtension twigExtension) {
+    public static PsiElement getExtensionTarget(Project project, TwigExtension twigExtension) {
         String signature = twigExtension.getSignature();
         if (signature == null) {
             return null;
@@ -510,7 +503,7 @@ public class TwigExtensionParser  {
     }
 
     private static class TwigFilterVisitor {
-        private static void visitNewExpression(@NotNull NewExpression element, @NotNull Method method, @NotNull Map<String, TwigExtension> filters, @NotNull PhpClass containingClass) {
+        private static void visitNewExpression(NewExpression element, Method method, Map<String, TwigExtension> filters, PhpClass containingClass) {
             // new \Twig_SimpleFilter('url', array($this, 'getUrl'), array('is_safe_callback' => array($this, 'isUrlGenerationSafe'))),
             if (PhpElementsUtil.isNewExpressionPhpClassWithInstance(element, "Twig_SimpleFilter", "Twig_Filter", "Twig\\TwigFilter")) {
                 PsiElement[] psiElement = element.getParameters();
@@ -600,7 +593,7 @@ public class TwigExtensionParser  {
     /**
      * Add needs_environment, needs_context values to twig extension object
      */
-    static private Map<String, String> getOptions(@NotNull ArrayCreationExpression arrayCreationExpression) {
+    static private Map<String, String> getOptions(ArrayCreationExpression arrayCreationExpression) {
         Map<String, String> options = new HashMap<>();
 
         for (String optionTrue: new String[] {"needs_environment", "needs_context", "parser_callable", "deprecation_info", "deprecated"}) {
@@ -626,7 +619,7 @@ public class TwigExtensionParser  {
     }
 
     private static class TwigFunctionVisitor {
-        private static void visitNewExpression(@NotNull NewExpression element, @NotNull Method method, @NotNull Map<String, TwigExtension> filters, @NotNull PhpClass containingClass) {
+        private static void visitNewExpression(NewExpression element, Method method, Map<String, TwigExtension> filters, PhpClass containingClass) {
 
             // new \Twig_SimpleFunction('url', array($this, 'getUrl'), array('is_safe_callback' => array($this, 'isUrlGenerationSafe'))),
             if (PhpElementsUtil.isNewExpressionPhpClassWithInstance(element, "Twig_SimpleFunction", "Twig_Function", "Twig\\TwigFunction")) {
@@ -725,7 +718,7 @@ public class TwigExtensionParser  {
     }
 
     private static class TwigSimpleTestVisitor {
-        private static void visitNewExpression(@NotNull NewExpression element, @NotNull Map<String, TwigExtension> filters) {
+        private static void visitNewExpression(NewExpression element, Map<String, TwigExtension> filters) {
             // new Twig_SimpleTest('even', null, array('node_class' => 'Twig_Node_Expression_Test_Even')),
             if (PhpElementsUtil.isNewExpressionPhpClassWithInstance(element, "Twig_SimpleTest", "Twig_Test", "Twig\\TwigTest")) {
                 PsiElement[] psiElement = element.getParameters();

@@ -1,11 +1,12 @@
 package fr.adrienbrault.idea.symfony2plugin.security;
 
-import com.intellij.codeInsight.completion.CompletionResultSet;
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.psi.PsiElement;
 import com.jetbrains.php.lang.PhpLanguage;
 import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.editor.completion.CompletionResultSet;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiElement;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionProvider;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionProviderLookupArguments;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionRegistrar;
@@ -16,7 +17,6 @@ import fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.MethodMatcher;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -24,9 +24,10 @@ import java.util.Collections;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class VoterGotoCompletionRegistrar implements GotoCompletionRegistrar {
     @Override
-    public void register(@NotNull GotoCompletionRegistrarParameter registrar) {
+    public void register(GotoCompletionRegistrarParameter registrar) {
         // {% is_granted('foobar') %}
         // {% is_granted({'foobar'}) %}
         // {% is_granted(['foobar']) %}
@@ -74,13 +75,12 @@ public class VoterGotoCompletionRegistrar implements GotoCompletionRegistrar {
         }
 
         @Override
-        public void getLookupElements(@NotNull GotoCompletionProviderLookupArguments arguments) {
+        public void getLookupElements(GotoCompletionProviderLookupArguments arguments) {
             Collection<LookupElement> lookupElements = VoterUtil.getVoterAttributeLookupElements(getProject());
             CompletionResultSet completionResultSet = TwigUtil.withCompletionPrefix(arguments.getParameters(), arguments.getResultSet());
             completionResultSet.addAllElements(lookupElements);
         }
 
-        @NotNull
         @Override
         public Collection<PsiElement> getPsiTargets(PsiElement element) {
             String text = GotoCompletionUtil.getTextValueForElement(element);
@@ -94,7 +94,7 @@ public class VoterGotoCompletionRegistrar implements GotoCompletionRegistrar {
         }
     }
 
-    public static boolean isIsGrantedMethodMatch(@NotNull StringLiteralExpression stringLiteralExpression) {
+    public static boolean isIsGrantedMethodMatch(StringLiteralExpression stringLiteralExpression) {
         MethodMatcher.MethodMatchParameter methodMatchParameter = new MethodMatcher.StringParameterRecursiveMatcher(stringLiteralExpression, 0)
             .withSignature("Symfony\\Bundle\\FrameworkBundle\\Controller\\Controller", "isGranted")
             .withSignature("Symfony\\Bundle\\FrameworkBundle\\Controller\\Controller", "denyAccessUnlessGranted")

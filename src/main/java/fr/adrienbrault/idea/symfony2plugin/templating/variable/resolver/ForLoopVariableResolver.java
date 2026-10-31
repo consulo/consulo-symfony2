@@ -1,10 +1,10 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.variable.resolver;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.Key;
-import com.intellij.psi.util.CachedValue;
-import com.intellij.psi.util.CachedValueProvider;
-import com.intellij.psi.util.CachedValuesManager;
+import consulo.project.Project;
+import consulo.util.dataholder.Key;
+import consulo.application.util.CachedValue;
+import consulo.application.util.CachedValueProvider;
+import consulo.application.util.CachedValuesManager;
 import com.jetbrains.php.lang.psi.elements.Method;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
 import com.jetbrains.php.lang.psi.stubs.indexes.PhpClassFqnIndex;
@@ -14,8 +14,7 @@ import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigTypeResolveUtil;
 import fr.adrienbrault.idea.symfony2plugin.templating.variable.TwigTypeContainer;
 import fr.adrienbrault.idea.symfony2plugin.templating.variable.dict.PsiVariable;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -47,8 +46,7 @@ public class ForLoopVariableResolver implements TwigTypeResolver {
         "parent",
     };
 
-    @NotNull
-    public static Collection<String> getLoopVariables(@NotNull Project project) {
+    public static Collection<String> getLoopVariables(Project project) {
         return CachedValuesManager.getManager(project).getCachedValue(
             project,
             LOOP_VARIABLES_CACHE,
@@ -62,7 +60,7 @@ public class ForLoopVariableResolver implements TwigTypeResolver {
     }
 
     @Override
-    public void resolve(@NotNull Project project, Collection<TwigTypeContainer> targets, @Nullable Collection<TwigTypeContainer> previousElement, String typeName, Collection<List<TwigTypeContainer>> previousElements, @Nullable Collection<PsiVariable> psiVariables) {
+    public void resolve(Project project, Collection<TwigTypeContainer> targets, @Nullable Collection<TwigTypeContainer> previousElement, String typeName, Collection<List<TwigTypeContainer>> previousElements, @Nullable Collection<PsiVariable> psiVariables) {
         if (previousElement == null || previousElement.stream().noneMatch(ForLoopVariableResolver::isLoopVariableType)) {
             return;
         }
@@ -72,8 +70,7 @@ public class ForLoopVariableResolver implements TwigTypeResolver {
         }
     }
 
-    @NotNull
-    private static Collection<String> getLoopVariablesInner(@NotNull Project project) {
+    private static Collection<String> getLoopVariablesInner(Project project) {
         PhpClass loopContext = PhpElementsUtil.getClassInterface(project, TWIG4_LOOP_CONTEXT_FQN);
         if (loopContext == null) {
             return Arrays.asList(TWIG3_LOOP_VARIABLES);
@@ -91,7 +88,7 @@ public class ForLoopVariableResolver implements TwigTypeResolver {
         return variables;
     }
 
-    private static boolean isLoopVariableType(@NotNull TwigTypeContainer twigTypeContainer) {
+    private static boolean isLoopVariableType(TwigTypeContainer twigTypeContainer) {
         return twigTypeContainer.getTypes().contains(LOOP_VARIABLE_TYPE);
     }
 }

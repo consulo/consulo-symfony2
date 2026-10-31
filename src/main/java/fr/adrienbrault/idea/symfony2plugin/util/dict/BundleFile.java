@@ -1,8 +1,8 @@
 package fr.adrienbrault.idea.symfony2plugin.util.dict;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.vfs.VirtualFile;
-import org.jetbrains.annotations.Nullable;
+import consulo.project.Project;
+import consulo.virtualFileSystem.VirtualFile;
+import org.jspecify.annotations.Nullable;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -27,8 +27,7 @@ public class BundleFile {
         return virtualFile;
     }
 
-    @Nullable
-    public String getShortcutPath() {
+    public @Nullable String getShortcutPath() {
         return this.getSymfonyBundle().getFileShortcut(this);
     }
 

@@ -1,21 +1,25 @@
 package fr.adrienbrault.idea.symfony2plugin.form;
 
-import com.intellij.codeInsight.daemon.LineMarkerInfo;
-import com.intellij.codeInsight.daemon.LineMarkerProvider;
-import com.intellij.codeInsight.navigation.NavigationGutterIconBuilder;
-import com.intellij.openapi.project.Project;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.search.GlobalSearchScope;
-import com.intellij.util.indexing.FileBasedIndex;
+import com.jetbrains.php.lang.PhpLanguage;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
+import consulo.annotation.access.RequiredReadAction;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.Language;
+import consulo.language.editor.gutter.LineMarkerInfo;
+import consulo.language.editor.gutter.LineMarkerProvider;
+import consulo.language.editor.ui.navigation.NavigationGutterIconBuilder;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.scope.GlobalSearchScope;
+import consulo.language.psi.stub.FileBasedIndex;
+import consulo.project.Project;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.form.util.FormOptionsUtil;
+import fr.adrienbrault.idea.symfony2plugin.form.util.FormUtil;
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.FormDataClassStubIndex;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Collection;
 import java.util.HashSet;
@@ -26,15 +30,18 @@ import java.util.stream.Collectors;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class PhpLineMarkerProvider implements LineMarkerProvider {
     @Nullable
     @Override
-    public LineMarkerInfo<?> getLineMarkerInfo(@NotNull PsiElement psiElement) {
+    @RequiredReadAction
+    public LineMarkerInfo<?> getLineMarkerInfo(PsiElement psiElement) {
         return null;
     }
 
     @Override
-    public void collectSlowLineMarkers(@NotNull List<? extends PsiElement> psiElements, @NotNull Collection<? super LineMarkerInfo<?>> lineMarkerInfos) {
+    @RequiredReadAction
+    public void collectSlowLineMarkers(List<PsiElement> psiElements, Collection<LineMarkerInfo> lineMarkerInfos) {
         if(psiElements.isEmpty() || !Symfony2ProjectComponent.isEnabled(psiElements.getFirst())) {
             return;
         }
@@ -49,7 +56,7 @@ public class PhpLineMarkerProvider implements LineMarkerProvider {
         }
     }
 
-    private void attachPhpClassToFormDataClass(@NotNull Project project, @NotNull Collection<? super LineMarkerInfo<?>> lineMarkerInfos, @NotNull PsiElement leaf) {
+    private void attachPhpClassToFormDataClass(Project project, Collection<LineMarkerInfo> lineMarkerInfos, PsiElement leaf) {
         PsiElement phpClassContext = leaf.getContext();
         if(!(phpClassContext instanceof PhpClass)) {
             return;
@@ -64,6 +71,9 @@ public class PhpLineMarkerProvider implements LineMarkerProvider {
 
         Collection<PhpClass> phpClasses = new HashSet<>();
         for (String clazz: classes) {
+            if (PhpElementsUtil.isEqualClassName(clazz, fqn)) {
+                continue;
+            }
             phpClasses.addAll(PhpElementsUtil.getClassesInterface(project, clazz));
         }
 
@@ -76,13 +86,13 @@ public class PhpLineMarkerProvider implements LineMarkerProvider {
         }
     }
 
-    private void attachFormDataClass(@NotNull Collection<? super LineMarkerInfo<?>> lineMarkerInfos, @NotNull PsiElement leaf) {
+    private void attachFormDataClass(Collection<LineMarkerInfo> lineMarkerInfos, PsiElement leaf) {
         PsiElement phpClassContext = leaf.getContext();
         if (phpClassContext == null) {
             return;
         }
 
-        boolean isFormTypeInstance = PhpElementsUtil.isInstanceOf((PhpClass) phpClassContext, "\\Symfony\\Component\\Form\\FormTypeInterface")
+        boolean isFormTypeInstance = FormUtil.isFormType((PhpClass) phpClassContext)
             || PhpElementsUtil.isInstanceOf((PhpClass) phpClassContext, "\\Symfony\\Component\\Form\\FormExtensionInterface");
 
         if (!isFormTypeInstance) {
@@ -90,12 +100,17 @@ public class PhpLineMarkerProvider implements LineMarkerProvider {
         }
 
         PhpClass formDataClass = FormOptionsUtil.getFormPhpClassFromContext(leaf);
-        if (formDataClass != null) {
+        if (formDataClass != null && !PhpElementsUtil.isEqualClassName(formDataClass.getFQN(), ((PhpClass) phpClassContext).getFQN())) {
             NavigationGutterIconBuilder<PsiElement> builder = NavigationGutterIconBuilder.create(Symfony2Icons.SYMFONY_LINE_MARKER)
                 .setTargets(formDataClass)
                 .setTooltipText("Navigate to data class");
 
             lineMarkerInfos.add(builder.createLineMarkerInfo(leaf));
         }
+    }
+
+    @Override
+    public Language getLanguage() {
+        return PhpLanguage.INSTANCE;
     }
 }

@@ -1,12 +1,16 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.dic;
 
-import com.intellij.openapi.vfs.VirtualFile;
+import org.junit.jupiter.api.Test;
+
+import consulo.virtualFileSystem.VirtualFile;
 import fr.adrienbrault.idea.symfony2plugin.dic.XmlServiceParser;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
 
 import java.io.InputStream;
 
 public class XmlServiceParserTest extends SymfonyLightCodeInsightFixtureTestCase {
+
+    @Test
 
     public void testParserMergesMultipleCompiledContainers() throws Exception {
         VirtualFile installerContainer = myFixture.addFileToProject(

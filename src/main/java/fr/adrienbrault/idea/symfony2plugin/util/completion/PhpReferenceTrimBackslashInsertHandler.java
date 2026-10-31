@@ -1,11 +1,10 @@
 package fr.adrienbrault.idea.symfony2plugin.util.completion;
 
-import com.intellij.codeInsight.completion.InsertHandler;
-import com.intellij.codeInsight.completion.InsertionContext;
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.openapi.util.TextRange;
 import com.jetbrains.php.completion.insert.PhpReferenceInsertHandler;
-import org.jetbrains.annotations.NotNull;
+import consulo.document.util.TextRange;
+import consulo.language.editor.completion.lookup.InsertHandler;
+import consulo.language.editor.completion.lookup.InsertionContext;
+import consulo.language.editor.completion.lookup.LookupElement;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -14,7 +13,7 @@ public class PhpReferenceTrimBackslashInsertHandler implements InsertHandler<Loo
 
     private static final PhpReferenceTrimBackslashInsertHandler instance = new PhpReferenceTrimBackslashInsertHandler();
 
-    public void handleInsert(@NotNull InsertionContext context, @NotNull LookupElement lookupElement) {
+    public void handleInsert(InsertionContext context, LookupElement lookupElement) {
 
         // reuse core class + namespace insertHandler
         PhpReferenceInsertHandler.getInstance().handleInsert(context, lookupElement);

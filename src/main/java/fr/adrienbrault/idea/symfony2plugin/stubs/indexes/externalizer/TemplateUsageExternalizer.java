@@ -1,8 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.stubs.indexes.externalizer;
 
-import com.intellij.util.io.DataExternalizer;
+import consulo.index.io.data.DataExternalizer;
 import fr.adrienbrault.idea.symfony2plugin.stubs.dict.TemplateUsage;
-import org.jetbrains.annotations.NotNull;
 
 import java.io.DataInput;
 import java.io.DataOutput;
@@ -18,7 +17,7 @@ public class TemplateUsageExternalizer implements DataExternalizer<TemplateUsage
     public static final TemplateUsageExternalizer INSTANCE = new TemplateUsageExternalizer();
 
     @Override
-    public void save(@NotNull DataOutput out, TemplateUsage value) throws IOException {
+    public void save(DataOutput out, TemplateUsage value) throws IOException {
         out.writeUTF(value.getTemplate());
         Collection<String> scopes = value.getScopes();
         out.writeInt(scopes.size());
@@ -28,7 +27,7 @@ public class TemplateUsageExternalizer implements DataExternalizer<TemplateUsage
     }
 
     @Override
-    public TemplateUsage read(@NotNull DataInput in) throws IOException {
+    public TemplateUsage read(DataInput in) throws IOException {
         String template = in.readUTF();
         int size = in.readInt();
         Collection<String> scopes = new ArrayList<>(size);

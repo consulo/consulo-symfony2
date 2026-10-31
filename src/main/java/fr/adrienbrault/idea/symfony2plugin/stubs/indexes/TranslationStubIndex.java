@@ -1,13 +1,19 @@
 package fr.adrienbrault.idea.symfony2plugin.stubs.indexes;
 
-import com.intellij.openapi.fileTypes.FileType;
-import com.intellij.openapi.vfs.VfsUtil;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiFile;
-import com.intellij.util.indexing.*;
-import com.intellij.util.io.DataExternalizer;
-import com.intellij.util.io.EnumeratorStringDescriptor;
-import com.intellij.util.io.KeyDescriptor;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.virtualFileSystem.fileType.FileType;
+import consulo.virtualFileSystem.util.VirtualFileUtil;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.language.psi.PsiFile;
+import consulo.index.io.DataIndexer;
+import consulo.index.io.ID;
+import consulo.language.psi.stub.FileBasedIndex;
+import consulo.language.psi.stub.FileBasedIndexExtension;
+import consulo.language.psi.stub.FileContent;
+import consulo.index.io.data.DataExternalizer;
+import consulo.index.io.EnumeratorStringDescriptor;
+import consulo.index.io.KeyDescriptor;
+import consulo.project.Project;
 import com.jetbrains.php.lang.PhpFileType;
 import com.jetbrains.php.lang.psi.PhpFile;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
@@ -18,13 +24,11 @@ import fr.adrienbrault.idea.symfony2plugin.translation.dict.TranslationUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.ProjectUtil;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.jetbrains.yaml.YAMLFileType;
 import org.jetbrains.yaml.psi.YAMLFile;
 
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.ByteArrayInputStream;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -32,21 +36,21 @@ import java.util.regex.Pattern;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class TranslationStubIndex extends FileBasedIndexExtension<String, Set<String>> {
     public static final ID<String, Set<String>> KEY = ID.create("fr.adrienbrault.idea.symfony2plugin.translations");
     private static final StringSetDataExternalizer DATA_EXTERNALIZER = new StringSetDataExternalizer();
     private final KeyDescriptor<String> myKeyDescriptor = new EnumeratorStringDescriptor();
 
-    @NotNull
     @Override
     // Index-safe only: no PhpIndex/type resolution here.
     public DataIndexer<String, Set<String>, FileContent> getIndexer() {
 
         return new DataIndexer<>() {
-            @NotNull
             @Override
-            public Map<String, Set<String>> map(@NotNull FileContent inputData) {
-                if (!Symfony2ProjectComponent.isEnabledForIndex(inputData.getProject())) {
+            public Map<String, Set<String>> map(FileContent inputData) {
+                Project project = inputData.getProject();
+                if (project == null || !Symfony2ProjectComponent.isEnabledForIndex(project)) {
                     return Collections.emptyMap();
                 }
 
@@ -98,7 +102,7 @@ public class TranslationStubIndex extends FileBasedIndexExtension<String, Set<St
                 return Collections.emptyMap();
             }
 
-            private boolean isValidTranslationFile(@NotNull FileContent inputData) {
+            private boolean isValidTranslationFile(FileContent inputData) {
                 String fileName = inputData.getFileName();
 
                 // every direct match
@@ -124,7 +128,7 @@ public class TranslationStubIndex extends FileBasedIndexExtension<String, Set<St
                 // dont index all yaml files; valid:
                 //  - "Resources/translations"
                 //  - "translations/[.../]foo.de.yml"
-                String relativePath = VfsUtil.getRelativePath(file, ProjectUtil.getProjectDir(inputData.getProject()), '/');
+                String relativePath = VirtualFileUtil.getRelativePath(file, ProjectUtil.getProjectDir(inputData.getProject()), '/');
                 if (relativePath != null) {
                     String replace = relativePath.replace("\\", "/");
                     return replace.contains("/translations") || replace.startsWith("translations/");
@@ -135,10 +139,9 @@ public class TranslationStubIndex extends FileBasedIndexExtension<String, Set<St
                 return path.replace("\\", "/").endsWith("/translations/" + fileName);
             }
 
-            @NotNull
-            private Map<String, Set<String>> getXlfStringMap(@NotNull FileContent inputData) {
+            private Map<String, Set<String>> getXlfStringMap(FileContent inputData) {
                 // testing files are not that nice
-                String relativePath = VfsUtil.getRelativePath(inputData.getFile(), ProjectUtil.getProjectDir(inputData.getProject()), '/');
+                String relativePath = VirtualFileUtil.getRelativePath(inputData.getFile(), ProjectUtil.getProjectDir(inputData.getProject()), '/');
                 if (relativePath != null && (relativePath.contains("/Test/") || relativePath.contains("/Tests/") || relativePath.contains("/Fixture/") || relativePath.contains("/Fixtures/"))) {
                     return Collections.emptyMap();
                 }
@@ -149,14 +152,7 @@ public class TranslationStubIndex extends FileBasedIndexExtension<String, Set<St
                     return Collections.emptyMap();
                 }
 
-                InputStream inputStream;
-                try {
-                    inputStream = inputData.getFile().getInputStream();
-                } catch (IOException e) {
-                    return Collections.emptyMap();
-                }
-
-                Set<String> set = TranslationUtil.getXliffTranslations(inputStream);
+                Set<String> set = TranslationUtil.getXliffTranslations(new ByteArrayInputStream(inputData.getContent()));
                 if (set.isEmpty()) {
                     return Collections.emptyMap();
                 }
@@ -170,7 +166,7 @@ public class TranslationStubIndex extends FileBasedIndexExtension<String, Set<St
     }
 
     @Nullable
-    private static String getDomainName(@NotNull String fileName) {
+    private static String getDomainName(String fileName) {
         String[] split = fileName.split("\\.");
         if (split.length < 2 || Arrays.stream(split).anyMatch(s -> s.isEmpty())) {
             return null;
@@ -198,27 +194,23 @@ public class TranslationStubIndex extends FileBasedIndexExtension<String, Set<St
         return domain;
     }
 
-    @NotNull
     @Override
     public ID<String, Set<String>> getName() {
         return KEY;
     }
 
-    @NotNull
     @Override
     public KeyDescriptor<String> getKeyDescriptor() {
         return this.myKeyDescriptor;
     }
 
-    @NotNull
     public DataExternalizer<Set<String>> getValueExternalizer() {
         return DATA_EXTERNALIZER;
     }
 
-    @NotNull
     @Override
     public FileBasedIndex.InputFilter getInputFilter() {
-        return file -> {
+        return (project, file) -> {
             FileType fileType = file.getFileType();
             if (fileType == PhpFileType.INSTANCE) {
                 return getDomainName(file.getName()) != null;

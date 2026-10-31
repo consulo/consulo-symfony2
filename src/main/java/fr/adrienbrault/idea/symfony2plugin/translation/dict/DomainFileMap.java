@@ -1,11 +1,11 @@
 package fr.adrienbrault.idea.symfony2plugin.translation.dict;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.vfs.VfsUtil;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiFile;
+import consulo.language.psi.PsiFile;
+import consulo.project.Project;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.virtualFileSystem.util.VirtualFileUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.io.File;
 
@@ -50,7 +50,7 @@ public class DomainFileMap {
               return null;
         }
 
-        return VfsUtil.findFileByIoFile(file, false);
+        return VirtualFileUtil.findFileByIoFile(file, false);
     }
 
     @Nullable

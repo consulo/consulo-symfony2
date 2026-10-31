@@ -1,11 +1,13 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.dic.suggestion;
 
+import org.junit.jupiter.api.Test;
+
 import com.jetbrains.php.lang.psi.PhpPsiElementFactory;
 import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
 import fr.adrienbrault.idea.symfony2plugin.dic.container.suggestion.PhpAttributeServiceSuggestionCollector;
 import fr.adrienbrault.idea.symfony2plugin.stubs.ContainerCollectionResolver;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Collection;
 
@@ -22,6 +24,8 @@ public class PhpAttributeServiceSuggestionCollectorTest extends SymfonyLightCode
     public String getTestDataPath() {
         return "src/test/java/fr/adrienbrault/idea/symfony2plugin/tests/dic/suggestion/fixtures";
     }
+
+    @Test
 
     public void testParameterContributor() {
         @Nullable StringLiteralExpression stringLiteralExpression = PhpPsiElementFactory.createFromText(getProject(), StringLiteralExpression.class,

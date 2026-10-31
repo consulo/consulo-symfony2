@@ -1,6 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.util.annotation;
 
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 
@@ -27,13 +27,11 @@ public class AnnotationConfig {
         return name;
     }
 
-    @Nullable
-    public String getUse() {
+    public @Nullable String getUse() {
         return use;
     }
 
-    @Nullable
-    public ArrayList<AnnotationValue> getValues() {
+    public @Nullable ArrayList<AnnotationValue> getValues() {
         return values;
     }
 

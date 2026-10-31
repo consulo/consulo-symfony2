@@ -1,5 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.dic.container.suggestion;
 
+import org.junit.jupiter.api.Test;
+
 import com.jetbrains.php.lang.PhpFileType;
 import com.jetbrains.php.lang.psi.PhpPsiElementFactory;
 import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
@@ -25,6 +27,8 @@ public class PhpFluentArgumentServiceSuggestionCollectorTest extends SymfonyLigh
         return "src/test/java/fr/adrienbrault/idea/symfony2plugin/tests/dic/container/suggestion/fixtures";
     }
 
+    @Test
+
     public void testFluentArgsServiceCall() {
         assertCompletionLookupContainsPresentableItem(PhpFileType.INSTANCE, "<?php\n" +
                 "namespace Symfony\\Component\\DependencyInjection\\Loader\\Configurator;\n" +
@@ -36,6 +40,8 @@ public class PhpFluentArgumentServiceSuggestionCollectorTest extends SymfonyLigh
             lookupElement -> "foo_bar_apple".equals(lookupElement.getItemText()) && lookupElement.isItemTextBold()
         );
     }
+
+    @Test
 
     public void testFluentArgsRefCall() {
         assertCompletionLookupContainsPresentableItem(PhpFileType.INSTANCE, "<?php\n" +
@@ -49,6 +55,8 @@ public class PhpFluentArgumentServiceSuggestionCollectorTest extends SymfonyLigh
         );
     }
 
+    @Test
+
     public void testFluentArgsSecondSlotResolvesCorrectly() {
         assertCompletionLookupContainsPresentableItem(PhpFileType.INSTANCE, "<?php\n" +
                 "namespace Symfony\\Component\\DependencyInjection\\Loader\\Configurator;\n" +
@@ -60,6 +68,8 @@ public class PhpFluentArgumentServiceSuggestionCollectorTest extends SymfonyLigh
             lookupElement -> "foo_bar_car".equals(lookupElement.getItemText()) && lookupElement.isItemTextBold()
         );
     }
+
+    @Test
 
     public void testServiceCallOutsideFluentArgsDoesNotPrioritize() {
         StringLiteralExpression element = PhpPsiElementFactory.createFromText(getProject(), StringLiteralExpression.class,

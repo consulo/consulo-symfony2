@@ -1,17 +1,16 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.dict;
 
-import com.intellij.codeInsight.completion.InsertionContext;
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.codeInsight.lookup.LookupElementPresentation;
-import com.intellij.openapi.project.Project;
 import com.jetbrains.php.PhpIndex;
 import com.jetbrains.php.PhpPresentationUtil;
 import com.jetbrains.php.lang.psi.elements.Function;
 import com.jetbrains.php.lang.psi.elements.Parameter;
 import com.jetbrains.php.lang.psi.elements.PhpNamedElement;
+import consulo.language.editor.completion.lookup.InsertionContext;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.editor.completion.lookup.LookupElementPresentation;
+import consulo.project.Project;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigExtensionParser;
 import fr.adrienbrault.idea.symfony2plugin.util.StringUtils;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -22,22 +21,18 @@ import java.util.List;
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class TwigExtensionLookupElement extends LookupElement {
-    @NotNull
     final private TwigExtension twigExtension;
 
-    @NotNull
     final private String name;
 
-    @NotNull
     final private Project project;
 
-    public TwigExtensionLookupElement(@NotNull Project project, @NotNull String name, @NotNull TwigExtension twigExtension) {
+    public TwigExtensionLookupElement(Project project, String name, TwigExtension twigExtension) {
         this.project = project;
         this.name = name;
         this.twigExtension = twigExtension;
     }
 
-    @NotNull
     @Override
     public String getLookupString() {
         return name;
@@ -63,7 +58,7 @@ public class TwigExtensionLookupElement extends LookupElement {
         presentation.setTypeGrayed(true);
     }
 
-    private void buildTailText(@NotNull LookupElementPresentation presentation) {
+    private void buildTailText(LookupElementPresentation presentation) {
         if(this.twigExtension.getTwigExtensionType() == TwigExtensionParser.TwigExtensionType.SIMPLE_TEST) {
             return;
         }

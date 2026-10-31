@@ -1,22 +1,21 @@
 package fr.adrienbrault.idea.symfony2plugin.util;
 
-import com.intellij.codeInsight.daemon.GutterIconNavigationHandler;
-import com.intellij.codeInsight.daemon.LineMarkerInfo;
-import com.intellij.codeInsight.daemon.RelatedItemLineMarkerInfo;
-import com.intellij.codeInsight.navigation.NavigationGutterIconBuilder;
-import com.intellij.openapi.editor.Document;
-import com.intellij.openapi.editor.markup.GutterIconRenderer;
-import com.intellij.openapi.util.TextRange;
-import com.intellij.openapi.util.text.StringUtil;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiDocumentManager;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.util.PsiTreeUtil;
-import com.intellij.util.ConstantFunction;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import consulo.codeEditor.markup.GutterIconRenderer;
+import consulo.document.Document;
+import consulo.document.util.TextRange;
+import consulo.language.editor.Pass;
+import consulo.language.editor.gutter.GutterIconNavigationHandler;
+import consulo.language.editor.gutter.LineMarkerInfo;
+import consulo.language.editor.gutter.RelatedItemLineMarkerInfo;
+import consulo.language.editor.ui.navigation.NavigationGutterIconBuilder;
+import consulo.language.psi.PsiDocumentManager;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.util.PsiTreeUtil;
+import consulo.ui.image.Image;
+import consulo.util.lang.StringUtil;
+import org.jspecify.annotations.Nullable;
 
-import javax.swing.Icon;
 import java.util.function.Supplier;
 
 /**
@@ -32,10 +31,9 @@ public final class FileLineMarkerUtil {
      * Creates a builder-based marker for a file anchor.
      * Example: {@code FileLineMarkerUtil.createLineMarkerInfo(builder, twigFile)}.
      */
-    @NotNull
     public static RelatedItemLineMarkerInfo<PsiElement> createLineMarkerInfo(
-        @NotNull NavigationGutterIconBuilder<PsiElement> builder,
-        @NotNull PsiFile psiFile
+        NavigationGutterIconBuilder<PsiElement> builder,
+        PsiFile psiFile
     ) {
         LineMarkerAnchor anchor = getFileLineMarkerAnchor(psiFile);
         PsiElement target = anchor.element();
@@ -50,8 +48,10 @@ public final class FileLineMarkerUtil {
         return new RelatedItemLineMarkerInfo<>(
             target,
             range,
-            markerInfo.getIcon(),
-            tooltip == null ? null : new ConstantFunction<>(tooltip),
+            // consulo-port: LineMarkerInfo has no public getIcon(); the builder always sets an icon
+            markerInfo.createGutterRenderer().getIcon(),
+            Pass.LINE_MARKERS,
+            tooltip == null ? null : element -> tooltip,
             markerInfo.getNavigationHandler(),
             GutterIconRenderer.Alignment.RIGHT,
             markerInfo::createGotoRelatedItems
@@ -62,13 +62,12 @@ public final class FileLineMarkerUtil {
      * Creates a direct marker using the same anchoring rules as builder markers.
      * Example: {@code FileLineMarkerUtil.createLineMarkerInfo(target, icon, tooltip, handler, () -> "Go to related files")}.
      */
-    @NotNull
     public static LineMarkerInfo<PsiElement> createLineMarkerInfo(
-        @NotNull PsiElement lineMarkerTarget,
-        @NotNull Icon icon,
+        PsiElement lineMarkerTarget,
+        Image icon,
         @Nullable String tooltip,
         @Nullable GutterIconNavigationHandler<PsiElement> navigationHandler,
-        @NotNull Supplier<String> accessibleNameProvider
+        Supplier<String> accessibleNameProvider
     ) {
         LineMarkerAnchor anchor = getLineMarkerAnchor(lineMarkerTarget);
 
@@ -76,15 +75,15 @@ public final class FileLineMarkerUtil {
             anchor.element(),
             anchor.textRange(),
             icon,
-            tooltip == null ? null : new ConstantFunction<>(tooltip),
+            Pass.LINE_MARKERS,
+            tooltip == null ? null : element -> tooltip,
             navigationHandler,
-            GutterIconRenderer.Alignment.RIGHT,
-            accessibleNameProvider
+            GutterIconRenderer.Alignment.RIGHT
+            // consulo-port: LineMarkerInfo has no accessible name provider; accessibleNameProvider is unused
         );
     }
 
-    @NotNull
-    private static LineMarkerAnchor getLineMarkerAnchor(@NotNull PsiElement element) {
+    private static LineMarkerAnchor getLineMarkerAnchor(PsiElement element) {
         if (element instanceof PsiFile psiFile) {
             return getFileLineMarkerAnchor(psiFile);
         }
@@ -96,14 +95,12 @@ public final class FileLineMarkerUtil {
      * Returns the file anchor used by {@link #createLineMarkerInfo(NavigationGutterIconBuilder, PsiFile)}.
      * Useful in tests that need to assert the exact marker element and range.
      */
-    @NotNull
-    public static LineMarkerAnchor getFileLineMarkerAnchor(@NotNull PsiFile psiFile) {
+    public static LineMarkerAnchor getFileLineMarkerAnchor(PsiFile psiFile) {
         PsiElement target = getFileLineMarkerTarget(psiFile);
         return new LineMarkerAnchor(target, getFileLineMarkerRange(psiFile, target));
     }
 
-    @NotNull
-    private static PsiElement getFileLineMarkerTarget(@NotNull PsiFile psiFile) {
+    private static PsiElement getFileLineMarkerTarget(PsiFile psiFile) {
         for (PsiElement leaf = PsiTreeUtil.getDeepestFirst(psiFile); leaf != null && leaf != psiFile; leaf = PsiTreeUtil.nextLeaf(leaf)) {
             if (leaf.getTextLength() > 0 && !StringUtil.isEmptyOrSpaces(leaf.getText())) {
                 return leaf;
@@ -113,8 +110,7 @@ public final class FileLineMarkerUtil {
         return psiFile;
     }
 
-    @NotNull
-    private static TextRange getFileLineMarkerRange(@NotNull PsiFile psiFile, @NotNull PsiElement target) {
+    private static TextRange getFileLineMarkerRange(PsiFile psiFile, PsiElement target) {
         TextRange targetRange = target.getTextRange();
         int startOffset = targetRange.getStartOffset();
         int endOffset = targetRange.getEndOffset();
@@ -141,6 +137,6 @@ public final class FileLineMarkerUtil {
     /**
      * The PSI element and text range that should receive the gutter marker.
      */
-    public record LineMarkerAnchor(@NotNull PsiElement element, @NotNull TextRange textRange) {
+    public record LineMarkerAnchor(PsiElement element, TextRange textRange) {
     }
 }

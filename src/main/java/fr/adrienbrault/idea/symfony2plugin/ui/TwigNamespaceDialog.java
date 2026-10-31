@@ -1,212 +1,157 @@
 package fr.adrienbrault.idea.symfony2plugin.ui;
 
-import com.intellij.openapi.fileChooser.FileChooser;
-import com.intellij.openapi.fileChooser.FileChooserDescriptor;
-import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.ui.TextBrowseFolderListener;
-import com.intellij.openapi.ui.TextFieldWithBrowseButton;
-import com.intellij.openapi.vfs.VfsUtil;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.ui.table.TableView;
+import consulo.disposer.Disposable;
+import consulo.fileChooser.FileChooserDescriptorFactory;
+import consulo.localize.LocalizeValue;
+import consulo.project.Project;
+import consulo.ui.CheckBox;
+import consulo.ui.ComboBox;
+import consulo.ui.Component;
+import consulo.ui.Label;
+import consulo.ui.TextBox;
+import consulo.ui.UIAccess;
+import consulo.ui.annotation.RequiredUIAccess;
+import consulo.ui.ex.dialog.DialogDescriptor;
+import consulo.ui.ex.dialog.DialogService;
+import consulo.ui.layout.DockLayout;
+import consulo.ui.style.ComponentColors;
+import consulo.ui.util.FormBuilder;
+import consulo.util.io.FileUtil;
 import fr.adrienbrault.idea.symfony2plugin.templating.path.TwigPath;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
-import fr.adrienbrault.idea.symfony2plugin.util.ProjectUtil;
-import com.intellij.openapi.ui.Messages;
+import fr.adrienbrault.idea.symfony2plugin.ui.utils.UiSettingsUtil;
 import org.apache.commons.lang3.StringUtils;
+import org.jspecify.annotations.Nullable;
 
-import javax.swing.*;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
-import java.awt.*;
-import java.awt.event.*;
+import java.util.function.Consumer;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
-public class TwigNamespaceDialog extends JDialog {
-    private JPanel contentPane;
-    private JButton buttonOK;
-    private JButton buttonCancel;
-    private JComboBox namespaceType;
-    private TextFieldWithBrowseButton namespacePath;
-    private JCheckBox chkboxEnabled;
-    private JTextField name;
-    private final TableView<TwigPath> tableView;
-    private final Project project;
-    private TwigPath twigPath;
+public class TwigNamespaceDialog extends DialogDescriptor {
+    private final Project myProject;
+    private final @Nullable TwigPath myTwigPath;
 
-    public TwigNamespaceDialog(Project project, TableView<TwigPath> tableView, TwigPath twigPath) {
-        this(project, tableView);
-        this.name.setText(twigPath.getNamespace());
-        this.namespacePath.getTextField().setText(twigPath.getPath());
-        this.namespaceType.getModel().setSelectedItem(twigPath.getNamespaceType().toString());
-        this.twigPath = twigPath;
-        this.setOkState();
+    private final TextBox myName = TextBox.create();
+    private final ComboBox<TwigUtil.NamespaceType> myNamespaceType = ComboBox.create(TwigUtil.NamespaceType.ADD_PATH, TwigUtil.NamespaceType.BUNDLE);
+    private final CheckBox myChkboxEnabled = CheckBox.create(LocalizeValue.localizeTODO("Enabled"), true);
+    private @Nullable TextBox myNamespacePath;
+    private @Nullable Label myErrorLabel;
+
+    @RequiredUIAccess
+    private TwigNamespaceDialog(Project project, @Nullable TwigPath twigPath) {
+        super(LocalizeValue.localizeTODO("Twig Namespace"));
+        myProject = project;
+        myTwigPath = twigPath;
     }
 
-    public TwigNamespaceDialog(Project project, TableView<TwigPath> tableView) {
-
-        this.tableView = tableView;
-        this.project = project;
-
-        createUIComponents();
-        setContentPane(contentPane);
-        setModal(true);
-        getRootPane().setDefaultButton(buttonOK);
-        this.setOkState();
-
-        this.namespacePath.getTextField().getDocument().addDocumentListener(new ChangeDocumentListener());
-        this.name.getDocument().addDocumentListener(new ChangeDocumentListener());
-
-        buttonOK.addActionListener(e -> onOK());
-
-        buttonCancel.addActionListener(e -> onCancel());
-
-        namespacePath.addBrowseFolderListener(createBrowseFolderListener(namespacePath.getTextField(), FileChooserDescriptorFactory.createSingleFolderDescriptor()));
-
-        setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
-        addWindowListener(new WindowAdapter() {
-            public void windowClosing(WindowEvent e) {
-                onCancel();
-            }
-        });
-
-        contentPane.registerKeyboardAction(e -> onCancel(), KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
-    }
-
-    private void createUIComponents() {
-        contentPane = new JPanel(new BorderLayout(0, 5));
-        contentPane.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
-
-        // Form fields
-        name = new JTextField(20);
-        namespacePath = new TextFieldWithBrowseButton();
-        namespaceType = new JComboBox<>(new String[]{"ADD_PATH", "BUNDLE"});
-        chkboxEnabled = new JCheckBox("Enabled");
-        chkboxEnabled.setSelected(true);
-
-        JPanel fieldsPanel = new JPanel(new GridBagLayout());
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(2, 2, 2, 2);
-        gbc.anchor = GridBagConstraints.WEST;
-
-        gbc.gridx = 0; gbc.gridy = 0; gbc.fill = GridBagConstraints.NONE; gbc.weightx = 0;
-        fieldsPanel.add(new JLabel("Namespace"), gbc);
-        gbc.gridx = 1; gbc.fill = GridBagConstraints.HORIZONTAL; gbc.weightx = 1.0;
-        fieldsPanel.add(name, gbc);
-
-        gbc.gridx = 0; gbc.gridy = 1; gbc.fill = GridBagConstraints.NONE; gbc.weightx = 0;
-        fieldsPanel.add(new JLabel("Path (relative to project)"), gbc);
-        gbc.gridx = 1; gbc.fill = GridBagConstraints.HORIZONTAL; gbc.weightx = 1.0;
-        fieldsPanel.add(namespacePath, gbc);
-
-        gbc.gridx = 0; gbc.gridy = 2; gbc.fill = GridBagConstraints.NONE; gbc.weightx = 0;
-        fieldsPanel.add(new JLabel("Type"), gbc);
-        gbc.gridx = 1; gbc.fill = GridBagConstraints.HORIZONTAL; gbc.weightx = 1.0;
-        fieldsPanel.add(namespaceType, gbc);
-
-        gbc.gridx = 1; gbc.gridy = 3; gbc.fill = GridBagConstraints.NONE; gbc.weightx = 0;
-        fieldsPanel.add(chkboxEnabled, gbc);
-
-        // Buttons
-        buttonOK = new JButton("OK");
-        buttonCancel = new JButton("Cancel");
-
-        JPanel buttonsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
-        buttonsPanel.add(buttonOK);
-        buttonsPanel.add(buttonCancel);
-
-        contentPane.add(fieldsPanel, BorderLayout.CENTER);
-        contentPane.add(buttonsPanel, BorderLayout.SOUTH);
-    }
-
-    private void setOkState() {
-        TwigNamespaceDialog.this.buttonOK.setEnabled(
-            !TwigNamespaceDialog.this.namespacePath.getText().isEmpty()
+    @RequiredUIAccess
+    @Override
+    public Component createCenterComponent(Disposable uiDisposable) {
+        TextBox namespacePath = UiSettingsUtil.createProjectRelativePathBox(
+            myProject,
+            FileChooserDescriptorFactory.createSingleFolderDescriptor(),
+            uiDisposable
         );
+        myNamespacePath = namespacePath;
+
+        myNamespaceType.selectFirst();
+
+        if (myTwigPath != null) {
+            myName.setValue(StringUtils.defaultString(myTwigPath.getNamespace()));
+            namespacePath.setValue(StringUtils.defaultString(myTwigPath.getPath()));
+            myNamespaceType.setValue(myTwigPath.getNamespaceType());
+        }
+
+        namespacePath.addValueListener(event -> updateState());
+        myName.addValueListener(event -> updateState());
+
+        FormBuilder builder = FormBuilder.create();
+        builder.addLabeled(LocalizeValue.localizeTODO("Namespace"), myName);
+        builder.addLabeled(LocalizeValue.localizeTODO("Path (relative to project)"), namespacePath);
+        builder.addLabeled(LocalizeValue.localizeTODO("Type"), myNamespaceType);
+        builder.addBottom(myChkboxEnabled);
+
+        Label errorLabel = Label.create(LocalizeValue.empty());
+        errorLabel.setForegroundColor(ComponentColors.ERROR_FOREGROUND);
+        myErrorLabel = errorLabel;
+
+        DockLayout layout = DockLayout.create();
+        layout.center(builder.build());
+        layout.bottom(errorLabel);
+
+        updateState();
+        return layout;
     }
 
-    private void onOK() {
+    @RequiredUIAccess
+    @Override
+    public Component getPreferredFocusedComponent() {
+        return myName;
+    }
+
+    private String getNamespacePath() {
+        TextBox namespacePath = myNamespacePath;
+        return namespacePath != null ? StringUtils.defaultString(namespacePath.getValue()) : "";
+    }
+
+    @RequiredUIAccess
+    private void updateState() {
+        Label errorLabel = myErrorLabel;
+        if (errorLabel != null) {
+            // the chooser writes a path outside of the project as absolute one
+            boolean outsideProject = FileUtil.isAbsolute(getNamespacePath());
+            errorLabel.setText(outsideProject
+                ? LocalizeValue.localizeTODO("Selected directory is outside the project root. Please select a directory within the project.")
+                : LocalizeValue.empty()
+            );
+            errorLabel.setVisible(outsideProject);
+        }
+
+        updateOkButtonState();
+    }
+
+    @Override
+    public boolean doUpdateOkButtonState() {
+        String namespacePath = getNamespacePath();
+        return !namespacePath.isEmpty() && !FileUtil.isAbsolute(namespacePath);
+    }
+
+    @RequiredUIAccess
+    private TwigPath createTwigPath() {
         // empty namespace use "__main__", as this is same as Twig internals does
-        String namespace = this.name.getText();
+        String namespace = myName.getValue();
         if (StringUtils.isBlank(namespace)) {
             namespace = "__main__";
         }
 
-        String namespacePath = this.namespacePath.getText();
+        TwigUtil.NamespaceType namespaceType = myNamespaceType.getValue();
 
-        TwigPath twigPath = TwigPath.createTwigPath(namespacePath, namespace, TwigUtil.NamespaceType.valueOf((String) this.namespaceType.getSelectedItem()), true, this.chkboxEnabled.isSelected());
-        if (namespacePath.isEmpty()) {
-            dispose();
-            return;
-        }
-
-        // re-add old item to not use public setter wor twigpaths
-        // update ?
-        if (this.twigPath != null) {
-            int row = this.tableView.getSelectedRows()[0];
-            this.tableView.getListTableModel().removeRow(row);
-            this.tableView.getListTableModel().insertRow(row, twigPath);
-            this.tableView.setRowSelectionInterval(row, row);
-        } else {
-            int row = this.tableView.getRowCount();
-            this.tableView.getListTableModel().addRow(twigPath);
-            this.tableView.setRowSelectionInterval(row, row);
-        }
-
-        dispose();
+        return TwigPath.createTwigPath(
+            getNamespacePath(),
+            namespace,
+            namespaceType != null ? namespaceType : TwigUtil.NamespaceType.ADD_PATH,
+            true,
+            myChkboxEnabled.getValueOrError()
+        );
     }
 
-    private void onCancel() {
-        dispose();
-    }
+    /**
+     * @param twigPath {@code null} to create a new namespace
+     * @param onOk receives the new twig path with the dialog values
+     */
+    @RequiredUIAccess
+    public static void show(Project project, @Nullable TwigPath twigPath, Consumer<TwigPath> onOk) {
+        TwigNamespaceDialog descriptor = new TwigNamespaceDialog(project, twigPath);
 
-    private TextBrowseFolderListener createBrowseFolderListener(final JTextField textField, final FileChooserDescriptor fileChooserDescriptor) {
-        return new TextBrowseFolderListener(fileChooserDescriptor) {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                VirtualFile projectDirectory = ProjectUtil.getProjectDir(project);
-                VirtualFile selectedFile = FileChooser.chooseFile(
-                    fileChooserDescriptor,
-                    project,
-                    VfsUtil.findRelativeFile(textField.getText(), projectDirectory)
-                );
-
-                if (null == selectedFile) {
-                    return; // Ignore but keep the previous path
+        UIAccess uiAccess = UIAccess.current();
+        project.getApplication().getInstance(DialogService.class)
+            .build(project, descriptor)
+            .showAsync()
+            .whenCompleteAsync((value, error) -> {
+                if (error == null && value != null && !descriptor.getNamespacePath().isEmpty()) {
+                    onOk.accept(descriptor.createTwigPath());
                 }
-
-                String path = VfsUtil.getRelativePath(selectedFile, projectDirectory, '/');
-                if (null == path) {
-                    Messages.showErrorDialog(
-                        contentPane,
-                        "Selected directory is outside the project root. Please select a directory within the project.",
-                        "Invalid Path"
-                    );
-                    return;
-                }
-
-                textField.setText(path);
-            }
-        };
+            }, uiAccess);
     }
-
-    private class ChangeDocumentListener implements DocumentListener {
-        @Override
-        public void insertUpdate(DocumentEvent e) {
-            setOkState();
-        }
-
-        @Override
-        public void removeUpdate(DocumentEvent e) {
-            setOkState();
-        }
-
-        @Override
-        public void changedUpdate(DocumentEvent e) {
-            setOkState();
-        }
-    }
-
 }

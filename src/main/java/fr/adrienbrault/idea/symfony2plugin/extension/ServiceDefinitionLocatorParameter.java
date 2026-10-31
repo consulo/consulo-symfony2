@@ -1,8 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.extension;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.psi.PsiElement;
-import org.jetbrains.annotations.NotNull;
+import consulo.project.Project;
+import consulo.language.psi.PsiElement;
 
 import java.util.Collection;
 
@@ -11,26 +10,23 @@ import java.util.Collection;
  */
 public class ServiceDefinitionLocatorParameter {
 
-    @NotNull
     private final Project project;
 
-    @NotNull
     private final Collection<PsiElement> psiElements;
 
-    public ServiceDefinitionLocatorParameter(@NotNull Project project, @NotNull Collection<PsiElement> psiElements) {
+    public ServiceDefinitionLocatorParameter(Project project, Collection<PsiElement> psiElements) {
         this.project = project;
         this.psiElements = psiElements;
     }
 
-    public void addTarget(@NotNull PsiElement psiElement) {
+    public void addTarget(PsiElement psiElement) {
         this.psiElements.add(psiElement);
     }
 
-    public void addTargets(@NotNull Collection<PsiElement> psiElements) {
+    public void addTargets(Collection<PsiElement> psiElements) {
         this.psiElements.addAll(psiElements);
     }
 
-    @NotNull
     public Project getProject() {
         return project;
     }

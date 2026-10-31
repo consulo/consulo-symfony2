@@ -1,15 +1,16 @@
 package fr.adrienbrault.idea.symfony2plugin.config.php;
 
-import com.intellij.codeInsight.navigation.actions.GotoDeclarationHandler;
-import com.intellij.openapi.actionSystem.DataContext;
-import com.intellij.openapi.editor.Editor;
-import com.intellij.psi.PsiElement;
 import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.codeEditor.Editor;
+import consulo.dataContext.DataContext;
+import consulo.language.editor.navigation.GotoDeclarationHandler;
+import consulo.language.psi.PsiElement;
+import consulo.localize.LocalizeValue;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.config.utils.ConfigUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Provides Ctrl+Click navigation for root config keys in PHP config files.
@@ -18,6 +19,7 @@ import org.jetbrains.annotations.Nullable;
  * @author Daniel Espendiller <daniel@espendiller.net>
  * @see fr.adrienbrault.idea.symfony2plugin.config.yaml.YamlGoToDeclarationHandler
  */
+@ExtensionImpl
 public class PhpConfigGotoDeclarationHandler implements GotoDeclarationHandler {
 
     @Nullable
@@ -49,9 +51,8 @@ public class PhpConfigGotoDeclarationHandler implements GotoDeclarationHandler {
         return targets.toArray(PsiElement.EMPTY_ARRAY);
     }
 
-    @Nullable
     @Override
-    public String getActionText(@NotNull DataContext context) {
-        return null;
+    public LocalizeValue getActionText(DataContext context) {
+        return LocalizeValue.empty();
     }
 }

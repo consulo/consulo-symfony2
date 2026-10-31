@@ -1,14 +1,13 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.dict;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Dict for "{% macro input(name, value, type, size) %}"
  *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
-public record TwigMacroTag(@NotNull String name, @Nullable String parameters) implements TwigMacroTagInterface {
+public record TwigMacroTag(String name, @Nullable String parameters) implements TwigMacroTagInterface {
     /**
      * {% macro input(name, value, type, size) %}
      *

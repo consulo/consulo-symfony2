@@ -1,43 +1,21 @@
 package fr.adrienbrault.idea.symfony2plugin.ui.utils.dict;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.util.ui.ColumnInfo;
+import consulo.localize.LocalizeValue;
+import consulo.project.Project;
+import consulo.ui.Table;
 import fr.adrienbrault.idea.symfony2plugin.ui.dict.UiFilePathInterface;
 import fr.adrienbrault.idea.symfony2plugin.ui.utils.UiSettingsUtil;
-import org.jetbrains.annotations.Nullable;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class UiPathColumnInfo {
-
-    public static class PathColumn extends ColumnInfo<UiFilePathInterface, String> {
-
-        public PathColumn() {
-            super("Path");
-        }
-
-        @Nullable
-        @Override
-        public String valueOf(UiFilePathInterface file) {
-            return file.getPath();
-        }
+    /**
+     * "Path" and "Info" (exists / not found) columns of a file path table
+     */
+    public static <T extends UiFilePathInterface> void addColumns(Table<T> table, Project project) {
+        table.addColumn(LocalizeValue.localizeTODO("Path"), file -> StringUtils.defaultString(file.getPath()));
+        table.addColumn(LocalizeValue.localizeTODO("Info"), file -> UiSettingsUtil.getPresentableFilePath(project, file).info());
     }
-
-    public static class TypeColumn extends ColumnInfo<UiFilePathInterface, String> {
-
-        private final Project project;
-
-        public TypeColumn(Project project) {
-            super("Info");
-            this.project = project;
-        }
-
-        @Nullable
-        @Override
-        public String valueOf(UiFilePathInterface file) {
-            return UiSettingsUtil.getPresentableFilePath(project, file).info();
-        }
-    }
-
 }

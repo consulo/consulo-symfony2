@@ -1,7 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.routing.dict;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -11,7 +10,6 @@ import java.util.Collections;
  */
 public class JsonRoute implements RouteInterface {
 
-    @NotNull
     private final String name;
 
     @Nullable
@@ -23,12 +21,11 @@ public class JsonRoute implements RouteInterface {
     @Nullable
     private Collection<String> methods;
 
-    public JsonRoute(@NotNull String name) {
+    public JsonRoute(String name) {
         this.name = name;
     }
 
     @Override
-    @NotNull
     public String getName() {
         return name;
     }
@@ -45,7 +42,6 @@ public class JsonRoute implements RouteInterface {
         return this.path;
     }
 
-    @NotNull
     @Override
     public Collection<String> getMethods() {
         return this.methods == null ? Collections.emptyList() : this.methods;

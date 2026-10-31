@@ -1,6 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.extension;
 
-import com.intellij.openapi.project.Project;
+import consulo.project.Project;
 import fr.adrienbrault.idea.symfony2plugin.dic.ContainerFile;
 
 import java.util.Collection;

@@ -1,15 +1,15 @@
 package fr.adrienbrault.idea.symfony2plugin.dic;
 
-import com.intellij.codeInsight.daemon.GutterIconNavigationHandler;
-import com.intellij.codeInsight.navigation.NavigationUtil;
-import com.intellij.navigation.GotoRelatedItem;
-import com.intellij.psi.PsiElement;
-import com.intellij.ui.awt.RelativePoint;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import consulo.language.editor.gutter.GutterIconNavigationHandler;
+import consulo.language.editor.ui.PopupNavigationUtil;
+import consulo.language.navigation.GotoRelatedItem;
+import consulo.language.psi.PsiElement;
+import consulo.ui.RelativePoint2D;
+import consulo.ui.annotation.RequiredUIAccess;
+import consulo.ui.event.ComponentEvent;
+import consulo.ui.image.Image;
+import org.jspecify.annotations.Nullable;
 
-import javax.swing.*;
-import java.awt.event.MouseEvent;
 import java.util.List;
 
 /**
@@ -25,12 +25,14 @@ public class RelatedPopupGotoLineMarker {
             this.items = items;
         }
 
-        public void navigate(MouseEvent e, PsiElement elt) {
+        @Override
+        @RequiredUIAccess
+        public void navigate(ComponentEvent<?> e, PsiElement elt) {
             List<GotoRelatedItem>  items = this.items;
             if (items.size() == 1) {
                 items.get(0).navigate();
             } else {
-                NavigationUtil.getRelatedItemsPopup(items, "Go to Related Files").show(new RelativePoint(e));
+                PopupNavigationUtil.getRelatedItemsPopup(items, "Go to Related Files").show(RelativePoint2D.of(e));
             }
 
         }
@@ -40,14 +42,14 @@ public class RelatedPopupGotoLineMarker {
     public static class PopupGotoRelatedItem extends GotoRelatedItem {
 
         private String customName;
-        private Icon icon;
-        private Icon smallIcon;
+        private Image icon;
+        private Image smallIcon;
 
-        public PopupGotoRelatedItem(@NotNull PsiElement element) {
+        public PopupGotoRelatedItem(PsiElement element) {
             super(element);
         }
 
-        public PopupGotoRelatedItem(@NotNull PsiElement element, String customName) {
+        public PopupGotoRelatedItem(PsiElement element, String customName) {
             super(element);
             this.customName = customName;
         }
@@ -60,7 +62,7 @@ public class RelatedPopupGotoLineMarker {
 
         @Nullable
         @Override
-        public Icon getCustomIcon() {
+        public Image getCustomIcon() {
             if(this.icon != null) {
                 return this.icon;
             }
@@ -68,13 +70,13 @@ public class RelatedPopupGotoLineMarker {
             return super.getCustomIcon();
         }
 
-        public PopupGotoRelatedItem withIcon(Icon icon, Icon smallIcon) {
+        public PopupGotoRelatedItem withIcon(Image icon, Image smallIcon) {
             this.icon = icon;
             this.smallIcon = smallIcon;
             return this;
         }
 
-        public Icon getSmallIcon() {
+        public Image getSmallIcon() {
             return smallIcon;
         }
 

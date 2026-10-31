@@ -1,23 +1,22 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.usages;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiDirectory;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiManager;
-import com.intellij.psi.search.GlobalSearchScope;
-import com.intellij.refactoring.move.moveFilesOrDirectories.MoveFileHandler;
-import com.intellij.usageView.UsageInfo;
-import com.intellij.util.indexing.FileBasedIndex;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.project.Project;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.language.psi.PsiDirectory;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.PsiManager;
+import consulo.language.psi.scope.GlobalSearchScope;
+import consulo.language.editor.refactoring.move.MoveFileHandler;
+import consulo.usage.UsageInfo;
+import consulo.language.psi.stub.FileBasedIndex;
 import com.jetbrains.twig.TwigFile;
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.TwigExtendsStubIndex;
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.TwigIncludeStubIndex;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TemplateMoveRenameUtil;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.Unmodifiable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -45,6 +44,7 @@ import java.util.Set;
  *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class TwigMoveFileHandler extends MoveFileHandler {
 
     @Override
@@ -58,9 +58,9 @@ public class TwigMoveFileHandler extends MoveFileHandler {
     }
 
     @Override
-    public @Nullable @Unmodifiable List<UsageInfo> findUsages(
-            @NotNull PsiFile psiFile,
-            @NotNull PsiDirectory newParent,
+    public @Nullable List<UsageInfo> findUsages(
+            PsiFile psiFile,
+            PsiDirectory newParent,
             boolean searchInComments,
             boolean searchInNonJavaFiles) {
 
@@ -97,8 +97,8 @@ public class TwigMoveFileHandler extends MoveFileHandler {
      */
     @Override
     public void retargetUsages(
-            @NotNull @Unmodifiable List<? extends UsageInfo> usages,
-            @NotNull Map<PsiElement, PsiElement> oldToNewMap) {
+            List<UsageInfo> usages,
+            Map<PsiElement, PsiElement> oldToNewMap) {
 
         // Process in descending offset order so that earlier offsets in the same file
         // are not shifted by replacements at higher positions (commitDocument changes doc length).
@@ -142,7 +142,7 @@ public class TwigMoveFileHandler extends MoveFileHandler {
         // handled via findUsages/retargetUsages so it runs after decodeFileReferences()
     }
 
-    private static void collectReferencingFiles(@NotNull VirtualFile movedVFile, @NotNull Project project, @NotNull List<UsageInfo> result) {
+    private static void collectReferencingFiles(VirtualFile movedVFile, Project project, List<UsageInfo> result) {
 
         Collection<String> templateNames = TwigUtil.getTemplateNamesForFile(project, movedVFile);
         if (templateNames.isEmpty()) {
@@ -188,7 +188,7 @@ public class TwigMoveFileHandler extends MoveFileHandler {
     /**
      *  Collects the moved file's own extends/include references (their targets haven't moved).
      */
-    private static void collectOwnReferences(@NotNull TwigFile movedFile, @NotNull List<UsageInfo> result) {
+    private static void collectOwnReferences(TwigFile movedFile, List<UsageInfo> result) {
         TwigUtil.visitTemplateIncludes(movedFile, include -> {
             addUsage(include.getPsiElement(), include.getTemplateName(), null, result);
         });
@@ -198,14 +198,14 @@ public class TwigMoveFileHandler extends MoveFileHandler {
         });
     }
 
-    private static void collectInclude(@NotNull TwigFile sourceFile, @NotNull String normalizedName, @NotNull VirtualFile movedVFile, @NotNull List<UsageInfo> result) {
+    private static void collectInclude(TwigFile sourceFile, String normalizedName, VirtualFile movedVFile, List<UsageInfo> result) {
         TwigUtil.visitTemplateIncludes(sourceFile, include -> {
             if (!TwigUtil.normalizeTemplateName(include.getTemplateName()).equals(normalizedName)) return;
             addUsage(include.getPsiElement(), include.getTemplateName(), movedVFile, result);
         });
     }
 
-    private static void collectExtends(@NotNull TwigFile sourceFile, @NotNull String normalizedName, @NotNull VirtualFile movedVFile, @NotNull List<UsageInfo> result) {
+    private static void collectExtends(TwigFile sourceFile, String normalizedName, VirtualFile movedVFile, List<UsageInfo> result) {
         TwigUtil.visitTemplateExtends(sourceFile, pair -> {
             if (!TwigUtil.normalizeTemplateName(pair.getFirst()).equals(normalizedName)) return;
             addUsage(pair.getSecond(), pair.getFirst(), movedVFile, result);
@@ -216,7 +216,7 @@ public class TwigMoveFileHandler extends MoveFileHandler {
      * @param movedFileVFile the VirtualFile of the moved template, or {@code null} for own
      *                       references (targets that did not move)
      */
-    private static void addUsage(@Nullable PsiElement element, @Nullable String rawTemplateName, @Nullable VirtualFile movedFileVFile, @NotNull List<UsageInfo> result) {
+    private static void addUsage(@Nullable PsiElement element, @Nullable String rawTemplateName, @Nullable VirtualFile movedFileVFile, List<UsageInfo> result) {
 
         if (element == null || rawTemplateName == null) {
             return;
@@ -245,10 +245,9 @@ public class TwigMoveFileHandler extends MoveFileHandler {
         ));
     }
 
-    @NotNull
     private static Project resolveProject(
-            @NotNull TwigTagUsageInfo twigUsage,
-            @NotNull Map<PsiElement, PsiElement> oldToNewMap) {
+            TwigTagUsageInfo twigUsage,
+            Map<PsiElement, PsiElement> oldToNewMap) {
 
         for (PsiElement el : oldToNewMap.values()) {
             if (el != null) {
@@ -264,9 +263,9 @@ public class TwigMoveFileHandler extends MoveFileHandler {
     }
 
     private static final class TwigTagUsageInfo extends UsageInfo {
-        @NotNull final VirtualFile containingVFile;
+        final VirtualFile containingVFile;
         final int absoluteTemplateNameOffset;
-        @NotNull final String originalTemplateName;
+        final String originalTemplateName;
         /**
          * The VirtualFile of the moved template (live, updated in-place by VFS during move).
          * {@code null} for own references — targets that did not move.
@@ -274,12 +273,12 @@ public class TwigMoveFileHandler extends MoveFileHandler {
         @Nullable final VirtualFile movedFileVFile;
 
         TwigTagUsageInfo(
-                @NotNull PsiElement element,
+                PsiElement element,
                 int startOffset,
                 int endOffset,
-                @NotNull VirtualFile containingVFile,
+                VirtualFile containingVFile,
                 int absoluteTemplateNameOffset,
-                @NotNull String originalTemplateName,
+                String originalTemplateName,
                 @Nullable VirtualFile movedFileVFile) {
             super(element, startOffset, endOffset, false);
             this.containingVFile = containingVFile;

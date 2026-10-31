@@ -1,13 +1,12 @@
 package fr.adrienbrault.idea.symfony2plugin.util.dict;
 
-import com.intellij.openapi.vfs.VfsUtil;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiDirectory;
-import com.intellij.psi.PsiFile;
+import consulo.virtualFileSystem.util.VirtualFileUtil;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.language.psi.PsiDirectory;
+import consulo.language.psi.PsiFile;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -16,39 +15,32 @@ import java.util.Collection;
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class SymfonyBundle {
-    @NotNull
     final private PhpClass phpClass;
 
-    @NotNull
     final private String phpClassName;
 
-    @NotNull
     private final String phpClassNameNamespaceName;
 
-    @NotNull
     public PhpClass getPhpClass() {
         return this.phpClass;
     }
 
-    @NotNull
     public String getNamespaceName() {
         return this.phpClass.getNamespaceName();
     }
 
-    @NotNull
     public String getName() {
         return this.phpClassName;
     }
 
-    public SymfonyBundle(@NotNull PhpClass phpClass) {
+    public SymfonyBundle(PhpClass phpClass) {
         this.phpClass = phpClass;
 
         this.phpClassName = this.phpClass.getName();
         this.phpClassNameNamespaceName = this.phpClass.getNamespaceName();
     }
 
-    @Nullable
-    public PsiDirectory getDirectory() {
+    public @Nullable PsiDirectory getDirectory() {
         if(null == this.phpClass.getContainingFile()) {
             return null;
         }
@@ -56,8 +48,7 @@ public class SymfonyBundle {
         return this.phpClass.getContainingFile().getContainingDirectory();
     }
 
-    @Nullable
-    public PsiDirectory getSubDirectory(@NotNull String... names) {
+    public @Nullable PsiDirectory getSubDirectory(String... names) {
         PsiDirectory currentDir = this.getDirectory();
         if(null == currentDir) {
             return null;
@@ -73,22 +64,21 @@ public class SymfonyBundle {
         return currentDir;
     }
 
-    @Nullable
-    public String getRelativePath(@NotNull VirtualFile file) {
+    public @Nullable String getRelativePath(VirtualFile file) {
         PsiDirectory currentDir = this.getDirectory();
 
         if(null == currentDir) {
           return null;
         }
 
-        return VfsUtil.getRelativePath(file, currentDir.getVirtualFile(), '/');
+        return VirtualFileUtil.getRelativePath(file, currentDir.getVirtualFile(), '/');
     }
 
-    public boolean isInBundle(@NotNull PhpClass phpClass) {
+    public boolean isInBundle(PhpClass phpClass) {
         return phpClass.getNamespaceName().startsWith(this.phpClassNameNamespaceName);
     }
 
-    public boolean isInBundle(@NotNull PsiFile psiFile) {
+    public boolean isInBundle(PsiFile psiFile) {
         return isInBundle(psiFile.getVirtualFile());
     }
 
@@ -98,31 +88,28 @@ public class SymfonyBundle {
         }
 
         PsiDirectory psiDirectory =  this.getDirectory();
-        return psiDirectory != null && VfsUtil.isAncestor(psiDirectory.getVirtualFile(), virtualFile, false);
+        return psiDirectory != null && VirtualFileUtil.isAncestor(psiDirectory.getVirtualFile(), virtualFile, false);
     }
 
-    @Nullable
-    public VirtualFile getRelative(@NotNull String path) {
+    public @Nullable VirtualFile getRelative(String path) {
         PsiDirectory virtualDirectory =  this.getDirectory();
         if(virtualDirectory == null) {
             return null;
         }
 
-       return VfsUtil.findRelativeFile(virtualDirectory.getVirtualFile(), path.split("/"));
+       return VirtualFileUtil.findRelativeFile(virtualDirectory.getVirtualFile(), path.split("/"));
     }
 
-    @Nullable
-    public String getRelative(@NotNull VirtualFile virtualFile) {
+    public @Nullable String getRelative(VirtualFile virtualFile) {
         PsiDirectory virtualDirectory =  this.getDirectory();
         if(virtualDirectory == null) {
             return null;
         }
 
-        return VfsUtil.getRelativePath(virtualFile, virtualDirectory.getVirtualFile(), '/');
+        return VirtualFileUtil.getRelativePath(virtualFile, virtualDirectory.getVirtualFile(), '/');
     }
 
-    @Nullable
-    public String getFileShortcut(@NotNull BundleFile bundleFile) {
+    public @Nullable String getFileShortcut(BundleFile bundleFile) {
         String relativePath = this.getRelative(bundleFile.getVirtualFile());
         if(relativePath == null) {
             return null;
@@ -141,8 +128,7 @@ public class SymfonyBundle {
         return directory.getVirtualFile().toString().contains("/Tests/");
     }
 
-    @Nullable
-    public String getParentBundleName() {
+    public @Nullable String getParentBundleName() {
         return PhpElementsUtil.getMethodReturnAsString(this.getPhpClass(), "getParent");
     }
 
@@ -150,7 +136,6 @@ public class SymfonyBundle {
      * Returns all possible template directories for this bundle.
      * Supports both legacy (Resources/views) and new Symfony 4.4+ (templates) structures.
      */
-    @NotNull
     public Collection<PsiDirectory> getTemplateDirectories() {
         Collection<PsiDirectory> directories = new ArrayList<>();
 

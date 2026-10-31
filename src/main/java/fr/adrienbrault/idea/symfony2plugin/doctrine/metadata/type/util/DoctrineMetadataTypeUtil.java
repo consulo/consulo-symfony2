@@ -1,15 +1,14 @@
 package fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.type.util;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.Pair;
-import com.intellij.psi.PsiElement;
-import com.intellij.util.Processor;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
+import consulo.application.util.function.Processor;
+import consulo.language.psi.PsiElement;
+import consulo.project.Project;
+import consulo.util.lang.Pair;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.dict.DoctrineManagerEnum;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.util.DoctrineMetadataUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpIndexUtil;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -24,8 +23,7 @@ public class DoctrineMetadataTypeUtil {
     public static final String COUCHDB_TYPE = "Doctrine\\ODM\\CouchDB\\Types\\Type";
     public static final String MONGODB_TYPE = "Doctrine\\ODM\\MongoDB\\Types\\Type";
 
-    @NotNull
-    public static Collection<String> getTypeClassesByScopeWithAllFallback(@NotNull PsiElement psiElement) {
+    public static Collection<String> getTypeClassesByScopeWithAllFallback(PsiElement psiElement) {
         DoctrineManagerEnum manager = DoctrineMetadataUtil.findManagerByScope(psiElement);
         if(manager != null) {
             return DoctrineMetadataTypeUtil.getTypeClassByManager(manager);
@@ -34,8 +32,7 @@ public class DoctrineMetadataTypeUtil {
         return getAllTypes();
     }
 
-    @NotNull
-    private static Collection<String> getTypeClassByManager(@NotNull DoctrineManagerEnum managerEnum) {
+    private static Collection<String> getTypeClassByManager(DoctrineManagerEnum managerEnum) {
         if(managerEnum == DoctrineManagerEnum.ORM) {
             return Collections.singleton(DBAL_TYPE);
         } else if(managerEnum == DoctrineManagerEnum.COUCHDB) {
@@ -49,7 +46,6 @@ public class DoctrineMetadataTypeUtil {
         return Collections.emptyList();
     }
 
-    @NotNull
     private static Collection<String> getAllTypes() {
         return Arrays.asList(
             DBAL_TYPE,
@@ -58,7 +54,7 @@ public class DoctrineMetadataTypeUtil {
         );
     }
 
-    public static void visitType(@NotNull Project project, @NotNull Collection<String> typeInterfaces, @NotNull Processor<Pair<PhpClass, String>> processor) {
+    public static void visitType(Project project, Collection<String> typeInterfaces, Processor<Pair<PhpClass, String>> processor) {
         for (String typeInterface : typeInterfaces) {
             for (PhpClass phpClass : PhpIndexUtil.getAllSubclasses(project, typeInterface)) {
                 String name = PhpElementsUtil.getMethodReturnAsString(phpClass, "getName");

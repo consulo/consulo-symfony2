@@ -1,34 +1,26 @@
 package fr.adrienbrault.idea.symfony2plugin.ui;
 
-import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
-import org.jetbrains.annotations.NotNull;
-
-import javax.swing.*;
-import java.awt.*;
+import consulo.disposer.Disposable;
+import consulo.localize.LocalizeValue;
+import consulo.project.Project;
+import consulo.ui.Component;
+import consulo.ui.Label;
+import consulo.ui.TextArea;
+import consulo.ui.annotation.RequiredUIAccess;
+import consulo.ui.ex.action.AnAction;
+import consulo.ui.ex.dialog.DialogDescriptor;
+import consulo.ui.ex.dialog.DialogService;
+import consulo.ui.ex.dialog.action.DialogOkAction;
+import consulo.platform.base.localize.CommonLocalize;
+import consulo.ui.layout.DockLayout;
+import consulo.ui.layout.ScrollableLayout;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
-public class TwigJsonExampleDialog extends JDialog {
-    private JPanel contentPane;
-    private JButton buttonOK;
-    private JTextArea pathIsRelativeToTextArea;
-
-    private TwigJsonExampleDialog() {
-        createUIComponents();
-        setContentPane(contentPane);
-        setModal(true);
-        getRootPane().setDefaultButton(buttonOK);
-
-        buttonOK.addActionListener(e -> onOK());
-    }
-
-    private void createUIComponents() {
-        contentPane = new JPanel(new BorderLayout(0, 5));
-        contentPane.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-
-        pathIsRelativeToTextArea = new JTextArea(
-            "// \"path\" is relative to file (ide-twig.json)\n" +
+public class TwigJsonExampleDialog extends DialogDescriptor {
+    private static final String EXAMPLE =
+        "// \"path\" is relative to file (ide-twig.json)\n" +
             "{\n" +
             "  \"namespaces\": [\n" +
             "    {\n" +
@@ -44,32 +36,31 @@ public class TwigJsonExampleDialog extends JDialog {
             "      \"namespace\": \"FooBundle\"\n" +
             "    }\n" +
             "  ]\n" +
-            "}"
-        );
+            "}";
+
+    private TwigJsonExampleDialog() {
+        super(LocalizeValue.localizeTODO("Example: ide-twig.json"));
+    }
+
+    @RequiredUIAccess
+    @Override
+    public Component createCenterComponent(Disposable uiDisposable) {
+        TextArea pathIsRelativeToTextArea = TextArea.create(EXAMPLE);
         pathIsRelativeToTextArea.setEditable(false);
 
-        JPanel centerPanel = new JPanel(new BorderLayout(0, 2));
-        centerPanel.add(new JLabel("Example \"ide-twig.json\"; supports multiple locations"), BorderLayout.NORTH);
-        centerPanel.add(new JScrollPane(pathIsRelativeToTextArea), BorderLayout.CENTER);
-
-        buttonOK = new JButton("OK");
-        JPanel buttonsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
-        buttonsPanel.add(buttonOK);
-
-        contentPane.add(centerPanel, BorderLayout.CENTER);
-        contentPane.add(buttonsPanel, BorderLayout.SOUTH);
+        DockLayout layout = DockLayout.create();
+        layout.top(Label.create(LocalizeValue.localizeTODO("Example \"ide-twig.json\"; supports multiple locations")));
+        layout.center(ScrollableLayout.create(pathIsRelativeToTextArea));
+        return layout;
     }
 
-    private void onOK() {
-        dispose();
+    @Override
+    public AnAction[] createActions(boolean inverseOrder) {
+        return new AnAction[]{new DialogOkAction(CommonLocalize.buttonOk())};
     }
 
-    public static void open(@NotNull Component relativeTo) {
-        TwigJsonExampleDialog twigJsonExampleForm = new TwigJsonExampleDialog();
-        twigJsonExampleForm.setTitle("Example: ide-twig.json");
-        twigJsonExampleForm.setIconImage(Symfony2Icons.getImage(Symfony2Icons.SYMFONY));
-        twigJsonExampleForm.pack();
-        twigJsonExampleForm.setLocationRelativeTo(relativeTo);
-        twigJsonExampleForm.setVisible(true);
+    @RequiredUIAccess
+    public static void open(Project project) {
+        project.getApplication().getInstance(DialogService.class).build(project, new TwigJsonExampleDialog()).showAsync();
     }
 }

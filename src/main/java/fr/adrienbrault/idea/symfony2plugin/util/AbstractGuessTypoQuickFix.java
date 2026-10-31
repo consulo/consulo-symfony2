@@ -1,25 +1,22 @@
 package fr.adrienbrault.idea.symfony2plugin.util;
 
-import com.intellij.codeInsight.intention.preview.IntentionPreviewInfo;
-import com.intellij.codeInspection.IntentionAndQuickFixAction;
-import com.intellij.codeInspection.ProblemDescriptor;
-import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.command.WriteCommandAction;
-import com.intellij.openapi.editor.Editor;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.ui.popup.JBPopupFactory;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.util.Consumer;
 import com.jetbrains.php.lang.psi.PhpPsiElementFactory;
 import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
 import com.jetbrains.twig.TwigTokenTypes;
 import com.jetbrains.twig.elements.TwigElementFactory;
-import org.jetbrains.annotations.Nls;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import consulo.application.ApplicationManager;
+import consulo.codeEditor.Editor;
+import consulo.language.editor.WriteCommandAction;
+import consulo.language.editor.inspection.IntentionAndQuickFixAction;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.localize.LocalizeValue;
+import consulo.project.Project;
+import consulo.ui.ex.popup.JBPopupFactory;
+import org.jspecify.annotations.Nullable;
 
 import java.util.List;
+import java.util.function.Consumer;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -30,41 +27,20 @@ abstract public class AbstractGuessTypoQuickFix extends IntentionAndQuickFixActi
      * Short label for this suggestion type, e.g. "Route", "Template", "Translation Key".
      * Used as the WriteCommandAction name ("<label> Suggestion") and popup title ("Symfony: <label> Suggestions").
      */
-    @NotNull
     protected abstract String getSuggestionLabel();
 
     /**
      * Returns the ranked list of candidate replacements for the missing value.
      */
-    @NotNull
-    protected abstract List<String> getSimilarItems(@NotNull Project project);
+    protected abstract List<String> getSimilarItems(Project project);
 
-    @Nls
-    @NotNull
     @Override
-    public String getName() {
-        return "Symfony: Apply Similar Suggestion";
-    }
-
-    @Nls
-    @NotNull
-    @Override
-    public String getFamilyName() {
-        return "Symfony";
+    public LocalizeValue getName() {
+        return LocalizeValue.localizeTODO("Symfony: Apply Similar Suggestion");
     }
 
     @Override
-    public @NotNull IntentionPreviewInfo generatePreview(@NotNull Project project, @NotNull Editor editor, @NotNull PsiFile file) {
-        return IntentionPreviewInfo.EMPTY;
-    }
-
-    @Override
-    public @NotNull IntentionPreviewInfo generatePreview(@NotNull Project project, @NotNull ProblemDescriptor previewDescriptor) {
-        return IntentionPreviewInfo.EMPTY;
-    }
-
-    @Override
-    public void applyFix(@NotNull Project project, PsiFile psiFile, @Nullable Editor editor) {
+    public void applyFix(Project project, PsiFile psiFile, @Nullable Editor editor) {
         if (editor == null) {
             return;
         }
@@ -113,14 +89,13 @@ abstract public class AbstractGuessTypoQuickFix extends IntentionAndQuickFixActi
         }
 
         if (similarItems.size() == 1 || ApplicationManager.getApplication().isHeadlessEnvironment()) {
-            suggestionSelected.consume(similarItems.get(0));
+            suggestionSelected.accept(similarItems.get(0));
             return;
         }
 
-        JBPopupFactory.getInstance().createPopupChooserBuilder(similarItems)
+        editor.showPopupInBestPositionFor(JBPopupFactory.getInstance().createPopupChooserBuilder(similarItems)
             .setTitle("Symfony: " + getSuggestionLabel() + " Suggestions")
             .setItemChosenCallback(suggestionSelected)
-            .createPopup()
-            .showInBestPositionFor(editor);
+            .createPopup());
     }
 }

@@ -1,8 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.dic.container.dict;
 
 import org.apache.commons.lang3.builder.HashCodeBuilder;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.io.Serializable;
 import java.util.Collection;
@@ -25,7 +24,7 @@ public class ContainerBuilderCall implements Serializable {
     public ContainerBuilderCall() {
     }
 
-    public ContainerBuilderCall(@NotNull String scope) {
+    public ContainerBuilderCall(String scope) {
         this.scope = scope;
     }
 
@@ -52,7 +51,7 @@ public class ContainerBuilderCall implements Serializable {
         return parameter;
     }
 
-    public void addParameter(@NotNull String parameter) {
+    public void addParameter(String parameter) {
         this.parameter.add(parameter);
     }
 

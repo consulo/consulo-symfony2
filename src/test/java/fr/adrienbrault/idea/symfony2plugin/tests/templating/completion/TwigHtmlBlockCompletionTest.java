@@ -1,5 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.templating.completion;
 
+import org.junit.jupiter.api.Test;
+
 import com.jetbrains.twig.TwigFileType;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
 
@@ -28,6 +30,8 @@ public class TwigHtmlBlockCompletionTest extends SymfonyLightCodeInsightFixtureT
         return "src/test/java/fr/adrienbrault/idea/symfony2plugin/tests/templating/completion/fixtures";
     }
 
+    @Test
+
     public void testBlockTagCompletionInsideComponentRoot() {
         assertCompletionContains(
             TwigFileType.INSTANCE,
@@ -37,6 +41,8 @@ public class TwigHtmlBlockCompletionTest extends SymfonyLightCodeInsightFixtureT
         );
     }
 
+    @Test
+
     public void testBlockTagCompletionInsideComponentRootWhenTypingTagName() {
         assertCompletionContains(
             TwigFileType.INSTANCE,
@@ -45,6 +51,8 @@ public class TwigHtmlBlockCompletionTest extends SymfonyLightCodeInsightFixtureT
             "twig:block name=\"actions\""
         );
     }
+
+    @Test
 
     public void testBlockTagCompletionNotInsideBlockNameAttribute() {
         assertCompletionNotContains(
@@ -61,6 +69,8 @@ public class TwigHtmlBlockCompletionTest extends SymfonyLightCodeInsightFixtureT
             "actions"
         );
     }
+
+    @Test
 
     public void testBlockTagCompletionNotInsideNestedTag() {
         assertCompletionNotContains(

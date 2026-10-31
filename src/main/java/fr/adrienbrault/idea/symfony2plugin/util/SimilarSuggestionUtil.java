@@ -1,7 +1,5 @@
 package fr.adrienbrault.idea.symfony2plugin.util;
 
-import org.jetbrains.annotations.NotNull;
-
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -11,8 +9,7 @@ import static fr.adrienbrault.idea.symfony2plugin.util.StringUtils.getFuzzyDista
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class SimilarSuggestionUtil {
-    @NotNull
-    public static List<String> findSimilarString(@NotNull String string, @NotNull Collection<String> strings) {
+    public static List<String> findSimilarString(String string, Collection<String> strings) {
         Map<String, Integer> fuzzy = new HashMap<>();
 
         for (String domain : strings) {

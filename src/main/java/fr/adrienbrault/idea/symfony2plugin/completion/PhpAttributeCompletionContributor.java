@@ -1,18 +1,26 @@
 package fr.adrienbrault.idea.symfony2plugin.completion;
 
-import com.intellij.codeInsight.completion.*;
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.codeInsight.lookup.LookupElementBuilder;
-import com.intellij.openapi.editor.Document;
-import com.intellij.openapi.editor.Editor;
-import com.intellij.openapi.project.Project;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.psi.PsiDocumentManager;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiWhiteSpace;
-import com.intellij.psi.util.PsiTreeUtil;
-import com.intellij.util.ProcessingContext;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.Language;
+import consulo.language.editor.completion.CompletionContributor;
+import consulo.language.editor.completion.CompletionParameters;
+import consulo.language.editor.completion.CompletionProvider;
+import consulo.language.editor.completion.CompletionResultSet;
+import consulo.language.editor.completion.CompletionType;
+import consulo.language.editor.completion.lookup.InsertHandler;
+import consulo.language.editor.completion.lookup.InsertionContext;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.editor.completion.lookup.LookupElementBuilder;
+import consulo.document.Document;
+import consulo.codeEditor.Editor;
+import consulo.project.Project;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiDocumentManager;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.PsiWhiteSpace;
+import consulo.language.psi.util.PsiTreeUtil;
+import consulo.language.util.ProcessingContext;
 import com.jetbrains.php.lang.PhpLanguage;
 import com.jetbrains.php.lang.psi.elements.*;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
@@ -20,7 +28,6 @@ import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.util.CodeUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -38,6 +45,7 @@ import java.util.Collection;
  *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl(order = "before PhpCompletionContributor") // upstream order="first"
 public class PhpAttributeCompletionContributor extends CompletionContributor {
 
     private static final String ROUTE_ATTRIBUTE_FQN = "\\Symfony\\Component\\Routing\\Attribute\\Route";
@@ -92,9 +100,14 @@ public class PhpAttributeCompletionContributor extends CompletionContributor {
         );
     }
 
-    private static class PhpAttributeCompletionProvider extends CompletionProvider<CompletionParameters> {
+    @Override
+    public Language getLanguage() {
+        return PhpLanguage.INSTANCE;
+    }
+
+    private static class PhpAttributeCompletionProvider implements CompletionProvider {
         @Override
-        protected void addCompletions(@NotNull CompletionParameters parameters, @NotNull ProcessingContext context, @NotNull CompletionResultSet result) {
+        public void addCompletions(CompletionParameters parameters, ProcessingContext context, CompletionResultSet result) {
             PsiElement position = parameters.getPosition();
             Project project = position.getProject();
 
@@ -178,7 +191,7 @@ public class PhpAttributeCompletionContributor extends CompletionContributor {
         /**
          * Get controller method-level attribute completions (for methods in controller classes)
          */
-        private Collection<LookupElement> getControllerMethodCompletions(@NotNull Project project) {
+        private Collection<LookupElement> getControllerMethodCompletions(Project project) {
             Collection<LookupElement> lookupElements = new ArrayList<>();
 
             // Add Route attribute completion
@@ -231,7 +244,7 @@ public class PhpAttributeCompletionContributor extends CompletionContributor {
         /**
          * Get controller class-level attribute completions (for controller classes)
          */
-        private Collection<LookupElement> getControllerClassCompletions(@NotNull Project project) {
+        private Collection<LookupElement> getControllerClassCompletions(Project project) {
             Collection<LookupElement> lookupElements = new ArrayList<>();
 
             // Add Route attribute completion (for class-level route prefix)
@@ -270,7 +283,7 @@ public class PhpAttributeCompletionContributor extends CompletionContributor {
             return lookupElements;
         }
 
-        private Collection<LookupElement> getTwigExtensionCompletions(@NotNull Project project) {
+        private Collection<LookupElement> getTwigExtensionCompletions(Project project) {
             Collection<LookupElement> lookupElements = new ArrayList<>();
 
             // Add AsTwigFilter attribute completion
@@ -312,7 +325,7 @@ public class PhpAttributeCompletionContributor extends CompletionContributor {
         /**
          * Get Twig component class-level attribute completions (for component classes)
          */
-        private Collection<LookupElement> getTwigComponentClassCompletions(@NotNull Project project) {
+        private Collection<LookupElement> getTwigComponentClassCompletions(Project project) {
             Collection<LookupElement> lookupElements = new ArrayList<>();
 
             // Add AsTwigComponent attribute completion
@@ -332,7 +345,7 @@ public class PhpAttributeCompletionContributor extends CompletionContributor {
         /**
          * Get command class-level attribute completions (for command classes)
          */
-        private Collection<LookupElement> getCommandClassCompletions(@NotNull Project project) {
+        private Collection<LookupElement> getCommandClassCompletions(Project project) {
             Collection<LookupElement> lookupElements = new ArrayList<>();
 
             // Add AsCommand attribute completion
@@ -356,7 +369,7 @@ public class PhpAttributeCompletionContributor extends CompletionContributor {
          * - It extends AbstractExtension or implements ExtensionInterface, OR
          * - Any other public method in the class already has an AsTwig* attribute
          */
-        private boolean isTwigExtensionClass(@NotNull PhpClass phpClass) {
+        private boolean isTwigExtensionClass(PhpClass phpClass) {
             // Check if the class name ends with "TwigExtension"
             if (phpClass.getName().endsWith("TwigExtension")) {
                 return true;
@@ -392,7 +405,7 @@ public class PhpAttributeCompletionContributor extends CompletionContributor {
          * Get attribute completions for public methods in AsTwigComponent classes
          * Includes: ExposeInTemplate, PreMount, PostMount
          */
-        private Collection<LookupElement> getTwigComponentMethodCompletions(@NotNull Project project) {
+        private Collection<LookupElement> getTwigComponentMethodCompletions(Project project) {
             Collection<LookupElement> lookupElements = new ArrayList<>();
 
             // Add ExposeInTemplate attribute completion
@@ -435,7 +448,7 @@ public class PhpAttributeCompletionContributor extends CompletionContributor {
          * Get attribute completions for properties in AsTwigComponent classes
          * Includes: ExposeInTemplate
          */
-        private Collection<LookupElement> getTwigComponentPropertyCompletions(@NotNull Project project) {
+        private Collection<LookupElement> getTwigComponentPropertyCompletions(Project project) {
             Collection<LookupElement> lookupElements = new ArrayList<>();
 
             // Add ExposeInTemplate attribute completion
@@ -457,7 +470,7 @@ public class PhpAttributeCompletionContributor extends CompletionContributor {
          * Get attribute completions for properties in Doctrine entity classes
          * Includes: Column, Id, GeneratedValue, OneToMany, OneToOne, ManyToOne, ManyToMany, JoinColumn
          */
-        private Collection<LookupElement> getDoctrineFieldAttributeCompletions(@NotNull Project project) {
+        private Collection<LookupElement> getDoctrineFieldAttributeCompletions(Project project) {
             Collection<LookupElement> lookupElements = new ArrayList<>();
 
             // Add Column attribute completion
@@ -555,7 +568,7 @@ public class PhpAttributeCompletionContributor extends CompletionContributor {
          * Get attribute completions for Doctrine entity classes
          * Includes: Entity, Table, UniqueConstraint, Index, Embeddable, HasLifecycleCallbacks
          */
-        private Collection<LookupElement> getDoctrineClassAttributeCompletions(@NotNull Project project) {
+        private Collection<LookupElement> getDoctrineClassAttributeCompletions(Project project) {
             Collection<LookupElement> lookupElements = new ArrayList<>();
 
             // Add Entity attribute completion
@@ -634,7 +647,7 @@ public class PhpAttributeCompletionContributor extends CompletionContributor {
          * These attributes use a special insert handler that also adds #[HasLifecycleCallbacks]
          * to the class if not already present.
          */
-        private Collection<LookupElement> getDoctrineMethodAttributeCompletions(@NotNull Project project) {
+        private Collection<LookupElement> getDoctrineMethodAttributeCompletions(Project project) {
             Collection<LookupElement> lookupElements = new ArrayList<>();
 
             // Add PostLoad attribute completion
@@ -727,7 +740,7 @@ public class PhpAttributeCompletionContributor extends CompletionContributor {
         /**
          * Check if the class has the #[AsTwigComponent] attribute
          */
-        private boolean hasAsTwigComponentAttribute(@NotNull PhpClass phpClass) {
+        private boolean hasAsTwigComponentAttribute(PhpClass phpClass) {
             return !phpClass.getAttributes(AS_TWIG_COMPONENT_ATTRIBUTE_FQN).isEmpty();
         }
 
@@ -735,7 +748,7 @@ public class PhpAttributeCompletionContributor extends CompletionContributor {
          * Check if we're in a context where typing "#" for attributes makes sense
          * (i.e., after "#" character with whitespace before it)
          */
-        private boolean isAttributeContext(@NotNull CompletionParameters parameters) {
+        private boolean isAttributeContext(CompletionParameters parameters) {
             int offset = parameters.getOffset();
             PsiFile psiFile = parameters.getOriginalFile();
 
@@ -777,9 +790,9 @@ public class PhpAttributeCompletionContributor extends CompletionContributor {
     /**
      * Insert handler that adds a PHP attribute
      */
-    private record PhpAttributeInsertHandler(@NotNull String attributeFqn, @NotNull CursorPosition cursorPosition) implements InsertHandler<LookupElement> {
+    private record PhpAttributeInsertHandler(String attributeFqn, CursorPosition cursorPosition) implements InsertHandler<LookupElement> {
         @Override
-        public void handleInsert(@NotNull InsertionContext context, @NotNull LookupElement item) {
+        public void handleInsert(InsertionContext context, LookupElement item) {
             Editor editor = context.getEditor();
             Document document = editor.getDocument();
             Project project = context.getProject();

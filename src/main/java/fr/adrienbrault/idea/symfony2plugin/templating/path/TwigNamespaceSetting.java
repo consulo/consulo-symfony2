@@ -1,8 +1,8 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.path;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.util.xmlb.annotations.Attribute;
-import com.intellij.util.xmlb.annotations.Tag;
+import consulo.project.Project;
+import consulo.util.xml.serializer.annotation.Attribute;
+import consulo.util.xml.serializer.annotation.Tag;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
 
 /**

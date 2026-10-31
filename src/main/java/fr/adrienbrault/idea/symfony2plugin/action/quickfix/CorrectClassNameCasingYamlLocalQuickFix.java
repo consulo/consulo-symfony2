@@ -1,12 +1,11 @@
 package fr.adrienbrault.idea.symfony2plugin.action.quickfix;
 
-import com.intellij.codeInspection.LocalQuickFix;
-import com.intellij.codeInspection.ProblemDescriptor;
-import com.intellij.openapi.project.Project;
-import com.intellij.psi.PsiElement;
+import consulo.language.editor.inspection.LocalQuickFix;
+import consulo.language.editor.inspection.ProblemDescriptor;
+import consulo.language.psi.PsiElement;
+import consulo.localize.LocalizeValue;
+import consulo.project.Project;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlPsiElementFactory;
-import org.jetbrains.annotations.Nls;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.yaml.psi.YAMLKeyValue;
 
 public class CorrectClassNameCasingYamlLocalQuickFix implements LocalQuickFix {
@@ -18,22 +17,13 @@ public class CorrectClassNameCasingYamlLocalQuickFix implements LocalQuickFix {
         this.replacementFQN = replacementFQN;
     }
 
-    @Nls(capitalization = Nls.Capitalization.Sentence)
-    @NotNull
     @Override
-    public String getFamilyName() {
-        return "YAML";
-    }
-
-    @Nls(capitalization = Nls.Capitalization.Sentence)
-    @NotNull
-    @Override
-    public String getName() {
-        return "Use " + replacementFQN;
+    public LocalizeValue getName() {
+        return LocalizeValue.localizeTODO("Use " + replacementFQN);
     }
 
     @Override
-    public void applyFix(@NotNull Project project, @NotNull ProblemDescriptor descriptor) {
+    public void applyFix(Project project, ProblemDescriptor descriptor) {
         PsiElement psiElement1 = descriptor.getPsiElement();
         YAMLKeyValue replacement = YamlPsiElementFactory.createFromText(
                 project,

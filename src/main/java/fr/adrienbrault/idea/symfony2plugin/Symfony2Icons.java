@@ -1,11 +1,8 @@
 package fr.adrienbrault.idea.symfony2plugin;
 
-import com.intellij.openapi.util.IconLoader;
-import com.intellij.util.ui.ImageUtil;
+import consulo.ui.image.Image;
+import fr.adrienbrault.idea.symfony2plugin.icon.SymfonyIconGroup;
 
-import javax.swing.*;
-import java.awt.*;
-import java.awt.image.BufferedImage;
 import java.util.Calendar;
 
 /**
@@ -14,88 +11,74 @@ import java.util.Calendar;
  */
 public class Symfony2Icons {
 
-    public static final Icon SYMFONY;
-    public static final Icon SYMFONY_LINE_MARKER;
+    public static final Image SYMFONY;
+    public static final Image SYMFONY_LINE_MARKER;
 
     static {
         if(Calendar.getInstance().get(Calendar.MONTH) == Calendar.DECEMBER && Calendar.getInstance().get(Calendar.DAY_OF_MONTH) > 7) {
-            SYMFONY = IconLoader.getIcon("/icons/symfony_dec.png", Symfony2Icons.class);
-            SYMFONY_LINE_MARKER = IconLoader.getIcon("/icons/symfony_line_marker_dec.png", Symfony2Icons.class);
+            SYMFONY = SymfonyIconGroup.symfony_dec();
+            SYMFONY_LINE_MARKER = SymfonyIconGroup.symfony_line_marker_dec();
         } else if(Calendar.getInstance().get(Calendar.MONTH) == Calendar.APRIL && Calendar.getInstance().get(Calendar.DAY_OF_MONTH) == 7) {
-            SYMFONY = IconLoader.getIcon("/icons/symfony_birth.png", Symfony2Icons.class);
-            SYMFONY_LINE_MARKER = IconLoader.getIcon("/icons/symfony_line_marker_birth.png", Symfony2Icons.class);
+            SYMFONY = SymfonyIconGroup.symfony_birth();
+            SYMFONY_LINE_MARKER = SymfonyIconGroup.symfony_line_marker_birth();
         } else {
-            SYMFONY = IconLoader.getIcon("/icons/symfony.png", Symfony2Icons.class);
-            SYMFONY_LINE_MARKER = IconLoader.getIcon("/icons/symfony_line_marker.png", Symfony2Icons.class);
+            SYMFONY = SymfonyIconGroup.symfony();
+            SYMFONY_LINE_MARKER = SymfonyIconGroup.symfony_line_marker();
         }
     }
 
-    public static final Icon SYMFONY_TOOL_WINDOW = IconLoader.getIcon("/icons/symfony_tool_window.png", Symfony2Icons.class);
-    public static final Icon DOCTRINE = IconLoader.getIcon("/icons/doctrine.png", Symfony2Icons.class);
-    public static final Icon DOCTRINE_LINE_MARKER = IconLoader.getIcon("/icons/doctrine_line_marker.png", Symfony2Icons.class);
-    public static final Icon DOCTRINE_ENTITY_FILE = IconLoader.getIcon("/icons/doctrine_entity_file.svg", Symfony2Icons.class);
-    public static final Icon DOCTRINE_REPOSITORY_FILE = IconLoader.getIcon("/icons/doctrine_repository_file.svg", Symfony2Icons.class);
-    public static final Icon DOCTRINE_WEAK = IconLoader.getIcon("/icons/doctrine_weak.png", Symfony2Icons.class);
-    public static final Icon NO_SQL = IconLoader.getIcon("/icons/no_sql.png", Symfony2Icons.class);
-    public static final Icon ROUTE = IconLoader.getIcon("/icons/route.png", Symfony2Icons.class);
-    public static final Icon ROUTE_WEAK = IconLoader.getIcon("/icons/route_weak.png", Symfony2Icons.class);
-    public static final Icon SERVICE = IconLoader.getIcon("/icons/service.png", Symfony2Icons.class);
-    public static final Icon SERVICE_OPACITY = IconLoader.getIcon("/icons/service_opacity.png", Symfony2Icons.class);
-    public static final Icon FORM_TYPE = IconLoader.getIcon("/icons/form_type.png", Symfony2Icons.class);
-    public static final Icon FORM_TYPE_FILE = IconLoader.getIcon("/icons/form_type_file.svg", Symfony2Icons.class);
-    public static final Icon CONTROLLER_FILE = IconLoader.getIcon("/icons/controller_file.svg", Symfony2Icons.class);
-    public static final Icon FORM_TYPE_WEAK = IconLoader.getIcon("/icons/form_type_weak.png", Symfony2Icons.class);
-    public static final Icon TRANSLATION = IconLoader.getIcon("/icons/translation.png", Symfony2Icons.class);
-    public static final Icon TRANSLATION_WEAK = IconLoader.getIcon("/icons/translation_weak.png", Symfony2Icons.class);
-    public static final Icon PARAMETER = IconLoader.getIcon("/icons/parameter.png", Symfony2Icons.class);
-    public static final Icon FORM_OPTION = IconLoader.getIcon("/icons/form_option.png", Symfony2Icons.class);
-    public static final Icon FORM_EXTENSION = IconLoader.getIcon("/icons/form_extension.png", Symfony2Icons.class);
-    public static final Icon FORM_EXTENSION_WEAK = IconLoader.getIcon("/icons/form_extension_weak.png", Symfony2Icons.class);
-    public static final Icon SERVICE_TAG = IconLoader.getIcon("/icons/service_tag.png", Symfony2Icons.class);
-    public static final Icon SERVICE_TAG_WEAK = IconLoader.getIcon("/icons/service_tag_weak.png", Symfony2Icons.class);
-    public static final Icon EVENT = IconLoader.getIcon("/icons/event.png", Symfony2Icons.class);
-    public static final Icon BUNDLE = IconLoader.getIcon("/icons/bundle.png", Symfony2Icons.class);
+    public static final Image SYMFONY_TOOL_WINDOW = SymfonyIconGroup.symfony_tool_window();
+    public static final Image DOCTRINE = SymfonyIconGroup.doctrine();
+    public static final Image DOCTRINE_LINE_MARKER = SymfonyIconGroup.doctrine_line_marker();
+    public static final Image DOCTRINE_ENTITY_FILE = SymfonyIconGroup.doctrine_entity_file();
+    public static final Image DOCTRINE_REPOSITORY_FILE = SymfonyIconGroup.doctrine_repository_file();
+    public static final Image DOCTRINE_WEAK = SymfonyIconGroup.doctrine_weak();
+    public static final Image NO_SQL = SymfonyIconGroup.no_sql();
+    public static final Image ROUTE = SymfonyIconGroup.route();
+    public static final Image ROUTE_WEAK = SymfonyIconGroup.route_weak();
+    public static final Image SERVICE = SymfonyIconGroup.service();
+    public static final Image SERVICE_OPACITY = SymfonyIconGroup.service_opacity();
+    public static final Image FORM_TYPE = SymfonyIconGroup.form_type();
+    public static final Image FORM_TYPE_FILE = SymfonyIconGroup.form_type_file();
+    public static final Image CONTROLLER_FILE = SymfonyIconGroup.controller_file();
+    public static final Image FORM_TYPE_WEAK = SymfonyIconGroup.form_type_weak();
+    public static final Image TRANSLATION = SymfonyIconGroup.translation();
+    public static final Image TRANSLATION_WEAK = SymfonyIconGroup.translation_weak();
+    public static final Image PARAMETER = SymfonyIconGroup.parameter();
+    public static final Image FORM_OPTION = SymfonyIconGroup.form_option();
+    public static final Image FORM_EXTENSION = SymfonyIconGroup.form_extension();
+    public static final Image FORM_EXTENSION_WEAK = SymfonyIconGroup.form_extension_weak();
+    public static final Image SERVICE_TAG = SymfonyIconGroup.service_tag();
+    public static final Image SERVICE_TAG_WEAK = SymfonyIconGroup.service_tag_weak();
+    public static final Image EVENT = SymfonyIconGroup.event();
+    public static final Image BUNDLE = SymfonyIconGroup.bundle();
 
-    public static final Icon SERVICE_PRIVATE_OPACITY = IconLoader.getIcon("/icons/service_private_opacity.png", Symfony2Icons.class);
+    public static final Image SERVICE_PRIVATE_OPACITY = SymfonyIconGroup.service_private_opacity();
 
-    public static final Icon SERVICE_LINE_MARKER = IconLoader.getIcon("/icons/service_line_marker.png", Symfony2Icons.class);
-    public static final Icon FORM_TYPE_LINE_MARKER = IconLoader.getIcon("/icons/form_type_line_marker.png", Symfony2Icons.class);
-    public static final Icon ROUTE_LINE_MARKER = IconLoader.getIcon("/icons/route_line_marker.png", Symfony2Icons.class);
-    public static final Icon TWIG_CONTROLLER_LINE_MARKER = IconLoader.getIcon("/icons/twig_controller_line_marker.png", Symfony2Icons.class);
-    public static final Icon TWIG_LINE_MARKER = IconLoader.getIcon("/icons/twig_line_marker.png", Symfony2Icons.class);
-    public static final Icon TWIG_LINE_OVERWRITE = IconLoader.getIcon("/icons/overwrite.png", Symfony2Icons.class);
+    public static final Image SERVICE_LINE_MARKER = SymfonyIconGroup.service_line_marker();
+    public static final Image FORM_TYPE_LINE_MARKER = SymfonyIconGroup.form_type_line_marker();
+    public static final Image ROUTE_LINE_MARKER = SymfonyIconGroup.route_line_marker();
+    public static final Image TWIG_CONTROLLER_LINE_MARKER = SymfonyIconGroup.twig_controller_line_marker();
+    public static final Image TWIG_LINE_MARKER = SymfonyIconGroup.twig_line_marker();
+    public static final Image TWIG_LINE_OVERWRITE = SymfonyIconGroup.overwrite();
 
-    public static final Icon TWIG_CONTROLLER_FILE = IconLoader.getIcon("/icons/twig_controller_file.png", Symfony2Icons.class);
-    public static final Icon TWIG_EXTENDS_FILE = IconLoader.getIcon("/icons/twig_extends_file.png", Symfony2Icons.class);
-    public static final Icon TWIG_IMPLEMENTS_FILE = IconLoader.getIcon("/icons/twig_implements_file.png", Symfony2Icons.class);
+    public static final Image TWIG_CONTROLLER_FILE = SymfonyIconGroup.twig_controller_file();
+    public static final Image TWIG_EXTENDS_FILE = SymfonyIconGroup.twig_extends_file();
+    public static final Image TWIG_IMPLEMENTS_FILE = SymfonyIconGroup.twig_implements_file();
 
-    public static final Icon PARAMETER_OPACITY = IconLoader.getIcon("/icons/parameter_opacity.png", Symfony2Icons.class);
+    public static final Image PARAMETER_OPACITY = SymfonyIconGroup.parameter_opacity();
 
-    public static final Icon MAIL = IconLoader.getIcon("/icons/mail.png", Symfony2Icons.class);
-    public static final Icon PROFILER_LINK = IconLoader.getIcon("/icons/profiler_link.png", Symfony2Icons.class);
+    public static final Image MAIL = SymfonyIconGroup.mail();
+    public static final Image PROFILER_LINK = SymfonyIconGroup.profiler_link();
 
-    public static final Icon CONFIG_PROTOTYPE = IconLoader.getIcon("/icons/config_prototype.png", Symfony2Icons.class);
-    public static final Icon CONFIG_VALUE = IconLoader.getIcon("/icons/config_value.png", Symfony2Icons.class);
-    public static final Icon CONFIG_VALUE_SHORTCUT = IconLoader.getIcon("/icons/config_value_shortcut.png", Symfony2Icons.class);
+    public static final Image CONFIG_PROTOTYPE = SymfonyIconGroup.config_prototype();
+    public static final Image CONFIG_VALUE = SymfonyIconGroup.config_value();
+    public static final Image CONFIG_VALUE_SHORTCUT = SymfonyIconGroup.config_value_shortcut();
 
-    public static final Icon TWIG_BLOCK_OVERWRITE = IconLoader.getIcon("/icons/twig_block_overwrite.png", Symfony2Icons.class);
+    public static final Image TWIG_BLOCK_OVERWRITE = SymfonyIconGroup.twig_block_overwrite();
 
-    public static final Icon SYMFONY_AI = IconLoader.getIcon("/icons/symfony_ai.png", Symfony2Icons.class);
-    public static final Icon SYMFONY_AI_OPACITY = IconLoader.getIcon("/icons/symfony_ai_opacity.png", Symfony2Icons.class);
-    public static final Icon SYMFONY_ATTRIBUTE = IconLoader.getIcon("/icons/symfony_attribute.svg", Symfony2Icons.class);
-    public static final Icon SYMFONY_COMMAND_FILE = IconLoader.getIcon("/icons/symfony_command_file.svg", Symfony2Icons.class);
-
-    public static Image getImage(Icon icon) {
-
-        if (icon instanceof ImageIcon) {
-            return ((ImageIcon)icon).getImage();
-        }
-
-        int width = icon.getIconWidth();
-        int height = icon.getIconHeight();
-        BufferedImage image = ImageUtil.createImage(width, height, BufferedImage.TYPE_INT_ARGB);
-        Graphics2D g2 = (Graphics2D) image.getGraphics();
-        icon.paintIcon(null, g2, 0, 0);
-        return image;
-    }
+    public static final Image SYMFONY_AI = SymfonyIconGroup.symfony_ai();
+    public static final Image SYMFONY_AI_OPACITY = SymfonyIconGroup.symfony_ai_opacity();
+    public static final Image SYMFONY_ATTRIBUTE = SymfonyIconGroup.symfony_attribute();
+    public static final Image SYMFONY_COMMAND_FILE = SymfonyIconGroup.symfony_command_file();
 }

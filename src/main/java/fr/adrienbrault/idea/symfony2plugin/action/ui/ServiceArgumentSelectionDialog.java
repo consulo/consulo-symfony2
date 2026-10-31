@@ -1,277 +1,186 @@
 package fr.adrienbrault.idea.symfony2plugin.action.ui;
 
-import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.ui.ComboBox;
-import com.intellij.ui.ToolbarDecorator;
-import com.intellij.ui.table.TableView;
-import com.intellij.util.ui.ColumnInfo;
-import com.intellij.util.ui.ListTableModel;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
+import consulo.application.Application;
+import consulo.application.ReadAction;
+import consulo.disposer.Disposable;
+import consulo.language.icon.IconDescriptorUpdaters;
+import consulo.localize.LocalizeValue;
+import consulo.project.Project;
+import consulo.ui.Component;
+import consulo.ui.Table;
+import consulo.ui.TableItemEditor;
+import consulo.ui.TextBoxWithHistory;
+import consulo.ui.UIAccess;
+import consulo.ui.ValueComponent;
+import consulo.ui.WidthAndHeight;
+import consulo.ui.annotation.RequiredUIAccess;
+import consulo.ui.ex.dialog.DialogDescriptor;
+import consulo.ui.ex.dialog.DialogService;
+import consulo.ui.ex.dialog.action.DialogOkAction;
+import consulo.ui.image.Image;
+import consulo.ui.layout.ScrollableLayout;
+import consulo.ui.model.FlatDataModel;
+import consulo.ui.model.MutableFlatDataModel;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
-import javax.swing.*;
-import javax.swing.table.TableCellEditor;
-import java.awt.*;
-import java.awt.event.KeyEvent;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
-public class ServiceArgumentSelectionDialog extends JDialog {
+public class ServiceArgumentSelectionDialog extends DialogDescriptor {
+    private final Project myProject;
+    private final MutableFlatDataModel<ServiceParameter> myModelList = FlatDataModel.of(List.of());
 
-    private final Project project;
-    private final Map<String, Set<String>> arguments = new HashMap<>();
-    private final Callback callback;
-    private JPanel panel1;
-    private JButton generateButton;
-    private JButton closeButton;
-    private JPanel mainPanel;
+    @RequiredUIAccess
+    private ServiceArgumentSelectionDialog(Project project, Map<String, Set<String>> arguments) {
+        super(LocalizeValue.localizeTODO("Symfony: Add Argument"));
+        myProject = project;
 
-    private TableView<ServiceParameter> tableView;
-    private ListTableModel<ServiceParameter> modelList;
-
-    public ServiceArgumentSelectionDialog(Project project, Map<String, Set<String>> arguments, Callback callback) {
-        this.project = project;
-        this.arguments.putAll(arguments);
-        this.callback = callback;
-    }
-
-    public void init() {
-
-        createUIComponents();
-        setContentPane(panel1);
-        setModal(true);
-
-        // Populate model after constructor has completed and arguments are initialized
-        populateModel();
-
-        generateButton.addActionListener(e -> {
-            setEnabled(false);
-
-            java.util.List<String> items = new ArrayList<>();
-
-            for (ServiceParameter serviceParameter : modelList.getItems()) {
-                items.add(serviceParameter.getCurrentService());
-            }
-
-            ApplicationManager.getApplication().runWriteAction(() -> callback.onOk(items));
-
-            dispose();
-        });
-
-        generateButton.requestFocusInWindow();
-        this.getRootPane().setDefaultButton(generateButton);
-
-        this.closeButton.addActionListener(e -> onCancel());
-
-        this.getRootPane().registerKeyboardAction(e ->
-                onCancel(),
-            KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0),
-            JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT
-        );
-    }
-
-    private void onCancel() {
-        setEnabled(false);
-        dispose();
-    }
-
-    private void createUIComponents() {
-        generateButton = new JButton("Generate");
-        closeButton = new JButton("Close");
-
-        mainPanel = new JPanel(new GridLayout(0, 1));
-
-        this.modelList = new ListTableModel<>(
-            new IconColumn(),
-            new NamespaceColumn(),
-            new ServiceColumn()
-        );
-
-        this.tableView = new TableView<>();
-        this.tableView.setModelAndUpdateColumns(this.modelList);
-
-        mainPanel.add(ToolbarDecorator.createDecorator(this.tableView)
-            .disableAddAction()
-            .disableDownAction()
-            .disableRemoveAction()
-            .disableUpDownActions()
-            .createPanel()
-        );
-
-        JPanel buttonsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 4, 0));
-        buttonsPanel.add(closeButton);
-        buttonsPanel.add(generateButton);
-
-        panel1 = new JPanel(new BorderLayout(0, 5));
-        panel1.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
-        panel1.add(mainPanel, BorderLayout.CENTER);
-        panel1.add(buttonsPanel, BorderLayout.SOUTH);
-    }
-
-    /**
-     * Populates the model with argument data.
-     * Must be called after constructor completion to ensure arguments are initialized.
-     */
-    private void populateModel() {
-        for (Map.Entry<String, Set<String>> entry : this.arguments.entrySet()) {
-            this.modelList.addRow(new ServiceParameter(entry.getKey(), entry.getValue()));
+        List<ServiceParameter> parameters = new ArrayList<>();
+        for (Map.Entry<String, Set<String>> entry : arguments.entrySet()) {
+            parameters.add(new ServiceParameter(entry.getKey(), entry.getValue()));
         }
+        myModelList.replaceAll(parameters);
+    }
+
+    @Override
+    public @Nullable WidthAndHeight getInitialSize() {
+        return WidthAndHeight.ofPixel(620, 300);
+    }
+
+    @RequiredUIAccess
+    @Override
+    public Component createCenterComponent(Disposable uiDisposable) {
+        Table<ServiceParameter> tableView = Table.create(myModelList);
+        tableView.addColumn(LocalizeValue.empty(), this::getClassIcon)
+            .setWidth(32)
+            .setResizable(false)
+            .setRenderer((presentation, item) -> presentation.withIcon(item.getValue()));
+        tableView.addColumn(LocalizeValue.localizeTODO("Class"), ServiceArgumentSelectionDialog::getClassPresentation);
+        tableView.addColumn(LocalizeValue.localizeTODO("Service"), modelParameter -> StringUtils.defaultString(modelParameter.getCurrentService()))
+            .setEditor(new TableItemEditor<>() {
+                @RequiredUIAccess
+                @Override
+                public ValueComponent<String> createComponent(ServiceParameter modelParameter) {
+                    TextBoxWithHistory comboBox = TextBoxWithHistory.create(StringUtils.defaultString(modelParameter.getCurrentService()));
+                    comboBox.setHistory(new ArrayList<>(modelParameter.getPossibleServices()));
+                    return comboBox;
+                }
+
+                @RequiredUIAccess
+                @Override
+                public void commit(ServiceParameter modelParameter, @Nullable String value) {
+                    modelParameter.setCurrentService(value);
+                    myModelList.update(modelParameter);
+                }
+            });
+
+        return ScrollableLayout.create(tableView);
+    }
+
+    @Override
+    protected DialogOkAction createOkAction() {
+        return new DialogOkAction(LocalizeValue.localizeTODO("Generate"));
+    }
+
+    private List<String> getItems() {
+        List<String> items = new ArrayList<>();
+        for (ServiceParameter serviceParameter : myModelList) {
+            items.add(serviceParameter.getCurrentService());
+        }
+        return items;
+    }
+
+    private @Nullable Image getClassIcon(ServiceParameter modelParameter) {
+        return ReadAction.compute(() -> {
+            PhpClass classInterface = PhpElementsUtil.getClassInterface(myProject, modelParameter.getClassFqn());
+            return classInterface != null ? IconDescriptorUpdaters.getIcon(classInterface, 0) : null;
+        });
+    }
+
+    private static String getClassPresentation(ServiceParameter modelParameter) {
+        String classFqn = modelParameter.getClassFqn();
+        if (StringUtils.isBlank(classFqn)) {
+            return "unknown";
+        }
+
+        if (classFqn.startsWith("\\")) {
+            classFqn = classFqn.substring(1);
+        }
+
+        int i = classFqn.lastIndexOf("\\");
+        if (i > 0) {
+            String ns = classFqn.substring(0, i);
+            String clazz = classFqn.substring(i + 1);
+            classFqn = String.format("%s [%s]", clazz, ns);
+        }
+
+        return classFqn;
     }
 
     private static class ServiceParameter {
+        private final String myClassFqn;
+        private final Set<String> myPossibleServices;
 
-        private final String classFqn;
-        private final Set<String> possibleServices;
-
-        private String currentService;
+        private @Nullable String myCurrentService;
 
         public ServiceParameter(String classFqn, Set<String> possibleServices) {
-            this.classFqn = classFqn;
-            this.possibleServices = possibleServices;
+            myClassFqn = classFqn;
+            myPossibleServices = possibleServices;
 
             if (!possibleServices.isEmpty()) {
-                currentService = possibleServices.iterator().next();
+                myCurrentService = possibleServices.iterator().next();
             }
-
         }
 
         public String getClassFqn() {
-            return classFqn;
+            return myClassFqn;
         }
 
         public Set<String> getPossibleServices() {
-            return possibleServices;
+            return myPossibleServices;
         }
 
-        public String getCurrentService() {
-            return currentService;
+        public @Nullable String getCurrentService() {
+            return myCurrentService;
         }
 
-        public void setCurrentService(String currentService) {
-
+        public void setCurrentService(@Nullable String currentService) {
             if (StringUtils.isBlank(currentService)) {
-                this.currentService = null;
+                myCurrentService = null;
                 return;
             }
 
-            this.currentService = currentService;
+            myCurrentService = currentService;
         }
-
-    }
-
-
-    private static class NamespaceColumn extends ColumnInfo<ServiceParameter, String> {
-
-        public NamespaceColumn() {
-            super("Class");
-        }
-
-        @Nullable
-        @Override
-        public String valueOf(ServiceParameter modelParameter) {
-
-            String classFqn = modelParameter.getClassFqn();
-            if (StringUtils.isBlank(classFqn)) {
-                return "unknown";
-            }
-
-            if (classFqn.startsWith("\\")) {
-                classFqn = classFqn.substring(1);
-            }
-
-            int i = classFqn.lastIndexOf("\\");
-            if (i > 0) {
-                String ns = classFqn.substring(0, i);
-                String clazz = classFqn.substring(i + 1);
-                classFqn = String.format("%s [%s]", clazz, ns);
-            }
-
-            return classFqn;
-        }
-    }
-
-
-    private class ServiceColumn extends ColumnInfo<ServiceParameter, String> {
-
-        public ServiceColumn() {
-            super("Service");
-        }
-
-        @Nullable
-        @Override
-        public String valueOf(ServiceParameter modelParameter) {
-            return modelParameter.getCurrentService();
-        }
-
-        public void setValue(ServiceParameter modelParameter, String value) {
-            modelParameter.setCurrentService(value);
-            tableView.getListTableModel().fireTableDataChanged();
-        }
-
-        @Override
-        public boolean isCellEditable(ServiceParameter modelParameter) {
-            return true;
-        }
-
-        @Nullable
-        @Override
-        public TableCellEditor getEditor(ServiceParameter modelParameter) {
-
-            Set<String> sorted = modelParameter.getPossibleServices();
-            ComboBox<String> comboBox = new ComboBox<>(sorted.toArray(new String[0]), 200);
-            comboBox.setEditable(true);
-
-            return new DefaultCellEditor(comboBox);
-        }
-    }
-
-    private class IconColumn extends ColumnInfo<ServiceParameter, Icon> {
-        public IconColumn() {
-            super("");
-        }
-
-        @Nullable
-        @Override
-        public Icon valueOf(ServiceParameter modelParameter) {
-            PhpClass classInterface = PhpElementsUtil.getClassInterface(project, modelParameter.getClassFqn());
-            return classInterface != null ? classInterface.getIcon() : null;
-        }
-
-        public Class getColumnClass() {
-            return ImageIcon.class;
-        }
-
-        @Override
-        public int getWidth(JTable table) {
-            return 32;
-        }
-
     }
 
     public interface Callback {
-        void onOk(java.util.List<String> items);
+        void onOk(List<String> items);
     }
 
-    public static ServiceArgumentSelectionDialog createDialog(Project project, Map<String, Set<String>> arguments, Callback callback) {
+    @RequiredUIAccess
+    public static void createDialog(Project project, Map<String, Set<String>> arguments, Callback callback) {
+        ServiceArgumentSelectionDialog descriptor = new ServiceArgumentSelectionDialog(project, arguments);
 
-        ServiceArgumentSelectionDialog dialog = new ServiceArgumentSelectionDialog(project, arguments, callback);
-        dialog.pack();
-        dialog.init();
+        UIAccess uiAccess = UIAccess.current();
+        project.getApplication().getInstance(DialogService.class)
+            .build(project, descriptor)
+            .showAsync()
+            .whenCompleteAsync((value, error) -> {
+                if (error != null || value == null) {
+                    return;
+                }
 
-        dialog.setMinimumSize(new Dimension(620, 300));
-        dialog.setTitle("Symfony: Add Argument");
-        dialog.setLocationRelativeTo(null);
-        dialog.setVisible(true);
-
-        return dialog;
+                List<String> items = descriptor.getItems();
+                Application.get().runWriteAction(() -> callback.onOk(items));
+            }, uiAccess);
     }
-
 }

@@ -1,8 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.stubs.indexes.externalizer;
 
-import com.intellij.util.io.DataExternalizer;
+import consulo.index.io.data.DataExternalizer;
 import fr.adrienbrault.idea.symfony2plugin.stubs.dict.TemplateInclude;
-import org.jetbrains.annotations.NotNull;
 
 import java.io.DataInput;
 import java.io.DataOutput;
@@ -26,7 +25,7 @@ public class TemplateIncludeExternalizer implements DataExternalizer<TemplateInc
     };
 
     @Override
-    public void save(@NotNull DataOutput out, TemplateInclude value) throws IOException {
+    public void save(DataOutput out, TemplateInclude value) throws IOException {
         out.writeUTF(value.getTemplate());
         Set<TYPE> types = value.getTypes();
         out.writeByte(types.size());
@@ -38,7 +37,7 @@ public class TemplateIncludeExternalizer implements DataExternalizer<TemplateInc
     }
 
     @Override
-    public TemplateInclude read(@NotNull DataInput in) throws IOException {
+    public TemplateInclude read(DataInput in) throws IOException {
         String template = in.readUTF();
         int count = in.readUnsignedByte();
         if (count == 0 || count > SERIALIZED_TYPES.length) {

@@ -1,17 +1,19 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.util;
 
-import com.intellij.lang.html.HTMLLanguage;
-import com.intellij.patterns.*;
-import com.intellij.patterns.XmlPatterns;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.html.HtmlTag;
-import com.intellij.psi.util.PsiTreeUtil;
-import com.intellij.psi.xml.XmlTag;
-import com.intellij.psi.xml.XmlText;
-import com.intellij.psi.xml.XmlTokenType;
-import com.intellij.util.ProcessingContext;
-import org.jetbrains.annotations.NotNull;
+import consulo.html.language.HTMLLanguage;
+import consulo.language.pattern.PatternCondition;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.pattern.PsiElementPattern;
+import consulo.language.pattern.StandardPatterns;
+import consulo.xml.language.psi.pattern.XmlPatterns;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.html.language.psi.HtmlTag;
+import consulo.language.psi.util.PsiTreeUtil;
+import consulo.xml.language.psi.XmlTag;
+import consulo.xml.language.psi.XmlText;
+import consulo.xml.language.psi.XmlTokenType;
+import consulo.language.util.ProcessingContext;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -19,7 +21,7 @@ import org.jetbrains.annotations.NotNull;
 public class TwigHtmlCompletionUtil {
     public static final PatternCondition<PsiElement> HTML_TAG_TWIG_COMPONENT_PREFIX = new PatternCondition<>("twig prefix") {
         @Override
-        public boolean accepts(@NotNull PsiElement psiElement, ProcessingContext context) {
+        public boolean accepts(PsiElement psiElement, ProcessingContext context) {
             String text = psiElement.getText();
             return text.startsWith("twig:");
         }
@@ -46,7 +48,7 @@ public class TwigHtmlCompletionUtil {
     /**
      * <foo>bar</foo>
      */
-    public static PsiElementPattern.Capture<PsiElement> getTagTextPattern(@NotNull String... tag) {
+    public static PsiElementPattern.Capture<PsiElement> getTagTextPattern(String... tag) {
         return XmlPatterns
             .psiElement().withParent(
                 PlatformPatterns.psiElement(XmlText.class).withParent(
@@ -60,7 +62,7 @@ public class TwigHtmlCompletionUtil {
             );
     }
 
-    public static PsiElementPattern.Capture<PsiElement> getTagAttributePattern(@NotNull String tag, @NotNull String attribute) {
+    public static PsiElementPattern.Capture<PsiElement> getTagAttributePattern(String tag, String attribute) {
         return PlatformPatterns.psiElement()
             .withParent(
                 XmlPatterns.xmlAttributeValue()
@@ -161,7 +163,7 @@ public class TwigHtmlCompletionUtil {
                             .withParent(
                                 XmlPatterns.xmlTag().with(new PatternCondition<>("twig:block") {
                                     @Override
-                                    public boolean accepts(@NotNull XmlTag xmlTag, ProcessingContext context) {
+                                    public boolean accepts(XmlTag xmlTag, ProcessingContext context) {
                                         return isTwigBlockTag(xmlTag);
                                     }
                                 })
@@ -185,7 +187,7 @@ public class TwigHtmlCompletionUtil {
         return PlatformPatterns.psiElement()
             .inside(XmlPatterns.xmlTag().with(new PatternCondition<>("inside twig: component") {
                 @Override
-                public boolean accepts(@NotNull XmlTag xmlTag, ProcessingContext context) {
+                public boolean accepts(XmlTag xmlTag, ProcessingContext context) {
                     String name = xmlTag.getName();
                     return name.startsWith("twig:") && !"twig:block".equals(name);
                 }
@@ -195,7 +197,7 @@ public class TwigHtmlCompletionUtil {
             );
     }
 
-    public static boolean isTwigBlockTag(@NotNull XmlTag tag) {
+    public static boolean isTwigBlockTag(XmlTag tag) {
         String name = tag.getName();
         if ("twig:block".equals(name)) {
             return true;
@@ -208,7 +210,7 @@ public class TwigHtmlCompletionUtil {
      * Returns true if the given XML tag is a {@code <twig:SomeName>} component tag
      * (but NOT {@code <twig:block>}).
      */
-    public static boolean isTwigComponentTag(@NotNull XmlTag tag) {
+    public static boolean isTwigComponentTag(XmlTag tag) {
         if (isTwigBlockTag(tag)) {
             return false;
         }
@@ -221,7 +223,7 @@ public class TwigHtmlCompletionUtil {
      * ({@code <twig:ComponentName>...</twig:ComponentName>}) by inspecting the
      * HTML view via the ViewProvider.
      */
-    public static boolean isInsideHtmlComponentTag(@NotNull PsiElement element, @NotNull PsiFile twigFile) {
+    public static boolean isInsideHtmlComponentTag(PsiElement element, PsiFile twigFile) {
         int offset = element.getTextOffset();
 
         PsiElement htmlElement = twigFile.getViewProvider().findElementAt(offset, HTMLLanguage.INSTANCE);

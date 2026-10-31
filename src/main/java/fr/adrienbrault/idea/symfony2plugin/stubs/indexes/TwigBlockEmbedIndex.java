@@ -1,15 +1,19 @@
 package fr.adrienbrault.idea.symfony2plugin.stubs.indexes;
 
-import com.intellij.psi.PsiFile;
-import com.intellij.util.indexing.*;
-import com.intellij.util.io.DataExternalizer;
-import com.intellij.util.io.EnumeratorStringDescriptor;
-import com.intellij.util.io.KeyDescriptor;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.psi.PsiFile;
+import consulo.index.io.DataIndexer;
+import consulo.index.io.ID;
+import consulo.language.psi.stub.FileBasedIndex;
+import consulo.language.psi.stub.FileBasedIndexExtension;
+import consulo.language.psi.stub.FileContent;
+import consulo.index.io.data.DataExternalizer;
+import consulo.index.io.EnumeratorStringDescriptor;
+import consulo.index.io.KeyDescriptor;
 import com.jetbrains.twig.TwigFile;
 import com.jetbrains.twig.TwigFileType;
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.externalizer.StringSetDataExternalizer;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -19,6 +23,7 @@ import java.util.Set;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class TwigBlockEmbedIndex extends FileBasedIndexExtension<String, Set<String>> {
 
     public static final ID<String, Set<String>> KEY = ID.create("fr.adrienbrault.idea.symfony2plugin.twig_block_names_embed");
@@ -26,7 +31,6 @@ public class TwigBlockEmbedIndex extends FileBasedIndexExtension<String, Set<Str
     private final KeyDescriptor<String> KEY_DESCRIPTOR = new EnumeratorStringDescriptor();
     private static final StringSetDataExternalizer DATA_EXTERNALIZER = new StringSetDataExternalizer();
 
-    @NotNull
     @Override
     // Index-safe only: no PhpIndex/type resolution here.
     public DataIndexer<String, Set<String>, FileContent> getIndexer() {
@@ -47,19 +51,16 @@ public class TwigBlockEmbedIndex extends FileBasedIndexExtension<String, Set<Str
         };
     }
 
-    @NotNull
     @Override
     public ID<String, Set<String>> getName() {
         return KEY;
     }
 
-    @NotNull
     @Override
     public KeyDescriptor<String> getKeyDescriptor() {
         return KEY_DESCRIPTOR;
     }
 
-    @NotNull
     @Override
     public DataExternalizer<Set<String>> getValueExternalizer() {
         return DATA_EXTERNALIZER;
@@ -70,10 +71,9 @@ public class TwigBlockEmbedIndex extends FileBasedIndexExtension<String, Set<Str
         return 2;
     }
 
-    @NotNull
     @Override
     public FileBasedIndex.InputFilter getInputFilter() {
-        return file -> file.getFileType() == TwigFileType.INSTANCE;
+        return (project, file) -> file.getFileType() == TwigFileType.INSTANCE;
     }
 
     @Override

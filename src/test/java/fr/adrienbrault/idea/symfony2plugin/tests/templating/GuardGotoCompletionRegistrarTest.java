@@ -1,5 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.templating;
 
+import org.junit.jupiter.api.Test;
+
 import com.jetbrains.twig.TwigFileType;
 import fr.adrienbrault.idea.symfony2plugin.templating.GuardGotoCompletionRegistrar;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
@@ -21,6 +23,7 @@ public class GuardGotoCompletionRegistrarTest extends SymfonyLightCodeInsightFix
     /**
      * Test completion for guard type keywords
      */
+    @Test
     public void testCompletionForGuardTypeKeywords() {
         assertCompletionContains(TwigFileType.INSTANCE, "{% guard <caret> %}", "function", "filter", "test");
     }
@@ -28,6 +31,7 @@ public class GuardGotoCompletionRegistrarTest extends SymfonyLightCodeInsightFix
     /**
      * Test completion for Twig function names after "guard function"
      */
+    @Test
     public void testCompletionForGuardFunction() {
         assertCompletionContains(TwigFileType.INSTANCE, "{% guard function <caret> %}", "test_function");
     }
@@ -35,6 +39,7 @@ public class GuardGotoCompletionRegistrarTest extends SymfonyLightCodeInsightFix
     /**
      * Test completion for Twig filter names after "guard filter"
      */
+    @Test
     public void testCompletionForGuardFilter() {
         assertCompletionContains(TwigFileType.INSTANCE, "{% guard filter <caret> %}", "test_filter");
     }
@@ -42,6 +47,7 @@ public class GuardGotoCompletionRegistrarTest extends SymfonyLightCodeInsightFix
     /**
      * Test completion for Twig test names after "guard test"
      */
+    @Test
     public void testCompletionForGuardTest() {
         assertCompletionContains(TwigFileType.INSTANCE, "{% guard test <caret> %}", "test_test");
     }
@@ -49,6 +55,7 @@ public class GuardGotoCompletionRegistrarTest extends SymfonyLightCodeInsightFix
     /**
      * Test navigation for guard function
      */
+    @Test
     public void testNavigationForGuardFunction() {
         assertCompletionContains(TwigFileType.INSTANCE, "{% guard function test_fun<caret>ction %}", "test_function");
     }
@@ -56,6 +63,7 @@ public class GuardGotoCompletionRegistrarTest extends SymfonyLightCodeInsightFix
     /**
      * Test navigation for guard filter
      */
+    @Test
     public void testNavigationForGuardFilter() {
         assertCompletionContains(TwigFileType.INSTANCE, "{% guard filter test_fil<caret>ter %}", "test_filter");
     }
@@ -63,6 +71,7 @@ public class GuardGotoCompletionRegistrarTest extends SymfonyLightCodeInsightFix
     /**
      * Test navigation for guard test
      */
+    @Test
     public void testNavigationForGuardTest() {
         assertCompletionContains(TwigFileType.INSTANCE, "{% guard test test_te<caret>st %}", "test_test");
     }

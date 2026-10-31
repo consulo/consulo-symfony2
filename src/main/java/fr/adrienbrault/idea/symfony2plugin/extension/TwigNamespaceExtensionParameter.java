@@ -1,21 +1,18 @@
 package fr.adrienbrault.idea.symfony2plugin.extension;
 
-import com.intellij.openapi.project.Project;
-import org.jetbrains.annotations.NotNull;
+import consulo.project.Project;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class TwigNamespaceExtensionParameter {
 
-    @NotNull
     private final Project project;
 
-    public TwigNamespaceExtensionParameter(@NotNull Project project) {
+    public TwigNamespaceExtensionParameter(Project project) {
         this.project = project;
     }
 
-    @NotNull
     public Project getProject() {
         return project;
     }

@@ -1,5 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.templating.webpack;
 
+import org.junit.jupiter.api.Test;
+
 import com.jetbrains.twig.TwigFileType;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
 
@@ -15,6 +17,8 @@ public class WebpackEncoreGotoCompletionRegistrarTest extends SymfonyLightCodeIn
     public String getTestDataPath() {
         return "src/test/java/fr/adrienbrault/idea/symfony2plugin/tests/templating/webpack/fixtures";
     }
+
+    @Test
 
     public void testVisitEntries() {
         myFixture.copyFileToProject("webpack.config.js");

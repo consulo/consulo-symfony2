@@ -1,13 +1,12 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.usages;
 
-import com.intellij.openapi.util.TextRange;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiReferenceBase;
-import com.intellij.util.IncorrectOperationException;
+import consulo.document.util.TextRange;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.PsiReferenceBase;
+import consulo.language.util.IncorrectOperationException;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TemplateMoveRenameUtil;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A synthetic PsiReference for Twig template usages.
@@ -18,18 +17,17 @@ import org.jetbrains.annotations.Nullable;
 public class TwigTemplateUsageReference extends PsiReferenceBase<PsiElement> {
 
     private final PsiElement targetElement;
-    @NotNull
     private final String templateName;
     private final boolean canRename;
 
-    public TwigTemplateUsageReference(@NotNull PsiElement sourceElement, @NotNull PsiElement targetElement, @NotNull TextRange rangeInElement) {
+    public TwigTemplateUsageReference(PsiElement sourceElement, PsiElement targetElement, TextRange rangeInElement) {
         this(sourceElement, targetElement, rangeInElement, true);
     }
 
     public TwigTemplateUsageReference(
-            @NotNull PsiElement sourceElement,
-            @NotNull PsiElement targetElement,
-            @NotNull TextRange rangeInElement,
+            PsiElement sourceElement,
+            PsiElement targetElement,
+            TextRange rangeInElement,
             boolean canRename) {
         super(sourceElement, rangeInElement, false);
         this.targetElement = targetElement;
@@ -42,19 +40,18 @@ public class TwigTemplateUsageReference extends PsiReferenceBase<PsiElement> {
         return targetElement;
     }
 
-    @NotNull
     @Override
     public Object[] getVariants() {
         return EMPTY_ARRAY;
     }
 
     @Override
-    public PsiElement bindToElement(@NotNull PsiElement element) throws IncorrectOperationException {
+    public PsiElement bindToElement(PsiElement element) throws IncorrectOperationException {
         return myElement;
     }
 
     @Override
-    public PsiElement handleElementRename(@NotNull String newElementName) throws IncorrectOperationException {
+    public PsiElement handleElementRename(String newElementName) throws IncorrectOperationException {
         if (!canRename) {
             return myElement;
         }
@@ -65,7 +62,7 @@ public class TwigTemplateUsageReference extends PsiReferenceBase<PsiElement> {
     }
 
     @Override
-    public @NotNull String getCanonicalText() {
+    public String getCanonicalText() {
         if (targetElement instanceof PsiFile) {
             return ((PsiFile) targetElement).getName();
         }

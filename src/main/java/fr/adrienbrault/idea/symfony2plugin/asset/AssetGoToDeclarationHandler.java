@@ -1,16 +1,18 @@
 package fr.adrienbrault.idea.symfony2plugin.asset;
 
-import com.intellij.codeInsight.navigation.actions.GotoDeclarationHandler;
-import com.intellij.openapi.actionSystem.DataContext;
-import com.intellij.openapi.editor.Editor;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiManager;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.codeEditor.Editor;
+import consulo.dataContext.DataContext;
+import consulo.language.editor.navigation.GotoDeclarationHandler;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiManager;
+import consulo.localize.LocalizeValue;
+import consulo.virtualFileSystem.VirtualFile;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
 import org.apache.commons.lang3.ArrayUtils;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Collection;
 import java.util.HashSet;
@@ -18,11 +20,11 @@ import java.util.HashSet;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class AssetGoToDeclarationHandler implements GotoDeclarationHandler {
 
-    @Nullable
     @Override
-    public PsiElement[] getGotoDeclarationTargets(PsiElement psiElement, int i, Editor editor) {
+    public PsiElement @Nullable [] getGotoDeclarationTargets(PsiElement psiElement, int i, Editor editor) {
         if(!Symfony2ProjectComponent.isEnabled(psiElement)) {
             return null;
         }
@@ -65,8 +67,7 @@ public class AssetGoToDeclarationHandler implements GotoDeclarationHandler {
         return null;
     }
 
-    @Nullable
-    private String[] getFileExtensionFilterIfValidTag(PsiElement psiElement) {
+    private String @Nullable [] getFileExtensionFilterIfValidTag(PsiElement psiElement) {
         for (String tag: new String[] {"stylesheets", "javascripts"}) {
             if (!TwigPattern.getAutocompletableAssetTag(tag).accepts(psiElement)) {
                 continue;
@@ -82,9 +83,8 @@ public class AssetGoToDeclarationHandler implements GotoDeclarationHandler {
         return null;
     }
 
-    @Nullable
     @Override
-    public String getActionText(DataContext dataContext) {
-        return null;
+    public LocalizeValue getActionText(DataContext dataContext) {
+        return LocalizeValue.empty();
     }
 }

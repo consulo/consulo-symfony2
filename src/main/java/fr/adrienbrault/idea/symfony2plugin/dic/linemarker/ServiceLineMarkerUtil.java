@@ -1,14 +1,13 @@
 package fr.adrienbrault.idea.symfony2plugin.dic.linemarker;
 
-import com.intellij.codeInsight.daemon.LineMarkerInfo;
-import com.intellij.codeInsight.navigation.NavigationGutterIconBuilder;
-import com.intellij.openapi.project.Project;
-import com.intellij.psi.PsiElement;
+import consulo.language.editor.gutter.LineMarkerInfo;
+import consulo.language.editor.ui.navigation.NavigationGutterIconBuilder;
+import consulo.project.Project;
+import consulo.language.psi.PsiElement;
 import fr.adrienbrault.idea.symfony2plugin.dic.ContainerService;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.ServiceUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Collection;
 import java.util.Map;
@@ -26,8 +25,8 @@ final class ServiceLineMarkerUtil {
      * decorates: foobar, parent: foobar
      */
     public static void collectDecoratesAndParentTargets(
-        @NotNull PsiElement leafTarget,
-        @NotNull Collection<? super LineMarkerInfo<?>> result,
+        PsiElement leafTarget,
+        Collection<? super LineMarkerInfo<?>> result,
         @Nullable String decorates,
         @Nullable String parent
     ) {
@@ -47,11 +46,11 @@ final class ServiceLineMarkerUtil {
      * via "decorates" or "parent".
      */
     public static void collectDecoratedAndParentTargets(
-        @NotNull Project project,
-        @NotNull PsiElement leafTarget,
-        @NotNull Collection<? super LineMarkerInfo<?>> result,
-        @NotNull LazyDecoratedParentServiceValues lazyDecoratedParentServiceValues,
-        @NotNull String serviceId
+        Project project,
+        PsiElement leafTarget,
+        Collection<? super LineMarkerInfo<?>> result,
+        LazyDecoratedParentServiceValues lazyDecoratedParentServiceValues,
+        String serviceId
     ) {
         // foreign "decorates" linemarker
         addRelatedLineMarker(
@@ -75,21 +74,21 @@ final class ServiceLineMarkerUtil {
     }
 
     private static void addDirectLineMarker(
-        @NotNull PsiElement leafTarget,
-        @NotNull Collection<? super LineMarkerInfo<?>> result,
-        @NotNull ServiceUtil.ServiceLineMarker lineMarker,
-        @NotNull String serviceId
+        PsiElement leafTarget,
+        Collection<? super LineMarkerInfo<?>> result,
+        ServiceUtil.ServiceLineMarker lineMarker,
+        String serviceId
     ) {
         result.add(ServiceUtil.getLineMarkerForDecoratesServiceId(leafTarget, lineMarker, serviceId));
     }
 
     private static void addRelatedLineMarker(
-        @NotNull Project project,
-        @NotNull PsiElement leafTarget,
-        @NotNull Collection<? super LineMarkerInfo<?>> result,
-        @NotNull ServiceUtil.ServiceLineMarker lineMarker,
-        @NotNull Map<String, Collection<ContainerService>> serviceIds,
-        @NotNull String serviceId
+        Project project,
+        PsiElement leafTarget,
+        Collection<? super LineMarkerInfo<?>> result,
+        ServiceUtil.ServiceLineMarker lineMarker,
+        Map<String, Collection<ContainerService>> serviceIds,
+        String serviceId
     ) {
         NavigationGutterIconBuilder<PsiElement> lineMarkerBuilder = ServiceUtil.getLineMarkerForDecoratedServiceId(
             project,

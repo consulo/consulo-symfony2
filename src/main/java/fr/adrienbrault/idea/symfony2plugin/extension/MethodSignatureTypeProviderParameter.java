@@ -1,8 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.extension;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.psi.PsiElement;
-import org.jetbrains.annotations.NotNull;
+import consulo.project.Project;
+import consulo.language.psi.PsiElement;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -11,7 +10,7 @@ public class MethodSignatureTypeProviderParameter {
 
     private final PsiElement psiElement;
 
-    public MethodSignatureTypeProviderParameter(@NotNull PsiElement psiElement) {
+    public MethodSignatureTypeProviderParameter(PsiElement psiElement) {
         this.psiElement = psiElement;
     }
 

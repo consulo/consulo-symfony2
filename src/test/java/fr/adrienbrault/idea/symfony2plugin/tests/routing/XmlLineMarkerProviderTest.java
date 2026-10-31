@@ -1,8 +1,10 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.routing;
 
-import com.intellij.ide.highlighter.XmlFileType;
-import com.intellij.patterns.XmlPatterns;
-import com.intellij.psi.PsiFile;
+import org.junit.jupiter.api.Test;
+
+import consulo.xml.language.XmlFileType;
+import consulo.xml.language.psi.pattern.XmlPatterns;
+import consulo.language.psi.PsiFile;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
 
 /**
@@ -28,6 +30,8 @@ public class XmlLineMarkerProviderTest extends SymfonyLightCodeInsightFixtureTes
         return "src/test/java/fr/adrienbrault/idea/symfony2plugin/tests/routing/fixtures";
     }
 
+    @Test
+
     public void testThatResourceProvidesLineMarkerLineMarker() {
         PsiFile psiFile = myFixture.configureByText("foo.xml", "<foo/>");
         assertLineMarker(
@@ -40,6 +44,8 @@ public class XmlLineMarkerProviderTest extends SymfonyLightCodeInsightFixtureTes
             new LineMarker.TargetAcceptsPattern("Navigate to resource", XmlPatterns.xmlTag().withName("import").withAttributeValue("resource", "@FooBundle/foo.xml"))
         );
     }
+
+    @Test
 
     public void testThatRouteLineMarkerForControllerIsGiven() {
         assertLineMarker(

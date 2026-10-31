@@ -1,13 +1,12 @@
 package fr.adrienbrault.idea.symfony2plugin.util;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.util.indexing.FileBasedIndex;
 import com.jetbrains.php.PhpIndex;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
 import com.jetbrains.php.lang.psi.stubs.indexes.PhpClassFqnIndex;
 import com.jetbrains.php.lang.psi.stubs.indexes.PhpInterfaceFqnIndex;
 import com.jetbrains.php.util.PhpContractUtil;
-import org.jetbrains.annotations.NotNull;
+import consulo.language.psi.stub.FileBasedIndex;
+import consulo.project.Project;
 
 import java.util.*;
 
@@ -22,8 +21,7 @@ public class PhpIndexUtil {
      * @param namespaceName namespace name should start with \ and end with "\"
      * @return classes inside namespace and sub-namespace
      */
-    @NotNull
-    public static Collection<PhpClass> getPhpClassInsideNamespace(@NotNull Project project, @NotNull String namespaceName) {
+    public static Collection<PhpClass> getPhpClassInsideNamespace(Project project, String namespaceName) {
         return getPhpClassInsideNamespace(project, PhpIndex.getInstance(project), namespaceName, false);
     }
 
@@ -34,12 +32,11 @@ public class PhpIndexUtil {
      * @param namespaceName namespace name should start with \ and end with "\"
      * @return classes inside namespace and sub-namespace
      */
-    @NotNull
-    public static Collection<PhpClass> getPhpClassInsideNamespace(@NotNull Project project, @NotNull String namespaceName, boolean excludeInterfaces) {
+    public static Collection<PhpClass> getPhpClassInsideNamespace(Project project, String namespaceName, boolean excludeInterfaces) {
         return getPhpClassInsideNamespace(project, PhpIndex.getInstance(project), namespaceName, excludeInterfaces);
     }
 
-    public static Collection<PhpClass> getAllSubclasses(@NotNull Project project, @NotNull String clazz) {
+    public static Collection<PhpClass> getAllSubclasses(Project project, String clazz) {
         Collection<PhpClass> phpClasses = new ArrayList<>();
 
         PhpIndex.getInstance(project).processAllSubclasses(clazz, phpClass -> {
@@ -51,8 +48,7 @@ public class PhpIndexUtil {
     }
 
 
-    @NotNull
-    private static Collection<PhpClass> getPhpClassInsideNamespace(@NotNull Project project, @NotNull PhpIndex phpIndex, @NotNull String namespaceName, boolean excludeInterfaces) {
+    private static Collection<PhpClass> getPhpClassInsideNamespace(Project project, PhpIndex phpIndex, String namespaceName, boolean excludeInterfaces) {
         PhpContractUtil.assertFqn(namespaceName);
         Set<String> classes = new HashSet<>();
 
@@ -80,7 +76,7 @@ public class PhpIndexUtil {
         return clazzes;
     }
 
-    public static boolean hasNamespace(@NotNull Project project, @NotNull String namespaceName) {
+    public static boolean hasNamespace(Project project, String namespaceName) {
 
         if(!namespaceName.startsWith("\\")) {
             namespaceName = "\\" + namespaceName;

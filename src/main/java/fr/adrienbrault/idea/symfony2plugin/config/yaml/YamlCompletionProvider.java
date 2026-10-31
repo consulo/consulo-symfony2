@@ -1,15 +1,14 @@
 package fr.adrienbrault.idea.symfony2plugin.config.yaml;
 
-import com.intellij.codeInsight.completion.CompletionParameters;
-import com.intellij.codeInsight.completion.CompletionProvider;
-import com.intellij.codeInsight.completion.CompletionResultSet;
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.codeInsight.lookup.LookupElementBuilder;
-import com.intellij.util.ProcessingContext;
+import consulo.language.editor.completion.CompletionParameters;
+import consulo.language.editor.completion.CompletionProvider;
+import consulo.language.editor.completion.CompletionResultSet;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.editor.completion.lookup.LookupElementBuilder;
+import consulo.language.util.ProcessingContext;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.List;
 import java.util.Map;
@@ -17,7 +16,7 @@ import java.util.Map;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
-public class YamlCompletionProvider extends CompletionProvider<CompletionParameters> {
+public class YamlCompletionProvider implements CompletionProvider {
 
     @Nullable
     private List<LookupElement> lookupList;
@@ -33,7 +32,7 @@ public class YamlCompletionProvider extends CompletionProvider<CompletionParamet
         this.lookupMap = lookups;
     }
 
-    public void addCompletions(@NotNull CompletionParameters parameters, ProcessingContext context, @NotNull CompletionResultSet resultSet) {
+    public void addCompletions(CompletionParameters parameters, ProcessingContext context, CompletionResultSet resultSet) {
         if(!Symfony2ProjectComponent.isEnabled(parameters.getPosition())) {
             return;
         }

@@ -1,14 +1,12 @@
 package fr.adrienbrault.idea.symfony2plugin.doctrine.dict;
 
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.codeInsight.lookup.LookupElementPresentation;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.editor.completion.lookup.LookupElementPresentation;
+import consulo.ui.image.Image;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
-import javax.swing.*;
+import org.jspecify.annotations.Nullable;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -40,7 +38,6 @@ public class DoctrineEntityLookupElement extends LookupElement {
         return this;
     }
 
-    @NotNull
     @Override
     public String getLookupString() {
         if (this.useClassNameAsLookupString) {
@@ -50,7 +47,7 @@ public class DoctrineEntityLookupElement extends LookupElement {
         return entityName;
     }
 
-    public void renderElement(@NotNull LookupElementPresentation presentation) {
+    public void renderElement(LookupElementPresentation presentation) {
         if (this.useClassNameAsLookupString) {
             presentation.setItemText(className);
             presentation.setTypeText(getLookupString());
@@ -69,7 +66,7 @@ public class DoctrineEntityLookupElement extends LookupElement {
     }
 
     @Nullable
-    private Icon getWeakIcon() {
+    private Image getWeakIcon() {
         if (manager == null) {
             return null;
         }
@@ -86,7 +83,7 @@ public class DoctrineEntityLookupElement extends LookupElement {
     }
 
     @Nullable
-    private Icon getIcon() {
+    private Image getIcon() {
         if (manager == null) {
             return null;
         }

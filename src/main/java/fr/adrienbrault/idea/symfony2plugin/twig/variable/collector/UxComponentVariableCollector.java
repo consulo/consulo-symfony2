@@ -1,13 +1,13 @@
 package fr.adrienbrault.idea.symfony2plugin.twig.variable.collector;
 
-import com.intellij.psi.PsiFile;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
 import com.jetbrains.twig.TwigFile;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.psi.PsiFile;
 import fr.adrienbrault.idea.symfony2plugin.templating.variable.TwigFileVariableCollector;
 import fr.adrienbrault.idea.symfony2plugin.templating.variable.TwigFileVariableCollectorParameter;
 import fr.adrienbrault.idea.symfony2plugin.templating.variable.dict.PsiVariable;
 import fr.adrienbrault.idea.symfony2plugin.util.UxUtil;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.Map;
 
@@ -17,8 +17,9 @@ import java.util.Map;
  * @link https://symfony.com/bundles/ux-twig-component/current/index.html#exposeintemplate-attribute
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl(id = "TwigUxComponentVariableCollector", order = "after ControllerVariableCollector")
 public class UxComponentVariableCollector implements TwigFileVariableCollector {
-    public void collectPsiVariables(@NotNull TwigFileVariableCollectorParameter parameter, @NotNull Map<String, PsiVariable> variables) {
+    public void collectPsiVariables(TwigFileVariableCollectorParameter parameter, Map<String, PsiVariable> variables) {
         PsiFile psiFile = parameter.getContainingFile();
         if (!(psiFile instanceof TwigFile)) {
             return;

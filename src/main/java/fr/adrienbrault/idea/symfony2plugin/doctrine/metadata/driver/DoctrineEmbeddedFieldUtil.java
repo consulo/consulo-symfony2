@@ -3,7 +3,6 @@ package fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.driver;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.dict.DoctrineModelField;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.dict.DoctrineMetadataModel;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -15,10 +14,10 @@ final class DoctrineEmbeddedFieldUtil {
     }
 
     static void addEmbeddedFields(
-        @NotNull String modelClass,
-        @NotNull Collection<Mapping> mappings,
-        @NotNull Function<String, DoctrineMetadataModel> metadataLoader,
-        @NotNull Collection<DoctrineModelField> fields
+        String modelClass,
+        Collection<Mapping> mappings,
+        Function<String, DoctrineMetadataModel> metadataLoader,
+        Collection<DoctrineModelField> fields
     ) {
         for (Mapping mapping : mappings) {
             if (StringUtils.isBlank(mapping.propertyName()) || StringUtils.isBlank(mapping.className())) {
@@ -36,8 +35,7 @@ final class DoctrineEmbeddedFieldUtil {
         }
     }
 
-    @NotNull
-    private static String resolveEmbeddedClass(@NotNull String modelClass, @NotNull String embeddedClass) {
+    private static String resolveEmbeddedClass(String modelClass, String embeddedClass) {
         String normalizedEmbeddedClass = StringUtils.stripStart(embeddedClass, "\\");
         if (normalizedEmbeddedClass.contains("\\")) {
             return normalizedEmbeddedClass;
@@ -52,11 +50,10 @@ final class DoctrineEmbeddedFieldUtil {
         return normalizedModelClass.substring(0, namespaceSeparator + 1) + normalizedEmbeddedClass;
     }
 
-    @NotNull
     private static DoctrineModelField copyEmbeddedField(
-        @NotNull String propertyName,
-        @NotNull String columnPrefix,
-        @NotNull DoctrineModelField embeddedField
+        String propertyName,
+        String columnPrefix,
+        DoctrineModelField embeddedField
     ) {
         DoctrineModelField field = new DoctrineModelField(propertyName + "." + embeddedField.getName(), embeddedField.getTypeName());
         field.setEnumType(embeddedField.getEnumType());
@@ -71,6 +68,6 @@ final class DoctrineEmbeddedFieldUtil {
         return field;
     }
 
-    record Mapping(@NotNull String propertyName, @NotNull String className, @NotNull String columnPrefix) {
+    record Mapping(String propertyName, String className, String columnPrefix) {
     }
 }

@@ -1,15 +1,14 @@
 package fr.adrienbrault.idea.symfony2plugin.twig.utils;
 
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiManager;
-import com.intellij.psi.search.GlobalSearchScope;
-import com.intellij.util.indexing.FileBasedIndex;
 import com.jetbrains.twig.TwigFile;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.PsiManager;
+import consulo.language.psi.scope.GlobalSearchScope;
+import consulo.language.psi.stub.FileBasedIndex;
+import consulo.virtualFileSystem.VirtualFile;
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.TwigBlockIndexExtension;
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.TwigExtendsStubIndex;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.Collection;
 import java.util.HashSet;
@@ -22,16 +21,14 @@ public class TwigFileUtil {
     /**
      * Visit parent Twig files eg on "embed" tag and provide all files in this path until root file
      */
-    @NotNull
-    public static Collection<VirtualFile> collectParentFiles(boolean includeSelf, @NotNull Collection<PsiFile> psiFiles) {
+    public static Collection<VirtualFile> collectParentFiles(boolean includeSelf, Collection<PsiFile> psiFiles) {
         return collectParentFiles(includeSelf, psiFiles.toArray(new PsiFile[0]));
     }
 
     /**
      * Visit parent Twig files eg on "embed" tag and provide all files in this path until root file
      */
-    @NotNull
-    public static Collection<VirtualFile> collectParentFiles(boolean includeSelf, @NotNull PsiFile... psiFiles) {
+    public static Collection<VirtualFile> collectParentFiles(boolean includeSelf, PsiFile... psiFiles) {
         Set<VirtualFile> virtualFiles = new HashSet<>();
 
         for (PsiFile psiFile : psiFiles) {
@@ -46,7 +43,7 @@ public class TwigFileUtil {
         return virtualFiles;
     }
 
-    private static void visitParentFiles(@NotNull PsiFile file, int depth, Collection<VirtualFile> virtualFiles) {
+    private static void visitParentFiles(PsiFile file, int depth, Collection<VirtualFile> virtualFiles) {
         // limit recursive calls
         if(depth++ > 20) {
             return;

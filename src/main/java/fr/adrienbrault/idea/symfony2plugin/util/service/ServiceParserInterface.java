@@ -1,8 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.util.service;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.vfs.VirtualFile;
-import org.jetbrains.annotations.NotNull;
+import consulo.project.Project;
+import consulo.virtualFileSystem.VirtualFile;
 import java.io.InputStream;
 
 /**
@@ -11,5 +10,5 @@ import java.io.InputStream;
 public interface ServiceParserInterface {
     String getXPathFilter();
 
-    void parser(@NotNull InputStream inputStream, @NotNull VirtualFile sourceFile, @NotNull Project project);
+    void parser(InputStream inputStream, VirtualFile sourceFile, Project project);
 }

@@ -1,8 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.stubs.dict;
 
 import org.apache.commons.lang3.builder.HashCodeBuilder;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.io.Serializable;
 import java.util.Objects;
@@ -12,7 +11,7 @@ import java.util.Objects;
  *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
-public record StimulusController(@NotNull String name, @NotNull SourceType sourceType, @Nullable String originalName) implements Serializable {
+public record StimulusController(String name, SourceType sourceType, @Nullable String originalName) implements Serializable {
     public enum SourceType {
         /** Controller from JavaScript/TypeScript file (e.g., hello_controller.js) */
         JAVASCRIPT,
@@ -23,14 +22,14 @@ public record StimulusController(@NotNull String name, @NotNull SourceType sourc
     /**
      * Constructor for JavaScript file controllers (no original name, normalized name only)
      */
-    public StimulusController(@NotNull String name) {
+    public StimulusController(String name) {
         this(name, SourceType.JAVASCRIPT, null);
     }
 
     /**
      * Constructor for controllers.json with original name
      */
-    public StimulusController(@NotNull String normalizedName, @NotNull String originalName) {
+    public StimulusController(String normalizedName, String originalName) {
         this(normalizedName, SourceType.CONTROLLERS_JSON, originalName);
     }
 
@@ -39,7 +38,6 @@ public record StimulusController(@NotNull String name, @NotNull SourceType sourc
      * For JS files: "hello", "users--list"
      * For JSON: "symfony--ux-chartjs--chart"
      */
-    @NotNull
     public String getNormalizedName() {
         return name;
     }
@@ -49,7 +47,6 @@ public record StimulusController(@NotNull String name, @NotNull SourceType sourc
      * For JS files: same as normalized (e.g., "hello", "users--list")
      * For JSON: "@symfony/ux-chartjs/chart"
      */
-    @NotNull
     public String getTwigName() {
         if (sourceType == SourceType.CONTROLLERS_JSON && originalName != null) {
             return originalName;

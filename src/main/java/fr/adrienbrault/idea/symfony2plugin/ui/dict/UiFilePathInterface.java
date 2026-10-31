@@ -1,13 +1,12 @@
 package fr.adrienbrault.idea.symfony2plugin.ui.dict;
 
-import com.intellij.openapi.project.Project;
-import org.jetbrains.annotations.NotNull;
+import consulo.project.Project;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public interface UiFilePathInterface {
-    boolean exists(@NotNull Project project);
+    boolean exists(Project project);
     void setPath(String path);
     String getPath();
 

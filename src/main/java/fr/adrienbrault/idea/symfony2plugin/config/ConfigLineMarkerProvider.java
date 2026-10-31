@@ -1,20 +1,23 @@
 package fr.adrienbrault.idea.symfony2plugin.config;
 
-import com.intellij.codeInsight.daemon.LineMarkerInfo;
-import com.intellij.codeInsight.daemon.LineMarkerProvider;
-import com.intellij.codeInsight.navigation.NavigationGutterIconBuilder;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.NotNullLazyValue;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.util.PsiTreeUtil;
+import consulo.annotation.access.RequiredReadAction;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.application.util.NotNullLazyValue;
+import consulo.language.Language;
+import consulo.language.editor.gutter.LineMarkerInfo;
+import consulo.language.editor.gutter.LineMarkerProvider;
+import consulo.language.editor.ui.navigation.NavigationGutterIconBuilder;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.util.PsiTreeUtil;
+import consulo.project.Project;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.config.yaml.YamlElementPatternHelper;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
 import fr.adrienbrault.idea.symfony2plugin.util.resource.FileResourceUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
+import org.jetbrains.yaml.YAMLLanguage;
 import org.jetbrains.yaml.YAMLTokenTypes;
 import org.jetbrains.yaml.psi.YAMLKeyValue;
 import org.jetbrains.yaml.psi.YAMLValue;
@@ -25,15 +28,18 @@ import java.util.List;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class ConfigLineMarkerProvider implements LineMarkerProvider {
     @Nullable
     @Override
-    public LineMarkerInfo<?> getLineMarkerInfo(@NotNull PsiElement psiElement) {
+    @RequiredReadAction
+    public LineMarkerInfo<?> getLineMarkerInfo(PsiElement psiElement) {
         return null;
     }
 
     @Override
-    public void collectSlowLineMarkers(@NotNull List<? extends PsiElement> psiElements, @NotNull Collection<? super LineMarkerInfo<?>> result) {
+    @RequiredReadAction
+    public void collectSlowLineMarkers(List<PsiElement> psiElements, Collection<LineMarkerInfo> result) {
         if(psiElements.isEmpty()) {
             return;
         }
@@ -60,7 +66,7 @@ public class ConfigLineMarkerProvider implements LineMarkerProvider {
         }
     }
 
-    private void visitRootElements(@NotNull Project project, @NotNull Collection<? super LineMarkerInfo<?>> result, @NotNull PsiElement psiElement, @NotNull ConfigLineMarkerUtil.LazyConfigTreeSignatures function) {
+    private void visitRootElements(Project project, Collection<LineMarkerInfo> result, PsiElement psiElement, ConfigLineMarkerUtil.LazyConfigTreeSignatures function) {
         PsiElement parent = psiElement.getParent();
         if(!(parent instanceof YAMLKeyValue)) {
             return;
@@ -91,14 +97,14 @@ public class ConfigLineMarkerProvider implements LineMarkerProvider {
         visitConfigKey(project, result, psiElement, function, keyText);
     }
 
-    private void visitConfigKey(@NotNull Project project, @NotNull Collection<? super LineMarkerInfo<?>> result, @NotNull PsiElement psiElement, @NotNull ConfigLineMarkerUtil.LazyConfigTreeSignatures function, String keyText) {
+    private void visitConfigKey(Project project, Collection<LineMarkerInfo> result, PsiElement psiElement, ConfigLineMarkerUtil.LazyConfigTreeSignatures function, String keyText) {
         LineMarkerInfo<PsiElement> marker = ConfigLineMarkerUtil.createConfigNavigationMarker(project, psiElement, function, keyText);
         if (marker != null) {
             result.add(marker);
         }
     }
 
-    private void visitResourceValue(@NotNull Project project, @NotNull Collection<? super LineMarkerInfo<?>> result, @NotNull PsiElement psiElement) {
+    private void visitResourceValue(Project project, Collection<LineMarkerInfo> result, PsiElement psiElement) {
         String resourcePath = PsiElementUtils.trimQuote(psiElement.getText());
 
         if (!FileResourceUtil.hasFileResourceTargets(project, psiElement.getContainingFile(), resourcePath)) {
@@ -106,8 +112,13 @@ public class ConfigLineMarkerProvider implements LineMarkerProvider {
         }
 
         result.add(NavigationGutterIconBuilder.create(Symfony2Icons.SYMFONY_LINE_MARKER)
-            .setTargets(NotNullLazyValue.lazy(() -> FileResourceUtil.getFileResourceTargets(project, psiElement.getContainingFile(), resourcePath)))
+            .setTargets(NotNullLazyValue.createValue(() -> FileResourceUtil.getFileResourceTargets(project, psiElement.getContainingFile(), resourcePath)))
             .setTooltipText("Navigate to resource")
             .createLineMarkerInfo(psiElement));
+    }
+
+    @Override
+    public Language getLanguage() {
+        return YAMLLanguage.INSTANCE;
     }
 }

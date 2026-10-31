@@ -1,15 +1,14 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.path;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.vfs.VirtualFile;
+import consulo.project.Project;
+import consulo.virtualFileSystem.VirtualFile;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.ProjectUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.VfsExUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.service.AbstractServiceParser;
 import fr.adrienbrault.idea.symfony2plugin.util.xml.SecureXmlUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -18,7 +17,11 @@ import org.xml.sax.SAXException;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.xpath.*;
+import javax.xml.xpath.XPath;
+import javax.xml.xpath.XPathConstants;
+import javax.xml.xpath.XPathExpression;
+import javax.xml.xpath.XPathExpressionException;
+import javax.xml.xpath.XPathFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -29,7 +32,6 @@ import java.util.List;
  */
 public class TwigPathServiceParser extends AbstractServiceParser {
 
-    @NotNull
     private final List<TwigPath> twigPaths = new ArrayList<>();
 
     @Override
@@ -38,7 +40,7 @@ public class TwigPathServiceParser extends AbstractServiceParser {
     }
 
     @Override
-    public synchronized void parser(@NotNull InputStream file, @NotNull VirtualFile sourceFile, @NotNull Project project) {
+    public synchronized void parser(InputStream file, VirtualFile sourceFile, Project project) {
         Document document = parseDocument(file);
         if (document == null) {
             return;
@@ -107,7 +109,7 @@ public class TwigPathServiceParser extends AbstractServiceParser {
      * Returns null if the path does not start with kernelProjectDir.
      */
     @Nullable
-    static String normalizeAbsolutePath(@NotNull String path, @NotNull String kernelProjectDir) {
+    static String normalizeAbsolutePath(String path, String kernelProjectDir) {
         String normalizedPath = path.replace('\\', '/');
         String normalizedDir = kernelProjectDir.replace('\\', '/').replaceAll("/+$", "");
 
@@ -128,7 +130,7 @@ public class TwigPathServiceParser extends AbstractServiceParser {
      * Returns null when the Symfony root cannot be determined or is not inside the IntelliJ project.
      */
     @Nullable
-    static String findSymfonyRootPrefix(@NotNull Project project, @Nullable VirtualFile containerFile) {
+    static String findSymfonyRootPrefix(Project project, @Nullable VirtualFile containerFile) {
         if (containerFile == null) {
             return null;
         }
@@ -166,7 +168,7 @@ public class TwigPathServiceParser extends AbstractServiceParser {
     /**
      * Returns true if the given relative path exists as a directory or file under the IntelliJ project root.
      */
-    static boolean existsInProjectRoot(@NotNull Project project, @NotNull String relativePath) {
+    static boolean existsInProjectRoot(Project project, String relativePath) {
         VirtualFile intellijProjectDir = ProjectUtil.getProjectDir(project);
         if (intellijProjectDir == null) {
             return false;
@@ -176,7 +178,7 @@ public class TwigPathServiceParser extends AbstractServiceParser {
     }
 
     @Nullable
-    static String extractKernelProjectDir(@NotNull Document document) {
+    static String extractKernelProjectDir(Document document) {
         try {
             XPath xpath = XPathFactory.newInstance().newXPath();
             XPathExpression expr = xpath.compile(
@@ -190,7 +192,7 @@ public class TwigPathServiceParser extends AbstractServiceParser {
     }
 
     @Nullable
-    private NodeList queryTwigPaths(@NotNull Document document) {
+    private NodeList queryTwigPaths(Document document) {
         try {
             XPath xpath = XPathFactory.newInstance().newXPath();
             XPathExpression expr = xpath.compile(
@@ -203,7 +205,7 @@ public class TwigPathServiceParser extends AbstractServiceParser {
     }
 
     @Nullable
-    private Document parseDocument(@NotNull InputStream inputStream) {
+    private Document parseDocument(InputStream inputStream) {
         try {
             DocumentBuilder documentBuilder = SecureXmlUtil.createDocumentBuilder();
             return documentBuilder.parse(inputStream);
@@ -212,7 +214,6 @@ public class TwigPathServiceParser extends AbstractServiceParser {
         }
     }
 
-    @NotNull
     public List<TwigPath> getTwigPaths() {
         return twigPaths;
     }

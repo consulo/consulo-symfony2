@@ -1,18 +1,18 @@
 package fr.adrienbrault.idea.symfony2plugin.templating;
 
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.codeInsight.lookup.LookupElementBuilder;
-import com.intellij.codeInspection.XmlSuppressionProvider;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.TextRange;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.html.HtmlTag;
-import com.intellij.psi.impl.source.xml.SchemaPrefix;
-import com.intellij.psi.xml.XmlFile;
-import com.intellij.psi.xml.XmlTag;
-import com.intellij.psi.xml.XmlToken;
-import com.intellij.psi.xml.XmlTokenType;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.editor.completion.lookup.LookupElementBuilder;
+import consulo.xml.editor.XmlSuppressionProvider;
+import consulo.project.Project;
+import consulo.document.util.TextRange;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.html.language.psi.HtmlTag;
+import consulo.xml.psi.impl.source.xml.SchemaPrefix;
+import consulo.xml.language.psi.XmlFile;
+import consulo.xml.language.psi.XmlTag;
+import consulo.xml.language.psi.XmlToken;
+import consulo.xml.language.psi.XmlTokenType;
 import com.intellij.xml.XmlExtension;
 import com.intellij.xml.XmlTagNameProvider;
 import com.jetbrains.twig.TwigFile;
@@ -22,8 +22,7 @@ import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigHtmlCompletionUtil;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.UxUtil;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Collections;
 import java.util.List;
@@ -33,7 +32,7 @@ import java.util.List;
  */
 public class TwigComponentHtmlTagExtensions {
     @Nullable
-    private static XmlTag findParentComponentTag(@NotNull XmlTag tag) {
+    private static XmlTag findParentComponentTag(XmlTag tag) {
         XmlTag parentTag = tag.getParentTag();
         while (parentTag != null) {
             if (isTwigComponentTag(parentTag)) {
@@ -46,7 +45,7 @@ public class TwigComponentHtmlTagExtensions {
         return null;
     }
 
-    private static boolean isTwigComponentTag(@NotNull XmlTag tag) {
+    private static boolean isTwigComponentTag(XmlTag tag) {
         if (TwigHtmlCompletionUtil.isTwigBlockTag(tag)) {
             return false;
         }
@@ -61,7 +60,7 @@ public class TwigComponentHtmlTagExtensions {
 
     public static class TwigTemplateTagNameProvider implements XmlTagNameProvider {
         @Override
-        public void addTagNameVariants(List<LookupElement> elements, @NotNull XmlTag tag, String prefix) {
+        public void addTagNameVariants(List<LookupElement> elements, XmlTag tag, String prefix) {
             if (!Symfony2ProjectComponent.isEnabled(tag.getProject())) {
                 return;
             }
@@ -97,7 +96,7 @@ public class TwigComponentHtmlTagExtensions {
         }
 
         @Override
-        public @NotNull List<TagInfo> getAvailableTagNames(@NotNull XmlFile file, @NotNull XmlTag context) {
+        public List<TagInfo> getAvailableTagNames(XmlFile file, XmlTag context) {
             return Collections.emptyList();
         }
 
@@ -130,7 +129,7 @@ public class TwigComponentHtmlTagExtensions {
             private final Project project;
             private final PsiFile psiFile;
 
-            public NullableParentShouldOverwriteSchemaPrefix(@NotNull Project project, @NotNull PsiFile psiFile, TextRange range, String name) {
+            public NullableParentShouldOverwriteSchemaPrefix(Project project, PsiFile psiFile, TextRange range, String name) {
                 super(null, range, name);
                 this.project = project;
                 this.psiFile = psiFile;
@@ -142,7 +141,7 @@ public class TwigComponentHtmlTagExtensions {
             }
 
             @Override
-            public @NotNull Project getProject() {
+            public Project getProject() {
                 return this.project;
             }
         }
@@ -151,12 +150,12 @@ public class TwigComponentHtmlTagExtensions {
     public static class TwigTemplateXmlSuppressionProvider extends XmlSuppressionProvider {
 
         @Override
-        public boolean isProviderAvailable(@NotNull PsiFile file) {
+        public boolean isProviderAvailable(PsiFile file) {
             return true;
         }
 
         @Override
-        public boolean isSuppressedFor(@NotNull PsiElement element, @NotNull String inspectionId) {
+        public boolean isSuppressedFor(PsiElement element, String inspectionId) {
             if (inspectionId.equals("HtmlUnknownTag") && element instanceof XmlToken xmlToken && element.getNode().getElementType() == XmlTokenType.XML_NAME) {
                 String text = xmlToken.getText();
 
@@ -172,12 +171,12 @@ public class TwigComponentHtmlTagExtensions {
         }
 
         @Override
-        public void suppressForFile(@NotNull PsiElement element, @NotNull String inspectionId) {
+        public void suppressForFile(PsiElement element, String inspectionId) {
 
         }
 
         @Override
-        public void suppressForTag(@NotNull PsiElement element, @NotNull String inspectionId) {
+        public void suppressForTag(PsiElement element, String inspectionId) {
 
         }
     }

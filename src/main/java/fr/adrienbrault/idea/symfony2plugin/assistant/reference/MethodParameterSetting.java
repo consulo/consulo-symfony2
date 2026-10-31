@@ -1,7 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.assistant.reference;
 
-import com.intellij.util.xmlb.annotations.Attribute;
-import com.intellij.util.xmlb.annotations.Tag;
+import consulo.util.xml.serializer.annotation.Attribute;
+import consulo.util.xml.serializer.annotation.Tag;
 import fr.adrienbrault.idea.symfony2plugin.assistant.AssistantPsiReferenceContributor;
 
 /**

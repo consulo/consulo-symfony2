@@ -1,15 +1,14 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.util;
 
-import com.intellij.lang.ASTNode;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiWhiteSpace;
-import com.intellij.psi.tree.IElementType;
+import consulo.language.ast.ASTNode;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiWhiteSpace;
+import consulo.language.ast.IElementType;
 import com.jetbrains.twig.TwigTokenTypes;
 import com.jetbrains.twig.elements.TwigElementTypes;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -35,7 +34,7 @@ public final class TwigFunctionHashParser {
      * </ul>
      */
     @Nullable
-    public static FunctionHash parse(@NotNull PsiElement element) {
+    public static FunctionHash parse(PsiElement element) {
         boolean isString = isTwigElementType(element, TwigTokenTypes.STRING_TEXT);
         if (!isString && !isTwigElementType(element, TwigTokenTypes.IDENTIFIER)) {
             return null;
@@ -108,7 +107,7 @@ public final class TwigFunctionHashParser {
      * Counts the positional arguments before the hash, e.g. {@code 1} for <code>button('Save', {})</code>.
      */
     @Nullable
-    private static Integer getArgumentIndex(@NotNull PsiElement functionCall, @NotNull PsiElement hashLiteral) {
+    private static Integer getArgumentIndex(PsiElement functionCall, PsiElement hashLiteral) {
         // named arguments like "options: {}" have no positional index
         PsiElement previous = previousMeaningfulSibling(hashLiteral);
         if (previous == null || !isArgumentStart(previous)) {
@@ -132,7 +131,7 @@ public final class TwigFunctionHashParser {
      * Reads the key in front of a colon, e.g. {@code size} for {@code size:}, {@code 'size':} or {@code "size":}.
      */
     @Nullable
-    private static String readKeyBefore(@NotNull PsiElement colon) {
+    private static String readKeyBefore(PsiElement colon) {
         PsiElement key = previousMeaningfulSibling(colon);
         if (key == null) {
             return null;
@@ -157,26 +156,26 @@ public final class TwigFunctionHashParser {
         return isClosed ? text.getText() : null;
     }
 
-    private static boolean isHashLiteral(@NotNull PsiElement element) {
+    private static boolean isHashLiteral(PsiElement element) {
         return isTwigElementType(element, TwigElementTypes.LITERAL) &&
             element.getFirstChild() != null &&
             isTwigElementType(element.getFirstChild(), TwigTokenTypes.LBRACE_CURL);
     }
 
-    private static boolean isEntryStart(@NotNull PsiElement element) {
+    private static boolean isEntryStart(PsiElement element) {
         return isTwigElementType(element, TwigTokenTypes.LBRACE_CURL) || isTwigElementType(element, TwigTokenTypes.COMMA);
     }
 
-    private static boolean isArgumentStart(@NotNull PsiElement element) {
+    private static boolean isArgumentStart(PsiElement element) {
         return isTwigElementType(element, TwigTokenTypes.LBRACE) || isTwigElementType(element, TwigTokenTypes.COMMA);
     }
 
-    private static boolean isQuote(@NotNull PsiElement element) {
+    private static boolean isQuote(PsiElement element) {
         return isTwigElementType(element, TwigTokenTypes.SINGLE_QUOTE) || isTwigElementType(element, TwigTokenTypes.DOUBLE_QUOTE);
     }
 
     @Nullable
-    private static PsiElement previousMeaningfulSibling(@NotNull PsiElement element) {
+    private static PsiElement previousMeaningfulSibling(PsiElement element) {
         PsiElement previous = element.getPrevSibling();
         while (previous != null && (previous instanceof PsiWhiteSpace || isTwigElementType(previous, TwigTokenTypes.WHITE_SPACE))) {
             previous = previous.getPrevSibling();
@@ -185,7 +184,7 @@ public final class TwigFunctionHashParser {
         return previous;
     }
 
-    private static boolean isTwigElementType(@NotNull PsiElement element, @NotNull IElementType elementType) {
+    private static boolean isTwigElementType(PsiElement element, IElementType elementType) {
         ASTNode node = element.getNode();
         return node != null && node.getElementType() == elementType;
     }
@@ -200,9 +199,9 @@ public final class TwigFunctionHashParser {
      * @param quoted whether the caret is inside quotes
      */
     public record FunctionHash(
-        @NotNull String functionName,
+        String functionName,
         int argumentIndex,
-        @NotNull List<String> keyPath,
+        List<String> keyPath,
         @Nullable String valueKey,
         boolean quoted
     ) {

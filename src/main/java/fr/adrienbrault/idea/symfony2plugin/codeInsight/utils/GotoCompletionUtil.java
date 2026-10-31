@@ -1,17 +1,16 @@
 package fr.adrienbrault.idea.symfony2plugin.codeInsight.utils;
 
-import com.intellij.openapi.extensions.ExtensionPointName;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.xml.XmlAttributeValue;
-import com.intellij.psi.xml.XmlText;
 import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
 import com.jetbrains.twig.TwigTokenTypes;
+import consulo.component.extension.ExtensionPointName;
+import consulo.language.psi.PsiElement;
+import consulo.xml.language.psi.XmlAttributeValue;
+import consulo.xml.language.psi.XmlText;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionContributor;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionRegistrar;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionRegistrarParameter;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.jetbrains.yaml.psi.YAMLScalar;
 
 import java.util.ArrayList;
@@ -22,7 +21,7 @@ import java.util.Collection;
  */
 public class GotoCompletionUtil {
 
-    private static final ExtensionPointName<GotoCompletionRegistrar> EXTENSIONS = new ExtensionPointName<>("fr.adrienbrault.idea.symfony2plugin.extension.GotoCompletionRegistrar");
+    private static final ExtensionPointName<GotoCompletionRegistrar> EXTENSIONS = ExtensionPointName.create(GotoCompletionRegistrar.class);
 
     public static Collection<GotoCompletionContributor> getContributors(final PsiElement psiElement) {
 
@@ -42,7 +41,7 @@ public class GotoCompletionUtil {
     }
 
     @Nullable
-    public static String getTextValueForElement(@NotNull PsiElement psiElement) {
+    public static String getTextValueForElement(PsiElement psiElement) {
         PsiElement parent = psiElement.getParent();
 
         String value = null;
@@ -73,7 +72,7 @@ public class GotoCompletionUtil {
      * <foo attr="FOO"/>
      */
     @Nullable
-    public static String getXmlAttributeValue(@NotNull PsiElement psiElement) {
+    public static String getXmlAttributeValue(PsiElement psiElement) {
         PsiElement parent = psiElement.getParent();
         if(!(parent instanceof XmlAttributeValue)) {
             return null;
@@ -88,7 +87,7 @@ public class GotoCompletionUtil {
     }
 
     @Nullable
-    public static String getStringLiteralValue(@NotNull PsiElement psiElement) {
+    public static String getStringLiteralValue(PsiElement psiElement) {
         PsiElement parent = psiElement.getParent();
         if(!(parent instanceof StringLiteralExpression)) {
             return null;

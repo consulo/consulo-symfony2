@@ -1,5 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.dic.xml;
 
+import org.junit.jupiter.api.Test;
+
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
 
 /**
@@ -26,6 +28,8 @@ public class XmlDicInspectionsTest extends SymfonyLightCodeInsightFixtureTestCas
     public String getTestDataPath() {
         return "src/test/java/fr/adrienbrault/idea/symfony2plugin/tests/dic/xml/fixtures";
     }
+
+    @Test
 
     public void testThatUnknownServiceIsHighlighted() {
         // PhpStorm 2024.1

@@ -1,11 +1,10 @@
 package fr.adrienbrault.idea.symfony2plugin.ui.dict;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.io.FileUtil;
-import com.intellij.openapi.vfs.VfsUtil;
-import com.intellij.util.xmlb.annotations.Attribute;
+import consulo.project.Project;
+import consulo.util.io.FileUtil;
+import consulo.util.xml.serializer.annotation.Attribute;
+import consulo.virtualFileSystem.util.VirtualFileUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.ProjectUtil;
-import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
 
@@ -16,9 +15,9 @@ public abstract class AbstractUiFilePath implements UiFilePathInterface {
 
     protected String path;
 
-    public boolean exists(@NotNull Project project) {
+    public boolean exists(Project project) {
         if (!FileUtil.isAbsolute(this.path)) {
-            return VfsUtil.findRelativeFile(this.path, ProjectUtil.getProjectDir(project)) != null;
+            return VirtualFileUtil.findRelativeFile(this.path, ProjectUtil.getProjectDir(project)) != null;
         }
 
         return new File(this.path).exists();

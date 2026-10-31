@@ -1,7 +1,9 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.templating;
 
-import com.intellij.psi.PsiElement;
-import com.intellij.patterns.PlatformPatterns;
+import org.junit.jupiter.api.Test;
+
+import consulo.language.psi.PsiElement;
+import consulo.language.pattern.PlatformPatterns;
 import com.jetbrains.twig.TwigFile;
 import com.jetbrains.twig.TwigFileType;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
@@ -26,6 +28,7 @@ public class HtmlTemplateGoToDeclarationHandlerTest extends SymfonyLightCodeInsi
     /**
      * Test that navigation pattern matches for twig component attributes.
      */
+    @Test
     public void testTwigComponentAttributePatternMatches() {
         myFixture.copyFileToProject("PropsAlert.php", "src/PropsAlert.php");
         myFixture.copyFileToProject("twig_component.yaml", "config/packages/twig_component.yaml");
@@ -38,6 +41,8 @@ public class HtmlTemplateGoToDeclarationHandlerTest extends SymfonyLightCodeInsi
             PlatformPatterns.psiElement().withText("icon")
         );
     }
+
+    @Test
 
     public void testNavigationForAnonymousDirectoryIndexComponent() {
         myFixture.copyFileToProject("ide-twig.json", "ide-twig.json");
@@ -53,6 +58,7 @@ public class HtmlTemplateGoToDeclarationHandlerTest extends SymfonyLightCodeInsi
     /**
      * Test that navigation to {% props %} works when using component template directly.
      */
+    @Test
     public void testNavigationToPropsFromComponentTemplate() {
         // Setup configuration files
         myFixture.copyFileToProject("twig_component.yaml", "config/packages/twig_component.yaml");
@@ -81,6 +87,7 @@ public class HtmlTemplateGoToDeclarationHandlerTest extends SymfonyLightCodeInsi
     /**
      * Test that navigation works for props with default values.
      */
+    @Test
     public void testNavigationToPropsWithDefaultValues() {
         TwigFile componentTemplate = (TwigFile) myFixture.configureByText(
             "ComponentWithDefaults.html.twig",
@@ -96,6 +103,7 @@ public class HtmlTemplateGoToDeclarationHandlerTest extends SymfonyLightCodeInsi
     /**
      * Test that navigation works for props without default values.
      */
+    @Test
     public void testNavigationToPropsWithoutDefaultValues() {
         TwigFile componentTemplate = (TwigFile) myFixture.configureByText(
             "ComponentWithoutDefaults.html.twig",
@@ -111,6 +119,7 @@ public class HtmlTemplateGoToDeclarationHandlerTest extends SymfonyLightCodeInsi
     /**
      * Test that navigation returns PsiElement for each prop.
      */
+    @Test
     public void testNavigationReturnsPsiElementForProps() {
         TwigFile componentTemplate = (TwigFile) myFixture.configureByText(
             "ComponentWithPsi.html.twig",

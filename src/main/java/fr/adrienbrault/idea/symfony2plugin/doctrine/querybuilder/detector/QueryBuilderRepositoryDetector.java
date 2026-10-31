@@ -1,7 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.doctrine.querybuilder.detector;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -9,6 +8,6 @@ import org.jetbrains.annotations.Nullable;
 public interface QueryBuilderRepositoryDetector {
 
     @Nullable
-    String getRepository(@NotNull QueryBuilderRepositoryDetectorParameter parameter);
+    String getRepository(QueryBuilderRepositoryDetectorParameter parameter);
 
 }

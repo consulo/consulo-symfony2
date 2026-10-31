@@ -1,13 +1,14 @@
 package fr.adrienbrault.idea.symfony2plugin.twig.variable.collector;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.Key;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiManager;
-import com.intellij.psi.util.CachedValue;
-import com.intellij.psi.util.CachedValueProvider;
-import com.intellij.psi.util.CachedValuesManager;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.application.util.CachedValue;
+import consulo.application.util.CachedValueProvider;
+import consulo.application.util.CachedValuesManager;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.PsiManager;
+import consulo.project.Project;
+import consulo.util.dataholder.Key;
+import consulo.virtualFileSystem.VirtualFile;
 import fr.adrienbrault.idea.symfony2plugin.config.utils.ConfigUtil;
 import fr.adrienbrault.idea.symfony2plugin.stubs.ContainerCollectionResolver;
 import fr.adrienbrault.idea.symfony2plugin.stubs.cache.FileIndexCaches;
@@ -18,7 +19,6 @@ import fr.adrienbrault.idea.symfony2plugin.templating.variable.TwigFileVariableC
 import fr.adrienbrault.idea.symfony2plugin.templating.variable.TwigFileVariableCollectorParameter;
 import fr.adrienbrault.idea.symfony2plugin.templating.variable.dict.PsiVariable;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.yaml.psi.YAMLFile;
 
 import java.util.HashMap;
@@ -33,17 +33,17 @@ import java.util.Map;
  *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl(order = "after MarcoScopeVariableCollector")
 public class GlobalTwigConfigVariableCollector implements TwigFileVariableCollector {
 
     private static final Key<CachedValue<Map<String, PsiVariable>>> CACHE = new Key<>("TWIG_CONFIGURATION_GLOBALS");
 
     @Override
-    public void collectPsiVariables(@NotNull TwigFileVariableCollectorParameter parameter, @NotNull Map<String, PsiVariable> variables) {
+    public void collectPsiVariables(TwigFileVariableCollectorParameter parameter, Map<String, PsiVariable> variables) {
         variables.putAll(getGlobals(parameter.getProject()));
     }
 
-    @NotNull
-    private Map<String, PsiVariable> getGlobals(@NotNull Project project) {
+    private Map<String, PsiVariable> getGlobals(Project project) {
         return CachedValuesManager.getManager(project).getCachedValue(
             project,
             CACHE,
@@ -56,8 +56,7 @@ public class GlobalTwigConfigVariableCollector implements TwigFileVariableCollec
         );
     }
 
-    @NotNull
-    private static Map<String, PsiVariable> getGlobalsInner(@NotNull Project project) {
+    private static Map<String, PsiVariable> getGlobalsInner(Project project) {
         Map<String, PsiVariable> variableMap = new HashMap<>();
 
         for (VirtualFile virtualFile : ConfigUtil.getConfigurations(project, "twig")) {

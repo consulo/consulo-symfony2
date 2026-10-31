@@ -1,15 +1,19 @@
 package fr.adrienbrault.idea.symfony2plugin.templating;
 
-import com.intellij.codeInsight.navigation.actions.GotoDeclarationHandler;
-import com.intellij.openapi.actionSystem.DataContext;
-import com.intellij.openapi.editor.Editor;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.vfs.VfsUtil;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.psi.*;
-import com.intellij.psi.tree.IElementType;
-import com.intellij.util.containers.ContainerUtil;
+import consulo.language.editor.navigation.GotoDeclarationHandler;
+import consulo.dataContext.DataContext;
+import consulo.codeEditor.Editor;
+import consulo.project.Project;
+import consulo.virtualFileSystem.util.VirtualFileUtil;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiDirectory;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.PsiManager;
+import consulo.language.psi.PsiWhiteSpace;
+import consulo.language.ast.IElementType;
+import consulo.util.collection.ContainerUtil;
 import com.jetbrains.php.PhpIndex;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
 import com.jetbrains.twig.TwigLanguage;
@@ -17,6 +21,8 @@ import com.jetbrains.twig.TwigTokenTypes;
 import com.jetbrains.twig.elements.TwigBlockTag;
 import com.jetbrains.twig.elements.TwigElementTypes;
 import com.jetbrains.twig.elements.TwigVariableReference;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.localize.LocalizeValue;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.assetMapper.AssetMapperUtil;
 import fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper;
@@ -28,6 +34,7 @@ import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigTypeResolveUtil;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
 import fr.adrienbrault.idea.symfony2plugin.templating.variable.TwigTypeContainer;
 import fr.adrienbrault.idea.symfony2plugin.templating.variable.resolver.holder.FormFieldDataHolder;
+import fr.adrienbrault.idea.symfony2plugin.templating.variable.resolver.FormFieldResolver;
 import fr.adrienbrault.idea.symfony2plugin.translation.dict.TranslationUtil;
 import fr.adrienbrault.idea.symfony2plugin.twig.utils.TwigBlockUtil;
 import fr.adrienbrault.idea.symfony2plugin.twig.variable.collector.ControllerDocVariableCollector;
@@ -35,8 +42,7 @@ import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
 import fr.adrienbrault.idea.symfony2plugin.util.UxUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.*;
 import java.util.regex.Matcher;
@@ -46,6 +52,7 @@ import java.util.regex.Pattern;
  * @author Adrien Brault <adrien.brault@gmail.com>
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class TwigTemplateGoToDeclarationHandler implements GotoDeclarationHandler {
 
     @Nullable
@@ -229,8 +236,7 @@ public class TwigTemplateGoToDeclarationHandler implements GotoDeclarationHandle
     /**
      * {% if foo is ... %}
      */
-    @NotNull
-    private Collection<PsiElement> getAfterIsToken(@NotNull PsiElement psiElement) {
+    private Collection<PsiElement> getAfterIsToken(PsiElement psiElement) {
         // find text after if statement
         PsiElement actualElement = psiElement.getParent() instanceof TwigVariableReference ? psiElement.getParent() : psiElement;
         String text = StringUtils.trim(
@@ -274,8 +280,7 @@ public class TwigTemplateGoToDeclarationHandler implements GotoDeclarationHandle
         return psiElements;
     }
 
-    @NotNull
-    private Collection<PsiElement> getRouteParameterGoTo(@NotNull PsiElement psiElement) {
+    private Collection<PsiElement> getRouteParameterGoTo(PsiElement psiElement) {
         String routeName = TwigUtil.getMatchingRouteNameOnParameter(psiElement);
 
         if(routeName == null) {
@@ -287,13 +292,12 @@ public class TwigTemplateGoToDeclarationHandler implements GotoDeclarationHandle
         );
     }
 
-    @NotNull
-    private Collection<PsiElement> getControllerGoTo(@NotNull  PsiElement psiElement) {
+    private Collection<PsiElement> getControllerGoTo(PsiElement psiElement) {
         String text = PsiElementUtils.trimQuote(psiElement.getText());
         return Arrays.asList(RouteHelper.getMethodsOnControllerShortcut(psiElement.getProject(), text));
     }
 
-    private Collection<PsiFile> getImportmapGoTo(@NotNull PsiElement psiElement) {
+    private Collection<PsiFile> getImportmapGoTo(PsiElement psiElement) {
         String text = PsiElementUtils.trimQuote(psiElement.getText());
         if (text.isBlank()) {
             return Collections.emptyList();
@@ -305,8 +309,7 @@ public class TwigTemplateGoToDeclarationHandler implements GotoDeclarationHandle
         );
     }
 
-    @NotNull
-    private Collection<PsiElement> getTwigFiles(@NotNull PsiElement psiElement, int offset) {
+    private Collection<PsiElement> getTwigFiles(PsiElement psiElement, int offset) {
         int calulatedOffset = offset - psiElement.getTextRange().getStartOffset();
         if (calulatedOffset < 0) {
             calulatedOffset = 0;
@@ -319,8 +322,7 @@ public class TwigTemplateGoToDeclarationHandler implements GotoDeclarationHandle
         );
     }
 
-    @NotNull
-    public static Collection<PsiElement> getFilterGoTo(@NotNull  PsiElement psiElement) {
+    public static Collection<PsiElement> getFilterGoTo(PsiElement psiElement) {
         Map<String, TwigExtension> filters = TwigExtensionParser.getFilters(psiElement.getProject());
 
         if(!filters.containsKey(psiElement.getText())) {
@@ -335,8 +337,7 @@ public class TwigTemplateGoToDeclarationHandler implements GotoDeclarationHandle
         return Arrays.asList(PhpElementsUtil.getPsiElementsBySignature(psiElement.getProject(), signature));
     }
 
-    @NotNull
-    private Collection<PsiElement> getRouteStartsWithGoTo(@NotNull PsiElement psiElement) {
+    private Collection<PsiElement> getRouteStartsWithGoTo(PsiElement psiElement) {
         String prefix = PsiElementUtils.getText(psiElement);
         if (StringUtils.isBlank(prefix)) {
             return Collections.emptyList();
@@ -351,7 +352,7 @@ public class TwigTemplateGoToDeclarationHandler implements GotoDeclarationHandle
         return targets;
     }
 
-    private Collection<PsiElement> getRouteGoTo(@NotNull PsiElement psiElement) {
+    private Collection<PsiElement> getRouteGoTo(PsiElement psiElement) {
         String text = PsiElementUtils.getText(psiElement);
 
         if (StringUtils.isBlank(text)) {
@@ -366,7 +367,7 @@ public class TwigTemplateGoToDeclarationHandler implements GotoDeclarationHandle
         return RouteHelper.getRouteDefinitionTargets(psiElement.getProject(), text);
     }
 
-    private Collection<? extends PsiElement> getComponentGoTo(@NotNull PsiElement psiElement) {
+    private Collection<? extends PsiElement> getComponentGoTo(PsiElement psiElement) {
         String text = PsiElementUtils.getText(psiElement);
         if (StringUtils.isBlank(text)) {
             return Collections.emptyList();
@@ -379,16 +380,14 @@ public class TwigTemplateGoToDeclarationHandler implements GotoDeclarationHandle
         }};
     }
 
-    @NotNull
-    private Collection<PsiElement> getTranslationKeyGoTo(@NotNull PsiElement psiElement) {
+    private Collection<PsiElement> getTranslationKeyGoTo(PsiElement psiElement) {
         String translationKey = psiElement.getText();
         return Arrays.asList(
             TranslationUtil.getTranslationPsiElements(psiElement.getProject(), translationKey, TwigUtil.getPsiElementTranslationDomain(psiElement))
         );
     }
 
-    @NotNull
-    private Collection<PsiElement> getTranslationDomainGoto(@NotNull PsiElement psiElement) {
+    private Collection<PsiElement> getTranslationDomainGoto(PsiElement psiElement) {
         String text = PsiElementUtils.trimQuote(psiElement.getText());
 
         if(StringUtils.isBlank(text)) {
@@ -398,13 +397,11 @@ public class TwigTemplateGoToDeclarationHandler implements GotoDeclarationHandle
         return new ArrayList<>(TranslationUtil.getDomainPsiFiles(psiElement.getProject(), text));
     }
 
-    @NotNull
-    private Collection<PsiElement> getConstantGoto(@NotNull PsiElement psiElement) {
+    private Collection<PsiElement> getConstantGoto(PsiElement psiElement) {
         return TwigConstantEnumResolver.getConstantTargets(psiElement);
     }
 
-    @NotNull
-    private Collection<PsiElement> getEnumGoto(@NotNull PsiElement psiElement) {
+    private Collection<PsiElement> getEnumGoto(PsiElement psiElement) {
         return new ArrayList<>(TwigConstantEnumResolver.getEnumTargets(psiElement));
     }
 
@@ -414,8 +411,7 @@ public class TwigTemplateGoToDeclarationHandler implements GotoDeclarationHandle
      * {# @var \AppBundle\Entity\Foo variable #}
      * {# @var variable \AppBundle\Entity\Foo #}
      */
-    @NotNull
-    private Collection<PhpClass> getVarClassGoto(@NotNull PsiElement psiElement) {
+    private Collection<PhpClass> getVarClassGoto(PsiElement psiElement) {
         String comment = psiElement.getText();
 
         if(StringUtils.isBlank(comment)) {
@@ -441,8 +437,7 @@ public class TwigTemplateGoToDeclarationHandler implements GotoDeclarationHandle
      * {% types { user: '\AppBundle\Entity\Foo' } %}
      * {% types { user?: '\AppBundle\Entity\Foo[]' } %}
      */
-    @NotNull
-    private Collection<PhpClass> getTypesTagClassGoto(@NotNull PsiElement psiElement) {
+    private Collection<PhpClass> getTypesTagClassGoto(PsiElement psiElement) {
         String typeString = psiElement.getText();
 
         if (StringUtils.isBlank(typeString)) {
@@ -461,8 +456,7 @@ public class TwigTemplateGoToDeclarationHandler implements GotoDeclarationHandle
         return getClassesFromTwigTypeExpression(psiElement, className);
     }
 
-    @NotNull
-    private Collection<PhpClass> getClassesFromTwigTypeExpression(@NotNull PsiElement element, @NotNull String typeExpression) {
+    private Collection<PhpClass> getClassesFromTwigTypeExpression(PsiElement element, String typeExpression) {
         Collection<PhpClass> classes = new ArrayList<>();
 
         for (String type : TwigTypeResolveUtil.splitTwigDocTypes(typeExpression)) {
@@ -477,13 +471,11 @@ public class TwigTemplateGoToDeclarationHandler implements GotoDeclarationHandle
         return classes;
     }
 
-    @NotNull
-    private static String stripArraySuffix(@NotNull String type) {
+    private static String stripArraySuffix(String type) {
         return type.endsWith("[]") ? type.substring(0, type.length() - 2) : type;
     }
 
-    @NotNull
-    private Collection<PsiElement> getSeeDocTagTargets(@NotNull PsiElement psiElement) {
+    private Collection<PsiElement> getSeeDocTagTargets(PsiElement psiElement) {
         String comment = psiElement.getText();
         if(StringUtils.isBlank(comment)) {
             return Collections.emptyList();
@@ -508,7 +500,7 @@ public class TwigTemplateGoToDeclarationHandler implements GotoDeclarationHandle
 
             PsiDirectory parent = psiElement.getContainingFile().getParent();
             if(parent != null) {
-                VirtualFile relativeFile = VfsUtil.findRelativeFile(parent.getVirtualFile(), content.replace("\\", "/").split("/"));
+                VirtualFile relativeFile = VirtualFileUtil.findRelativeFile(parent.getVirtualFile(), content.replace("\\", "/").split("/"));
                 if(relativeFile != null) {
                     ContainerUtil.addIfNotNull(psiElements, PsiManager.getInstance(psiElement.getProject()).findFile(relativeFile));
                 }
@@ -525,8 +517,7 @@ public class TwigTemplateGoToDeclarationHandler implements GotoDeclarationHandle
         return psiElements;
     }
 
-    @NotNull
-    public static Collection<PsiElement> getTypeGoto(@NotNull PsiElement psiElement) {
+    public static Collection<PsiElement> getTypeGoto(PsiElement psiElement) {
         Collection<PsiElement> targetPsiElements = new HashSet<>();
 
         // Twig extension is given more uselessly then useful targets, so drop this core contribution
@@ -558,10 +549,12 @@ public class TwigTemplateGoToDeclarationHandler implements GotoDeclarationHandle
                     if (text.equals(twigTypeContainer.getStringElement())) {
                         FormFieldDataHolder formFieldDataHolder = twigTypeContainer.getFormFieldDataHolder();
                         if (formFieldDataHolder != null) {
-                            // @TODO: resolve the to field itself
                             PhpClass phpClass = PhpElementsUtil.getClassInterface(psiElement.getProject(), formFieldDataHolder.ownerFormTypeFqn());
                             if (phpClass != null) {
-                                targetPsiElements.add(phpClass);
+                                PsiElement target = formFieldDataHolder.propertyName() != null
+                                    ? FormFieldResolver.resolveAttributeField(phpClass, formFieldDataHolder.propertyName())
+                                    : phpClass;
+                                ContainerUtil.addIfNotNull(targetPsiElements, target);
                             }
                         }
                     }
@@ -572,8 +565,7 @@ public class TwigTemplateGoToDeclarationHandler implements GotoDeclarationHandle
         return targetPsiElements;
     }
 
-    @NotNull
-    public static Collection<PsiElement> getFunctions(@NotNull PsiElement psiElement) {
+    public static Collection<PsiElement> getFunctions(PsiElement psiElement) {
         Map<String, TwigExtension> functions = TwigExtensionParser.getFunctions(psiElement.getProject());
 
         String funcName = psiElement.getText();
@@ -584,8 +576,7 @@ public class TwigTemplateGoToDeclarationHandler implements GotoDeclarationHandle
         return Arrays.asList(PhpElementsUtil.getPsiElementsBySignature(psiElement.getProject(), functions.get(funcName).getSignature()));
     }
 
-    @NotNull
-    private Collection<PsiElement> getMacros(@NotNull PsiElement psiElement) {
+    private Collection<PsiElement> getMacros(PsiElement psiElement) {
         String funcName = psiElement.getText();
 
         // check for complete file as namespace import {% import "file" as foo %}
@@ -608,7 +599,7 @@ public class TwigTemplateGoToDeclarationHandler implements GotoDeclarationHandle
         return TwigUtil.getImportedMacros(psiElement.getContainingFile(), funcName);
     }
 
-    private Collection<PsiElement> getSelfMacros(@NotNull PsiElement psiElement) {
+    private Collection<PsiElement> getSelfMacros(PsiElement psiElement) {
         Collection <PsiElement> psiElements = new ArrayList<>();
 
         String funcName = psiElement.getText();
@@ -622,8 +613,7 @@ public class TwigTemplateGoToDeclarationHandler implements GotoDeclarationHandle
         return psiElements;
     }
 
-    @NotNull
-    private Collection<PsiElement> getControllerNameGoto(@NotNull PsiElement psiElement) {
+    private Collection<PsiElement> getControllerNameGoto(PsiElement psiElement) {
         Pattern pattern = Pattern.compile(ControllerDocVariableCollector.DOC_PATTERN);
 
         Matcher matcher = pattern.matcher(psiElement.getText());
@@ -636,8 +626,7 @@ public class TwigTemplateGoToDeclarationHandler implements GotoDeclarationHandle
         return Arrays.asList(RouteHelper.getMethodsOnControllerShortcut(psiElement.getProject(), controllerName));
     }
 
-    @NotNull
-    private Collection<PsiElement> getParentGoto(@NotNull PsiElement psiElement) {
+    private Collection<PsiElement> getParentGoto(PsiElement psiElement) {
         // find printblock
         PsiElement functionCall = psiElement.getParent();
         PsiElement printBlock = functionCall != null ? functionCall.getParent() : null;
@@ -665,8 +654,7 @@ public class TwigTemplateGoToDeclarationHandler implements GotoDeclarationHandle
         return TwigBlockUtil.getBlockOverwriteTargets(psiElement.getContainingFile(), blockName, false);
     }
 
-    @NotNull
-    private Collection<? extends PsiElement> getTokenTargets(@NotNull PsiElement psiElement) {
+    private Collection<? extends PsiElement> getTokenTargets(PsiElement psiElement) {
         String tagName = psiElement.getText();
         if(StringUtils.isBlank(tagName)) {
             return Collections.emptyList();
@@ -687,9 +675,8 @@ public class TwigTemplateGoToDeclarationHandler implements GotoDeclarationHandle
         return targets;
     }
 
-    @Nullable
     @Override
-    public String getActionText(@NotNull DataContext dataContext) {
-        return null;
+    public LocalizeValue getActionText(DataContext dataContext) {
+        return LocalizeValue.empty();
     }
 }

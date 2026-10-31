@@ -1,15 +1,20 @@
 package fr.adrienbrault.idea.symfony2plugin.util.psi;
 
-import com.intellij.openapi.editor.Editor;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.ui.Messages;
-import com.intellij.openapi.vfs.VfsUtil;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiFileFactory;
-import com.intellij.psi.codeStyle.CodeStyleManager;
-import com.intellij.psi.impl.file.PsiDirectoryFactory;
+import consulo.codeEditor.Editor;
+import consulo.project.Project;
+import consulo.language.editor.WriteCommandAction;
+import consulo.localize.LocalizeValue;
+import consulo.ui.InputBoxBuilder;
+import consulo.ui.MessageBoxes;
+import consulo.ui.UIAccess;
+import consulo.ui.annotation.RequiredUIAccess;
+import consulo.virtualFileSystem.util.VirtualFileUtil;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.PsiFileFactory;
+import consulo.language.codeStyle.CodeStyleManager;
+import consulo.language.psi.PsiManager;
 import com.jetbrains.php.codeInsight.PhpCodeInsightUtil;
 import com.jetbrains.php.lang.PhpFileType;
 import com.jetbrains.php.lang.psi.PhpCodeEditUtil;
@@ -24,10 +29,8 @@ import fr.adrienbrault.idea.symfony2plugin.action.NewFileActionUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.IdeHelper;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
-import javax.swing.*;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Map;
@@ -37,32 +40,53 @@ import java.util.Map;
  */
 public class PhpBundleFileFactory {
 
-    @Nullable
-    public static PsiElement invokeCreateCompilerPass(@NotNull PhpClass bundleClass, @Nullable Editor editor) {
-        String className = Messages.showInputDialog("Class name for CompilerPass (no namespace needed): ", "New File", Symfony2Icons.SYMFONY);
-        if(StringUtils.isBlank(className)) {
-            return null;
-        }
+    /**
+     * Consulo: the class name is asked asynchronously, the compiler pass is created in its own write command
+     */
+    @RequiredUIAccess
+    public static void invokeCreateCompilerPass(PhpClass bundleClass, @Nullable Editor editor) {
+        Project project = bundleClass.getProject();
 
-        if(!PhpNameUtil.isValidClassName(className)) {
-            Messages.showMessageDialog(bundleClass.getProject(), "Invalid class name", "Error", Symfony2Icons.SYMFONY);
-        }
+        UIAccess uiAccess = UIAccess.current();
+        InputBoxBuilder.text()
+            .title(LocalizeValue.localizeTODO("New File"))
+            .text(LocalizeValue.localizeTODO("Class name for CompilerPass (no namespace needed): "))
+            .icon(Symfony2Icons.SYMFONY)
+            .showAsync(project)
+            .whenCompleteAsync((className, error) -> {
+                if (error != null || StringUtils.isBlank(className)) {
+                    return;
+                }
 
-        try {
-            return PhpBundleFileFactory.createCompilerPass(bundleClass, className);
-        } catch (Exception e) {
-            if(editor != null) {
-                IdeHelper.showErrorHintIfAvailable(editor, "Error:" + e.getMessage());
-            } else {
-                JOptionPane.showMessageDialog(null, "Error:" + e.getMessage());
-            }
-        }
+                if (!PhpNameUtil.isValidClassName(className)) {
+                    MessageBoxes.okError(LocalizeValue.localizeTODO("Invalid class name"))
+                        .title(LocalizeValue.localizeTODO("Error"))
+                        .showAsync(project);
+                }
 
-        return null;
+                Exception[] exception = new Exception[1];
+                WriteCommandAction.runWriteCommandAction(project, "Create CompilerPass", null, () -> {
+                    try {
+                        PhpBundleFileFactory.createCompilerPass(bundleClass, className);
+                    }
+                    catch (Exception e) {
+                        exception[0] = e;
+                    }
+                });
+
+                if (exception[0] != null) {
+                    String message = "Error:" + exception[0].getMessage();
+                    if (editor != null) {
+                        IdeHelper.showErrorHintIfAvailable(editor, message);
+                    }
+                    else {
+                        MessageBoxes.okError(LocalizeValue.localizeTODO(message)).showAsync(project);
+                    }
+                }
+            }, uiAccess);
     }
 
-    @NotNull
-    public static PsiElement createBundleFile(@NotNull PhpClass bundleClass, @NotNull String template, @NotNull String className, Map<String, String> vars) throws Exception {
+    public static PsiElement createBundleFile(PhpClass bundleClass, String template, String className, Map<String, String> vars) throws Exception {
 
         VirtualFile directory = bundleClass.getContainingFile().getContainingDirectory().getVirtualFile();
         if(fileExists(directory, new String[] {className})) {
@@ -94,10 +118,10 @@ public class PhpBundleFileFactory {
         Project project = bundleClass.getProject();
         PsiFile fileFromText = PsiFileFactory.getInstance(project).createFileFromText(split[split.length - 1] + ".php", PhpFileType.INSTANCE, fileTemplateContent);
         CodeStyleManager.getInstance(project).reformat(fileFromText);
-        return PsiDirectoryFactory.getInstance(project).createDirectory(compilerDirectory).add(fileFromText);
+        return PsiManager.getInstance(project).findDirectory(compilerDirectory).add(fileFromText);
     }
 
-    public static PsiElement createFile(@NotNull Project project, @NotNull VirtualFile parentDirectory, @NotNull String template, @NotNull String filename, @NotNull Map<String, String> vars) {
+    public static PsiElement createFile(Project project, VirtualFile parentDirectory, String template, String filename, Map<String, String> vars) {
         String COMPILER_TEMPLATE = "/fileTemplates/" + template + ".php";
         String fileTemplateContent = NewFileActionUtil.getFileTemplateContent(COMPILER_TEMPLATE);
         if(fileTemplateContent == null) {
@@ -110,11 +134,10 @@ public class PhpBundleFileFactory {
 
         PsiFile fileFromText = PsiFileFactory.getInstance(project).createFileFromText(filename + ".php", PhpFileType.INSTANCE, fileTemplateContent);
         CodeStyleManager.getInstance(project).reformat(fileFromText);
-        return PsiDirectoryFactory.getInstance(project).createDirectory(parentDirectory).add(fileFromText);
+        return PsiManager.getInstance(project).findDirectory(parentDirectory).add(fileFromText);
     }
 
-    @NotNull
-    public static PsiElement createCompilerPass(@NotNull PhpClass bundleClass, @NotNull String className) throws Exception {
+    public static PsiElement createCompilerPass(PhpClass bundleClass, String className) throws Exception {
 
         VirtualFile directory = bundleClass.getContainingFile().getContainingDirectory().getVirtualFile();
         if(fileExists(directory, className)) {
@@ -152,7 +175,7 @@ public class PhpBundleFileFactory {
             throw new Exception("No 'build' method found");
         }
 
-        String relativePath = VfsUtil.getRelativePath(compilerDirectory, directory);
+        String relativePath = VirtualFileUtil.getRelativePath(compilerDirectory, directory);
         if(relativePath == null) {
             throw new Exception("path error");
         }
@@ -180,11 +203,10 @@ public class PhpBundleFileFactory {
         PsiFile fileFromText = PsiFileFactory.getInstance(project).createFileFromText(className + ".php", PhpFileType.INSTANCE, replace);
         CodeStyleManager.getInstance(project).reformat(fileFromText);
 
-        return PsiDirectoryFactory.getInstance(project).createDirectory(compilerDirectory).add(fileFromText);
+        return PsiManager.getInstance(project).findDirectory(compilerDirectory).add(fileFromText);
     }
 
-    @Nullable
-    public static PhpClass getPhpClassForCreateCompilerScope(@Nullable PhpClass phpClass) {
+    public static @Nullable PhpClass getPhpClassForCreateCompilerScope(@Nullable PhpClass phpClass) {
 
         if(phpClass == null) {
             return null;
@@ -197,8 +219,7 @@ public class PhpBundleFileFactory {
         return phpClass;
     }
 
-    @Nullable
-    public static PhpClass getPhpClassForCreateCompilerScope(@NotNull Editor editor, @Nullable PsiFile file) {
+    public static @Nullable PhpClass getPhpClassForCreateCompilerScope(Editor editor, @Nullable PsiFile file) {
         if(!(file instanceof PhpFile)) {
             return null;
         }
@@ -212,51 +233,49 @@ public class PhpBundleFileFactory {
         }
     }
 
-    private static boolean fileExists(@NotNull VirtualFile bundleDir, @NotNull String className) {
+    private static boolean fileExists(VirtualFile bundleDir, String className) {
         return
-            VfsUtil.findRelativeFile(bundleDir, "DependencyInjection", "Compiler", className + ".php") != null ||
-            VfsUtil.findRelativeFile(bundleDir, "DependencyInjection", "CompilerPass", className + ".php") != null;
+            VirtualFileUtil.findRelativeFile(bundleDir, "DependencyInjection", "Compiler", className + ".php") != null ||
+            VirtualFileUtil.findRelativeFile(bundleDir, "DependencyInjection", "CompilerPass", className + ".php") != null;
     }
 
-    private static boolean fileExists(@NotNull VirtualFile bundleDir, @NotNull String... fqnClassName) {
+    private static boolean fileExists(VirtualFile bundleDir, String... fqnClassName) {
 
         for (String s : fqnClassName) {
             String[] split = s.split("/");
             split[split.length - 1] += ".php";
 
-            if(VfsUtil.findRelativeFile(bundleDir, split) != null) {
+            if(VirtualFileUtil.findRelativeFile(bundleDir, split) != null) {
                 return true;
             }
         }
 
         return false;
     }
-    @Nullable
-    private static VirtualFile getAndCreateDirectory(@NotNull VirtualFile directory, @NotNull String relativePath) {
+    private static @Nullable VirtualFile getAndCreateDirectory(VirtualFile directory, String relativePath) {
 
         try {
-            return VfsUtil.createDirectoryIfMissing(directory, relativePath);
+            return VirtualFileUtil.createDirectoryIfMissing(directory, relativePath);
         } catch (IOException ignored) {
         }
 
         return null;
     }
 
-    @Nullable
-    private static VirtualFile getAndCreateCompilerDirectory(@NotNull VirtualFile directory) {
+    private static @Nullable VirtualFile getAndCreateCompilerDirectory(VirtualFile directory) {
 
-        VirtualFile relativeFile = VfsUtil.findRelativeFile(directory, "DependencyInjection", "Compiler");
+        VirtualFile relativeFile = VirtualFileUtil.findRelativeFile(directory, "DependencyInjection", "Compiler");
         if(relativeFile != null) {
             return relativeFile;
         }
 
-        relativeFile = VfsUtil.findRelativeFile(directory, "DependencyInjection", "CompilerPass");
+        relativeFile = VirtualFileUtil.findRelativeFile(directory, "DependencyInjection", "CompilerPass");
         if(relativeFile != null) {
             return relativeFile;
         }
 
         try {
-            return VfsUtil.createDirectoryIfMissing(directory, "DependencyInjection/Compiler");
+            return VirtualFileUtil.createDirectoryIfMissing(directory, "DependencyInjection/Compiler");
         } catch (IOException ignored) {
         }
 

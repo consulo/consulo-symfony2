@@ -1,13 +1,15 @@
 package fr.adrienbrault.idea.symfony2plugin.doctrine.querybuilder;
 
-import com.intellij.codeInsight.navigation.actions.GotoDeclarationHandler;
-import com.intellij.openapi.actionSystem.DataContext;
-import com.intellij.openapi.editor.Editor;
-import com.intellij.openapi.project.Project;
-import com.intellij.psi.PsiElement;
 import com.jetbrains.php.lang.psi.elements.MethodReference;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
 import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.codeEditor.Editor;
+import consulo.dataContext.DataContext;
+import consulo.language.editor.navigation.GotoDeclarationHandler;
+import consulo.language.psi.PsiElement;
+import consulo.localize.LocalizeValue;
+import consulo.project.Project;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.querybuilder.dict.QueryBuilderPropertyAlias;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.querybuilder.dict.QueryBuilderRelation;
@@ -16,8 +18,7 @@ import fr.adrienbrault.idea.symfony2plugin.doctrine.querybuilder.util.QueryBuild
 import fr.adrienbrault.idea.symfony2plugin.util.MethodMatcher;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,11 +27,11 @@ import java.util.Map;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class QueryBuilderGotoDeclarationHandler implements GotoDeclarationHandler {
 
-    @Nullable
     @Override
-    public PsiElement[] getGotoDeclarationTargets(PsiElement psiElement, int offset, Editor editor) {
+    public PsiElement @Nullable [] getGotoDeclarationTargets(PsiElement psiElement, int offset, Editor editor) {
 
         if (!Symfony2ProjectComponent.isEnabled(psiElement) || !(psiElement.getContext() instanceof StringLiteralExpression context)) {
             return new PsiElement[0];
@@ -50,7 +51,7 @@ public class QueryBuilderGotoDeclarationHandler implements GotoDeclarationHandle
         return psiElements.toArray(new PsiElement[0]);
     }
 
-    private void attachPartialGoto(@NotNull StringLiteralExpression psiElement, @NotNull List<PsiElement> targets, int offset) {
+    private void attachPartialGoto(StringLiteralExpression psiElement, List<PsiElement> targets, int offset) {
         MethodMatcher.MethodMatchParameter methodMatchParameter = MatcherUtil.matchWhere(psiElement);
         if (methodMatchParameter == null) {
             methodMatchParameter = MatcherUtil.matchField(psiElement);
@@ -159,10 +160,9 @@ public class QueryBuilderGotoDeclarationHandler implements GotoDeclarationHandle
 
     }
 
-    @Nullable
     @Override
-    public String getActionText(DataContext dataContext) {
-        return null;
+    public LocalizeValue getActionText(DataContext dataContext) {
+        return LocalizeValue.empty();
     }
 
 }

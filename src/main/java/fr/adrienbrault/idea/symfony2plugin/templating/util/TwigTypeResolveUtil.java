@@ -1,21 +1,21 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.util;
 
-import com.intellij.lang.ASTNode;
-import com.intellij.openapi.extensions.ExtensionPointName;
-import com.intellij.openapi.util.Key;
-import com.intellij.openapi.util.Pair;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.psi.PsiComment;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.formatter.FormatterUtil;
-import com.intellij.psi.tree.IElementType;
-import com.intellij.psi.util.CachedValue;
-import com.intellij.psi.util.CachedValueProvider;
-import com.intellij.psi.util.CachedValuesManager;
-import com.intellij.psi.util.PsiTreeUtil;
+import consulo.language.ast.ASTNode;
+import consulo.component.extension.ExtensionPointName;
+import consulo.util.dataholder.Key;
+import consulo.util.lang.Pair;
+import consulo.project.Project;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiComment;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.codeStyle.FormatterUtil;
+import consulo.language.ast.IElementType;
+import consulo.application.util.CachedValue;
+import consulo.application.util.CachedValueProvider;
+import consulo.language.psi.util.LanguageCachedValueUtil;
+import consulo.language.psi.util.PsiTreeUtil;
 import com.jetbrains.php.PhpIndex;
 import com.jetbrains.php.lang.psi.elements.Field;
 import com.jetbrains.php.lang.psi.elements.Method;
@@ -36,14 +36,15 @@ import fr.adrienbrault.idea.symfony2plugin.templating.variable.dict.PsiVariable;
 import fr.adrienbrault.idea.symfony2plugin.templating.variable.resolver.ForLoopVariableResolver;
 import fr.adrienbrault.idea.symfony2plugin.templating.variable.resolver.FormFieldResolver;
 import fr.adrienbrault.idea.symfony2plugin.templating.variable.resolver.FormVarsResolver;
+import fr.adrienbrault.idea.symfony2plugin.templating.variable.resolver.NestedFormFieldResolver;
 import fr.adrienbrault.idea.symfony2plugin.templating.variable.resolver.TwigTypeResolver;
+import fr.adrienbrault.idea.symfony2plugin.templating.variable.resolver.holder.FormFieldDataHolder;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpIndexUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.*;
 import java.util.regex.Matcher;
@@ -116,15 +117,15 @@ public class TwigTypeResolveUtil {
 
     private static final String[] PROPERTY_SHORTCUTS = new String[] {"get", "is", "has"};
 
-    private static final ExtensionPointName<TwigFileVariableCollector> TWIG_FILE_VARIABLE_COLLECTORS = new ExtensionPointName<>(
-        "fr.adrienbrault.idea.symfony2plugin.extension.TwigVariableCollector"
-    );
+    private static final ExtensionPointName<TwigFileVariableCollector> TWIG_FILE_VARIABLE_COLLECTORS =
+        ExtensionPointName.create(TwigFileVariableCollector.class);
 
     private static final Key<CachedValue<Map<String, String>>> FILE_VARIABLE_DOC_BLOCK_CACHE = new Key<>("TWIG_FILE_VARIABLE_DOC_BLOCK");
 
     private static final TwigTypeResolver[] TWIG_TYPE_RESOLVERS = new TwigTypeResolver[] {
         new FormVarsResolver(),
         new FormFieldResolver(),
+        new NestedFormFieldResolver(),
         new ForLoopVariableResolver(),
     };
 
@@ -134,8 +135,7 @@ public class TwigTypeResolveUtil {
      * Method calls can appear at any previous segment.
      * Example: {@code root.getChildren().fff('x').bar} => {@code [root, getChildren, fff, bar]}.
      */
-    @NotNull
-    public static Collection<String> formatPsiTypeNameWithCurrent(@NotNull PsiElement psiElement) {
+    public static Collection<String> formatPsiTypeNameWithCurrent(PsiElement psiElement) {
         return collectPsiTypeNameElementsWithCurrent(psiElement)
             .stream()
             .map(PsiElement::getText)
@@ -151,8 +151,7 @@ public class TwigTypeResolveUtil {
      *   <li>{@code root.getChildren().fff('x').bar} => {@code [root, getChildren, fff, bar]}</li>
      * </ul>
      */
-    @NotNull
-    public static List<PsiElement> collectPsiTypeNameElementsWithCurrent(@NotNull PsiElement psiElement) {
+    public static List<PsiElement> collectPsiTypeNameElementsWithCurrent(PsiElement psiElement) {
         if (!isPsiTypeNameElement(psiElement.getNode())) {
             return Collections.emptyList();
         }
@@ -165,8 +164,7 @@ public class TwigTypeResolveUtil {
      *
      * Example: {@code root.getChildren().foo.<caret>} => {@code [root, getChildren, foo]}.
      */
-    @NotNull
-    private static List<PsiElement> collectPsiTypeNameElementsBefore(@NotNull PsiElement psiElement) {
+    private static List<PsiElement> collectPsiTypeNameElementsBefore(PsiElement psiElement) {
         ASTNode previousPathElement = isPsiTypeNameElement(psiElement.getNode())
             ? getPreviousPsiTypeNameElement(psiElement.getNode())
             : getPreviousPsiTypeNameElementBefore(psiElement.getNode());
@@ -177,8 +175,7 @@ public class TwigTypeResolveUtil {
     /**
      * Walks a dotted path backwards from one known path element.
      */
-    @NotNull
-    private static List<PsiElement> collectPsiTypeNameElementsEndingAt(@NotNull ASTNode node) {
+    private static List<PsiElement> collectPsiTypeNameElementsEndingAt(ASTNode node) {
         List<PsiElement> pathElements = new ArrayList<>();
         PsiElement current = node.getPsi();
 
@@ -201,8 +198,8 @@ public class TwigTypeResolveUtil {
      *
      * Example: {@code root.getChildren().fff('x').bar} is true for {@code getChildren} and {@code fff}.
      */
-    public static boolean hasNextPsiTypeNameElement(@NotNull PsiElement psiElement) {
-        ASTNode next = FormatterUtil.getNextNonWhitespaceLeaf(psiElement.getNode());
+    public static boolean hasNextPsiTypeNameElement(PsiElement psiElement) {
+        ASTNode next = getNextNonWhitespaceLeaf(psiElement.getNode());
         if (next != null && next.getElementType() == TwigTokenTypes.LBRACE) {
             next = getNextNodeAfterMethodCall(next);
         }
@@ -211,11 +208,10 @@ public class TwigTypeResolveUtil {
             return false;
         }
 
-        ASTNode afterDot = FormatterUtil.getNextNonWhitespaceLeaf(next);
+        ASTNode afterDot = getNextNonWhitespaceLeaf(next);
         return afterDot != null && isPsiTypeNameElement(afterDot);
     }
 
-    @NotNull
     public static Set<String> splitTwigDocTypes(@Nullable String typeExpression) {
         if (StringUtils.isBlank(typeExpression)) {
             return Collections.emptySet();
@@ -231,8 +227,8 @@ public class TwigTypeResolveUtil {
      * Finds the previous path element before a named path segment.
      */
     @Nullable
-    private static ASTNode getPreviousPsiTypeNameElement(@NotNull ASTNode currentNode) {
-        ASTNode dot = FormatterUtil.getPreviousNonWhitespaceLeaf(currentNode);
+    private static ASTNode getPreviousPsiTypeNameElement(ASTNode currentNode) {
+        ASTNode dot = getPreviousNonWhitespaceLeaf(currentNode);
         if (dot == null || dot.getElementType() != TwigTokenTypes.DOT) {
             return null;
         }
@@ -244,8 +240,8 @@ public class TwigTypeResolveUtil {
      * Finds the previous path element before a non-path caret token.
      */
     @Nullable
-    private static ASTNode getPreviousPsiTypeNameElementBefore(@NotNull ASTNode currentNode) {
-        ASTNode previous = FormatterUtil.getPreviousNonWhitespaceLeaf(currentNode);
+    private static ASTNode getPreviousPsiTypeNameElementBefore(ASTNode currentNode) {
+        ASTNode previous = getPreviousNonWhitespaceLeaf(currentNode);
         if (previous == null) {
             return null;
         }
@@ -261,8 +257,8 @@ public class TwigTypeResolveUtil {
      * Finds a path element directly before a dot.
      */
     @Nullable
-    private static ASTNode getPsiTypeNameElementBeforeDot(@NotNull ASTNode dot) {
-        ASTNode previous = FormatterUtil.getPreviousNonWhitespaceLeaf(dot);
+    private static ASTNode getPsiTypeNameElementBeforeDot(ASTNode dot) {
+        ASTNode previous = getPreviousNonWhitespaceLeaf(dot);
         if (previous == null) {
             return null;
         }
@@ -274,7 +270,7 @@ public class TwigTypeResolveUtil {
      * Converts a name-like or method-call tail node into its path element.
      */
     @Nullable
-    private static ASTNode toPsiTypeNameElement(@NotNull ASTNode node) {
+    private static ASTNode toPsiTypeNameElement(ASTNode node) {
         if (isPsiTypeNameElement(node)) {
             return node;
         }
@@ -297,7 +293,7 @@ public class TwigTypeResolveUtil {
      *   <li>{@code foo.bar} in some Twig PSI trees: {@code bar} can be a {@code FIELD_REFERENCE}</li>
      * </ul>
      */
-    private static boolean isPsiTypeNameElement(@NotNull ASTNode node) {
+    private static boolean isPsiTypeNameElement(ASTNode node) {
         IElementType elementType = node.getElementType();
         return elementType == TwigTokenTypes.IDENTIFIER ||
             elementType == TwigTokenTypes.TAG_NAME ||
@@ -309,15 +305,15 @@ public class TwigTypeResolveUtil {
      * Finds the method name before the matching opening parenthesis.
      */
     @Nullable
-    private static ASTNode getMethodCallNameBeforeLeftBrace(@NotNull ASTNode rightBrace) {
+    private static ASTNode getMethodCallNameBeforeLeftBrace(ASTNode rightBrace) {
         int depth = 0;
-        for (ASTNode current = rightBrace; current != null; current = FormatterUtil.getPreviousNonWhitespaceLeaf(current)) {
+        for (ASTNode current = rightBrace; current != null; current = getPreviousNonWhitespaceLeaf(current)) {
             if (current.getElementType() == TwigTokenTypes.RBRACE) {
                 depth++;
             } else if (current.getElementType() == TwigTokenTypes.LBRACE) {
                 depth--;
                 if (depth == 0) {
-                    ASTNode identifier = FormatterUtil.getPreviousNonWhitespaceLeaf(current);
+                    ASTNode identifier = getPreviousNonWhitespaceLeaf(current);
                     return identifier != null ? toPsiTypeNameElement(identifier) : null;
                 }
             }
@@ -330,15 +326,15 @@ public class TwigTypeResolveUtil {
      * Skips a method-call argument list and returns the following leaf.
      */
     @Nullable
-    private static ASTNode getNextNodeAfterMethodCall(@NotNull ASTNode leftBrace) {
+    private static ASTNode getNextNodeAfterMethodCall(ASTNode leftBrace) {
         int depth = 0;
-        for (ASTNode current = leftBrace; current != null; current = FormatterUtil.getNextNonWhitespaceLeaf(current)) {
+        for (ASTNode current = leftBrace; current != null; current = getNextNonWhitespaceLeaf(current)) {
             if (current.getElementType() == TwigTokenTypes.LBRACE) {
                 depth++;
             } else if (current.getElementType() == TwigTokenTypes.RBRACE) {
                 depth--;
                 if (depth == 0) {
-                    return FormatterUtil.getNextNonWhitespaceLeaf(current);
+                    return getNextNonWhitespaceLeaf(current);
                 }
             }
         }
@@ -356,8 +352,7 @@ public class TwigTypeResolveUtil {
      *   <li>{@code root.getChildren().fff('x').bar} at {@code bar} => {@code [root, getChildren, fff]}</li>
      * </ul>
      */
-    @NotNull
-    public static Collection<String> formatPsiTypeName(@NotNull PsiElement psiElement) {
+    public static Collection<String> formatPsiTypeName(PsiElement psiElement) {
         return collectPsiTypeNameElementsBefore(psiElement)
             .stream()
             .map(PsiElement::getText)
@@ -370,32 +365,38 @@ public class TwigTypeResolveUtil {
      * @param types Variable path "foo.bar" => ["foo", "bar"]
      * @return types for last item of typeName parameter
      */
-    @NotNull
-    public static Collection<TwigTypeContainer> resolveTwigMethodName(@NotNull PsiElement psiElement, @NotNull Collection<String> types) {
+    public static Collection<TwigTypeContainer> resolveTwigMethodName(PsiElement psiElement, Collection<String> types) {
         if(types.isEmpty()) {
             return Collections.emptyList();
         }
 
         String rootType = types.iterator().next();
         RootTypeResolve rootTypeResolve = resolveRootTypeContainers(psiElement, rootType);
-        if (types.size() == 1) {
-            Project project = psiElement.getProject();
-            Collection<TwigTypeContainer> twigTypeContainers = rootTypeResolve.containers();
-            if (!rootTypeResolve.extensionContext()) {
-                for(TwigTypeResolver twigTypeResolver: TWIG_TYPE_RESOLVERS) {
-                    twigTypeResolver.resolve(project, twigTypeContainers, twigTypeContainers, rootType, new ArrayList<>(), rootTypeResolve.rootVariables());
-                }
-            }
-
-            return twigTypeContainers;
+        Project project = psiElement.getProject();
+        Collection<TwigTypeContainer> rootTypes = rootTypeResolve.containers();
+        if (!rootTypeResolve.extensionContext() && (types.size() == 1 || hasFormContext(rootTypes))) {
+            attachRootMembers(project, rootTypes, rootType, rootTypeResolve.rootVariables());
         }
 
-        Project project = psiElement.getProject();
-        Collection<TwigTypeContainer> type = rootTypeResolve.containers();
+        return resolveTwigPath(project, rootTypes, types);
+    }
+
+    private static void attachRootMembers(Project project, Collection<TwigTypeContainer> types, String rootName, Collection<PsiVariable> variables) {
+        for (TwigTypeResolver resolver : TWIG_TYPE_RESOLVERS) {
+            resolver.resolve(project, types, types, rootName, new ArrayList<>(), variables);
+        }
+    }
+
+    private static boolean hasFormContext(Collection<TwigTypeContainer> types) {
+        return types.stream().anyMatch(type -> type.getFormViewDataHolder() != null || type.getFormFieldDataHolder() != null);
+    }
+
+    private static Collection<TwigTypeContainer> resolveTwigPath(Project project, Collection<TwigTypeContainer> rootTypes, Collection<String> path) {
+        Collection<TwigTypeContainer> type = rootTypes;
         Collection<List<TwigTypeContainer>> previousElements = new ArrayList<>();
         previousElements.add(new ArrayList<>(type));
 
-        String[] typeNames = types.toArray(new String[0]);
+        String[] typeNames = path.toArray(new String[0]);
         for (int i = 1; i <= typeNames.length - 1; i++ ) {
             type = resolveTwigMethodName(project, type, typeNames[i], previousElements);
             previousElements.add(new ArrayList<>(type));
@@ -409,8 +410,7 @@ public class TwigTypeResolveUtil {
         return type;
     }
 
-    @NotNull
-    private static RootTypeResolve resolveRootTypeContainers(@NotNull PsiElement psiElement, @NotNull String rootType) {
+    private static RootTypeResolve resolveRootTypeContainers(PsiElement psiElement, String rootType) {
         // {{ title|u.truncate(20) }} and {% apply u.truncate(20) %}: "u" is provided by a Twig filter.
         if (isTwigFilterChainRoot(psiElement, rootType)) {
             TwigExtension twigExtension = TwigExtensionParser.getFilters(psiElement.getProject()).get(rootType);
@@ -439,14 +439,13 @@ public class TwigTypeResolveUtil {
         return new RootTypeResolve(false, TwigTypeContainer.fromCollection(rootVariables), rootVariables);
     }
 
-    private record RootTypeResolve(boolean extensionContext, @NotNull Collection<TwigTypeContainer> containers, @NotNull Collection<PsiVariable> rootVariables) {
+    private record RootTypeResolve(boolean extensionContext, Collection<TwigTypeContainer> containers, Collection<PsiVariable> rootVariables) {
     }
 
     /**
      * Resolves {@code enum('App\\Status')} from its literal argument, independently of Twig's PHP return declaration.
      */
-    @NotNull
-    private static Collection<TwigTypeContainer> resolveEnumFunctionTypes(@NotNull PsiElement psiElement) {
+    private static Collection<TwigTypeContainer> resolveEnumFunctionTypes(PsiElement psiElement) {
         PsiElement root = findRootPathElement(psiElement, "enum");
         if (root == null) {
             return Collections.emptyList();
@@ -473,13 +472,13 @@ public class TwigTypeResolveUtil {
      *   <li>{@code {% apply u.truncate(20) %}}: {@code u} is the filter root</li>
      * </ul>
      */
-    private static boolean isTwigFilterChainRoot(@NotNull PsiElement psiElement, @NotNull String rootType) {
+    private static boolean isTwigFilterChainRoot(PsiElement psiElement, String rootType) {
         PsiElement rootElement = findRootPathElement(psiElement, rootType);
         if (rootElement == null || rootElement.getNode() == null) {
             return false;
         }
 
-        ASTNode previous = FormatterUtil.getPreviousNonWhitespaceLeaf(rootElement.getNode());
+        ASTNode previous = getPreviousNonWhitespaceLeaf(rootElement.getNode());
         if (previous == null) {
             return false;
         }
@@ -496,13 +495,13 @@ public class TwigTypeResolveUtil {
      *
      * Example: {@code {{ ustring().truncate(20) }}}.
      */
-    private static boolean isTwigFunctionChainRoot(@NotNull PsiElement psiElement, @NotNull String rootType) {
+    private static boolean isTwigFunctionChainRoot(PsiElement psiElement, String rootType) {
         PsiElement rootElement = findRootPathElement(psiElement, rootType);
         if (rootElement == null || rootElement.getNode() == null) {
             return false;
         }
 
-        ASTNode next = FormatterUtil.getNextNonWhitespaceLeaf(rootElement.getNode());
+        ASTNode next = getNextNonWhitespaceLeaf(rootElement.getNode());
         if (next == null || next.getElementType() != TwigTokenTypes.LBRACE) {
             return false;
         }
@@ -512,7 +511,7 @@ public class TwigTypeResolveUtil {
     }
 
     @Nullable
-    private static PsiElement findRootPathElement(@NotNull PsiElement psiElement, @NotNull String rootType) {
+    private static PsiElement findRootPathElement(PsiElement psiElement, String rootType) {
         List<PsiElement> pathElements = collectPsiTypeNameElementsWithCurrent(psiElement);
         if (pathElements.isEmpty()) {
             pathElements = collectPsiTypeNameElementsBefore(psiElement);
@@ -531,7 +530,7 @@ public class TwigTypeResolveUtil {
      *
      * "@var foo \Foo"
      */
-    private static Map<String, String> findInlineStatementVariableDocBlock(@NotNull PsiElement psiInsideBlock, @NotNull IElementType parentStatement, boolean nextParent) {
+    private static Map<String, String> findInlineStatementVariableDocBlock(PsiElement psiInsideBlock, IElementType parentStatement, boolean nextParent) {
         PsiElement twigCompositeElement = PsiTreeUtil.findFirstParent(psiInsideBlock, psiElement ->
             PlatformPatterns.psiElement(parentStatement).accepts(psiElement)
         );
@@ -563,8 +562,8 @@ public class TwigTypeResolveUtil {
      * - "@var foo \Foo"
      * - "{% types {...} %}"
      */
-    public static Map<String, String> findFileVariableDocBlock(@NotNull TwigFile twigFile) {
-        return new HashMap<>(CachedValuesManager.getCachedValue(
+    public static Map<String, String> findFileVariableDocBlock(TwigFile twigFile) {
+        return new HashMap<>(LanguageCachedValueUtil.getCachedValue(
             twigFile,
             FILE_VARIABLE_DOC_BLOCK_CACHE,
             () -> CachedValueProvider.Result.create(
@@ -574,8 +573,7 @@ public class TwigTypeResolveUtil {
         ));
     }
 
-    @NotNull
-    private static Map<String, String> findFileVariableDocBlockInner(@NotNull TwigFile twigFile) {
+    private static Map<String, String> findFileVariableDocBlockInner(TwigFile twigFile) {
         return new HashMap<>() {{
             putAll(getInlineCommentDocsVars(twigFile));
             putAll(getTypesTagVars(twigFile));
@@ -585,7 +583,7 @@ public class TwigTypeResolveUtil {
     /**
      * "@var foo \Foo"
      */
-    private static Map<String, String> getInlineCommentDocsVars(@NotNull PsiElement twigCompositeElement) {
+    private static Map<String, String> getInlineCommentDocsVars(PsiElement twigCompositeElement) {
         Map<String, String> variables = new HashMap<>();
 
         for(PsiElement psiComment: YamlHelper.getChildrenFix(twigCompositeElement)) {
@@ -612,7 +610,7 @@ public class TwigTypeResolveUtil {
     /**
      * {% types {...} %}
      */
-    private static Map<String, String> getTypesTagVars(@NotNull PsiElement twigFile) {
+    private static Map<String, String> getTypesTagVars(PsiElement twigFile) {
         Map<String, String> variables = new HashMap<>();
 
         for (PsiElement psiComment: YamlHelper.getChildrenFix(twigFile)) {
@@ -630,12 +628,12 @@ public class TwigTypeResolveUtil {
                 continue;
             }
 
-            ASTNode lbraceCurlPsi = FormatterUtil.getNextNonWhitespaceLeaf(tagName.getNode());
+            ASTNode lbraceCurlPsi = getNextNonWhitespaceLeaf(tagName.getNode());
             if (lbraceCurlPsi == null || lbraceCurlPsi.getElementType() != TwigTokenTypes.LBRACE_CURL) {
                 continue;
             }
 
-            ASTNode variableNamePsi = FormatterUtil.getNextNonWhitespaceLeaf(lbraceCurlPsi);
+            ASTNode variableNamePsi = getNextNonWhitespaceLeaf(lbraceCurlPsi);
             if (variableNamePsi == null) {
                 continue;
             }
@@ -648,7 +646,7 @@ public class TwigTypeResolveUtil {
             }
 
             for (PsiElement commaPsi : PsiElementUtils.getNextSiblingOfTypes(variableNamePsi.getPsi(), PlatformPatterns.psiElement().withElementType(TwigTokenTypes.COMMA))) {
-                ASTNode commaPsiNext = FormatterUtil.getNextNonWhitespaceLeaf(commaPsi.getNode());
+                ASTNode commaPsiNext = getNextNonWhitespaceLeaf(commaPsi.getNode());
                 if (commaPsiNext != null && commaPsiNext.getElementType() == TwigTokenTypes.IDENTIFIER) {
                     String variableName = commaPsiNext.getText();
                     if (!variableName.isBlank()) {
@@ -667,7 +665,7 @@ public class TwigTypeResolveUtil {
      * - : "foo"
      */
     @Nullable
-    private static String getTypesTagVarValue(@NotNull PsiElement psiColon) {
+    private static String getTypesTagVarValue(PsiElement psiColon) {
         PsiElement filter = PsiElementUtils.getNextSiblingAndSkip(psiColon, TwigTokenTypes.STRING_TEXT, TwigTokenTypes.SINGLE_QUOTE, TwigTokenTypes.COLON, TwigTokenTypes.DOUBLE_QUOTE, TwigTokenTypes.QUESTION);
         if (filter == null) {
             return null;
@@ -689,13 +687,11 @@ public class TwigTypeResolveUtil {
         return "\\mixed";
     }
 
-    @NotNull
-    public static Map<String, PsiVariable> collectScopeVariables(@NotNull PsiElement psiElement) {
+    public static Map<String, PsiVariable> collectScopeVariables(PsiElement psiElement) {
         return collectScopeVariables(psiElement, new HashSet<>());
     }
 
-    @NotNull
-    public static Map<String, PsiVariable> collectScopeVariables(@NotNull PsiElement psiElement, @NotNull Set<VirtualFile> visitedFiles) {
+    public static Map<String, PsiVariable> collectScopeVariables(PsiElement psiElement, Set<VirtualFile> visitedFiles) {
         PsiFile containingFile = psiElement.getContainingFile();
         VirtualFile virtualFile = containingFile.getVirtualFile();
         if (visitedFiles.contains(virtualFile)) {
@@ -752,8 +748,7 @@ public class TwigTypeResolveUtil {
      *
      * "getIterator", "@method Foo __iterator", "@method Foo[] __iterator"
      */
-    @NotNull
-    private static Set<String> collectIteratorReturns(@NotNull PsiElement psiElement, @NotNull Set<String> types) {
+    private static Set<String> collectIteratorReturns(PsiElement psiElement, Set<String> types) {
         Set<String> arrayValues = new HashSet<>();
         for (String type : types) {
             PhpClass phpClass = PhpElementsUtil.getClassInterface(psiElement.getProject(), type);
@@ -787,8 +782,7 @@ public class TwigTypeResolveUtil {
         return arrayValues;
     }
 
-    @NotNull
-    private static Collection<String> collectForArrayScopeVariablesFoo(@NotNull Project project, @NotNull Collection<String> typeName, @NotNull VariableData variableData) {
+    private static Collection<String> collectForArrayScopeVariablesFoo(Project project, Collection<String> typeName, VariableData variableData) {
         Collection<String> previousElements = variableData.types();
 
         String[] strings = typeName.toArray(new String[0]);
@@ -805,7 +799,7 @@ public class TwigTypeResolveUtil {
         return previousElements;
     }
 
-    private static void collectForArrayScopeVariables(@NotNull PsiElement psiElement, @NotNull Map<String, VariableData> globalVars) {
+    private static void collectForArrayScopeVariables(PsiElement psiElement, Map<String, VariableData> globalVars) {
         PsiElement twigCompositeElement = PsiTreeUtil.findFirstParent(psiElement, psiElement1 -> {
             if (psiElement1 instanceof TwigCompositeElement) {
                 return PlatformPatterns.psiElement(TwigElementTypes.FOR_STATEMENT).accepts(psiElement1);
@@ -817,6 +811,8 @@ public class TwigTypeResolveUtil {
             return;
         }
 
+        // Resolve outer loops first so nested form collections retain their entry metadata.
+        collectForArrayScopeVariables(twigCompositeElement.getParent(), globalVars);
         globalVars.merge("loop", VariableData.fromType(ForLoopVariableResolver.LOOP_VARIABLE_TYPE), VariableData::merge);
 
         PsiElement forTag = twigCompositeElement.getFirstChild();
@@ -827,6 +823,15 @@ public class TwigTypeResolveUtil {
 
         PhpType phpType = new PhpType();
         List<String> forTagInIdentifierString = forTagScope.getSecond();
+
+        VariableData root = globalVars.get(forTagInIdentifierString.getFirst());
+        if (root != null && (!root.formTypeFqns().isEmpty() || !root.formFields().isEmpty())) {
+            Set<FormFieldDataHolder> entries = collectFormEntries(psiElement.getProject(), root, forTagInIdentifierString);
+            if (!entries.isEmpty()) {
+                globalVars.merge(forTagScope.getFirst(), VariableData.fromFormFields(entries), VariableData::merge);
+                return;
+            }
+        }
 
         // {% for coolBar in coolBars.foos %}
         if (forTagInIdentifierString.size() > 1) {
@@ -864,51 +869,74 @@ public class TwigTypeResolveUtil {
         globalVars.merge(scopeVariable, VariableData.fromTypes(types), VariableData::merge);
     }
 
-    private record VariableData(@NotNull Set<String> types, @NotNull Set<String> formTypeFqns) {
+    private static Set<FormFieldDataHolder> collectFormEntries(Project project, VariableData root, List<String> path) {
+        List<PsiVariable> variables = List.of(root.toPsiVariable());
+        Collection<TwigTypeContainer> types = TwigTypeContainer.fromCollection(variables);
+        attachRootMembers(project, types, path.getFirst(), variables);
+        Set<FormFieldDataHolder> entries = new LinkedHashSet<>();
+        for (TwigTypeContainer type : resolveTwigPath(project, types, path)) {
+            FormFieldDataHolder field = type.getFormFieldDataHolder();
+            if (field == null) {
+                continue;
+            }
+            if (type.getStringElement() != null) {
+                entries.add(field);
+            }
+            else {
+                FormFieldDataHolder entry = NestedFormFieldResolver.getCollectionEntry(field);
+                if (entry != null) {
+                    entries.add(entry);
+                }
+            }
+        }
+        return entries;
+    }
+
+    private record VariableData(Set<String> types, Set<String> formTypeFqns, Set<FormFieldDataHolder> formFields) {
         private VariableData {
             types = Set.copyOf(types);
             formTypeFqns = Set.copyOf(formTypeFqns);
+            formFields = Set.copyOf(formFields);
         }
 
-        @NotNull
-        private static VariableData fromPsiVariable(@NotNull PsiVariable psiVariable) {
-            return new VariableData(psiVariable.getTypes(), psiVariable.getFormTypeFqns());
+        private static VariableData fromPsiVariable(PsiVariable psiVariable) {
+            return new VariableData(psiVariable.getTypes(), psiVariable.getFormTypeFqns(), psiVariable.getFormFields());
         }
 
-        @NotNull
-        private static VariableData fromTypes(@NotNull Collection<String> types) {
-            return new VariableData(new HashSet<>(types), Collections.emptySet());
+        private static VariableData fromTypes(Collection<String> types) {
+            return new VariableData(new HashSet<>(types), Collections.emptySet(), Collections.emptySet());
         }
 
-        @NotNull
-        private static VariableData fromType(@NotNull String type) {
+        private static VariableData fromFormFields(Set<FormFieldDataHolder> fields) {
+            return new VariableData(Set.of("\\Symfony\\Component\\Form\\FormView"), Collections.emptySet(), fields);
+        }
+
+        private static VariableData fromType(String type) {
             return fromTypes(Collections.singleton(type));
         }
 
-        @NotNull
-        private VariableData withTypes(@NotNull Collection<String> types) {
+        private VariableData withTypes(Collection<String> types) {
             return merge(fromTypes(types));
         }
 
-        @NotNull
-        private VariableData merge(@NotNull VariableData variableData) {
+        private VariableData merge(VariableData variableData) {
             Set<String> types = new HashSet<>(this.types);
             types.addAll(variableData.types);
 
             Set<String> formTypeFqns = new HashSet<>(this.formTypeFqns);
             formTypeFqns.addAll(variableData.formTypeFqns);
 
-            return new VariableData(types, formTypeFqns);
+            Set<FormFieldDataHolder> formFields = new HashSet<>(this.formFields);
+            formFields.addAll(variableData.formFields);
+            return new VariableData(types, formTypeFqns, formFields);
         }
 
-        @NotNull
         private PsiVariable toPsiVariable() {
-            return new PsiVariable(types, formTypeFqns);
+            return new PsiVariable(types, formTypeFqns, formFields);
         }
     }
 
-    @NotNull
-    private static Collection<PsiVariable> getRootVariableByName(@NotNull PsiElement psiElement, @NotNull String variableName) {
+    private static Collection<PsiVariable> getRootVariableByName(PsiElement psiElement, String variableName) {
         Collection<PsiVariable> phpNamedElements = new ArrayList<>();
 
         for(Map.Entry<String, PsiVariable> variable : collectScopeVariables(psiElement).entrySet()) {
@@ -920,9 +948,10 @@ public class TwigTypeResolveUtil {
         return phpNamedElements;
     }
 
-    private static Collection<TwigTypeContainer> resolveTwigMethodName(@NotNull Project project, Collection<TwigTypeContainer> previousElement, String typeName, Collection<List<TwigTypeContainer>> twigTypeContainer) {
+    private static Collection<TwigTypeContainer> resolveTwigMethodName(Project project, Collection<TwigTypeContainer> previousElement, String typeName, Collection<List<TwigTypeContainer>> twigTypeContainer) {
 
         ArrayList<TwigTypeContainer> phpNamedElements = new ArrayList<>();
+        boolean formContext = hasFormContext(previousElement);
 
         for(TwigTypeContainer phpNamedElement: previousElement) {
 
@@ -941,20 +970,25 @@ public class TwigTypeResolveUtil {
                 }
             }
 
+            if (!formContext) {
+                for(TwigTypeResolver twigTypeResolver: TWIG_TYPE_RESOLVERS) {
+                    twigTypeResolver.resolve(project, phpNamedElements, previousElement, typeName, twigTypeContainer, null);
+                }
+            }
+        }
+
+        if (formContext) {
             for(TwigTypeResolver twigTypeResolver: TWIG_TYPE_RESOLVERS) {
                 twigTypeResolver.resolve(project, phpNamedElements, previousElement, typeName, twigTypeContainer, null);
             }
-
         }
-
         return phpNamedElements;
     }
 
     /**
      * Get possible suitable UserInterface implementation from the application scope
      */
-    @NotNull
-    private static Collection<TwigTypeContainer> getApplicationUserImplementations(@NotNull Project project) {
+    private static Collection<TwigTypeContainer> getApplicationUserImplementations(Project project) {
         return PhpIndexUtil
             .getAllSubclasses(project, "\\Symfony\\Component\\Security\\Core\\User\\UserInterface")
             .stream()
@@ -1012,8 +1046,7 @@ public class TwigTypeResolveUtil {
         return targets;
     }
 
-    @NotNull
-    public static Collection<PhpClass> resolveTwigTypeClasses(@NotNull Project project, @NotNull TwigTypeContainer twigTypeContainer) {
+    public static Collection<PhpClass> resolveTwigTypeClasses(Project project, TwigTypeContainer twigTypeContainer) {
         if (twigTypeContainer.getTypes().isEmpty()) {
             return Collections.emptyList();
         }
@@ -1021,8 +1054,7 @@ public class TwigTypeResolveUtil {
         return PhpElementsUtil.getClassFromPhpTypeSet(project, twigTypeContainer.getTypes());
     }
 
-    @NotNull
-    public static Collection<? extends PhpNamedElement> getTwigPhpNameTargets(@NotNull Project project, @NotNull TwigTypeContainer twigTypeContainer, @NotNull String variableName) {
+    public static Collection<? extends PhpNamedElement> getTwigPhpNameTargets(Project project, TwigTypeContainer twigTypeContainer, String variableName) {
         Collection<PhpNamedElement> targets = new ArrayList<>();
 
         for (PhpClass phpClass : resolveTwigTypeClasses(project, twigTypeContainer)) {
@@ -1075,7 +1107,7 @@ public class TwigTypeResolveUtil {
      * @param method The method to check
      * @return true if the method is accessible in Twig templates
      */
-    public static boolean isTwigAccessibleMethod(@NotNull Method method) {
+    public static boolean isTwigAccessibleMethod(Method method) {
         // Early exit on non-public - avoids getName() call for most methods
         if (!method.getModifier().isPublic()) {
             return false;
@@ -1085,7 +1117,7 @@ public class TwigTypeResolveUtil {
         return !name.startsWith("set") && !name.startsWith("__");
     }
 
-    public static boolean isWeakCollectionLikeClass(@NotNull PhpClass phpClass) {
+    public static boolean isWeakCollectionLikeClass(PhpClass phpClass) {
         return PhpElementsUtil.isInstanceOf(phpClass, "ArrayAccess") || PhpElementsUtil.isInstanceOf(phpClass, "Iterator");
     }
 
@@ -1141,12 +1173,11 @@ public class TwigTypeResolveUtil {
      * hasFoo => foo
      * isFoo => foo
      */
-    @NotNull
-    public static String getPropertyShortcutMethodName(@NotNull Method method) {
+    public static String getPropertyShortcutMethodName(Method method) {
         return getPropertyShortcutMethodName(method.getName());
     }
 
-    public static String getPropertyShortcutMethodName(@NotNull String methodName) {
+    public static String getPropertyShortcutMethodName(String methodName) {
         for (String shortcut: PROPERTY_SHORTCUTS) {
             // strip possible property shortcut and make it lcfirst
             if (methodName.startsWith(shortcut) && methodName.length() > shortcut.length()) {
@@ -1165,7 +1196,6 @@ public class TwigTypeResolveUtil {
      *  {% for car in "cars"|length %}
      *  {% for car in "cars.test" %}
      */
-    @NotNull
     private static Collection<String> getForTagIdentifierAsString(PsiElement forTag) {
         if(forTag.getNode().getElementType() != TwigElementTypes.FOR_TAG) {
             return Collections.emptyList();
@@ -1200,5 +1230,71 @@ public class TwigTypeResolveUtil {
         }
 
         return TwigTypeResolveUtil.formatPsiTypeName(afterInVarPsiElement);
+    }
+
+    /**
+     * The leaf before the node, whitespace skipped: a plain walk of the tree
+     */
+    private static @Nullable ASTNode getPreviousNonWhitespaceLeaf(@Nullable ASTNode node) {
+        if (node == null) {
+            return null;
+        }
+
+        ASTNode treePrev = node.getTreePrev();
+        if (treePrev != null) {
+            ASTNode candidate = treePrev;
+            while (candidate.getLastChildNode() != null) {
+                candidate = candidate.getLastChildNode();
+            }
+
+            if (!FormatterUtil.isWhitespaceOrEmpty(candidate)) {
+                return candidate;
+            }
+            else {
+                return getPreviousNonWhitespaceLeaf(candidate);
+            }
+        }
+
+        ASTNode treeParent = node.getTreeParent();
+        if (treeParent == null || treeParent.getTreeParent() == null) {
+            return null;
+        }
+        else {
+            return getPreviousNonWhitespaceLeaf(treeParent);
+        }
+    }
+
+    /**
+     * The leaf after the node, whitespace skipped: a plain walk of the tree, the counterpart of
+     * {@link #getPreviousNonWhitespaceLeaf(ASTNode)}
+     */
+    // TODO consulo-port: consulo.language.codeStyle.FormatterUtil has no getNextNonWhitespaceLeaf(ASTNode); replace this helper once the platform provides it
+    private static @Nullable ASTNode getNextNonWhitespaceLeaf(@Nullable ASTNode node) {
+        if (node == null) {
+            return null;
+        }
+
+        ASTNode treeNext = node.getTreeNext();
+        if (treeNext != null) {
+            ASTNode candidate = treeNext;
+            while (candidate.getFirstChildNode() != null) {
+                candidate = candidate.getFirstChildNode();
+            }
+
+            if (!FormatterUtil.isWhitespaceOrEmpty(candidate)) {
+                return candidate;
+            }
+            else {
+                return getNextNonWhitespaceLeaf(candidate);
+            }
+        }
+
+        ASTNode treeParent = node.getTreeParent();
+        if (treeParent == null || treeParent.getTreeParent() == null) {
+            return null;
+        }
+        else {
+            return getNextNonWhitespaceLeaf(treeParent);
+        }
     }
 }

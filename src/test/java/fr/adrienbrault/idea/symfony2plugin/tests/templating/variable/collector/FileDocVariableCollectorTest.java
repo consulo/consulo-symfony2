@@ -1,5 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.templating.variable.collector;
 
+import org.junit.jupiter.api.Test;
+
 import com.jetbrains.twig.TwigFileType;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
 
@@ -45,6 +47,8 @@ public class FileDocVariableCollectorTest extends SymfonyLightCodeInsightFixture
         );
     }
 
+    @Test
+
     public void testFileBasedVarDocPhpTypes() {
         assertCompletionContains(TwigFileType.INSTANCE, "{# @var bar \\Bar\\FooClass #} {{ <caret> }}", "bar");
         assertCompletionContains(TwigFileType.INSTANCE, "{# @var bar \\Bar\\FooClass #} {{ bar.<caret> }}", "fooBar", "myCar", "cool", "Hot");
@@ -54,15 +58,21 @@ public class FileDocVariableCollectorTest extends SymfonyLightCodeInsightFixture
         assertCompletionNotContains(TwigFileType.INSTANCE, "{# @var bar \\Bar\\FooClass #} {{ bar.<caret> }}", "privateBar");
     }
 
+    @Test
+
     public void testFileBasedVarDocPhpTypesAsMultiline() {
         assertCompletionContains(TwigFileType.INSTANCE,  "{# @var bar \\Bar\\FooClass \n @var foo \\Bar\\FooClass #} {{ <caret> }}", "bar", "foo");
         assertCompletionContains(TwigFileType.INSTANCE, "{# @var bar \\Bar\\FooClass \n @var foo \\Bar\\FooClass #} {{ bar.<caret> }}", "fooBar");
         assertCompletionContains(TwigFileType.INSTANCE, "{# @var bar \\Bar\\FooClass \n @var foo \\Bar\\FooClass #} {{ foo.<caret> }}", "fooBar");
     }
 
+    @Test
+
     public void testFileBasedVarDocPhpTypesWithDescription() {
         assertCompletionContains(TwigFileType.INSTANCE,  "{# @var bar \\Bar\\FooClass Foo asd Kassdsdsd adasd \n @var foo \\Bar\\FooClass #} {{ <caret> }}", "bar", "foo");
     }
+
+    @Test
 
     public void testFileBasedVarDocPhpTypesAsDeprecated() {
         // remove on dropped feature
@@ -73,6 +83,7 @@ public class FileDocVariableCollectorTest extends SymfonyLightCodeInsightFixture
      * @see fr.adrienbrault.idea.symfony2plugin.templating.util.TwigTypeResolveUtil#collectForArrayScopeVariables
      * @see fr.adrienbrault.idea.symfony2plugin.templating.util.TwigTypeResolveUtil#getForTagScope
      */
+    @Test
     public void testVarArrayIteration() {
 
         assertCompletionContains(TwigFileType.INSTANCE, "" +
@@ -107,6 +118,8 @@ public class FileDocVariableCollectorTest extends SymfonyLightCodeInsightFixture
             , "fooBar"
         );
     }
+
+    @Test
 
     public void testVarArrayIterationViaIterationClassImplementations() {
         myFixture.configureByText("class1.php", "<?php\n" +
@@ -172,6 +185,8 @@ public class FileDocVariableCollectorTest extends SymfonyLightCodeInsightFixture
         );
     }
 
+    @Test
+
     public void testVarArrayIterationViaDoctrineArrayCollectionSubclass() {
         myFixture.configureByText("issue_1097.php", "<?php\n" +
             "namespace Doctrine\\Common\\Collections;\n" +
@@ -204,6 +219,7 @@ public class FileDocVariableCollectorTest extends SymfonyLightCodeInsightFixture
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.templating.util.TwigTypeResolveUtil#collectForArrayScopeVariables
      */
+    @Test
     public void testVarChainArrayIteration() {
 
         assertCompletionContains(TwigFileType.INSTANCE, "" +
@@ -224,6 +240,8 @@ public class FileDocVariableCollectorTest extends SymfonyLightCodeInsightFixture
 
     }
 
+    @Test
+
     public void testVarChainArrayIterationUsesPromotedConstructorParamArrayType() {
         assertCompletionContains(TwigFileType.INSTANCE, "" +
                 "{# @var foo \\Foo\\Dto\\FooDto #}\n" +
@@ -237,6 +255,7 @@ public class FileDocVariableCollectorTest extends SymfonyLightCodeInsightFixture
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.templating.util.TwigTypeResolveUtil#collectForArrayScopeVariables
      */
+    @Test
     public void testThatDuplicateScopeVariablesAreMerged() {
 
         assertCompletionContains(TwigFileType.INSTANCE, "" +

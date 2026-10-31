@@ -1,8 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.dic.attribute.value;
 
-import com.intellij.psi.PsiElement;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import consulo.language.psi.PsiElement;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -12,15 +11,14 @@ import java.util.Collections;
  */
 abstract class AttributeValueAbstract implements AttributeValueInterface {
 
-    @NotNull
     private final PsiElement psiElement;
 
-    public AttributeValueAbstract(@NotNull PsiElement psiElement) {
+    public AttributeValueAbstract(PsiElement psiElement) {
         this.psiElement = psiElement;
     }
 
     @Override
-    public Boolean getBoolean(@NotNull String key) {
+    public Boolean getBoolean(String key) {
         String value = getString(key);
         if(value == null) {
             return null;
@@ -37,12 +35,11 @@ abstract class AttributeValueAbstract implements AttributeValueInterface {
 
     @Nullable
     @Override
-    public Boolean getBoolean(@NotNull String key, @Nullable Boolean defaultValue) {
+    public Boolean getBoolean(String key, @Nullable Boolean defaultValue) {
         Boolean aBoolean = getBoolean(key);
         return aBoolean != null ? aBoolean : defaultValue;
     }
 
-    @NotNull
     @Override
     public Collection<String> getTags() {
         return Collections.emptyList();
@@ -50,19 +47,17 @@ abstract class AttributeValueAbstract implements AttributeValueInterface {
 
     @Nullable
     @Override
-    public String getString(@NotNull String key, @Nullable String defaultValue) {
+    public String getString(String key, @Nullable String defaultValue) {
         String string = getString(key);
         return string != null ? string : defaultValue;
     }
 
-    @NotNull
     public PsiElement getPsiElement() {
         return this.psiElement;
     }
 
-    @NotNull
     @Override
-    public Collection<String> getStringArray(@NotNull String key) {
+    public Collection<String> getStringArray(String key) {
         return Collections.emptyList();
     }
 }

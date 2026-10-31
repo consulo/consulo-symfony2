@@ -1,7 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.config.dic;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -17,13 +16,13 @@ public class EventDispatcherSubscribedEvent {
     private String signature = null;
     private String type = "EventSubscriber";
 
-    public EventDispatcherSubscribedEvent(@NotNull String stringValue, @NotNull String fqnClassName, @Nullable String methodName) {
+    public EventDispatcherSubscribedEvent(String stringValue, String fqnClassName, @Nullable String methodName) {
         this.stringValue = stringValue;
         this.fqnClassName = fqnClassName;
         this.methodName = methodName;
     }
 
-    public EventDispatcherSubscribedEvent(@NotNull String stringValue, @NotNull String fqnClassName, @Nullable String methodName, @NotNull String signature) {
+    public EventDispatcherSubscribedEvent(String stringValue, String fqnClassName, @Nullable String methodName, String signature) {
         this(stringValue, fqnClassName, methodName);
         this.signature = signature;
     }

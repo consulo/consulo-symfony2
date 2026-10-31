@@ -1,17 +1,16 @@
 package fr.adrienbrault.idea.symfony2plugin.util;
 
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.util.PsiTreeUtil;
-import com.intellij.util.containers.ContainerUtil;
 import com.jetbrains.php.codeInsight.PhpCodeInsightUtil;
 import com.jetbrains.php.lang.PhpLangUtil;
 import com.jetbrains.php.lang.documentation.phpdoc.PhpDocUtil;
 import com.jetbrains.php.lang.documentation.phpdoc.psi.PhpDocComment;
 import com.jetbrains.php.lang.documentation.phpdoc.psi.tags.PhpDocTag;
 import com.jetbrains.php.lang.psi.elements.*;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.util.PsiTreeUtil;
+import consulo.util.collection.ContainerUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.*;
 
@@ -54,8 +53,7 @@ public class AnnotationBackportUtil {
 
     }
 
-    @NotNull
-    public static Map<String, String> getUseImportMap(@NotNull PhpDocTag phpDocTag) {
+    public static Map<String, String> getUseImportMap(PhpDocTag phpDocTag) {
         PhpDocComment phpDoc = PsiTreeUtil.getParentOfType(phpDocTag, PhpDocComment.class);
         if(phpDoc == null) {
             return Collections.emptyMap();
@@ -64,13 +62,11 @@ public class AnnotationBackportUtil {
         return getUseImportMap(phpDoc);
     }
 
-    @NotNull
-    public static Map<String, String> getUseImportMap(@NotNull PhpDocComment phpDocComment) {
+    public static Map<String, String> getUseImportMap(PhpDocComment phpDocComment) {
         return getUseImportMap((PsiElement) phpDocComment);
     }
 
-    @NotNull
-    public static Map<String, String> getUseImportMap(@NotNull PsiElement element) {
+    public static Map<String, String> getUseImportMap(PsiElement element) {
 
         // search for use alias in local file
         final Map<String, String> useImports = new HashMap<>();
@@ -90,7 +86,6 @@ public class AnnotationBackportUtil {
         return useImports;
     }
 
-    @NotNull
     public static Collection<PhpDocTag> filterValidDocTags(Collection<PhpDocTag> phpDocTags) {
 
         Collection<PhpDocTag> filteredPhpDocTags = new ArrayList<>();
@@ -145,7 +140,7 @@ public class AnnotationBackportUtil {
      * Get class path on "use" path statement
      */
     @Nullable
-    public static String getQualifiedName(@NotNull PsiElement psiElement, @NotNull String fqn) {
+    public static String getQualifiedName(PsiElement psiElement, String fqn) {
         if (!fqn.startsWith("\\")) {
             fqn = "\\" + fqn;
         }
@@ -174,7 +169,7 @@ public class AnnotationBackportUtil {
      * "Foo\ParkResortBundle\Controller\SubController\BundleController\FooController::nestedFooAction" => foo_parkresort_sub_bundle_foo_nestedfoo"
      */
     @Nullable
-    public static String getRouteByMethod(@NotNull PhpDocTag phpDocTag) {
+    public static String getRouteByMethod(PhpDocTag phpDocTag) {
         Method method = getMethodScope(phpDocTag);
         if (method == null) {
             return null;
@@ -183,7 +178,7 @@ public class AnnotationBackportUtil {
         return getRouteByMethod(method);
     }
 
-    public static String getRouteByMethod(@NotNull Method method) {
+    public static String getRouteByMethod(Method method) {
         String name = method.getName();
 
         // strip action
@@ -227,7 +222,7 @@ public class AnnotationBackportUtil {
      * "App\Controller\Admin\UserController::editAction" => "/admin/user/edit"
      */
     @Nullable
-    public static String getRoutePathByMethod(@NotNull Method method) {
+    public static String getRoutePathByMethod(Method method) {
         String methodName = method.getName();
 
         // strip "Action" suffix
@@ -284,7 +279,7 @@ public class AnnotationBackportUtil {
     }
 
     @Nullable
-    public static Method getMethodScope(@NotNull PhpDocTag phpDocTag) {
+    public static Method getMethodScope(PhpDocTag phpDocTag) {
         PhpDocComment parentOfType = PsiTreeUtil.getParentOfType(phpDocTag, PhpDocComment.class);
         if(parentOfType == null) {
             return null;
@@ -344,8 +339,7 @@ public class AnnotationBackportUtil {
      *
      * @param shortClassName Foobar
      */
-    @NotNull
-    public static String getFqnClassNameFromScope(@NotNull PhpClass phpClass, @NotNull String shortClassName, @NotNull Map<String, String> useImportMap) {
+    public static String getFqnClassNameFromScope(PhpClass phpClass, String shortClassName, Map<String, String> useImportMap) {
         String classNameScope = phpClass.getFQN();
         if(!classNameScope.startsWith("\\")) {
             classNameScope = "\\" + classNameScope;
@@ -385,8 +379,7 @@ public class AnnotationBackportUtil {
      *
      * @param shortClassName Foobar
      */
-    @NotNull
-    public static String getFqnClassNameFromScope(@NotNull PhpClass phpClass, @NotNull String shortClassName) {
+    public static String getFqnClassNameFromScope(PhpClass phpClass, String shortClassName) {
         // @TODO: better scope? we dont need a doc comment
         PhpDocComment docComment = phpClass.getDocComment();
         if (docComment == null) {

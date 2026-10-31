@@ -1,14 +1,21 @@
 package fr.adrienbrault.idea.symfony2plugin.util;
 
-import com.intellij.openapi.extensions.ExtensionPointName;
-import com.intellij.openapi.project.Project;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.psi.*;
-import com.intellij.psi.util.PsiTreeUtil;
-import com.intellij.util.ProcessingContext;
+import com.jetbrains.php.lang.PhpLanguage;
 import com.jetbrains.php.lang.psi.elements.MethodReference;
 import com.jetbrains.php.lang.psi.elements.ParameterList;
 import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.component.extension.ExtensionPointName;
+import consulo.language.Language;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiReference;
+import consulo.language.psi.PsiReferenceContributor;
+import consulo.language.psi.PsiReferenceProvider;
+import consulo.language.psi.PsiReferenceRegistrar;
+import consulo.language.psi.util.PsiTreeUtil;
+import consulo.language.util.ProcessingContext;
+import consulo.project.Project;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.assistant.AssistantReferenceContributor;
 import fr.adrienbrault.idea.symfony2plugin.assistant.reference.AssistantReferenceUtil;
@@ -17,7 +24,6 @@ import fr.adrienbrault.idea.symfony2plugin.assistant.reference.DefaultReferenceP
 import fr.adrienbrault.idea.symfony2plugin.assistant.reference.MethodParameterSetting;
 import fr.adrienbrault.idea.symfony2plugin.extension.MethodParameterReferenceContributorExtension;
 import fr.adrienbrault.idea.symfony2plugin.extension.MethodParameterReferenceContributorParameter;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -27,9 +33,10 @@ import java.util.List;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class MethodParameterReferenceContributor extends PsiReferenceContributor {
 
-    private static final ExtensionPointName<MethodParameterReferenceContributorExtension> EXTENSIONS = new ExtensionPointName<>("fr.adrienbrault.idea.symfony2plugin.extension.MethodParameterReferenceContributorExtension");
+    private static final ExtensionPointName<MethodParameterReferenceContributorExtension> EXTENSIONS = ExtensionPointName.create(MethodParameterReferenceContributorExtension.class);
 
     @Override
     public void registerReferenceProviders(PsiReferenceRegistrar psiReferenceRegistrar) {
@@ -37,9 +44,8 @@ public class MethodParameterReferenceContributor extends PsiReferenceContributor
         psiReferenceRegistrar.registerReferenceProvider(
             PlatformPatterns.psiElement(StringLiteralExpression.class),
             new PsiReferenceProvider() {
-                @NotNull
                 @Override
-                public PsiReference @NotNull [] getReferencesByElement(@NotNull PsiElement psiElement, @NotNull ProcessingContext processingContext) {
+                public PsiReference[] getReferencesByElement(PsiElement psiElement, ProcessingContext processingContext) {
                     if (!Symfony2ProjectComponent.isEnabled(psiElement)) {
                         return new PsiReference[0];
                     }
@@ -87,7 +93,7 @@ public class MethodParameterReferenceContributor extends PsiReferenceContributor
                 }
 
                 @Override
-                public boolean acceptsTarget(@NotNull PsiElement target) {
+                public boolean acceptsTarget(PsiElement target) {
                     return Symfony2ProjectComponent.isEnabled(target);
                 }
 
@@ -174,5 +180,8 @@ public class MethodParameterReferenceContributor extends PsiReferenceContributor
 
     }
 
-
+    @Override
+    public Language getLanguage() {
+        return PhpLanguage.INSTANCE;
+    }
 }

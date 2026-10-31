@@ -1,7 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.profiler.dict;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -9,26 +8,22 @@ import org.jetbrains.annotations.Nullable;
 public class HttpProfilerRequest implements ProfilerRequestInterface {
     private final int statusCode;
 
-    @NotNull
     private final String hash;
 
-    @NotNull
     private final String profilerUrl;
 
     @Nullable
     private final String method;
 
-    @NotNull
     private final String url;
 
-    @NotNull
     private final Object[] collectors;
 
-    public HttpProfilerRequest(ProfilerRequestInterface request, @NotNull Object... collectors) {
+    public HttpProfilerRequest(ProfilerRequestInterface request, Object... collectors) {
         this(request.getStatusCode(), request.getHash(), request.getProfilerUrl(), request.getMethod(), request.getUrl(), collectors);
     }
 
-    public HttpProfilerRequest(int statusCode, @NotNull String hash, @NotNull String profilerUrl, @Nullable String method, @NotNull String url, @Nullable Object... collectors) {
+    public HttpProfilerRequest(int statusCode, String hash, String profilerUrl, @Nullable String method, String url, @Nullable Object... collectors) {
         this.statusCode = statusCode;
         this.hash = hash;
         this.profilerUrl = profilerUrl;
@@ -37,7 +32,6 @@ public class HttpProfilerRequest implements ProfilerRequestInterface {
         this.collectors = collectors != null ? collectors : new Object[] {};
     }
 
-    @NotNull
     @Override
     public String getHash() {
         return hash;
@@ -49,13 +43,11 @@ public class HttpProfilerRequest implements ProfilerRequestInterface {
         return method;
     }
 
-    @NotNull
     @Override
     public String getUrl() {
         return url;
     }
 
-    @NotNull
     @Override
     public String getProfilerUrl() {
         return this.profilerUrl;
@@ -66,10 +58,9 @@ public class HttpProfilerRequest implements ProfilerRequestInterface {
         return statusCode;
     }
 
-    @Nullable
     @Override
     @SuppressWarnings("unchecked")
-    public <T> T getCollector(Class<T> classFactory) {
+    public <T> @Nullable T getCollector(Class<T> classFactory) {
         for (Object collector : collectors) {
             if(classFactory.isAssignableFrom(collector.getClass())) {
                 return (T) collector;

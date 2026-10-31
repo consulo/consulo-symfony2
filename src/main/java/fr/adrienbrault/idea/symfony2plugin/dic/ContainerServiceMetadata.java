@@ -1,7 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.dic;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -27,12 +26,12 @@ public record ContainerServiceMetadata(
     @Nullable String parent,
     @Nullable String decorates,
     @Nullable String decorationInnerName,
-    @NotNull Set<String> tags,
+    Set<String> tags,
     // Raw resource glob patterns from the contributing resource/prototype definition
-    @NotNull Set<String> resource,
+    Set<String> resource,
     // Raw exclude patterns from the contributing resource/prototype definition
-    @NotNull Set<String> exclude,
-    @NotNull SourceKind sourceKind
+    Set<String> exclude,
+    SourceKind sourceKind
 ) {
     public ContainerServiceMetadata(
         @Nullable String resourceServiceId,
@@ -46,10 +45,10 @@ public record ContainerServiceMetadata(
         @Nullable String parent,
         @Nullable String decorates,
         @Nullable String decorationInnerName,
-        @NotNull Collection<String> tags,
-        @NotNull Collection<String> resource,
-        @NotNull Collection<String> exclude,
-        @NotNull SourceKind sourceKind
+        Collection<String> tags,
+        Collection<String> resource,
+        Collection<String> exclude,
+        SourceKind sourceKind
     ) {
         this(
             resourceServiceId,
@@ -70,7 +69,7 @@ public record ContainerServiceMetadata(
         );
     }
 
-    private static Set<String> normalize(@NotNull Collection<String> values) {
+    private static Set<String> normalize(Collection<String> values) {
         return values.isEmpty()
             ? Collections.emptySet()
             : Collections.unmodifiableSet(new LinkedHashSet<>(values));
@@ -86,8 +85,7 @@ public record ContainerServiceMetadata(
         return trimmed.isEmpty() ? null : trimmed;
     }
 
-    @NotNull
-    public static ContainerServiceMetadata empty(@NotNull SourceKind sourceKind) {
+    public static ContainerServiceMetadata empty(SourceKind sourceKind) {
         return new ContainerServiceMetadata(
             null,
             false,

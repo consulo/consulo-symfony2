@@ -1,18 +1,19 @@
 package fr.adrienbrault.idea.symfony2plugin.stubs.indexes;
 
-import com.intellij.patterns.ElementPattern;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiRecursiveElementVisitor;
-import com.intellij.psi.util.PsiTreeUtil;
-import com.intellij.util.indexing.DataIndexer;
-import com.intellij.util.indexing.FileBasedIndex;
-import com.intellij.util.indexing.FileBasedIndexExtension;
-import com.intellij.util.indexing.FileContent;
-import com.intellij.util.indexing.ID;
-import com.intellij.util.io.DataExternalizer;
-import com.intellij.util.io.EnumeratorStringDescriptor;
-import com.intellij.util.io.KeyDescriptor;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.pattern.ElementPattern;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.PsiRecursiveElementVisitor;
+import consulo.language.psi.util.PsiTreeUtil;
+import consulo.index.io.DataIndexer;
+import consulo.language.psi.stub.FileBasedIndex;
+import consulo.language.psi.stub.FileBasedIndexExtension;
+import consulo.language.psi.stub.FileContent;
+import consulo.index.io.ID;
+import consulo.index.io.data.DataExternalizer;
+import consulo.index.io.EnumeratorStringDescriptor;
+import consulo.index.io.KeyDescriptor;
 import com.jetbrains.twig.TwigFile;
 import com.jetbrains.twig.TwigFileType;
 import com.jetbrains.twig.TwigTokenTypes;
@@ -22,8 +23,7 @@ import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.externalizer.StringSetD
 import fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -33,24 +33,25 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import com.intellij.psi.xml.XmlTag;
+import consulo.xml.language.psi.XmlTag;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class TwigComponentUsageStubIndex extends FileBasedIndexExtension<String, Set<String>> {
     public static final ID<String, Set<String>> KEY = ID.create("fr.adrienbrault.idea.symfony2plugin.twig_component_usages");
     private static final KeyDescriptor<String> KEY_DESCRIPTOR = new EnumeratorStringDescriptor();
     private static final DataExternalizer<Set<String>> DATA_EXTERNALIZER = new StringSetDataExternalizer();
 
     @Override
-    public @NotNull ID<String, Set<String>> getName() {
+    public ID<String, Set<String>> getName() {
         return KEY;
     }
 
     @Override
     // Index-safe only: no PhpIndex/type resolution here.
-    public @NotNull DataIndexer<String, Set<String>, FileContent> getIndexer() {
+    public DataIndexer<String, Set<String>, FileContent> getIndexer() {
         return inputData -> {
             Map<String, Set<String>> map = new HashMap<>();
 
@@ -74,12 +75,12 @@ public class TwigComponentUsageStubIndex extends FileBasedIndexExtension<String,
     }
 
     @Override
-    public @NotNull KeyDescriptor<String> getKeyDescriptor() {
+    public KeyDescriptor<String> getKeyDescriptor() {
         return KEY_DESCRIPTOR;
     }
 
     @Override
-    public @NotNull DataExternalizer<Set<String>> getValueExternalizer() {
+    public DataExternalizer<Set<String>> getValueExternalizer() {
         return DATA_EXTERNALIZER;
     }
 
@@ -89,8 +90,8 @@ public class TwigComponentUsageStubIndex extends FileBasedIndexExtension<String,
     }
 
     @Override
-    public FileBasedIndex.@NotNull InputFilter getInputFilter() {
-        return file -> file.getFileType() == TwigFileType.INSTANCE;
+    public FileBasedIndex.InputFilter getInputFilter() {
+        return (project, file) -> file.getFileType() == TwigFileType.INSTANCE;
     }
 
     @Override
@@ -98,8 +99,7 @@ public class TwigComponentUsageStubIndex extends FileBasedIndexExtension<String,
         return true;
     }
 
-    @NotNull
-    public static Collection<PsiElement> getComponentUsages(@NotNull TwigFile twigFile, @NotNull Collection<String> componentNames) {
+    public static Collection<PsiElement> getComponentUsages(TwigFile twigFile, Collection<String> componentNames) {
         Set<String> normalizedComponentNames = new HashSet<>();
         for (String componentName : componentNames) {
             String normalized = normalizeComponentName(componentName);
@@ -135,14 +135,13 @@ public class TwigComponentUsageStubIndex extends FileBasedIndexExtension<String,
         return trimmed;
     }
 
-    @NotNull
-    private static Collection<Usage> getComponentUsages(@NotNull TwigFile twigFile) {
+    private static Collection<Usage> getComponentUsages(TwigFile twigFile) {
         Set<Usage> usages = new LinkedHashSet<>();
 
         ElementPattern<PsiElement> componentPattern = TwigPattern.getComponentPattern();
         twigFile.acceptChildren(new PsiRecursiveElementVisitor() {
             @Override
-            public void visitElement(@NotNull PsiElement element) {
+            public void visitElement(PsiElement element) {
                 if (element.getNode() != null && element.getNode().getElementType() == TwigTokenTypes.STRING_TEXT && componentPattern.accepts(element)) {
                     String componentName = PsiElementUtils.trimQuote(element.getText());
                     if (StringUtils.isNotBlank(componentName)) {
@@ -174,7 +173,7 @@ public class TwigComponentUsageStubIndex extends FileBasedIndexExtension<String,
     }
 
     @Nullable
-    private static Usage getTagComponentUsage(@NotNull PsiElement tag) {
+    private static Usage getTagComponentUsage(PsiElement tag) {
         PsiElement tagStart = tag.getFirstChild();
         if (tagStart == null) {
             return null;
@@ -199,7 +198,7 @@ public class TwigComponentUsageStubIndex extends FileBasedIndexExtension<String,
     }
 
     @Nullable
-    private static String getComponentName(@NotNull XmlTag tag) {
+    private static String getComponentName(XmlTag tag) {
         String name = tag.getName();
         if (StringUtils.isBlank(name)) {
             return null;
@@ -222,6 +221,6 @@ public class TwigComponentUsageStubIndex extends FileBasedIndexExtension<String,
         FUNCTION
     }
 
-    private record Usage(@NotNull String componentName, @NotNull PsiElement target, @NotNull UsageType type) {
+    private record Usage(String componentName, PsiElement target, UsageType type) {
     }
 }

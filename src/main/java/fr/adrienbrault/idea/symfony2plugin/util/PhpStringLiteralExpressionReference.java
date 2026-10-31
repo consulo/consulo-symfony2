@@ -1,15 +1,14 @@
 package fr.adrienbrault.idea.symfony2plugin.util;
 
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiReference;
-import com.intellij.psi.PsiReferenceBase;
-import com.intellij.psi.PsiReferenceProvider;
-import com.intellij.util.ProcessingContext;
 import com.jetbrains.php.lang.psi.elements.MethodReference;
 import com.jetbrains.php.lang.psi.elements.ParameterList;
 import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiReference;
+import consulo.language.psi.PsiReferenceBase;
+import consulo.language.psi.PsiReferenceProvider;
+import consulo.language.util.ProcessingContext;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
-import org.jetbrains.annotations.NotNull;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
@@ -36,9 +35,8 @@ public class PhpStringLiteralExpressionReference extends PsiReferenceProvider {
         return this;
     }
 
-    @NotNull
     @Override
-    public PsiReference[] getReferencesByElement(@NotNull PsiElement psiElement, @NotNull ProcessingContext processingContext) {
+    public PsiReference[] getReferencesByElement(PsiElement psiElement, ProcessingContext processingContext) {
         if (!Symfony2ProjectComponent.isEnabled(psiElement) || !(psiElement.getContext() instanceof ParameterList parameterList)) {
             return new PsiReference[0];
         }
@@ -97,7 +95,7 @@ public class PhpStringLiteralExpressionReference extends PsiReferenceProvider {
         }
     }
 
-    public boolean acceptsTarget(@NotNull PsiElement target) {
+    public boolean acceptsTarget(PsiElement target) {
         return Symfony2ProjectComponent.isEnabled(target);
     }
 }

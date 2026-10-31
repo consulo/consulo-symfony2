@@ -1,9 +1,8 @@
 package fr.adrienbrault.idea.symfony2plugin.extension;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiElement;
-import org.jetbrains.annotations.NotNull;
+import consulo.project.Project;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.language.psi.PsiElement;
 
 import java.util.Collection;
 
@@ -13,18 +12,14 @@ import java.util.Collection;
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public interface TranslatorProvider {
-    boolean hasTranslationKey(@NotNull Project project, @NotNull String keyName, @NotNull String domainName);
-    boolean hasDomain(@NotNull Project project, @NotNull String domainName);
+    boolean hasTranslationKey(Project project, String keyName, String domainName);
+    boolean hasDomain(Project project, String domainName);
 
-    @NotNull
-    Collection<TranslatorProviderDict.TranslationDomain> getTranslationDomains(@NotNull Project project);
+    Collection<TranslatorProviderDict.TranslationDomain> getTranslationDomains(Project project);
 
-    @NotNull
-    Collection<PsiElement> getTranslationTargets(@NotNull Project project, @NotNull String translationKey, @NotNull String domain);
+    Collection<PsiElement> getTranslationTargets(Project project, String translationKey, String domain);
 
-    @NotNull
-    Collection<VirtualFile> getDomainPsiFiles(final Project project, @NotNull String domainName);
+    Collection<VirtualFile> getDomainPsiFiles(final Project project, String domainName);
 
-    @NotNull
-    Collection<TranslatorProviderDict.TranslationKey> getTranslationsForDomain(@NotNull Project project, @NotNull String domainName);
+    Collection<TranslatorProviderDict.TranslationKey> getTranslationsForDomain(Project project, String domainName);
 }

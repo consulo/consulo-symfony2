@@ -1,31 +1,31 @@
 package fr.adrienbrault.idea.symfony2plugin.dic.command;
 
-import com.intellij.execution.configurations.ConfigurationFactory;
-import com.intellij.execution.configurations.ConfigurationTypeBase;
-import com.intellij.execution.configurations.ConfigurationTypeUtil;
-import com.intellij.execution.configurations.RunConfiguration;
-import com.intellij.openapi.project.DumbAware;
-import com.intellij.openapi.project.Project;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.application.dumb.DumbAware;
+import consulo.execution.configuration.ConfigurationFactory;
+import consulo.execution.configuration.ConfigurationTypeBase;
+import consulo.execution.configuration.ConfigurationTypeUtil;
+import consulo.execution.configuration.RunConfiguration;
+import consulo.localize.LocalizeValue;
+import consulo.project.Project;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public final class SymfonyCommandRunConfigurationType extends ConfigurationTypeBase implements DumbAware {
 
     public static final String ID = "SymfonyCommandRunConfigurationType";
 
     public SymfonyCommandRunConfigurationType() {
-        super(ID, "Symfony Command", "Run Symfony console commands", Symfony2Icons.SYMFONY);
+        super(ID, LocalizeValue.localizeTODO("Symfony Command"), LocalizeValue.localizeTODO("Run Symfony console commands"), Symfony2Icons.SYMFONY);
         addFactory(new ConfigurationFactory(this) {
-            @NotNull
             @Override
-            public RunConfiguration createTemplateConfiguration(@NotNull Project project) {
+            public RunConfiguration createTemplateConfiguration(Project project) {
                 return new SymfonyCommandRunConfiguration(project, this, "Symfony Command");
             }
 
-            @NotNull
             @Override
             public String getId() {
                 return "Symfony Command";
@@ -33,7 +33,6 @@ public final class SymfonyCommandRunConfigurationType extends ConfigurationTypeB
         });
     }
 
-    @NotNull
     public static SymfonyCommandRunConfigurationType getInstance() {
         return ConfigurationTypeUtil.findConfigurationType(SymfonyCommandRunConfigurationType.class);
     }

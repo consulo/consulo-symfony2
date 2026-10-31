@@ -1,8 +1,10 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.templating;
 
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
+import org.junit.jupiter.api.Test;
+
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
 import com.jetbrains.php.lang.psi.elements.Constant;
 import com.jetbrains.php.lang.psi.elements.Field;
 import com.jetbrains.php.lang.psi.elements.Function;
@@ -38,6 +40,7 @@ public class TwigTemplateGoToDeclarationHandlerTest extends SymfonyLightCodeInsi
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.templating.TwigTemplateGoToDeclarationHandler
      */
+    @Test
     public void testSimpleTestNavigationToExtension() {
         myFixture.copyFileToProject("TwigFilterExtension.php");
 
@@ -72,6 +75,8 @@ public class TwigTemplateGoToDeclarationHandlerTest extends SymfonyLightCodeInsi
         );
     }
 
+    @Test
+
     public void testGetVarClassGoto() {
         assertNavigationMatch(TwigFileType.INSTANCE, "{# @var bar \\Date<caret>Time #}", PlatformPatterns.psiElement(PhpClass.class));
         assertNavigationMatch(TwigFileType.INSTANCE, "{# @var \\Date<caret>Time bar #}", PlatformPatterns.psiElement(PhpClass.class));
@@ -79,6 +84,8 @@ public class TwigTemplateGoToDeclarationHandlerTest extends SymfonyLightCodeInsi
         assertNavigationMatch(TwigFileType.INSTANCE, "{# @var \\Date<caret>Time[] bar #}", PlatformPatterns.psiElement(PhpClass.class));
         assertNavigationMatch(TwigFileType.INSTANCE, "{# @var bar \\Date<caret>Time[] #}", PlatformPatterns.psiElement(PhpClass.class));
     }
+
+    @Test
 
     public void testGetVarClassGotoSupportsUnionTypes() {
         addTwigUnionFixture();
@@ -88,6 +95,8 @@ public class TwigTemplateGoToDeclarationHandlerTest extends SymfonyLightCodeInsi
         assertNavigationClassNames("\\Foo\\Union\\User", "\\Foo\\Union\\Admin");
     }
 
+    @Test
+
     public void testGetVarClassGotoSupportsArrayUnionTypes() {
         addTwigUnionFixture();
 
@@ -96,15 +105,21 @@ public class TwigTemplateGoToDeclarationHandlerTest extends SymfonyLightCodeInsi
         assertNavigationClassNames("\\Foo\\Union\\User", "\\Foo\\Union\\Admin");
     }
 
+    @Test
+
     public void testGetVarClassGotoDeprecated() {
         assertNavigationMatch(TwigFileType.INSTANCE, "{# bar \\Date<caret>Time #}", PlatformPatterns.psiElement(PhpClass.class));
         assertNavigationMatch(TwigFileType.INSTANCE, "{# bar \\Date<caret>Time[] #}", PlatformPatterns.psiElement(PhpClass.class));
     }
 
+    @Test
+
     public void testTypesTagClassGoto() {
         assertNavigationMatch(TwigFileType.INSTANCE, "{% types { bar: '\\Date<caret>Time' } %}", PlatformPatterns.psiElement(PhpClass.class));
         assertNavigationMatch(TwigFileType.INSTANCE, "{% types { bar: '\\Date<caret>Time[]' } %}", PlatformPatterns.psiElement(PhpClass.class));
     }
+
+    @Test
 
     public void testTypesTagClassGotoSupportsUnionTypes() {
         addTwigUnionFixture();
@@ -114,6 +129,8 @@ public class TwigTemplateGoToDeclarationHandlerTest extends SymfonyLightCodeInsi
         assertNavigationClassNames("\\Foo\\Union\\User", "\\Foo\\Union\\Admin");
     }
 
+    @Test
+
     public void testTypesTagClassGotoSupportsArrayUnionTypes() {
         addTwigUnionFixture();
 
@@ -122,13 +139,19 @@ public class TwigTemplateGoToDeclarationHandlerTest extends SymfonyLightCodeInsi
         assertNavigationClassNames("\\Foo\\Union\\User", "\\Foo\\Union\\Admin");
     }
 
+    @Test
+
     public void testTypesTagClassGotoWithOptionalMarker() {
         assertNavigationMatch(TwigFileType.INSTANCE, "{% types { bar?: '\\Date<caret>Time' } %}", PlatformPatterns.psiElement(PhpClass.class));
     }
 
+    @Test
+
     public void testTypesTagClassGotoMultipleVariables() {
         assertNavigationMatch(TwigFileType.INSTANCE, "{% types { foo: 'DateTime', bar: '\\Date<caret>Time' } %}", PlatformPatterns.psiElement(PhpClass.class));
     }
+
+    @Test
 
     public void testTypeGotoIgnoresCoreTwigReferenceResolutionForPropertyAccess() {
         myFixture.configureByText(
@@ -150,6 +173,8 @@ public class TwigTemplateGoToDeclarationHandlerTest extends SymfonyLightCodeInsi
         assertContainsElements(methodNames, "getFoobar");
     }
 
+    @Test
+
     public void testTypeGotoSupportsMethodCallInPath() {
         addTwigTypePathFixture();
 
@@ -165,6 +190,8 @@ public class TwigTemplateGoToDeclarationHandlerTest extends SymfonyLightCodeInsi
             PlatformPatterns.psiElement(Method.class).withName("getBar")
         );
     }
+
+    @Test
 
     public void testTypeGotoSupportsTwigFilterReturnTypeMethodCall() {
         myFixture.copyFileToProject("TwigFilterExtension.php");
@@ -206,6 +233,8 @@ public class TwigTemplateGoToDeclarationHandlerTest extends SymfonyLightCodeInsi
             PlatformPatterns.psiElement(Method.class).withName("truncate")
         );
     }
+
+    @Test
 
     public void testFormFieldGotoUsesPrimitiveFormDataHolderOwnerFormTypeFqn() {
         myFixture.copyFileToProject("ide-twig.json");
@@ -250,6 +279,8 @@ public class TwigTemplateGoToDeclarationHandlerTest extends SymfonyLightCodeInsi
         assertNavigationMatch(PlatformPatterns.psiElement(PhpClass.class).withName("ProductType"));
     }
 
+    @Test
+
     public void testSeeTagGoto() {
         assertNavigationMatch(TwigFileType.INSTANCE, "{# @see \\Date<caret>Time #}", PlatformPatterns.psiElement(PhpClass.class));
         assertNavigationMatch(TwigFileType.INSTANCE, "{# @see Date<caret>Time #}", PlatformPatterns.psiElement(PhpClass.class));
@@ -257,6 +288,8 @@ public class TwigTemplateGoToDeclarationHandlerTest extends SymfonyLightCodeInsi
         assertNavigationMatch(TwigFileType.INSTANCE, "{# @see \\Date<caret>Time:format #}", PlatformPatterns.psiElement(Method.class));
         assertNavigationMatch(TwigFileType.INSTANCE, "{# \\Date<caret>Time:format #}", PlatformPatterns.psiElement(Method.class));
     }
+
+    @Test
 
     public void testSeeTagGotoRegexMatch() {
         for (String s : new String[]{"\\DateTime", "\\DateTime::format", "foo/foo.html.twig", "@foo/foo.html.twig", "@foo/fo-o.html.twig", "@foo\\fo-o.html.twig", "Include/type_embed.html.twig"}) {
@@ -267,6 +300,8 @@ public class TwigTemplateGoToDeclarationHandlerTest extends SymfonyLightCodeInsi
             assertTrue(Pattern.compile(TwigUtil.DOC_SEE_REGEX_WITHOUT_SEE).matcher("{# " + s + "#}").find());
         }
     }
+
+    @Test
 
     public void testThatConstantAndEnumProvidesNavigation() {
         assertNavigationMatch(TwigFileType.INSTANCE, "{{ constant('\\Foo\\ConstantBar\\Foo::F<caret>OO') }}", PlatformPatterns.psiElement(Field.class).withName("FOO"));
@@ -281,12 +316,16 @@ public class TwigTemplateGoToDeclarationHandlerTest extends SymfonyLightCodeInsi
         assertNavigationMatch(TwigFileType.INSTANCE, "{{ constant('\\\\App\\\\FooEnum::F<caret>OO') }}", PlatformPatterns.psiElement());
     }
 
+    @Test
+
     public void testTestControllerActionsProvidesReferences() {
         assertNavigationMatch(TwigFileType.INSTANCE, "{{ controller('\\FooBundle\\Cont<caret>roller\\FooController::barAction') }}", PlatformPatterns.psiElement(Method.class).withName("barAction"));
         assertNavigationMatch(TwigFileType.INSTANCE, "{{ controller('\\\\FooBundle\\\\Cont<caret>roller\\\\FooController::barAction') }}", PlatformPatterns.psiElement(Method.class).withName("barAction"));
         assertNavigationMatch(TwigFileType.INSTANCE, "{{ controller('FooBundle\\Cont<caret>roller\\FooController::barAction') }}", PlatformPatterns.psiElement(Method.class).withName("barAction"));
         assertNavigationMatch(TwigFileType.INSTANCE, "{{ controller('FooBundle\\\\Cont<caret>roller\\\\FooController::barAction') }}", PlatformPatterns.psiElement(Method.class).withName("barAction"));
     }
+
+    @Test
 
     public void testFunctionNavigation() {
         assertNavigationMatch(
@@ -330,6 +369,8 @@ public class TwigTemplateGoToDeclarationHandlerTest extends SymfonyLightCodeInsi
         );
     }
 
+    @Test
+
     public void testTokenTagNavigation() {
         assertNavigationMatch(
             TwigFileType.INSTANCE,
@@ -341,6 +382,8 @@ public class TwigTemplateGoToDeclarationHandlerTest extends SymfonyLightCodeInsi
             "{% tag_foobar 'foo' %}{% endtag_<caret>foobar %}", PlatformPatterns.psiElement()
         );
     }
+
+    @Test
 
     public void testMacroImport() {
         assertNavigationMatch(
@@ -374,6 +417,8 @@ public class TwigTemplateGoToDeclarationHandlerTest extends SymfonyLightCodeInsi
         );
     }
 
+    @Test
+
     public void testSelfMacroImport() {
         assertNavigationMatch(
             TwigFileType.INSTANCE,
@@ -397,6 +442,8 @@ public class TwigTemplateGoToDeclarationHandlerTest extends SymfonyLightCodeInsi
         );
     }
 
+    @Test
+
     public void testComponentNameNavigation() {
         assertNavigationMatch(
             TwigFileType.INSTANCE,
@@ -405,6 +452,8 @@ public class TwigTemplateGoToDeclarationHandlerTest extends SymfonyLightCodeInsi
         );
     }
 
+    @Test
+
     public void testComponentNameTagNavigation() {
         assertNavigationMatch(
             TwigFileType.INSTANCE,
@@ -412,6 +461,8 @@ public class TwigTemplateGoToDeclarationHandlerTest extends SymfonyLightCodeInsi
             PlatformPatterns.psiElement(PhpClass.class)
         );
     }
+
+    @Test
 
     public void testFoo() {
         assertNavigationMatch(
@@ -427,6 +478,8 @@ public class TwigTemplateGoToDeclarationHandlerTest extends SymfonyLightCodeInsi
         );
     }
 
+    @Test
+
     public void testThatEnumProvidesNavigationToEnumClass() {
         assertNavigationMatch(TwigFileType.INSTANCE, "{{ enum('App\\\\Bike\\\\Foo<caret>Enum') }}", PlatformPatterns.psiElement(PhpClass.class).withName("FooEnum"));
         assertNavigationMatch(TwigFileType.INSTANCE, "{{ enum('\\\\App\\\\Bike\\\\Foo<caret>Enum') }}", PlatformPatterns.psiElement(PhpClass.class).withName("FooEnum"));
@@ -437,6 +490,8 @@ public class TwigTemplateGoToDeclarationHandlerTest extends SymfonyLightCodeInsi
         // Should not navigate to non-enum classes
         assertNavigationIsEmpty(TwigFileType.INSTANCE, "{{ enum('App\\\\Bike\\\\Foo<caret>Const') }}");
     }
+
+    @Test
 
     public void testThatEnumCasesProvidesNavigationToEnumClass() {
         assertNavigationMatch(TwigFileType.INSTANCE, "{{ enum_cases('App\\\\Bike\\\\Foo<caret>Enum') }}", PlatformPatterns.psiElement(PhpClass.class).withName("FooEnum"));
@@ -449,6 +504,8 @@ public class TwigTemplateGoToDeclarationHandlerTest extends SymfonyLightCodeInsi
         assertNavigationIsEmpty(TwigFileType.INSTANCE, "{{ enum_cases('App\\\\Bike\\\\Foo<caret>Const') }}");
     }
 
+    @Test
+
     public void testNavigationForRouteCompareExpressions() {
         myFixture.copyFileToProject("routing.xml");
 
@@ -460,6 +517,8 @@ public class TwigTemplateGoToDeclarationHandlerTest extends SymfonyLightCodeInsi
         assertNavigationMatch(TwigFileType.INSTANCE, "{% if app.request.attributes.get('_route') in ['xml_ro<caret>ute'] %}", PlatformPatterns.psiElement());
         assertNavigationMatch(TwigFileType.INSTANCE, "{% if app.request.attributes.get('_route') not in ['xml_ro<caret>ute'] %}", PlatformPatterns.psiElement());
     }
+
+    @Test
 
     public void testStartsWithNavigatesOnPartialPrefix() {
         myFixture.copyFileToProject("routing.xml");

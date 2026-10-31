@@ -1,25 +1,26 @@
 package fr.adrienbrault.idea.symfony2plugin.navigation;
 
-import com.intellij.lang.ASTNode;
-import com.intellij.lang.folding.FoldingBuilderEx;
-import com.intellij.lang.folding.FoldingDescriptor;
-import com.intellij.openapi.editor.Document;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.TextRange;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.util.PsiTreeUtil;
+import com.jetbrains.php.lang.PhpLanguage;
 import com.jetbrains.php.lang.psi.PhpFile;
 import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.document.Document;
+import consulo.document.util.TextRange;
+import consulo.language.Language;
+import consulo.language.ast.ASTNode;
+import consulo.language.editor.folding.FoldingBuilderEx;
+import consulo.language.editor.folding.FoldingDescriptor;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.util.PsiTreeUtil;
+import consulo.project.Project;
 import fr.adrienbrault.idea.symfony2plugin.Settings;
-import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.config.SymfonyPhpReferenceContributor;
 import fr.adrienbrault.idea.symfony2plugin.routing.PhpRouteReferenceContributor;
 import fr.adrienbrault.idea.symfony2plugin.routing.Route;
 import fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.MethodMatcher;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -29,23 +30,24 @@ import java.util.Map;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class PhpFoldingBuilder extends FoldingBuilderEx {
 
-    @NotNull
     @Override
-    public FoldingDescriptor[] buildFoldRegions(@NotNull PsiElement psiElement, @NotNull Document document, boolean b) {
+    public FoldingDescriptor[] buildFoldRegions(PsiElement psiElement, Document document, boolean b) {
         if (!(psiElement instanceof PhpFile)){
             return new FoldingDescriptor[0];
         }
 
         Project project = psiElement.getProject();
-        if (!Symfony2ProjectComponent.isEnabled(project)){
+        Settings settings = Settings.getEnabledInstance(psiElement);
+        if (settings == null){
             return new FoldingDescriptor[0];
         }
 
-        boolean codeFoldingPhpRoute = Settings.getInstance(project).codeFoldingPhpRoute;
-        boolean codeFoldingPhpModel = Settings.getInstance(project).codeFoldingPhpModel;
-        boolean codeFoldingPhpTemplate = Settings.getInstance(project).codeFoldingPhpTemplate;
+        boolean codeFoldingPhpRoute = settings.codeFoldingPhpRoute;
+        boolean codeFoldingPhpModel = settings.codeFoldingPhpModel;
+        boolean codeFoldingPhpTemplate = settings.codeFoldingPhpTemplate;
 
         // we dont need to do anything
         if(!codeFoldingPhpRoute && !codeFoldingPhpModel && !codeFoldingPhpTemplate) {
@@ -76,7 +78,7 @@ public class PhpFoldingBuilder extends FoldingBuilderEx {
     }
 
 
-    private void attachRouteShortcuts(@NotNull Project project, List<FoldingDescriptor> descriptors, Collection<StringLiteralExpression> stringLiteralExpressions) {
+    private void attachRouteShortcuts(Project project, List<FoldingDescriptor> descriptors, Collection<StringLiteralExpression> stringLiteralExpressions) {
 
         Map<String,Route> routes = null;
 
@@ -98,7 +100,7 @@ public class PhpFoldingBuilder extends FoldingBuilderEx {
                         descriptors.add(new FoldingDescriptor(stringLiteralExpression.getNode(),
                             new TextRange(stringLiteralExpression.getTextRange().getStartOffset() + 1, stringLiteralExpression.getTextRange().getEndOffset() - 1)) {
                             @Override
-                            public @NotNull String getPlaceholderText() {
+                            public String getPlaceholderText() {
                                 return url;
                             }
                         });
@@ -165,12 +167,17 @@ public class PhpFoldingBuilder extends FoldingBuilderEx {
 
     @Nullable
     @Override
-    public String getPlaceholderText(@NotNull ASTNode astNode) {
+    public String getPlaceholderText(ASTNode astNode) {
         return "...";
     }
 
     @Override
-    public boolean isCollapsedByDefault(@NotNull ASTNode astNode) {
+    public boolean isCollapsedByDefault(ASTNode astNode) {
         return true;
+    }
+
+    @Override
+    public Language getLanguage() {
+        return PhpLanguage.INSTANCE;
     }
 }

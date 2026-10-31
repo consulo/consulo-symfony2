@@ -1,18 +1,22 @@
 package fr.adrienbrault.idea.symfony2plugin.stubs.indexes;
 
 import fr.adrienbrault.idea.symfony2plugin.doctrine.dict.DoctrineClassMetadata;
-import com.intellij.psi.PsiFile;
-import com.intellij.util.indexing.*;
-import com.intellij.util.io.DataExternalizer;
-import com.intellij.util.io.EnumeratorStringDescriptor;
-import com.intellij.util.io.KeyDescriptor;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.psi.PsiFile;
+import consulo.index.io.DataIndexer;
+import consulo.index.io.ID;
+import consulo.language.psi.stub.FileBasedIndex;
+import consulo.language.psi.stub.FileBasedIndexExtension;
+import consulo.language.psi.stub.FileContent;
+import consulo.index.io.data.DataExternalizer;
+import consulo.index.io.EnumeratorStringDescriptor;
+import consulo.index.io.KeyDescriptor;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.DoctrineUtil;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.dict.DoctrineModel;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.dict.DoctrineModelSerializable;
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.externalizer.DoctrineModelExternalizer;
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.inputFilter.FileInputFilter;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -22,6 +26,7 @@ import java.util.Set;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class DoctrineMetadataFileStubIndex extends FileBasedIndexExtension<String, DoctrineModelSerializable> {
 
     public static final ID<String, DoctrineModelSerializable> KEY = ID.create("fr.adrienbrault.idea.symfony2plugin.doctrine_metadata");
@@ -31,9 +36,8 @@ public class DoctrineMetadataFileStubIndex extends FileBasedIndexExtension<Strin
     private static final int MAX_FILE_BYTE_SIZE = 1048576;
 
     private static class MyStringStringFileContentDataIndexer implements DataIndexer<String, DoctrineModelSerializable, FileContent> {
-        @NotNull
         @Override
-        public Map<String, DoctrineModelSerializable> map(@NotNull FileContent fileContent) {
+        public Map<String, DoctrineModelSerializable> map(FileContent fileContent) {
 
             Map<String, DoctrineModelSerializable> map = new HashMap<>();
 
@@ -66,32 +70,27 @@ public class DoctrineMetadataFileStubIndex extends FileBasedIndexExtension<Strin
         }
     }
 
-    @NotNull
     @Override
     public ID<String, DoctrineModelSerializable> getName() {
         return KEY;
     }
 
-    @NotNull
     @Override
     // Index-safe only: no PhpIndex/type resolution here.
     public DataIndexer<String, DoctrineModelSerializable, FileContent> getIndexer() {
         return new MyStringStringFileContentDataIndexer();
     }
 
-    @NotNull
     @Override
     public KeyDescriptor<String> getKeyDescriptor() {
         return this.myKeyDescriptor;
     }
 
-    @NotNull
     @Override
     public DataExternalizer<DoctrineModelSerializable> getValueExternalizer() {
         return EXTERNALIZER;
     }
 
-    @NotNull
     @Override
     public FileBasedIndex.InputFilter getInputFilter() {
         return FileInputFilter.XML_YAML_PHP;

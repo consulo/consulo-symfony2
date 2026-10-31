@@ -1,5 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.templating.path;
 
+import org.junit.jupiter.api.Test;
+
 import fr.adrienbrault.idea.symfony2plugin.extension.TwigNamespaceExtensionParameter;
 import fr.adrienbrault.idea.symfony2plugin.templating.path.ContainerTwigNamespaceExtension;
 import fr.adrienbrault.idea.symfony2plugin.templating.path.TwigPath;
@@ -17,6 +19,8 @@ import java.util.Collection;
  * @see fr.adrienbrault.idea.symfony2plugin.templating.path.ContainerTwigNamespaceExtension
  */
 public class ContainerTwigNamespaceExtensionTest extends SymfonyLightCodeInsightFixtureTestCase {
+
+    @Test
 
     public void testGetNamespacesFromContainer() throws IOException {
         String containerXml = new String(Files.readAllBytes(Paths.get(

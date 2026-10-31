@@ -1,7 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.form.dict;
 
 import com.jetbrains.php.lang.psi.elements.PhpClass;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -12,13 +11,12 @@ public class FormClass {
     private final PhpClass phpClass;
     private final boolean isWeak;
 
-    public FormClass(@NotNull FormClassEnum typeEnum, @NotNull PhpClass phpClass, boolean isWeak) {
+    public FormClass(FormClassEnum typeEnum, PhpClass phpClass, boolean isWeak) {
         this.typeEnum = typeEnum;
         this.phpClass = phpClass;
         this.isWeak = isWeak;
     }
 
-    @NotNull
     public PhpClass getPhpClass() {
         return phpClass;
     }
@@ -27,7 +25,6 @@ public class FormClass {
         return isWeak;
     }
 
-    @NotNull
     public FormClassEnum getType() {
         return typeEnum;
     }

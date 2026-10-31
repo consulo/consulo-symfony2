@@ -1,18 +1,16 @@
 package fr.adrienbrault.idea.symfony2plugin.config.php;
 
-import com.intellij.psi.PsiElement;
 import com.jetbrains.php.codeInsight.PhpCodeInsightUtil;
 import com.jetbrains.php.lang.psi.elements.ArrayCreationExpression;
 import com.jetbrains.php.lang.psi.elements.ArrayHashElement;
 import com.jetbrains.php.lang.psi.elements.MethodReference;
-import com.jetbrains.php.lang.psi.elements.PhpExpression;
 import com.jetbrains.php.lang.psi.elements.PhpPsiElement;
 import com.jetbrains.php.lang.psi.elements.PhpUse;
 import com.jetbrains.php.lang.psi.elements.PhpUseList;
+import consulo.language.psi.PsiElement;
 import fr.adrienbrault.idea.symfony2plugin.dic.container.util.ServiceContainerUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Some helpers are also used from file-based indexers, so keep the logic purely
@@ -28,7 +26,7 @@ public final class PhpConfigPsiUtil {
      * Examples: {@code 'decorates' => 'mailer'} and {@code ['@logger']}.
      */
     @Nullable
-    static PsiElement getImmediateArrayScope(@NotNull PsiElement element) {
+    static PsiElement getImmediateArrayScope(PsiElement element) {
         PsiElement parent = element.getParent();
         if (parent instanceof ArrayHashElement || parent instanceof ArrayCreationExpression) {
             return parent;
@@ -45,23 +43,23 @@ public final class PhpConfigPsiUtil {
     }
 
     @Nullable
-    static ArrayCreationExpression getParentArray(@NotNull PsiElement element) {
+    static ArrayCreationExpression getParentArray(PsiElement element) {
         PsiElement parentScope = getImmediateArrayScope(element);
         return parentScope instanceof ArrayCreationExpression arrayCreationExpression ? arrayCreationExpression : null;
     }
 
     @Nullable
-    static ArrayHashElement getParentHashElement(@NotNull PsiElement element) {
+    static ArrayHashElement getParentHashElement(PsiElement element) {
         PsiElement parentScope = getImmediateArrayScope(element);
         return parentScope instanceof ArrayHashElement arrayHashElement ? arrayHashElement : null;
     }
 
-    public static boolean isConfigFactoryCall(@NotNull MethodReference methodReference) {
+    public static boolean isConfigFactoryCall(MethodReference methodReference) {
         if (!"config".equals(methodReference.getName())) {
             return false;
         }
 
-        PhpExpression classReference = methodReference.getClassReference();
+        PsiElement classReference = methodReference.getClassReference();
         if (classReference == null) {
             return false;
         }
@@ -70,11 +68,11 @@ public final class PhpConfigPsiUtil {
         return isConfigFactoryClassName(text) || isImportedConfigFactoryAlias(methodReference, text);
     }
 
-    private static boolean isConfigFactoryClassName(@NotNull String text) {
+    private static boolean isConfigFactoryClassName(String text) {
         return "App".equals(text) || ServiceContainerUtil.CONTAINER_CONFIG_APP.substring(1).equals(text);
     }
 
-    private static boolean isImportedConfigFactoryAlias(@NotNull MethodReference methodReference, @NotNull String text) {
+    private static boolean isImportedConfigFactoryAlias(MethodReference methodReference, String text) {
         if (StringUtils.isBlank(text) || text.contains("\\")) {
             return false;
         }

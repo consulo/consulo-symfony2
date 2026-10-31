@@ -1,16 +1,17 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.dic.linemarker;
 
-import com.intellij.ide.highlighter.XmlFileType;
-import com.intellij.patterns.PatternCondition;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.patterns.XmlPatterns;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiFileFactory;
-import com.intellij.util.ProcessingContext;
+import org.junit.jupiter.api.Test;
+
+import consulo.xml.language.XmlFileType;
+import consulo.language.pattern.PatternCondition;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.xml.language.psi.pattern.XmlPatterns;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.PsiFileFactory;
+import consulo.language.util.ProcessingContext;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -26,6 +27,8 @@ public class XmlLineMarkerProviderTest extends SymfonyLightCodeInsightFixtureTes
         return "src/test/java/fr/adrienbrault/idea/symfony2plugin/tests/dic/linemarker/fixtures";
     }
 
+    @Test
+
     public void testThatDecoratedServiceShouldProvideMarker() {
         assertLineMarker(createXmlFile("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
                 "<container>\n" +
@@ -37,6 +40,8 @@ public class XmlLineMarkerProviderTest extends SymfonyLightCodeInsightFixtureTes
             new LineMarker.ToolTipEqualsAssert("Navigate to decoration")
         );
     }
+
+    @Test
 
     public void testThatParentServiceShouldProvideMarker() {
         myFixture.addFileToProject("config/services_parent.xml", "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
@@ -60,6 +65,8 @@ public class XmlLineMarkerProviderTest extends SymfonyLightCodeInsightFixtureTes
         );
     }
 
+    @Test
+
     public void testThatDecoratesProvidesOverwriteMarker() {
         assertLineMarker(createXmlFile("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
                 "<container>\n" +
@@ -72,6 +79,8 @@ public class XmlLineMarkerProviderTest extends SymfonyLightCodeInsightFixtureTes
         );
     }
 
+    @Test
+
     public void testThatParentProvidesOverwriteMarker() {
         assertLineMarker(createXmlFile("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
                 "<container>\n" +
@@ -83,6 +92,8 @@ public class XmlLineMarkerProviderTest extends SymfonyLightCodeInsightFixtureTes
             new LineMarker.ToolTipEqualsAssert("Navigate to parent service")
         );
     }
+
+    @Test
 
     public void testThatPrototypeNamespaceResourceIsHavingLinemarker() {
         myFixture.addFileToProject("src/Controller/FooController.php", "<?php\n" +
@@ -102,15 +113,14 @@ public class XmlLineMarkerProviderTest extends SymfonyLightCodeInsightFixtureTes
         assertLineMarker(myFixture.getFile(), new LineMarker.TargetAcceptsPattern("Navigate to class",
             PlatformPatterns.psiElement(PhpClass.class).with(new PatternCondition<>("fqn") {
                 @Override
-                public boolean accepts(@NotNull PhpClass phpClass, ProcessingContext context) {
+                public boolean accepts(PhpClass phpClass, ProcessingContext context) {
                     return "\\App\\Controller\\FooController".equals(phpClass.getFQN());
                 }
             }))
         );
     }
 
-    @NotNull
-    private PsiElement createXmlFile(@NotNull String content) {
+    private PsiElement createXmlFile(String content) {
         return PsiFileFactory.getInstance(getProject()).createFileFromText("DUMMY__." + XmlFileType.INSTANCE.getDefaultExtension(), XmlFileType.INSTANCE, content);
     }
 }

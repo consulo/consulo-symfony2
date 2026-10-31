@@ -1,14 +1,13 @@
 package fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.driver;
 
-import com.intellij.psi.PsiFile;
+import consulo.language.psi.PsiFile;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.EntityHelper;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.dict.DoctrineModelField;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.dict.DoctrineMetadataModel;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.util.DoctrineMetadataUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.jetbrains.yaml.psi.YAMLFile;
 import org.jetbrains.yaml.psi.YAMLKeyValue;
 import org.jetbrains.yaml.psi.YAMLMapping;
@@ -22,7 +21,7 @@ import java.util.Collection;
 public class DoctrineYamlMappingDriver implements DoctrineMappingDriverInterface {
 
     @Nullable
-    public DoctrineMetadataModel getMetadata(@NotNull DoctrineMappingDriverArguments args) {
+    public DoctrineMetadataModel getMetadata(DoctrineMappingDriverArguments args) {
 
         PsiFile psiFile = args.getPsiFile();
         if(!(psiFile instanceof YAMLFile)) {
@@ -49,10 +48,10 @@ public class DoctrineYamlMappingDriver implements DoctrineMappingDriverInterface
     }
 
     private void addEmbeddedFields(
-        @NotNull DoctrineMappingDriverArguments args,
-        @NotNull YAMLFile yamlFile,
-        @NotNull YAMLKeyValue modelKeyValue,
-        @NotNull Collection<DoctrineModelField> fields
+        DoctrineMappingDriverArguments args,
+        YAMLFile yamlFile,
+        YAMLKeyValue modelKeyValue,
+        Collection<DoctrineModelField> fields
     ) {
         String modelClass = YamlHelper.getYamlKeyName(modelKeyValue);
         YAMLKeyValue embeddedKeyValue = YamlHelper.getYamlKeyValue(modelKeyValue, "embedded");
@@ -76,7 +75,7 @@ public class DoctrineYamlMappingDriver implements DoctrineMappingDriverInterface
     }
 
     @Nullable
-    private DoctrineMetadataModel getLocalEmbeddableMetadata(@NotNull YAMLFile yamlFile, @NotNull String className) {
+    private DoctrineMetadataModel getLocalEmbeddableMetadata(YAMLFile yamlFile, String className) {
         for (YAMLKeyValue yamlKeyValue : YamlHelper.getTopLevelKeyValues(yamlFile)) {
             String name = YamlHelper.getYamlKeyName(yamlKeyValue);
             if (name == null || !StringUtils.stripStart(name, "\\").equals(StringUtils.stripStart(className, "\\"))) {
@@ -90,8 +89,7 @@ public class DoctrineYamlMappingDriver implements DoctrineMappingDriverInterface
         return null;
     }
 
-    @NotNull
-    private String getColumnPrefix(@NotNull YAMLKeyValue propertyKeyValue, @NotNull String propertyName) {
+    private String getColumnPrefix(YAMLKeyValue propertyKeyValue, String propertyName) {
         String columnPrefix = YamlHelper.getYamlKeyValueAsString(propertyKeyValue, "columnPrefix");
         if ("false".equalsIgnoreCase(columnPrefix)) {
             return "";

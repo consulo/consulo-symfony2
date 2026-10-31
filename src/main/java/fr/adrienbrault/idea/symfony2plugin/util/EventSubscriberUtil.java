@@ -1,12 +1,12 @@
 package fr.adrienbrault.idea.symfony2plugin.util;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.search.GlobalSearchScope;
-import com.intellij.util.containers.ContainerUtil;
-import com.intellij.util.indexing.FileBasedIndex;
 import com.jetbrains.php.lang.psi.elements.Method;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.scope.GlobalSearchScope;
+import consulo.language.psi.stub.FileBasedIndex;
+import consulo.project.Project;
+import consulo.util.collection.ContainerUtil;
 import fr.adrienbrault.idea.symfony2plugin.config.EventDispatcherSubscriberUtil;
 import fr.adrienbrault.idea.symfony2plugin.config.dic.EventDispatcherSubscribedEvent;
 import fr.adrienbrault.idea.symfony2plugin.dic.tags.ServiceTagFactory;
@@ -17,7 +17,6 @@ import fr.adrienbrault.idea.symfony2plugin.stubs.dict.DispatcherEvent;
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.EventAnnotationStubIndex;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.ServiceUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -28,7 +27,7 @@ import java.util.stream.Collectors;
  */
 public class EventSubscriberUtil {
 
-    public static void visitNamedTag(@NotNull Project project, @NotNull String tagName, @NotNull ServiceTagVisitorInterface visitor) {
+    public static void visitNamedTag(Project project, String tagName, ServiceTagVisitorInterface visitor) {
 
         for (String service : ServiceUtil.getTaggedServices(project, tagName)) {
             for (PsiElement psiElement : ServiceIndexUtil.findServiceDefinitions(project, service)) {
@@ -50,8 +49,7 @@ public class EventSubscriberUtil {
     /**
      * @TODO: implement collection with prio
      */
-    @NotNull
-    public static Collection<String> getTaggedEventMethodParameter(@NotNull Project project, @NotNull String eventName) {
+    public static Collection<String> getTaggedEventMethodParameter(Project project, String eventName) {
 
         // Static list
         if(ServiceUtil.TAGS.containsKey(eventName)) {
@@ -125,8 +123,7 @@ public class EventSubscriberUtil {
         return Collections.emptyList();
     }
 
-    @NotNull
-    private static Collection<String> normalizeFqns(@NotNull Collection<String> values) {
+    private static Collection<String> normalizeFqns(Collection<String> values) {
         return values.stream()
             .filter(StringUtils::isNotBlank)
             .map(value -> value.startsWith("\\") ? value : "\\" + value)

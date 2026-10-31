@@ -1,13 +1,12 @@
 package fr.adrienbrault.idea.symfony2plugin.asset;
 
-import com.intellij.codeInsight.completion.InsertHandler;
-import com.intellij.codeInsight.completion.InsertionContext;
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.codeInsight.lookup.LookupElementPresentation;
-import com.intellij.openapi.project.Project;
-import com.intellij.util.IconUtil;
+import consulo.language.editor.completion.lookup.InsertHandler;
+import consulo.language.editor.completion.lookup.InsertionContext;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.editor.completion.lookup.LookupElementPresentation;
+import consulo.project.Project;
+import consulo.virtualFileSystem.VirtualFilePresentation;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.ResourceFileInsertHandler;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * @author Adrien Brault <adrien.brault@gmail.com>
@@ -22,7 +21,6 @@ public class AssetLookupElement extends LookupElement {
         this.project = project;
     }
 
-    @NotNull
     @Override
     public String getLookupString() {
 
@@ -59,7 +57,7 @@ public class AssetLookupElement extends LookupElement {
 
         presentation.setItemText(assetFile.toString());
         presentation.setTypeText(typeText);
-        presentation.setIcon(IconUtil.getIcon(assetFile.getFile(), 0, project));
+        presentation.setIcon(VirtualFilePresentation.getIcon(assetFile.getFile()));
 
     }
 

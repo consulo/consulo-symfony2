@@ -1,6 +1,8 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.templating.assets;
 
-import com.intellij.openapi.vfs.VirtualFile;
+import org.junit.jupiter.api.Test;
+
+import consulo.virtualFileSystem.VirtualFile;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
 import fr.adrienbrault.idea.symfony2plugin.twig.assets.TwigNamedAssetsServiceParser;
 
@@ -17,6 +19,8 @@ public class TwigNamedAssetsServiceParserTest extends SymfonyLightCodeInsightFix
     protected String getTestDataPath() {
         return "src/test/java/fr/adrienbrault/idea/symfony2plugin/tests/templating/assets";
     }
+
+    @Test
 
     public void testParse() throws Exception {
         VirtualFile testFile = myFixture.copyFileToProject("appDevDebugProjectContainer.xml");

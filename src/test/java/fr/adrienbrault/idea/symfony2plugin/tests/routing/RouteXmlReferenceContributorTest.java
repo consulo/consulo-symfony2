@@ -1,7 +1,9 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.routing;
 
-import com.intellij.ide.highlighter.XmlFileType;
-import com.intellij.patterns.PlatformPatterns;
+import org.junit.jupiter.api.Test;
+
+import consulo.xml.language.XmlFileType;
+import consulo.language.pattern.PlatformPatterns;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
 
 /**
@@ -18,6 +20,8 @@ public class RouteXmlReferenceContributorTest extends SymfonyLightCodeInsightFix
     protected String getTestDataPath() {
         return "src/test/java/fr/adrienbrault/idea/symfony2plugin/tests/routing/fixtures";
     }
+
+    @Test
 
     public void testThatRouteLineMarkerForControllerIsGiven() {
         assertReferenceMatchOnParent(

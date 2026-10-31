@@ -1,14 +1,15 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.dic.linemarker;
 
-import com.intellij.patterns.PatternCondition;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiFileFactory;
-import com.intellij.util.ProcessingContext;
+import org.junit.jupiter.api.Test;
+
+import consulo.language.pattern.PatternCondition;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.PsiFileFactory;
+import consulo.language.util.ProcessingContext;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.yaml.YAMLFileType;
 import org.jetbrains.yaml.psi.YAMLKeyValue;
 
@@ -26,6 +27,8 @@ public class YamlLineMarkerProviderTest extends SymfonyLightCodeInsightFixtureTe
         return "src/test/java/fr/adrienbrault/idea/symfony2plugin/tests/dic/linemarker/fixtures";
     }
 
+    @Test
+
     public void testThatDecoratedServiceShouldProvideMarker() {
         assertLineMarker(createYamlFile("" +
                 "services:\n" +
@@ -36,6 +39,8 @@ public class YamlLineMarkerProviderTest extends SymfonyLightCodeInsightFixtureTe
             new LineMarker.ToolTipEqualsAssert("Navigate to decoration")
         );
     }
+
+    @Test
 
     public void testThatParentServiceShouldProvideMarker() {
         myFixture.addFileToProject("config/services_parent.yaml", "" +
@@ -54,12 +59,14 @@ public class YamlLineMarkerProviderTest extends SymfonyLightCodeInsightFixtureTe
         assertLineMarker(yamlFile, new LineMarker.TargetAcceptsPattern("Navigate to parent",
             PlatformPatterns.psiElement(YAMLKeyValue.class).with(new PatternCondition<>("KeyText") {
                 @Override
-                public boolean accepts(@NotNull YAMLKeyValue yamlKeyValue, ProcessingContext context) {
+                public boolean accepts(YAMLKeyValue yamlKeyValue, ProcessingContext context) {
                     return "app.child".equals(yamlKeyValue.getKeyText());
                 }
             }))
         );
     }
+
+    @Test
 
     public void testThatDecoratesProvidesOverwriteMarker() {
         assertLineMarker(createYamlFile("" +
@@ -72,6 +79,8 @@ public class YamlLineMarkerProviderTest extends SymfonyLightCodeInsightFixtureTe
         );
     }
 
+    @Test
+
     public void testThatParentProvidesOverwriteMarker() {
         assertLineMarker(createYamlFile("" +
                 "services:\n" +
@@ -82,6 +91,8 @@ public class YamlLineMarkerProviderTest extends SymfonyLightCodeInsightFixtureTe
             new LineMarker.ToolTipEqualsAssert("Navigate to parent service")
         );
     }
+
+    @Test
 
     public void testThatServiceResourceIsHavingLinemarker() {
         myFixture.addFileToProject("src/Controller/FooController.php", "<?php\n" +
@@ -98,15 +109,14 @@ public class YamlLineMarkerProviderTest extends SymfonyLightCodeInsightFixtureTe
         assertLineMarker(myFixture.getFile(), new LineMarker.TargetAcceptsPattern("Navigate to class",
             PlatformPatterns.psiElement(PhpClass.class).with(new PatternCondition<>("fqn") {
                 @Override
-                public boolean accepts(@NotNull PhpClass phpClass, ProcessingContext context) {
+                public boolean accepts(PhpClass phpClass, ProcessingContext context) {
                     return "\\App\\Controller\\FooController".equals(phpClass.getFQN());
                 }
             }))
         );
     }
 
-    @NotNull
-    private PsiElement createYamlFile(@NotNull String content) {
+    private PsiElement createYamlFile(String content) {
         return PsiFileFactory.getInstance(getProject()).createFileFromText("DUMMY__." + YAMLFileType.YML.getDefaultExtension(), YAMLFileType.YML, content);
     }
 }

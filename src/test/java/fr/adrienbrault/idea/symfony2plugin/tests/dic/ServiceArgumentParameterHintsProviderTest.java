@@ -1,13 +1,14 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.dic;
 
-import com.intellij.codeInsight.hints.InlayInfo;
-import com.intellij.ide.highlighter.XmlFileType;
-import com.intellij.openapi.fileTypes.FileType;
-import com.intellij.psi.PsiElement;
-import com.intellij.util.containers.ContainerUtil;
+import org.junit.jupiter.api.Test;
+
+import consulo.language.editor.inlay.InlayInfo;
+import consulo.xml.language.XmlFileType;
+import consulo.virtualFileSystem.fileType.FileType;
+import consulo.language.psi.PsiElement;
+import consulo.util.collection.ContainerUtil;
 import fr.adrienbrault.idea.symfony2plugin.dic.ServiceArgumentParameterHintsProvider;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.yaml.YAMLFileType;
 
 import java.util.List;
@@ -28,6 +29,8 @@ public class ServiceArgumentParameterHintsProviderTest extends SymfonyLightCodeI
         return "src/test/java/fr/adrienbrault/idea/symfony2plugin/tests/dic/fixtures";
     }
 
+    @Test
+
     public void testXmlParameterTypeHintForIdAttribute() {
         List<InlayInfo> parameterHints = getInlayInfo("" +
             "<container>\n" +
@@ -42,6 +45,8 @@ public class ServiceArgumentParameterHintsProviderTest extends SymfonyLightCodeI
         assertNotNull(ContainerUtil.find(parameterHints, inlayInfo -> "FooInterface".equals(inlayInfo.getText())));
     }
 
+    @Test
+
     public void testXmlParameterTypeHintForXmlText() {
         List<InlayInfo> parameterHints = getInlayInfo("" +
             "<container>\n" +
@@ -55,6 +60,8 @@ public class ServiceArgumentParameterHintsProviderTest extends SymfonyLightCodeI
 
         assertNotNull(ContainerUtil.find(parameterHints, inlayInfo -> "FooInterface".equals(inlayInfo.getText())));
     }
+
+    @Test
 
     public void testXmlParameterTypeHintWithoutTypeHintMustFallbackToParameterName() {
         List<InlayInfo> parameterHints = getInlayInfo("" +
@@ -71,6 +78,8 @@ public class ServiceArgumentParameterHintsProviderTest extends SymfonyLightCodeI
         assertNotNull(ContainerUtil.find(parameterHints, inlayInfo -> "foobar".equals(inlayInfo.getText())));
     }
 
+    @Test
+
     public void testXmlParameterTypeHintWithoutTypeHintMustFallbackToParameterNameOnClassAsId() {
         List<InlayInfo> parameterHints = getInlayInfo("" +
             "<container>\n" +
@@ -86,6 +95,8 @@ public class ServiceArgumentParameterHintsProviderTest extends SymfonyLightCodeI
         assertNotNull(ContainerUtil.find(parameterHints, inlayInfo -> "foobar".equals(inlayInfo.getText())));
     }
 
+    @Test
+
     public void testXmlParameterTypeHintForNamedArguments() {
         List<InlayInfo> parameterHints = getInlayInfo("" +
             "<container>\n" +
@@ -99,6 +110,8 @@ public class ServiceArgumentParameterHintsProviderTest extends SymfonyLightCodeI
 
         assertNotNull(ContainerUtil.find(parameterHints, inlayInfo -> "FooInterface".equals(inlayInfo.getText())));
     }
+
+    @Test
 
     public void testXmlParameterTypeForNestedArgumentsMustNotProvideHint() {
         List<InlayInfo> parameterHints = getInlayInfo("" +
@@ -117,6 +130,8 @@ public class ServiceArgumentParameterHintsProviderTest extends SymfonyLightCodeI
         assertSize(0, parameterHints);
     }
 
+    @Test
+
     public void testXmlParameterTypeForId() {
         List<InlayInfo> parameterHints = getInlayInfo("" +
             "<container>\n" +
@@ -128,6 +143,8 @@ public class ServiceArgumentParameterHintsProviderTest extends SymfonyLightCodeI
 
         assertNotNull(ContainerUtil.find(parameterHints, inlayInfo -> "MyFoobar".equals(inlayInfo.getText())));
     }
+
+    @Test
 
     public void testXmlParameterTypeHintForCallArgument() {
         List<InlayInfo> parameterHints = getInlayInfo("" +
@@ -145,6 +162,8 @@ public class ServiceArgumentParameterHintsProviderTest extends SymfonyLightCodeI
         assertNotNull(ContainerUtil.find(parameterHints, inlayInfo -> "FooInterface".equals(inlayInfo.getText())));
     }
 
+    @Test
+
     public void testYamlParameterTypeForId() {
         List<InlayInfo> parameterHints = getInlayInfo(YAMLFileType.YML,"" +
             "services:\n" +
@@ -156,6 +175,8 @@ public class ServiceArgumentParameterHintsProviderTest extends SymfonyLightCodeI
         assertNotNull(ContainerUtil.find(parameterHints, inlayInfo -> "FooInterface".equals(inlayInfo.getText())));
     }
 
+    @Test
+
     public void testYamlParameterTypeForServiceIdShortcut() {
         List<InlayInfo> parameterHints = getInlayInfo(YAMLFileType.YML,"" +
             "services:\n" +
@@ -165,6 +186,8 @@ public class ServiceArgumentParameterHintsProviderTest extends SymfonyLightCodeI
 
         assertNotNull(ContainerUtil.find(parameterHints, inlayInfo -> "FooInterface".equals(inlayInfo.getText())));
     }
+
+    @Test
 
     public void testYamlParameterTypeForServiceIdShortcutWithNamedArgument() {
         List<InlayInfo> parameterHints = getInlayInfo(YAMLFileType.YML,"" +
@@ -176,6 +199,8 @@ public class ServiceArgumentParameterHintsProviderTest extends SymfonyLightCodeI
 
         assertNotNull(ContainerUtil.find(parameterHints, inlayInfo -> "FooInterface".equals(inlayInfo.getText())));
     }
+
+    @Test
 
     public void testYamlParameterTypeForCallMethodParameter() {
         List<InlayInfo> parameterHints = getInlayInfo(YAMLFileType.YML,"" +
@@ -189,6 +214,8 @@ public class ServiceArgumentParameterHintsProviderTest extends SymfonyLightCodeI
         assertNotNull(ContainerUtil.find(parameterHints, inlayInfo -> "FooInterface".equals(inlayInfo.getText())));
     }
 
+    @Test
+
     public void testYamlParameterTypeForCallMethodParameterWithIdShortcut() {
         List<InlayInfo> parameterHints = getInlayInfo(YAMLFileType.YML,"" +
             "services:\n" +
@@ -200,8 +227,7 @@ public class ServiceArgumentParameterHintsProviderTest extends SymfonyLightCodeI
         assertNotNull(ContainerUtil.find(parameterHints, inlayInfo -> "FooInterface".equals(inlayInfo.getText())));
     }
 
-    @NotNull
-    private List<InlayInfo> getInlayInfo(@NotNull FileType fileType, @NotNull String content) {
+    private List<InlayInfo> getInlayInfo(FileType fileType, String content) {
         myFixture.configureByText(fileType, content);
 
         PsiElement psiElement = myFixture.getFile().findElementAt(myFixture.getCaretOffset());
@@ -212,8 +238,7 @@ public class ServiceArgumentParameterHintsProviderTest extends SymfonyLightCodeI
         return new ServiceArgumentParameterHintsProvider().getParameterHints(parent);
     }
 
-    @NotNull
-    private List<InlayInfo> getInlayInfo(@NotNull String content) {
+    private List<InlayInfo> getInlayInfo(String content) {
         return getInlayInfo(XmlFileType.INSTANCE, content);
     }
 }

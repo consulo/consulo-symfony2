@@ -1,18 +1,19 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.variable.collector;
 
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.patterns.ElementPattern;
-import com.intellij.openapi.project.Project;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiManager;
-import com.intellij.psi.PsiRecursiveElementWalkingVisitor;
-import com.intellij.psi.search.GlobalSearchScope;
-import com.intellij.psi.tree.IElementType;
-import com.intellij.psi.util.PsiTreeUtil;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.language.pattern.ElementPattern;
+import consulo.project.Project;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.PsiManager;
+import consulo.language.psi.PsiRecursiveElementWalkingVisitor;
+import consulo.language.psi.scope.GlobalSearchScope;
+import consulo.language.ast.IElementType;
+import consulo.language.psi.util.PsiTreeUtil;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
 import com.jetbrains.php.lang.psi.elements.PhpNamedElement;
-import com.intellij.util.indexing.FileBasedIndex;
+import consulo.language.psi.stub.FileBasedIndex;
 import com.jetbrains.twig.TwigFile;
 import com.jetbrains.twig.TwigFileType;
 import com.jetbrains.twig.TwigTokenTypes;
@@ -31,17 +32,23 @@ import fr.adrienbrault.idea.symfony2plugin.templating.variable.dict.PsiVariable;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl(order = "after TwigUxComponentVariableCollector")
 public class IncludeVariableCollector implements TwigFileVariableCollector {
     @Override
-    public void collectPsiVariables(@NotNull final TwigFileVariableCollectorParameter parameter, @NotNull final Map<String, PsiVariable> variables) {
+    public void collectPsiVariables(final TwigFileVariableCollectorParameter parameter, final Map<String, PsiVariable> variables) {
         PsiFile psiFile = parameter.getContainingFile();
         if (!(psiFile instanceof TwigFile) || PsiTreeUtil.getChildOfType(psiFile, TwigExtendsTag.class) != null) {
             return;
@@ -91,8 +98,7 @@ public class IncludeVariableCollector implements TwigFileVariableCollector {
     /**
      * Resolves include context rules, e.g. parent context plus {foo: bar}, or isolated with only/with_context.
      */
-    @NotNull
-    private static TwigIncludeContextParser.IncludeContext resolveIncludeContext(@NotNull IElementType iElementType, @NotNull PsiElement tag, @NotNull PsiElement templatePsiName) {
+    private static TwigIncludeContextParser.IncludeContext resolveIncludeContext(IElementType iElementType, PsiElement tag, PsiElement templatePsiName) {
         if (iElementType == TwigElementTypes.INCLUDE_TAG || iElementType == TwigElementTypes.EMBED_TAG) {
             return TwigIncludeContextParser.resolveTagIncludeContext(tag);
         }
@@ -107,8 +113,7 @@ public class IncludeVariableCollector implements TwigFileVariableCollector {
     /**
      * Extracts simple type source paths, e.g. item or item.product.
      */
-    @NotNull
-    private static List<String> getSourcePath(@NotNull List<PsiElement> valueElements) {
+    private static List<String> getSourcePath(List<PsiElement> valueElements) {
         if (valueElements.size() != 1) {
             return Collections.emptyList();
         }
@@ -130,14 +135,14 @@ public class IncludeVariableCollector implements TwigFileVariableCollector {
     /**
      * Checks for a direct variable value, e.g. item in {product: item}.
      */
-    private static boolean isSimpleVariableReference(@NotNull PsiElement element) {
+    private static boolean isSimpleVariableReference(PsiElement element) {
         return isTwigElementType(element, TwigElementTypes.VARIABLE_REFERENCE) && StringUtils.isNotBlank(element.getText());
     }
 
     /**
      * Flattens Twig reference PSI into a path, e.g. item.product into [item, product].
      */
-    private static void collectReferencePath(@NotNull PsiElement element, @NotNull List<String> path) {
+    private static void collectReferencePath(PsiElement element, List<String> path) {
         for (PsiElement child = element.getFirstChild(); child != null; child = child.getNextSibling()) {
             if (isTwigElementType(child, TwigElementTypes.VARIABLE_REFERENCE)) {
                 if (StringUtils.isNotBlank(child.getText())) {
@@ -163,7 +168,7 @@ public class IncludeVariableCollector implements TwigFileVariableCollector {
      * Resolves an include argument against parent scope, e.g. product: item.product.
      */
     @Nullable
-    private static PsiVariable resolveIncludeArgumentVariable(@NotNull Project project, @NotNull Map<String, PsiVariable> parentScope, @NotNull List<String> sourcePath) {
+    private static PsiVariable resolveIncludeArgumentVariable(Project project, Map<String, PsiVariable> parentScope, List<String> sourcePath) {
         if (sourcePath.isEmpty()) {
             return null;
         }
@@ -200,7 +205,7 @@ public class IncludeVariableCollector implements TwigFileVariableCollector {
     /**
      * Small guard around direct Twig element type comparisons.
      */
-    private static boolean isTwigElementType(@NotNull PsiElement element, @NotNull IElementType elementType) {
+    private static boolean isTwigElementType(PsiElement element, IElementType elementType) {
         return element.getNode().getElementType() == elementType;
     }
 
@@ -218,13 +223,10 @@ public class IncludeVariableCollector implements TwigFileVariableCollector {
     }
 
     private class MyPsiRecursiveElementWalkingVisitor extends PsiRecursiveElementWalkingVisitor {
-        @NotNull
         private final PsiFile psiFile;
 
-        @NotNull
         private final Map<String, PsiVariable> variables;
 
-        @NotNull
         private final TwigFileVariableCollectorParameter parameter;
 
         private ElementPattern<PsiElement> includeFunctionPattern;
@@ -233,14 +235,14 @@ public class IncludeVariableCollector implements TwigFileVariableCollector {
             return includeFunctionPattern != null ? includeFunctionPattern : (includeFunctionPattern = TwigPattern.getPrintBlockOrTagFunctionPattern("include"));
         }
 
-        private MyPsiRecursiveElementWalkingVisitor(@NotNull PsiFile psiFile, @NotNull Map<String, PsiVariable> variables, @NotNull TwigFileVariableCollectorParameter parameter) {
+        private MyPsiRecursiveElementWalkingVisitor(PsiFile psiFile, Map<String, PsiVariable> variables, TwigFileVariableCollectorParameter parameter) {
             this.psiFile = psiFile;
             this.variables = variables;
             this.parameter = parameter;
         }
 
         @Override
-        public void visitElement(@NotNull PsiElement element) {
+        public void visitElement(PsiElement element) {
 
             // {% include 'template.html' %}
             if (element instanceof TwigTagWithFileReference && element.getNode().getElementType() == TwigElementTypes.INCLUDE_TAG) {
@@ -266,11 +268,11 @@ public class IncludeVariableCollector implements TwigFileVariableCollector {
             super.visitElement(element);
         }
 
-        private void collectContextVars(IElementType iElementType, @NotNull PsiElement element, @NotNull PsiElement includeTag) {
+        private void collectContextVars(IElementType iElementType, PsiElement element, PsiElement includeTag) {
             collectContextVars(iElementType, element, includeTag, includeTag.getText());
         }
 
-        private void collectContextVars(IElementType iElementType, @NotNull PsiElement element, @NotNull PsiElement contextElement, @NotNull String templateName) {
+        private void collectContextVars(IElementType iElementType, PsiElement element, PsiElement contextElement, String templateName) {
             if (StringUtils.isNotBlank(templateName)) {
                 for (PsiFile templateFile: TwigUtil.getTemplatePsiElements(element.getProject(), templateName)) {
                     if (templateFile.equals(psiFile)) {

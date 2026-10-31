@@ -1,11 +1,10 @@
 package fr.adrienbrault.idea.symfony2plugin.stubs.indexes;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.psi.search.GlobalSearchScope;
-import com.intellij.util.indexing.FileBasedIndex;
+import consulo.project.Project;
+import consulo.language.psi.scope.GlobalSearchScope;
+import consulo.language.psi.stub.FileBasedIndex;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -23,8 +22,7 @@ public class PhpAttributeIndexUtil {
      * @param attributeFqn The attribute FQN (e.g., "\Twig\Attribute\AsTwigFilter")
      * @return scoped targets for the given attribute FQN
      */
-    @NotNull
-    public static Collection<PhpAttributeIndex.AttributeTarget> getAttributeData(@NotNull Project project, @NotNull String attributeFqn) {
+    public static Collection<PhpAttributeIndex.AttributeTarget> getAttributeData(Project project, String attributeFqn) {
         return FileBasedIndex.getInstance()
             .getValues(
                 PhpAttributeIndex.KEY,
@@ -36,11 +34,10 @@ public class PhpAttributeIndexUtil {
             .toList();
     }
 
-    @NotNull
     public static Collection<PhpAttributeIndex.AttributeTarget> getTargetsWithAttributeScope(
-        @NotNull Project project,
-        @NotNull String attributeFqn,
-        @NotNull PhpAttributeIndex.TargetScope scope
+        Project project,
+        String attributeFqn,
+        PhpAttributeIndex.TargetScope scope
     ) {
         return getAttributeData(project, attributeFqn)
             .stream()
@@ -48,8 +45,7 @@ public class PhpAttributeIndexUtil {
             .toList();
     }
 
-    @NotNull
-    public static Collection<PhpAttributeIndex.AttributeTarget> getMethodTargetsWithAttribute(@NotNull Project project, @NotNull String attributeFqn) {
+    public static Collection<PhpAttributeIndex.AttributeTarget> getMethodTargetsWithAttribute(Project project, String attributeFqn) {
         return getTargetsWithAttributeScope(project, attributeFqn, PhpAttributeIndex.TargetScope.METHOD);
     }
 
@@ -60,8 +56,7 @@ public class PhpAttributeIndexUtil {
      * @param attributeFqn The attribute FQN
      * @return Collection of PhpClass instances
      */
-    @NotNull
-    public static Collection<PhpClass> getClassesWithAttribute(@NotNull Project project, @NotNull String attributeFqn) {
+    public static Collection<PhpClass> getClassesWithAttribute(Project project, String attributeFqn) {
         Collection<PhpClass> classes = new ArrayList<>();
 
         for (PhpAttributeIndex.AttributeTarget target : getTargetsWithAttributeScope(project, attributeFqn, PhpAttributeIndex.TargetScope.PHP_CLASS)) {
@@ -74,8 +69,7 @@ public class PhpAttributeIndexUtil {
         return classes;
     }
 
-    @NotNull
-    private static String normalizeFqn(@NotNull String fqn) {
+    private static String normalizeFqn(String fqn) {
         return fqn.startsWith("\\") ? fqn : "\\" + fqn;
     }
 }

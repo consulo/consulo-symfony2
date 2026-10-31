@@ -1,10 +1,9 @@
 package fr.adrienbrault.idea.symfony2plugin.profiler.factory;
 
-import com.intellij.openapi.project.Project;
+import consulo.project.Project;
 import fr.adrienbrault.idea.symfony2plugin.profiler.LocalProfilerIndex;
 import fr.adrienbrault.idea.symfony2plugin.profiler.ProfilerIndexInterface;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.io.File;
 
@@ -14,7 +13,7 @@ import java.io.File;
 class DefaultLocalProfilerFactory extends LocalProfilerFactory {
     @Nullable
     @Override
-    public ProfilerIndexInterface createProfilerIndex(@NotNull Project project) {
+    public ProfilerIndexInterface createProfilerIndex(Project project) {
         File csvProfilerFile = getCsvIndex(project);
         if(csvProfilerFile == null) {
             return null;
@@ -24,7 +23,7 @@ class DefaultLocalProfilerFactory extends LocalProfilerFactory {
     }
 
     @Override
-    public boolean accepts(@NotNull Project project) {
+    public boolean accepts(Project project) {
         return true;
     }
 }

@@ -1,11 +1,10 @@
 package fr.adrienbrault.idea.symfony2plugin.templating;
 
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.psi.PsiElement;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.psi.PsiElement;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionProvider;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.utils.GotoCompletionUtil;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -19,13 +18,11 @@ public class TemplateGotoCompletionRegistrar extends GotoCompletionProvider {
         super(element);
     }
 
-    @NotNull
     @Override
     public Collection<LookupElement> getLookupElements() {
         return TwigUtil.getAllTemplateLookupElements(getElement().getProject());
     }
 
-    @NotNull
     @Override
     public Collection<PsiElement> getPsiTargets(PsiElement element) {
         String templateName = GotoCompletionUtil.getTextValueForElement(element);

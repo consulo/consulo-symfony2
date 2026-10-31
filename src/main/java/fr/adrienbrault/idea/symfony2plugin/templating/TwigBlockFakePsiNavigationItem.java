@@ -1,14 +1,15 @@
 package fr.adrienbrault.idea.symfony2plugin.templating;
 
-import com.intellij.navigation.ItemPresentation;
-import com.intellij.openapi.vfs.VfsUtil;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiElement;
-import com.intellij.util.xml.model.gotosymbol.GoToSymbolProvider;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
-import javax.swing.*;
+import consulo.component.util.Iconable;
+import consulo.language.icon.IconDescriptorUpdaters;
+import consulo.localize.LocalizeValue;
+import consulo.navigation.ItemPresentation;
+import consulo.ui.image.Image;
+import consulo.virtualFileSystem.util.VirtualFileUtil;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.language.psi.PsiElement;
+import consulo.xml.util.xml.model.gotosymbol.GoToSymbolProvider;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Wraps a block PSI element for the goto-declaration popover when multiple targets exist,
@@ -18,32 +19,33 @@ import javax.swing.*;
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class TwigBlockFakePsiNavigationItem extends GoToSymbolProvider.BaseNavigationItem {
-    private final VirtualFile projectDir;
+    private final @Nullable VirtualFile projectDir;
     private final PsiElement myPsiElement;
 
-    public TwigBlockFakePsiNavigationItem(@Nullable VirtualFile projectDir, @NotNull PsiElement psiElement) {
+    public TwigBlockFakePsiNavigationItem(@Nullable VirtualFile projectDir, PsiElement psiElement) {
         super(psiElement, "", null);
 
         this.projectDir = projectDir;
         this.myPsiElement = psiElement;
     }
 
+    // consulo-port: was getIcon(boolean) returning PsiFile#getIcon(int); Consulo has getIcon() and IconDescriptorUpdaters
     @Override
-    public Icon getIcon(boolean flags) {
-        return myPsiElement.getContainingFile().getIcon(ICON_FLAG_VISIBILITY);
+    public @Nullable Image getIcon() {
+        return IconDescriptorUpdaters.getIcon(myPsiElement.getContainingFile(), Iconable.ICON_FLAG_VISIBILITY);
     }
 
     public ItemPresentation getPresentation() {
         return new ItemPresentation() {
             @Override
-            public String getPresentableText() {
-                return myPsiElement.getText();
+            public LocalizeValue getPresentableText() {
+                return LocalizeValue.of(myPsiElement.getText());
             }
 
             @Override
             public String getLocationString() {
                 if (projectDir != null) {
-                    String relativePath = VfsUtil.getRelativePath(myPsiElement.getContainingFile().getVirtualFile(), projectDir, '/');
+                    String relativePath = VirtualFileUtil.getRelativePath(myPsiElement.getContainingFile().getVirtualFile(), projectDir, '/');
                     if (relativePath != null) {
                         return '(' + relativePath + ')';
                     }
@@ -55,8 +57,8 @@ public class TwigBlockFakePsiNavigationItem extends GoToSymbolProvider.BaseNavig
 
             @Override
             @Nullable
-            public Icon getIcon(boolean open) {
-                return TwigBlockFakePsiNavigationItem.this.getIcon(ICON_FLAG_VISIBILITY);
+            public Image getIcon() {
+                return TwigBlockFakePsiNavigationItem.this.getIcon();
             }
         };
     }

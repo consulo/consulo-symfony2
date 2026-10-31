@@ -1,11 +1,10 @@
 package fr.adrienbrault.idea.symfony2plugin.stubs.util;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.psi.search.GlobalSearchScope;
-import com.intellij.util.indexing.FileBasedIndex;
-import com.intellij.util.indexing.ID;
+import consulo.project.Project;
+import consulo.language.psi.scope.GlobalSearchScope;
+import consulo.language.psi.stub.FileBasedIndex;
+import consulo.index.io.ID;
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.*;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.Collection;
 import java.util.HashSet;
@@ -44,7 +43,7 @@ public class IndexUtil {
      *
      * @link <a href="https://intellij-support.jetbrains.com/hc/en-us/community/posts/206766415/comments/207499699">...</a>
      */
-    public static <K> Collection<K> getAllKeysForProject(@NotNull ID<K, ?> indexId, @NotNull Project project) {
+    public static <K> Collection<K> getAllKeysForProject(ID<K, ?> indexId, Project project) {
         Set<K> items = new HashSet<>();
 
         FileBasedIndex index = FileBasedIndex.getInstance();

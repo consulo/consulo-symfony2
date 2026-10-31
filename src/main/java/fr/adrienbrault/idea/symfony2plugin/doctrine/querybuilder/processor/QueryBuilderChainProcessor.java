@@ -1,12 +1,11 @@
 package fr.adrienbrault.idea.symfony2plugin.doctrine.querybuilder.processor;
 
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.util.PsiTreeUtil;
 import com.jetbrains.php.lang.psi.elements.*;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.util.PsiTreeUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -55,8 +54,7 @@ public class QueryBuilderChainProcessor {
      *
      * @param methodReference current method
      */
-    @NotNull
-    public List<MethodReference> getMethodReferencesAfter(@NotNull MethodReference methodReference) {
+    public List<MethodReference> getMethodReferencesAfter(MethodReference methodReference) {
 
         List<MethodReference> methodReferences = new ArrayList<>();
 
@@ -172,8 +170,7 @@ public class QueryBuilderChainProcessor {
 
     }
 
-    @NotNull
-    private static InstanceType isQueryBuilderInstance(@NotNull Method method) {
+    private static InstanceType isQueryBuilderInstance(Method method) {
 
         PhpClass containingClass = method.getContainingClass();
         if(containingClass != null && PhpElementsUtil.isInstanceOf(containingClass, DOCTRINE_ORM_QUERY_BUILDER)) {
@@ -195,7 +192,7 @@ public class QueryBuilderChainProcessor {
 
     @Nullable
     @SuppressWarnings("unchecked")
-    private static <T extends PsiElement> T getLastParentOfType(@Nullable PsiElement element, @NotNull Class<T> aClass) {
+    private static <T extends PsiElement> T getLastParentOfType(@Nullable PsiElement element, Class<T> aClass) {
         if (element == null) return null;
 
         PsiElement last = element.getParent();

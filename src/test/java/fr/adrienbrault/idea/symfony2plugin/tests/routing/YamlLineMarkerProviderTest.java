@@ -1,8 +1,10 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.routing;
 
-import com.intellij.ide.highlighter.XmlFileType;
-import com.intellij.patterns.XmlPatterns;
-import com.intellij.psi.PsiFile;
+import org.junit.jupiter.api.Test;
+
+import consulo.xml.language.XmlFileType;
+import consulo.xml.language.psi.pattern.XmlPatterns;
+import consulo.language.psi.PsiFile;
 import com.jetbrains.php.lang.PhpFileType;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
 import org.jetbrains.yaml.YAMLFileType;
@@ -32,6 +34,8 @@ public class YamlLineMarkerProviderTest extends SymfonyLightCodeInsightFixtureTe
         return "src/test/java/fr/adrienbrault/idea/symfony2plugin/tests/routing/fixtures";
     }
 
+    @Test
+
     public void testDoctrineFirstLineModelNavigation() {
         for (String s : new String[]{"foo.orm.yml", "foo.odm.yml", "foo.couchdb.yml", "foo.mongodb.yml", "foo.document.yml", "foo.ORM.YML"}) {
             assertLineMarker(
@@ -40,6 +44,8 @@ public class YamlLineMarkerProviderTest extends SymfonyLightCodeInsightFixtureTe
             );
         }
     }
+
+    @Test
 
     public void testDoctrineMetadataRelation() {
 
@@ -69,6 +75,8 @@ public class YamlLineMarkerProviderTest extends SymfonyLightCodeInsightFixtureTe
 
     }
 
+    @Test
+
     public void testThatResourceProvidesLineMarkerLineMarker() {
         PsiFile psiFile = myFixture.configureByText("foo.yml", "");
         assertLineMarker(
@@ -81,6 +89,8 @@ public class YamlLineMarkerProviderTest extends SymfonyLightCodeInsightFixtureTe
             new LineMarker.TargetAcceptsPattern("Navigate to resource", XmlPatterns.xmlTag().withName("import").withAttributeValue("resource", "@FooBundle/foo.yml"))
         );
     }
+
+    @Test
 
     public void testRouteControllerActionProvidesLineMarker() {
         myFixture.configureByText(PhpFileType.INSTANCE, "<?php\n" +

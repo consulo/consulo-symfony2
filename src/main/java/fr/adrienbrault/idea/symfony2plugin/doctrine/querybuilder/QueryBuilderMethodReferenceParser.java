@@ -1,12 +1,12 @@
 package fr.adrienbrault.idea.symfony2plugin.doctrine.querybuilder;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.util.PsiTreeUtil;
 import com.jetbrains.php.PhpIndex;
 import com.jetbrains.php.lang.parser.PhpElementTypes;
 import com.jetbrains.php.lang.psi.elements.*;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.util.PsiTreeUtil;
+import consulo.project.Project;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.EntityHelper;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.dict.DoctrineModelField;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.querybuilder.detector.FormQueryBuilderRepositoryDetector;
@@ -22,7 +22,6 @@ import fr.adrienbrault.idea.symfony2plugin.util.PhpTypeProviderUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.DoctrineModel;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 import java.util.regex.Matcher;
@@ -217,8 +216,7 @@ public class QueryBuilderMethodReferenceParser {
      * }
      * ```
      */
-    @NotNull
-    private Map<String, String> findRootDefinition(@NotNull Collection<MethodReference> methodReferences) {
+    private Map<String, String> findRootDefinition(Collection<MethodReference> methodReferences) {
         if(methodReferences.isEmpty()) {
             return Collections.emptyMap();
         }

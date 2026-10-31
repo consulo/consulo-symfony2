@@ -1,12 +1,17 @@
 package fr.adrienbrault.idea.symfony2plugin.profiler.widget;
 
-import com.intellij.openapi.actionSystem.*;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.ui.popup.JBPopupFactory;
-import com.intellij.openapi.ui.popup.ListPopup;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.openapi.wm.StatusBarWidget;
-import com.intellij.openapi.wm.impl.status.EditorBasedStatusBarPopup;
+import consulo.dataContext.DataContext;
+import consulo.fileEditor.statusBar.EditorBasedStatusBarPopup;
+import consulo.localize.LocalizeValue;
+import consulo.project.Project;
+import consulo.project.ui.wm.StatusBarWidget;
+import consulo.project.ui.wm.StatusBarWidgetFactory;
+import consulo.ui.ex.action.ActionGroup;
+import consulo.ui.ex.action.AnAction;
+import consulo.ui.ex.action.DefaultActionGroup;
+import consulo.ui.ex.popup.JBPopupFactory;
+import consulo.ui.ex.popup.ListPopup;
+import consulo.virtualFileSystem.VirtualFile;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
 import fr.adrienbrault.idea.symfony2plugin.profiler.ProfilerIndexInterface;
 import fr.adrienbrault.idea.symfony2plugin.profiler.collector.DefaultDataCollectorInterface;
@@ -18,10 +23,11 @@ import fr.adrienbrault.idea.symfony2plugin.profiler.dict.ProfilerTwigComponent;
 import fr.adrienbrault.idea.symfony2plugin.profiler.factory.ProfilerFactoryUtil;
 import fr.adrienbrault.idea.symfony2plugin.profiler.widget.action.SymfonyProfilerWidgetActions;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
@@ -31,22 +37,22 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 public class SymfonyProfilerWidget extends EditorBasedStatusBarPopup {
     public static final String ID = "symfony2.profiler";
 
-    public SymfonyProfilerWidget(@NotNull Project project) {
-        super(project, false);
+    public SymfonyProfilerWidget(Project project, StatusBarWidgetFactory factory) {
+        super(project, factory, false);
     }
 
     @Override
-    protected @NotNull WidgetState getWidgetState(@Nullable VirtualFile file) {
-        return new WidgetState("Symfony Profiler", "Symfony", true);
+    protected WidgetState getWidgetState(@Nullable VirtualFile file) {
+        return new WidgetState(LocalizeValue.localizeTODO("Symfony Profiler"), LocalizeValue.localizeTODO("Symfony"), true);
     }
 
     @Override
-    protected @NotNull StatusBarWidget createInstance(@NotNull Project project) {
-        return new SymfonyProfilerWidget(project);
+    protected StatusBarWidget createInstance(Project project) {
+        return new SymfonyProfilerWidget(project, myFactory);
     }
 
     @Override
-    protected @Nullable ListPopup createPopup(@NotNull DataContext context) {
+    protected @Nullable ListPopup createPopup(DataContext context) {
         ActionGroup actionGroup = getActions();
         return JBPopupFactory.getInstance()
                 .createActionGroupPopup("Symfony Profiler", actionGroup, context,
@@ -57,14 +63,14 @@ public class SymfonyProfilerWidget extends EditorBasedStatusBarPopup {
     private DefaultActionGroup getActions() {
         ProfilerIndexInterface index = ProfilerFactoryUtil.createIndex(getProject());
         if(index == null) {
-            return new DefaultActionGroup("Symfony.Profiler", false);
+            return new DefaultActionGroup(LocalizeValue.localizeTODO("Symfony.Profiler"), false);
         }
 
         return buildActions(getProject(), index, index.getRequests());
     }
 
-    static DefaultActionGroup buildActions(@NotNull Project project, @NotNull ProfilerIndexInterface index, @NotNull Collection<ProfilerRequestInterface> requests) {
-        DefaultActionGroup actionGroup = new DefaultActionGroup("Symfony.Profiler", false);
+    static DefaultActionGroup buildActions(Project project, ProfilerIndexInterface index, Collection<ProfilerRequestInterface> requests) {
+        DefaultActionGroup actionGroup = new DefaultActionGroup(LocalizeValue.localizeTODO("Symfony.Profiler"), false);
 
         Collection<AnAction> urlActions = new ConcurrentLinkedQueue<>();
         Collection<AnAction> mailActions = new ConcurrentLinkedQueue<>();
@@ -172,11 +178,5 @@ public class SymfonyProfilerWidget extends EditorBasedStatusBarPopup {
         }
 
         return actionGroup;
-    }
-
-    @NotNull
-    @Override
-    public String ID() {
-        return ID;
     }
 }

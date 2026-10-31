@@ -3,12 +3,11 @@ package fr.adrienbrault.idea.symfony2plugin.translation.parser;
 import fr.adrienbrault.idea.symfony2plugin.translation.dict.DomainFileMap;
 import fr.adrienbrault.idea.symfony2plugin.util.service.AbstractServiceParser;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.vfs.VirtualFile;
+import consulo.project.Project;
+import consulo.virtualFileSystem.VirtualFile;
 import java.io.InputStream;
 import java.util.Collection;
 import java.util.Collections;
@@ -96,11 +95,11 @@ public class DomainMappings extends AbstractServiceParser {
         return Collections.synchronizedList(domainFileMaps);
     }
 
-    public Collection<DomainFileMap> getDomainFileMaps(@NotNull String domainName) {
+    public Collection<DomainFileMap> getDomainFileMaps(String domainName) {
         return domainFileMapsByDomain.getOrDefault(domainName, Collections.emptyList());
     }
 
-    public boolean hasDomain(@NotNull String domainName) {
+    public boolean hasDomain(String domainName) {
         return domains.contains(domainName);
     }
 
@@ -108,7 +107,7 @@ public class DomainMappings extends AbstractServiceParser {
         return Collections.unmodifiableSet(domains);
     }
 
-    private void addDomainFileMap(@NotNull DomainFileMap domainFileMap) {
+    private void addDomainFileMap(DomainFileMap domainFileMap) {
         this.domainFileMaps.add(domainFileMap);
         this.domains.add(domainFileMap.getDomain());
         this.domainFileMapsByDomain

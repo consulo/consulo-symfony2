@@ -1,5 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.routing.dic;
 
+import org.junit.jupiter.api.Test;
+
 import com.jetbrains.php.lang.psi.elements.Method;
 import fr.adrienbrault.idea.symfony2plugin.routing.Route;
 import fr.adrienbrault.idea.symfony2plugin.routing.dic.ServiceRouteContainer;
@@ -13,11 +15,15 @@ public class ServiceRouteContainerTest extends SymfonyLightCodeInsightFixtureTes
         return "src/test/java/fr/adrienbrault/idea/symfony2plugin/tests/routing/fixtures";
     }
 
+    @Test
+
     public void testGetServiceNamesForServiceControllerRoutes() {
         configureServiceControllerRouteFixtures();
 
         assertContainsElements(ServiceRouteContainer.getServiceNames(getProject()), "foo.bar_controller");
     }
+
+    @Test
 
     public void testGetMethodMatchesForServiceControllerClassMethod() {
         configureServiceControllerRouteFixtures();

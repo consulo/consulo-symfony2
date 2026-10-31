@@ -1,12 +1,11 @@
 package fr.adrienbrault.idea.symfony2plugin.extension;
 
-import com.intellij.navigation.GotoRelatedItem;
-import com.intellij.openapi.project.Project;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.util.PsiTreeUtil;
+import consulo.language.navigation.GotoRelatedItem;
+import consulo.project.Project;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.util.PsiTreeUtil;
 import com.jetbrains.php.lang.psi.elements.Method;
 import com.jetbrains.php.lang.psi.elements.ParameterList;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.Collection;
 
@@ -20,7 +19,7 @@ public class ControllerActionGotoRelatedCollectorParameter {
     private final Project project;
     private PsiElement[] parameterLists = null;
 
-    public ControllerActionGotoRelatedCollectorParameter(@NotNull Method method, @NotNull Collection<GotoRelatedItem> relatedItems) {
+    public ControllerActionGotoRelatedCollectorParameter(Method method, Collection<GotoRelatedItem> relatedItems) {
         this.relatedItems = relatedItems;
         this.method = method;
         this.project = method.getProject();

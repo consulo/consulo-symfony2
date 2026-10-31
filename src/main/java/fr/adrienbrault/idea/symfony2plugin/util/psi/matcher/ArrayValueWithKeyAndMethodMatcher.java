@@ -1,9 +1,9 @@
 package fr.adrienbrault.idea.symfony2plugin.util.psi.matcher;
 
-import com.intellij.openapi.util.Pair;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.patterns.PsiElementPattern;
-import com.intellij.psi.PsiElement;
+import consulo.util.lang.Pair;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.pattern.PsiElementPattern;
+import consulo.language.psi.PsiElement;
 import com.jetbrains.php.lang.parser.PhpElementTypes;
 import com.jetbrains.php.lang.patterns.PhpPatterns;
 import com.jetbrains.php.lang.psi.elements.*;
@@ -12,8 +12,7 @@ import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.PhpMethodReferenceCall;
 import fr.adrienbrault.idea.symfony2plugin.util.psi.PsiElementAssertUtil;
 import org.apache.commons.lang3.ArrayUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -25,7 +24,6 @@ public class ArrayValueWithKeyAndMethodMatcher {
      *   'route' => '<caret>',
      * ]);
      */
-    @NotNull
     public static PsiElementPattern.Capture<PsiElement> pattern() {
         return PhpPatterns.psiElement().withParent(
             PlatformPatterns.psiElement(StringLiteralExpression.class).withParent(
@@ -41,8 +39,7 @@ public class ArrayValueWithKeyAndMethodMatcher {
      *   'route' => '<caret>',
      * ]);
      */
-    @Nullable
-    public static Result match(@NotNull PsiElement psiElement, @NotNull Matcher matcher) {
+    public static @Nullable Result match(PsiElement psiElement, Matcher matcher) {
         PsiElement arrayValue = psiElement.getParent();
         if(PsiElementAssertUtil.isNotNullAndIsElementType(arrayValue, PhpElementTypes.ARRAY_VALUE)) {
             PsiElement arrayHashElement = arrayValue.getParent();
@@ -63,8 +60,7 @@ public class ArrayValueWithKeyAndMethodMatcher {
         return null;
     }
 
-    @Nullable
-    private static Pair<PhpMethodReferenceCall, MethodReference> matchesMethodCall(@NotNull PsiElement psiFirstMethodReferenceChild, @NotNull PhpMethodReferenceCall[] methodCalls) {
+    private static @Nullable Pair<PhpMethodReferenceCall, MethodReference> matchesMethodCall(PsiElement psiFirstMethodReferenceChild, PhpMethodReferenceCall[] methodCalls) {
 
         // get parameter, we less then 0 we are not inside method reference
         int parameterIndex = PsiElementUtils.getParameterIndexValue(psiFirstMethodReferenceChild);
@@ -101,14 +97,13 @@ public class ArrayValueWithKeyAndMethodMatcher {
 
         private final String[] arrayKey;
 
-        @NotNull
         private final PhpMethodReferenceCall[] methodCalls;
 
-        public Matcher(@NotNull String arrayKeys, @NotNull PhpMethodReferenceCall... methodCalls) {
+        public Matcher(String arrayKeys, PhpMethodReferenceCall... methodCalls) {
             this(new String[] {arrayKeys}, methodCalls);
         }
 
-        public Matcher(@NotNull String[] arrayKeys, @NotNull PhpMethodReferenceCall... methodCalls) {
+        public Matcher(String[] arrayKeys, PhpMethodReferenceCall... methodCalls) {
             this.arrayKey = arrayKeys;
             this.methodCalls = methodCalls;
         }
@@ -117,7 +112,6 @@ public class ArrayValueWithKeyAndMethodMatcher {
             return arrayKey;
         }
 
-        @NotNull
         public PhpMethodReferenceCall[] getMethodCalls() {
             return methodCalls;
         }
@@ -125,32 +119,26 @@ public class ArrayValueWithKeyAndMethodMatcher {
 
     public static class Result {
 
-        @NotNull
         private final PhpMethodReferenceCall methodCall;
 
-        @NotNull
         private final StringLiteralExpression arrayKey;
 
-        @NotNull
         private final MethodReference methodReference;
 
-        public Result(@NotNull PhpMethodReferenceCall methodCall, @NotNull MethodReference methodReference, @NotNull StringLiteralExpression arrayKey) {
+        public Result(PhpMethodReferenceCall methodCall, MethodReference methodReference, StringLiteralExpression arrayKey) {
             this.methodCall = methodCall;
             this.methodReference = methodReference;
             this.arrayKey = arrayKey;
         }
 
-        @NotNull
         public StringLiteralExpression getArrayKey() {
             return arrayKey;
         }
 
-        @NotNull
         public MethodReference getMethodReference() {
             return methodReference;
         }
 
-        @NotNull
         public PhpMethodReferenceCall getMethodCall() {
             return methodCall;
         }

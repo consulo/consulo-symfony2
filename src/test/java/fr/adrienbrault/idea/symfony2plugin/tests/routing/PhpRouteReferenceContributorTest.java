@@ -1,6 +1,8 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.routing;
 
-import com.intellij.patterns.PlatformPatterns;
+import org.junit.jupiter.api.Test;
+
+import consulo.language.pattern.PlatformPatterns;
 import com.jetbrains.php.lang.PhpFileType;
 import com.jetbrains.php.lang.psi.elements.Method;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
@@ -26,6 +28,8 @@ public class PhpRouteReferenceContributorTest extends SymfonyLightCodeInsightFix
         return "src/test/java/fr/adrienbrault/idea/symfony2plugin/tests/routing/fixtures";
     }
 
+    @Test
+
     public void testGenerateUrlProvidesNavigation() {
 
         Collection<String[]> providers = new ArrayList<>() {{
@@ -47,6 +51,8 @@ public class PhpRouteReferenceContributorTest extends SymfonyLightCodeInsightFix
         }
 
     }
+
+    @Test
 
     public void testRoutingConfiguratorControllerProvidesNavigation() {
         myFixture.addFileToProject("routing/classes.php", "<?php\n" +

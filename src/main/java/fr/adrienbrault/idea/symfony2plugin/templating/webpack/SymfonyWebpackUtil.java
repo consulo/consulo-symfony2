@@ -8,21 +8,19 @@ import com.intellij.lang.javascript.psi.JSCallExpression;
 import com.intellij.lang.javascript.psi.JSExpression;
 import com.intellij.lang.javascript.psi.JSLiteralExpression;
 import com.intellij.lang.javascript.psi.JSReferenceExpression;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.Pair;
-import com.intellij.openapi.util.io.StreamUtil;
-import com.intellij.openapi.vfs.VfsUtil;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiManager;
-import com.intellij.psi.PsiRecursiveElementVisitor;
-import com.intellij.psi.search.FilenameIndex;
-import com.intellij.psi.search.GlobalSearchScope;
+import consulo.project.Project;
+import consulo.util.lang.Pair;
+import consulo.virtualFileSystem.util.VirtualFileUtil;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.PsiManager;
+import consulo.language.psi.PsiRecursiveElementVisitor;
+import consulo.language.psi.search.FilenameIndex;
+import consulo.language.psi.scope.GlobalSearchScope;
 import fr.adrienbrault.idea.symfony2plugin.util.ProjectUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -37,14 +35,14 @@ public class SymfonyWebpackUtil {
      * - webpack.config.js
      * - entrypoints.json
      */
-    public static void visitAllEntryFileTypes(@NotNull Project project, @NotNull Consumer<WebpackAsset> consumer) {
-        for (VirtualFile virtualFile : FilenameIndex.getVirtualFilesByName("webpack.config.js", GlobalSearchScope.allScope(project))) {
+    public static void visitAllEntryFileTypes(Project project, Consumer<WebpackAsset> consumer) {
+        for (VirtualFile virtualFile : FilenameIndex.getVirtualFilesByName(project, "webpack.config.js", GlobalSearchScope.allScope(project))) {
             if (!isTestFile(project, virtualFile)) {
                 visitWebpackConfiguration(project, virtualFile, consumer);
             }
         }
 
-        for (VirtualFile virtualFile : FilenameIndex.getVirtualFilesByName("entrypoints.json", GlobalSearchScope.allScope(project))) {
+        for (VirtualFile virtualFile : FilenameIndex.getVirtualFilesByName(project, "entrypoints.json", GlobalSearchScope.allScope(project))) {
             if (!isTestFile(project, virtualFile)) {
                 visitEntryPointJson(virtualFile, consumer);
             }
@@ -57,7 +55,7 @@ public class SymfonyWebpackUtil {
      *     "build/dashboard.css": "/build/dashboard.a4bf2d.css"
      * }
      */
-    public static void visitManifestJsonEntries(@NotNull VirtualFile virtualFile, @NotNull Consumer<Pair<String, String>> consumer) {
+    public static void visitManifestJsonEntries(VirtualFile virtualFile, Consumer<Pair<String, String>> consumer) {
         visitManifestJson(virtualFile, consumer);
     }
 
@@ -73,11 +71,11 @@ public class SymfonyWebpackUtil {
      *   }
      * }
      */
-    private static void visitEntryPointJson(@NotNull VirtualFile virtualFile, @NotNull Consumer<WebpackAsset> consumer) {
+    private static void visitEntryPointJson(VirtualFile virtualFile, Consumer<WebpackAsset> consumer) {
         String s;
 
         try {
-            byte[] bytes = StreamUtil.readBytes(virtualFile.getInputStream());
+            byte[] bytes = virtualFile.contentsToByteArray();
             s = new String(bytes, StandardCharsets.UTF_8);
         } catch (IOException e) {
             return;
@@ -113,7 +111,7 @@ public class SymfonyWebpackUtil {
      * .addEntry('foobar', './assets/app.js')
      * .addEntry("foo")
      */
-    private static void visitWebpackConfiguration(@NotNull Project project, @NotNull VirtualFile virtualFile, @NotNull Consumer<WebpackAsset> consumer) {
+    private static void visitWebpackConfiguration(Project project, VirtualFile virtualFile, Consumer<WebpackAsset> consumer) {
         PsiFile file = PsiManager.getInstance(project).findFile(virtualFile);
         if (file == null) {
             return;
@@ -121,11 +119,11 @@ public class SymfonyWebpackUtil {
 
         file.acceptChildren(new PsiRecursiveElementVisitor() {
             @Override
-            public void visitElement(@NotNull PsiElement element) {
+            public void visitElement(PsiElement element) {
                 if (element instanceof JSCallExpression) {
                     PsiElement methodExpression = element.getFirstChild();
                     if (methodExpression instanceof JSReferenceExpression jsReferenceExpression) {
-                        String name = jsReferenceExpression.getReferenceName();
+                        String name = jsReferenceExpression.getReferencedName();
                         if ("addStyleEntry".equals(name) || "addEntry".equals(name)) {
                             JSExpression[] arguments = ((JSCallExpression) element).getArguments();
                             if (arguments.length >= 1 && arguments[0] instanceof JSLiteralExpression jsLiteralExpressionArg1) {
@@ -158,10 +156,10 @@ public class SymfonyWebpackUtil {
      *     "build/dashboard.css": "/build/dashboard.a4bf2d.css"
      * }
      */
-    private static void visitManifestJson(@NotNull VirtualFile virtualFile, @NotNull Consumer<Pair<String, String>> consumer) {
+    private static void visitManifestJson(VirtualFile virtualFile, Consumer<Pair<String, String>> consumer) {
         JsonElement jsonElement;
         try {
-            byte[] bytes = StreamUtil.readBytes(virtualFile.getInputStream());
+            byte[] bytes = virtualFile.contentsToByteArray();
             String s = new String(bytes, StandardCharsets.UTF_8);
             jsonElement = JsonParser.parseString(s);
         } catch (JsonSyntaxException | IOException e) {
@@ -189,9 +187,9 @@ public class SymfonyWebpackUtil {
         }
     }
 
-    private static boolean isTestFile(@NotNull Project project, @NotNull VirtualFile virtualFile) {
+    private static boolean isTestFile(Project project, VirtualFile virtualFile) {
         // ignore: "vendor/symonfy/.../tests/fixtures/build/entrypoints.json"
-        String path = VfsUtil.getRelativePath(virtualFile, ProjectUtil.getProjectDir(project), '/');
+        String path = VirtualFileUtil.getRelativePath(virtualFile, ProjectUtil.getProjectDir(project), '/');
         if (path != null) {
             String lowerCase = path.toLowerCase();
             return lowerCase.contains("/test/") || lowerCase.contains("/tests/");
@@ -206,14 +204,14 @@ public class SymfonyWebpackUtil {
         private final String entryTarget;
         private final PsiElement psiElement;
 
-        public WebpackAsset(@NotNull VirtualFile virtualFile, @NotNull String entry, @Nullable String entryTarget, @Nullable PsiElement psiElement) {
+        public WebpackAsset(VirtualFile virtualFile, String entry, @Nullable String entryTarget, @Nullable PsiElement psiElement) {
             this.virtualFile = virtualFile;
             this.entry = entry;
             this.entryTarget = entryTarget;
             this.psiElement = psiElement;
         }
 
-        public WebpackAsset(@NotNull VirtualFile virtualFile, @NotNull String entry) {
+        public WebpackAsset(VirtualFile virtualFile, String entry) {
             this(virtualFile, entry, null, null);
         }
 

@@ -1,12 +1,11 @@
 package fr.adrienbrault.idea.symfony2plugin.dic.tags;
 
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.xml.XmlTag;
+import consulo.language.psi.PsiElement;
+import consulo.xml.language.psi.XmlTag;
 import fr.adrienbrault.idea.symfony2plugin.dic.tags.xml.XmlServiceTag;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.jetbrains.yaml.psi.YAMLKeyValue;
 
 import java.util.ArrayList;
@@ -18,7 +17,7 @@ import java.util.Collection;
 public class ServiceTagFactory {
 
     @Nullable
-    public static Collection<ServiceTagInterface> create(@NotNull String serviceId, @NotNull PsiElement psiElement) {
+    public static Collection<ServiceTagInterface> create(String serviceId, PsiElement psiElement) {
 
         if(psiElement instanceof YAMLKeyValue) {
             return create((YAMLKeyValue) psiElement);
@@ -30,7 +29,7 @@ public class ServiceTagFactory {
     }
 
     @Nullable
-    private static Collection<ServiceTagInterface> create(@NotNull YAMLKeyValue yamlHash) {
+    private static Collection<ServiceTagInterface> create(YAMLKeyValue yamlHash) {
 
         final Collection<ServiceTagInterface> tags = new ArrayList<>();
 
@@ -47,7 +46,7 @@ public class ServiceTagFactory {
     }
 
     @Nullable
-    private static Collection<ServiceTagInterface> create(@NotNull String serviceId, @NotNull XmlTag xmlTag) {
+    private static Collection<ServiceTagInterface> create(String serviceId, XmlTag xmlTag) {
 
         final Collection<ServiceTagInterface> tags = new ArrayList<>();
 

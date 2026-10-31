@@ -1,32 +1,30 @@
 package fr.adrienbrault.idea.symfony2plugin.dic;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.util.Consumer;
+import consulo.project.Project;
 import com.jetbrains.php.lang.psi.elements.Method;
 import com.jetbrains.php.lang.psi.elements.Parameter;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
 import fr.adrienbrault.idea.symfony2plugin.stubs.ContainerCollectionResolver;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.ServiceUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.visitor.ParameterVisitor;
-import org.jetbrains.annotations.NotNull;
+
+import java.util.function.Consumer;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class ParameterResolverConsumer implements Consumer<ParameterVisitor> {
-    @NotNull
     private final Project project;
 
-    @NotNull
     private final Consumer<Parameter> consumer;
 
-    public ParameterResolverConsumer(@NotNull Project project, @NotNull Consumer<Parameter> consumer) {
+    public ParameterResolverConsumer(Project project, Consumer<Parameter> consumer) {
         this.project = project;
         this.consumer = consumer;
     }
 
     @Override
-    public void consume(ParameterVisitor parameter) {
+    public void accept(ParameterVisitor parameter) {
         PhpClass serviceClass = ServiceUtil.getResolvedClassDefinition(
             this.project,
             parameter.getClassName(),
@@ -47,6 +45,6 @@ public class ParameterResolverConsumer implements Consumer<ParameterVisitor> {
             return;
         }
 
-        consumer.consume(methodParameter[parameter.getParameterIndex()]);
+        consumer.accept(methodParameter[parameter.getParameterIndex()]);
     }
 }

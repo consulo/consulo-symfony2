@@ -1,21 +1,22 @@
 package fr.adrienbrault.idea.symfony2plugin.form;
 
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiReference;
-import com.intellij.psi.PsiReferenceBase;
+import fr.adrienbrault.idea.symfony2plugin.codeInsight.completion.SymfonyCompletionReference;
+
 import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiReference;
+import consulo.language.psi.PsiReferenceBase;
 import fr.adrienbrault.idea.symfony2plugin.form.util.FormUtil;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
-public class FormTypeReference extends PsiReferenceBase<PsiElement> implements PsiReference {
+public class FormTypeReference extends PsiReferenceBase<PsiElement> implements SymfonyCompletionReference, PsiReference {
 
     private final StringLiteralExpression element;
 
-    public FormTypeReference(@NotNull StringLiteralExpression element) {
+    public FormTypeReference(StringLiteralExpression element) {
         super(element);
         this.element = element;
     }
@@ -26,9 +27,8 @@ public class FormTypeReference extends PsiReferenceBase<PsiElement> implements P
         return FormUtil.getFormTypeToClass(getElement().getProject(), element.getContents());
     }
 
-    @NotNull
     @Override
-    public Object[] getVariants() {
+    public Object[] getCompletionVariants() {
         return FormUtil.getFormTypeLookupElements(getElement().getProject()).toArray();
     }
 

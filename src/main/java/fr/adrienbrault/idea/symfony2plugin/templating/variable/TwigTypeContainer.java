@@ -3,8 +3,7 @@ package fr.adrienbrault.idea.symfony2plugin.templating.variable;
 import fr.adrienbrault.idea.symfony2plugin.templating.variable.dict.PsiVariable;
 import fr.adrienbrault.idea.symfony2plugin.templating.variable.resolver.holder.FormFieldDataHolder;
 import fr.adrienbrault.idea.symfony2plugin.templating.variable.resolver.holder.FormViewDataHolder;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -19,19 +18,16 @@ import java.util.Set;
 public class TwigTypeContainer {
 
     private final Set<String> types = new HashSet<>();
-    private final String stringElement;
-    private final FormFieldDataHolder formFieldDataHolder;
-    private final FormViewDataHolder formViewDataHolder;
+    private final @Nullable String stringElement;
+    private final @Nullable FormFieldDataHolder formFieldDataHolder;
+    private final @Nullable FormViewDataHolder formViewDataHolder;
 
-    public TwigTypeContainer(@NotNull Collection<String> types) {
+    public TwigTypeContainer(Collection<String> types) {
         this(types, null);
     }
 
-    private TwigTypeContainer(@NotNull Collection<String> types, @Nullable FormViewDataHolder formViewDataHolder) {
-        this.types.addAll(types);
-        this.stringElement = null;
-        this.formFieldDataHolder = null;
-        this.formViewDataHolder = formViewDataHolder;
+    private TwigTypeContainer(Collection<String> types, @Nullable FormViewDataHolder formViewDataHolder) {
+        this(types, null, null, formViewDataHolder);
     }
 
     public TwigTypeContainer(String stringElement) {
@@ -39,12 +35,24 @@ public class TwigTypeContainer {
     }
 
     public TwigTypeContainer(String stringElement, @Nullable FormFieldDataHolder formFieldDataHolder) {
-        this.stringElement = stringElement;
-        this.formFieldDataHolder = formFieldDataHolder;
-        this.formViewDataHolder = null;
+        this(Collections.emptySet(), stringElement, formFieldDataHolder, null);
     }
 
-    @NotNull
+    private TwigTypeContainer(Collection<String> types, @Nullable String stringElement, @Nullable FormFieldDataHolder formFieldDataHolder, @Nullable FormViewDataHolder formViewDataHolder) {
+        this.types.addAll(types);
+        this.stringElement = stringElement;
+        this.formFieldDataHolder = formFieldDataHolder;
+        this.formViewDataHolder = formViewDataHolder;
+    }
+
+    public static TwigTypeContainer forFormView(FormFieldDataHolder field) {
+        return new TwigTypeContainer(Collections.singleton("\\Symfony\\Component\\Form\\FormView"), null, field, null);
+    }
+
+    public static TwigTypeContainer forFormChildren(FormFieldDataHolder field) {
+        return new TwigTypeContainer(Collections.emptySet(), null, field, null);
+    }
+
     public Set<String> getTypes() {
         return Collections.unmodifiableSet(types);
     }
@@ -67,7 +75,16 @@ public class TwigTypeContainer {
                 ? null
                 : new FormViewDataHolder(psiVariable.getFormTypeFqns());
 
-            twigTypeContainerList.add(new TwigTypeContainer(psiVariable.getTypes(), formViewDataHolder));
+            Set<String> types = new HashSet<>(psiVariable.getTypes());
+            if (!psiVariable.getFormFields().isEmpty() && formViewDataHolder == null) {
+                types.remove("\\Symfony\\Component\\Form\\FormView");
+            }
+            if (!types.isEmpty()) {
+                twigTypeContainerList.add(new TwigTypeContainer(types, formViewDataHolder));
+            }
+            for (FormFieldDataHolder field : psiVariable.getFormFields()) {
+                twigTypeContainerList.add(forFormView(field));
+            }
         }
 
         return twigTypeContainerList;

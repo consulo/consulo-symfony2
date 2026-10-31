@@ -2,8 +2,7 @@ package fr.adrienbrault.idea.symfony2plugin.stubs.dict;
 
 import fr.adrienbrault.idea.symfony2plugin.templating.dict.TwigMacroTagInterface;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.io.Serializable;
 import java.util.Objects;
@@ -11,7 +10,7 @@ import java.util.Objects;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
-public record TwigMacroTagIndex(@NotNull String name, @Nullable String parameters) implements TwigMacroTagInterface, Serializable {
+public record TwigMacroTagIndex(String name, @Nullable String parameters) implements TwigMacroTagInterface, Serializable {
     @Override
     public int hashCode() {
         return new HashCodeBuilder()

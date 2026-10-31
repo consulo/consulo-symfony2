@@ -1,27 +1,30 @@
 package fr.adrienbrault.idea.symfony2plugin.templating;
 
-import com.intellij.codeInsight.daemon.LineMarkerInfo;
-import com.intellij.codeInsight.daemon.LineMarkerProvider;
-import com.intellij.codeInsight.navigation.NavigationGutterIconBuilder;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.NotNullLazyValue;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
+import consulo.language.editor.gutter.LineMarkerInfo;
+import consulo.language.editor.gutter.LineMarkerProvider;
+import consulo.language.editor.ui.navigation.NavigationGutterIconBuilder;
+import consulo.project.Project;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
 import fr.adrienbrault.idea.symfony2plugin.twig.utils.TwigBlockUtil;
-import com.intellij.psi.xml.XmlAttribute;
-import com.intellij.psi.xml.XmlAttributeValue;
-import com.intellij.psi.xml.XmlTag;
-import com.intellij.psi.xml.XmlToken;
-import com.intellij.psi.xml.XmlTokenType;
+import consulo.xml.language.psi.XmlAttribute;
+import consulo.xml.language.psi.XmlAttributeValue;
+import consulo.xml.language.psi.XmlTag;
+import consulo.xml.language.psi.XmlToken;
+import consulo.xml.language.psi.XmlTokenType;
 import com.jetbrains.php.PhpIcons;
 import com.jetbrains.twig.TwigFile;
+import consulo.annotation.access.RequiredReadAction;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.html.language.HTMLLanguage;
+import consulo.language.Language;
+import consulo.util.lang.lazy.LazyValue;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigHtmlCompletionUtil;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.UxUtil;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -30,9 +33,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 
+@ExtensionImpl
 public class TwigHtmlLineMarkerProvider implements LineMarkerProvider {
     @Override
-    public void collectSlowLineMarkers(@NotNull List<? extends PsiElement> psiElements, @NotNull Collection<? super LineMarkerInfo<?>> results) {
+    @RequiredReadAction
+    public void collectSlowLineMarkers(List<PsiElement> psiElements, Collection<LineMarkerInfo> results) {
         if (psiElements.isEmpty() || !Symfony2ProjectComponent.isEnabled(psiElements.getFirst())) {
             return;
         }
@@ -62,8 +67,14 @@ public class TwigHtmlLineMarkerProvider implements LineMarkerProvider {
 
     @Nullable
     @Override
-    public LineMarkerInfo<?> getLineMarkerInfo(@NotNull PsiElement psiElement) {
+    @RequiredReadAction
+    public LineMarkerInfo<?> getLineMarkerInfo(PsiElement psiElement) {
         return null;
+    }
+
+    @Override
+    public Language getLanguage() {
+        return HTMLLanguage.INSTANCE;
     }
 
     public static boolean isSupportedFile(@Nullable PsiFile file) {
@@ -71,7 +82,7 @@ public class TwigHtmlLineMarkerProvider implements LineMarkerProvider {
     }
 
     @Nullable
-    protected LineMarkerInfo<?> attachTwigComponentBlockOverride(@NotNull XmlAttributeValue xmlAttributeValue, @NotNull PsiElement lineMarkerTarget, @NotNull Map<String, Boolean> componentBlockExistsCache) {
+    protected LineMarkerInfo<?> attachTwigComponentBlockOverride(XmlAttributeValue xmlAttributeValue, PsiElement lineMarkerTarget, Map<String, Boolean> componentBlockExistsCache) {
         if (!(xmlAttributeValue.getParent() instanceof XmlAttribute xmlAttribute) || !"name".equals(xmlAttribute.getName())) {
             return null;
         }
@@ -109,23 +120,23 @@ public class TwigHtmlLineMarkerProvider implements LineMarkerProvider {
         }
 
         NavigationGutterIconBuilder<PsiElement> builder = NavigationGutterIconBuilder.create(PhpIcons.OVERRIDES)
-            .setTargets(NotNullLazyValue.lazy(new TwigComponentBlockTargetsLazyValue(project, componentName, blockName)))
+            .setTargets(LazyValue.notNull(new TwigComponentBlockTargetsLazyValue(project, componentName, blockName)))
             .setTooltipText("Navigate to block");
 
         return builder.createLineMarkerInfo(lineMarkerTarget);
     }
 
     @Nullable
-    protected LineMarkerInfo<?> attachTwigComponentBlockOverride(@NotNull XmlAttributeValue xmlAttributeValue, @NotNull PsiElement lineMarkerTarget) {
+    protected LineMarkerInfo<?> attachTwigComponentBlockOverride(XmlAttributeValue xmlAttributeValue, PsiElement lineMarkerTarget) {
         return attachTwigComponentBlockOverride(xmlAttributeValue, lineMarkerTarget, new HashMap<>());
     }
 
     @Nullable
-    protected String resolveComponentName(@NotNull Project project, @NotNull String rawComponentName) {
+    protected String resolveComponentName(Project project, String rawComponentName) {
         return UxUtil.resolveTwigComponentName(project, rawComponentName);
     }
 
-    protected boolean hasComponentBlock(@NotNull Project project, @NotNull String componentName, @NotNull String blockName) {
+    protected boolean hasComponentBlock(Project project, String componentName, String blockName) {
         List<VirtualFile> virtualFiles = new ArrayList<>();
         for (PsiFile templateFile : UxUtil.getComponentTemplates(project, componentName)) {
             VirtualFile virtualFile = templateFile.getVirtualFile();
@@ -148,13 +159,13 @@ public class TwigHtmlLineMarkerProvider implements LineMarkerProvider {
         return false;
     }
 
-    protected boolean isTwigBackedXmlTag(@NotNull XmlTag xmlTag) {
+    protected boolean isTwigBackedXmlTag(XmlTag xmlTag) {
         PsiElement twigElement = TwigUtil.getElementOnTwigViewProvider(xmlTag);
         return twigElement != null && twigElement.getContainingFile() instanceof TwigFile;
     }
 
     @Nullable
-    private static XmlTag findParentComponentTag(@NotNull XmlTag tag) {
+    private static XmlTag findParentComponentTag(XmlTag tag) {
         XmlTag parentTag = tag.getParentTag();
         while (parentTag != null) {
             if (!TwigHtmlCompletionUtil.isTwigBlockTag(parentTag)) {
@@ -170,7 +181,7 @@ public class TwigHtmlLineMarkerProvider implements LineMarkerProvider {
         return null;
     }
 
-    private record TwigComponentBlockTargetsLazyValue(@NotNull Project project, @NotNull String componentName, @NotNull String blockName) implements Supplier<Collection<? extends PsiElement>> {
+    private record TwigComponentBlockTargetsLazyValue(Project project, String componentName, String blockName) implements Supplier<Collection<? extends PsiElement>> {
         @Override
         public Collection<? extends PsiElement> get() {
             return TwigBlockUtil.getComponentBlockTargets(project, componentName, blockName);

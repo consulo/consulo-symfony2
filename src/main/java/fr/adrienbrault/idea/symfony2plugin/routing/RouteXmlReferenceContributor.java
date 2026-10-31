@@ -1,29 +1,40 @@
 package fr.adrienbrault.idea.symfony2plugin.routing;
 
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.psi.*;
-import com.intellij.psi.xml.XmlAttribute;
-import com.intellij.psi.xml.XmlText;
-import com.intellij.util.ProcessingContext;
+import fr.adrienbrault.idea.symfony2plugin.codeInsight.completion.SymfonyCompletionReference;
+
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.Language;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiElementResolveResult;
+import consulo.language.psi.PsiPolyVariantReferenceBase;
+import consulo.language.psi.PsiReference;
+import consulo.language.psi.PsiReferenceContributor;
+import consulo.language.psi.PsiReferenceProvider;
+import consulo.language.psi.PsiReferenceRegistrar;
+import consulo.language.psi.ResolveResult;
+import consulo.language.util.ProcessingContext;
+import consulo.xml.language.XMLLanguage;
+import consulo.xml.language.psi.XmlAttribute;
+import consulo.xml.language.psi.XmlText;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.config.xml.XmlHelper;
 import fr.adrienbrault.idea.symfony2plugin.util.controller.ControllerIndex;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class RouteXmlReferenceContributor extends PsiReferenceContributor {
     @Override
-    public void registerReferenceProviders(@NotNull PsiReferenceRegistrar registrar) {
+    public void registerReferenceProviders(PsiReferenceRegistrar registrar) {
         registrar.registerReferenceProvider(
             PlatformPatterns.and(XmlHelper.XML_EXTENSION, XmlHelper.getRouteControllerPattern()),
             new PsiReferenceProvider() {
-                @NotNull
                 @Override
-                public PsiReference @NotNull [] getReferencesByElement(@NotNull PsiElement psiElement, @NotNull ProcessingContext processingContext) {
+                public PsiReference[] getReferencesByElement(PsiElement psiElement, ProcessingContext processingContext) {
                     if(!Symfony2ProjectComponent.isEnabled(psiElement)) {
                         return new PsiReference[0];
                     }
@@ -34,7 +45,7 @@ public class RouteXmlReferenceContributor extends PsiReferenceContributor {
                 }
 
                 @Override
-                public boolean acceptsTarget(@NotNull PsiElement target) {
+                public boolean acceptsTarget(PsiElement target) {
                     return Symfony2ProjectComponent.isEnabled(target);
                 }
             }
@@ -42,14 +53,18 @@ public class RouteXmlReferenceContributor extends PsiReferenceContributor {
 
     }
 
-    private static class RouteActionReference extends PsiPolyVariantReferenceBase<PsiElement> {
+    @Override
+    public Language getLanguage() {
+        return XMLLanguage.INSTANCE;
+    }
+
+    private static class RouteActionReference extends PsiPolyVariantReferenceBase<PsiElement> implements SymfonyCompletionReference {
         private RouteActionReference(PsiElement psiElement) {
             super(psiElement);
         }
 
-        @NotNull
         @Override
-        public ResolveResult @NotNull [] multiResolve(boolean b) {
+        public ResolveResult[] multiResolve(boolean b) {
             PsiElement parent = getElement().getParent();
             if (parent == null) {
                 return new ResolveResult[0];
@@ -65,9 +80,8 @@ public class RouteXmlReferenceContributor extends PsiReferenceContributor {
             );
         }
 
-        @NotNull
         @Override
-        public Object[] getVariants() {
+        public Object[] getCompletionVariants() {
             return ControllerIndex.getControllerLookupElements(getElement().getProject()).toArray();
         }
     }
@@ -77,7 +91,7 @@ public class RouteXmlReferenceContributor extends PsiReferenceContributor {
      * <route controller=""/>
      */
     @Nullable
-    public static String getControllerText(@NotNull PsiElement parent) {
+    public static String getControllerText(PsiElement parent) {
         String text = null;
         if(parent instanceof XmlText) {
             // <route><default key="_controller">Fo<caret>o\Bar</default></route>

@@ -1,13 +1,19 @@
 package fr.adrienbrault.idea.symfony2plugin.codeInsight;
 
-import com.intellij.codeInsight.daemon.ImplicitUsageProvider;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.util.PsiTreeUtil;
 import com.jetbrains.php.lang.parser.PhpElementTypes;
-import com.jetbrains.php.lang.psi.elements.*;
+import com.jetbrains.php.lang.psi.elements.Method;
+import com.jetbrains.php.lang.psi.elements.PhpAttribute;
+import com.jetbrains.php.lang.psi.elements.PhpClass;
+import com.jetbrains.php.lang.psi.elements.PhpModifier;
+import com.jetbrains.php.lang.psi.elements.PhpNamedElement;
+import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
 import com.jetbrains.php.lang.psi.stubs.indexes.expectedArguments.PhpExpectedFunctionScalarArgument;
 import de.espend.idea.php.annotation.dict.PhpDocCommentAnnotation;
 import de.espend.idea.php.annotation.util.AnnotationUtil;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.editor.ImplicitUsageProvider;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.util.PsiTreeUtil;
 import fr.adrienbrault.idea.symfony2plugin.completion.PhpAttributeScopeValidator;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.util.DoctrineMetadataUtil;
 import fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper;
@@ -16,8 +22,7 @@ import fr.adrienbrault.idea.symfony2plugin.util.PhpPsiAttributesUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.ServiceUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -29,6 +34,7 @@ import java.util.stream.Collectors;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class SymfonyImplicitUsageProvider implements ImplicitUsageProvider {
     private static final String AS_COMMAND_ATTRIBUTE = "\\Symfony\\Component\\Console\\Attribute\\AsCommand";
     private static final Set<String> KERNEL_TRAITS = Set.of(
@@ -72,7 +78,7 @@ public class SymfonyImplicitUsageProvider implements ImplicitUsageProvider {
     );
 
     @Override
-    public boolean isImplicitUsage(@NotNull PsiElement element) {
+    public boolean isImplicitUsage(PsiElement element) {
         if (element instanceof Method method) {
             if (isKernelAllowedEnvsMethod(method)) {
                 return true;
@@ -107,7 +113,7 @@ public class SymfonyImplicitUsageProvider implements ImplicitUsageProvider {
         return false;
     }
 
-    private boolean isKernelAllowedEnvsMethod(@NotNull Method method) {
+    private boolean isKernelAllowedEnvsMethod(Method method) {
         if (!"getAllowedEnvs".equals(method.getName()) || method.isStatic()) {
             return false;
         }
@@ -117,7 +123,7 @@ public class SymfonyImplicitUsageProvider implements ImplicitUsageProvider {
             .anyMatch(trait -> KERNEL_TRAITS.contains(trait.getFQN()));
     }
 
-    private boolean isDoctrineLifecycleCallbackMethod(@NotNull Method method) {
+    private boolean isDoctrineLifecycleCallbackMethod(Method method) {
         PhpClass containingClass = method.getContainingClass();
         if (containingClass == null || !isDoctrineEntity(containingClass)) {
             return false;
@@ -126,15 +132,15 @@ public class SymfonyImplicitUsageProvider implements ImplicitUsageProvider {
         return DOCTRINE_LIFECYCLE_METHOD_ATTRIBUTES.stream().anyMatch(attribute -> !method.getAttributes(attribute).isEmpty());
     }
 
-    private boolean isDoctrineEntity(@NotNull PhpClass phpClass) {
+    private boolean isDoctrineEntity(PhpClass phpClass) {
         return PhpAttributeScopeValidator.isDoctrineEntityClass(phpClass);
     }
 
-    private boolean isMcpCapabilityClass(@NotNull PhpClass phpClass) {
+    private boolean isMcpCapabilityClass(PhpClass phpClass) {
         return hasMcpCapabilityAttribute(phpClass);
     }
 
-    private boolean isMcpCapabilityMethod(@NotNull Method method) {
+    private boolean isMcpCapabilityMethod(Method method) {
         return hasOwnMcpCapabilityAttribute(method)
             || "__invoke".equals(method.getName()) && hasMcpCapabilityAttribute(method.getContainingClass());
     }
@@ -143,19 +149,19 @@ public class SymfonyImplicitUsageProvider implements ImplicitUsageProvider {
         return phpClass != null && MCP_CAPABILITY_ATTRIBUTES.stream().anyMatch(attribute -> !phpClass.getAttributes(attribute).isEmpty());
     }
 
-    private boolean hasOwnMcpCapabilityAttribute(@NotNull Method method) {
+    private boolean hasOwnMcpCapabilityAttribute(Method method) {
         return MCP_CAPABILITY_ATTRIBUTES.stream().anyMatch(attribute -> !method.getAttributes(attribute).isEmpty());
     }
 
-    private boolean isAsCommandMethod(@NotNull Method method) {
+    private boolean isAsCommandMethod(Method method) {
         return !method.getAttributes(AS_COMMAND_ATTRIBUTE).isEmpty();
     }
 
-    private boolean hasClassLevelImplicitUsageAttribute(@NotNull PhpClass phpClass) {
+    private boolean hasClassLevelImplicitUsageAttribute(PhpClass phpClass) {
         return CLASS_LEVEL_IMPLICIT_USAGE_ATTRIBUTES.stream().anyMatch(attribute -> !phpClass.getAttributes(attribute).isEmpty());
     }
 
-    private boolean isKernelEventListener(@NotNull PhpClass phpClass) {
+    private boolean isKernelEventListener(PhpClass phpClass) {
         if (!ServiceUtil.isPhpClassAService(phpClass)) {
             return false;
         }
@@ -163,7 +169,7 @@ public class SymfonyImplicitUsageProvider implements ImplicitUsageProvider {
         return ServiceUtil.isPhpClassTaggedWith(phpClass, "kernel.event_listener");
     }
 
-    private boolean isConstraint(@NotNull PhpClass phpClass) {
+    private boolean isConstraint(PhpClass phpClass) {
         if(!PhpElementsUtil.isInstanceOf(phpClass, "\\Symfony\\Component\\Validator\\Constraint")) {
             return false;
         }
@@ -174,7 +180,7 @@ public class SymfonyImplicitUsageProvider implements ImplicitUsageProvider {
         return !PhpElementsUtil.getClassesInterface(phpClass.getProject(), className).isEmpty();
     }
 
-    private boolean isEntityRepository(@NotNull PhpClass phpClass) {
+    private boolean isEntityRepository(PhpClass phpClass) {
         return PhpElementsUtil.isInstanceOf(phpClass, "\\Doctrine\\ORM\\EntityRepository")
             && !DoctrineMetadataUtil.findMetadataForRepositoryClass(phpClass).isEmpty();
     }
@@ -208,7 +214,7 @@ public class SymfonyImplicitUsageProvider implements ImplicitUsageProvider {
             && ServiceUtil.isPhpClassAService(phpClass);
     }
 
-    private boolean isRouteClass(@NotNull PhpClass phpClass) {
+    private boolean isRouteClass(PhpClass phpClass) {
         return phpClass.getMethods()
             .stream()
             .filter(method -> method.getAccess() == PhpModifier.Access.PUBLIC)
@@ -221,23 +227,23 @@ public class SymfonyImplicitUsageProvider implements ImplicitUsageProvider {
     }
 
     @Override
-    public boolean isImplicitRead(@NotNull PsiElement element) {
+    public boolean isImplicitRead(PsiElement element) {
         return false;
     }
 
     @Override
-    public boolean isImplicitWrite(@NotNull PsiElement element) {
+    public boolean isImplicitWrite(PsiElement element) {
         return false;
     }
 
-    private boolean isMethodARoute(@NotNull Method method) {
+    private boolean isMethodARoute(Method method) {
         PhpDocCommentAnnotation phpDocCommentAnnotationContainer = AnnotationUtil.getPhpDocCommentAnnotationContainer(method.getDocComment());
         if (phpDocCommentAnnotationContainer != null && phpDocCommentAnnotationContainer.getFirstPhpDocBlock(RouteHelper.ROUTE_ANNOTATIONS) != null) {
             return true;
         }
 
         for (String route : RouteHelper.ROUTE_ANNOTATIONS) {
-            Collection<@NotNull PhpAttribute> attributes = method.getAttributes(route);
+            Collection<PhpAttribute> attributes = method.getAttributes(route);
             if (!attributes.isEmpty()) {
                 return true;
             }
@@ -246,14 +252,14 @@ public class SymfonyImplicitUsageProvider implements ImplicitUsageProvider {
         return RouteHelper.isRouteExistingForMethod(method);
     }
 
-    private boolean isSubscribedEvent(@NotNull PhpClass phpClass) {
+    private boolean isSubscribedEvent(PhpClass phpClass) {
         return phpClass.getMethods()
             .stream()
             .filter(method -> method.getAccess() == PhpModifier.Access.PUBLIC)
             .anyMatch(this::isSubscribedEvent);
     }
 
-    private boolean isSubscribedEvent(@NotNull Method method) {
+    private boolean isSubscribedEvent(Method method) {
         PhpClass containingClass = method.getContainingClass();
         if (containingClass == null || !PhpElementsUtil.isInstanceOf(containingClass, "\\Symfony\\Component\\EventDispatcher\\EventSubscriberInterface")) {
             return false;
@@ -287,7 +293,7 @@ public class SymfonyImplicitUsageProvider implements ImplicitUsageProvider {
         return false;
     }
 
-    private boolean isAsEventListenerMethodPhpAttribute(@NotNull Method method) {
+    private boolean isAsEventListenerMethodPhpAttribute(Method method) {
         if (!method.getAttributes("\\Symfony\\Component\\EventDispatcher\\Attribute\\AsEventListener").isEmpty()) {
             return true;
         }
@@ -338,7 +344,7 @@ public class SymfonyImplicitUsageProvider implements ImplicitUsageProvider {
         return false;
     }
 
-    private boolean isAssertCallbackMethod(@NotNull Method method) {
+    private boolean isAssertCallbackMethod(Method method) {
         PhpClass containingClass = method.getContainingClass();
         if (containingClass == null) {
             return false;
@@ -354,7 +360,7 @@ public class SymfonyImplicitUsageProvider implements ImplicitUsageProvider {
         return false;
     }
 
-    private boolean isAsEntityListenerMethodPhpAttribute(@NotNull Method method) {
+    private boolean isAsEntityListenerMethodPhpAttribute(Method method) {
         PhpClass containingClass = method.getContainingClass();
         if (containingClass == null) {
             return false;
@@ -370,7 +376,7 @@ public class SymfonyImplicitUsageProvider implements ImplicitUsageProvider {
         return false;
     }
 
-    private boolean hasTwigAttribute(@NotNull Method method) {
+    private boolean hasTwigAttribute(Method method) {
         return !method.getAttributes("\\Twig\\Attribute\\AsTwigFilter").isEmpty()
             || !method.getAttributes("\\Twig\\Attribute\\AsTwigFunction").isEmpty()
             || !method.getAttributes("\\Twig\\Attribute\\AsTwigTest").isEmpty();

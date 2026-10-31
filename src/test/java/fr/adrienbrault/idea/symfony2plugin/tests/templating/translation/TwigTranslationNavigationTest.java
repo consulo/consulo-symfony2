@@ -1,5 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.templating.translation;
 
+import org.junit.jupiter.api.Test;
+
 import com.jetbrains.twig.TwigFileType;
 import fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern;
 
@@ -12,6 +14,7 @@ public class TwigTranslationNavigationTest extends TwigTranslationFixturesTestCa
      * @see TwigPattern#getTransDefaultDomainPattern
      * @see fr.adrienbrault.idea.symfony2plugin.templating.TwigTemplateCompletionContributor
      */
+    @Test
     public void testTwigTransDefaultDomainDomainNavigation() {
         assertNavigationContainsFile(TwigFileType.INSTANCE, "{% trans_default_domain 'inter<caret>change' %}", "interchange.en.xlf");
         assertNavigationContainsFile(TwigFileType.INSTANCE, "{% trans_default_domain \"inter<caret>change\" %}", "interchange.en.xlf");
@@ -21,6 +24,7 @@ public class TwigTranslationNavigationTest extends TwigTranslationFixturesTestCa
     /**
      * @see TwigPattern#getTranslationTokenTagFromPattern
      */
+    @Test
     public void testTranslationTokenTagFromCompletionNavigation() {
         assertNavigationContainsFile(TwigFileType.INSTANCE, "{% trans from \"inter<caret>change\" %}", "interchange.en.xlf");
         assertNavigationContainsFile(TwigFileType.INSTANCE, "{%    trans from \"inter<caret>change\" %}", "interchange.en.xlf");

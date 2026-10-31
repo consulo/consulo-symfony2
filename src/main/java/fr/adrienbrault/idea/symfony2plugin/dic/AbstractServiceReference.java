@@ -1,17 +1,18 @@
 package fr.adrienbrault.idea.symfony2plugin.dic;
 
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.openapi.project.DumbService;
-import com.intellij.openapi.util.TextRange;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiElementResolveResult;
-import com.intellij.psi.PsiPolyVariantReferenceBase;
-import com.intellij.psi.ResolveResult;
-import com.intellij.util.containers.ContainerUtil;
+import fr.adrienbrault.idea.symfony2plugin.codeInsight.completion.SymfonyCompletionReference;
+
 import com.jetbrains.php.PhpIndex;
+import consulo.document.util.TextRange;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiElementResolveResult;
+import consulo.language.psi.PsiPolyVariantReferenceBase;
+import consulo.language.psi.ResolveResult;
+import consulo.project.DumbService;
+import consulo.util.collection.ContainerUtil;
 import fr.adrienbrault.idea.symfony2plugin.stubs.ContainerCollectionResolver;
 import fr.adrienbrault.idea.symfony2plugin.stubs.ServiceIndexUtil;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -21,7 +22,7 @@ import java.util.List;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
-abstract public class AbstractServiceReference extends PsiPolyVariantReferenceBase<PsiElement> {
+abstract public class AbstractServiceReference extends PsiPolyVariantReferenceBase<PsiElement> implements SymfonyCompletionReference {
 
     protected String serviceId;
     protected boolean usePrivateServices = true;
@@ -35,7 +36,7 @@ abstract public class AbstractServiceReference extends PsiPolyVariantReferenceBa
     }
 
     @Override
-    public ResolveResult @NotNull [] multiResolve(boolean incompleteCode) {
+    public ResolveResult[] multiResolve(boolean incompleteCode) {
         if (DumbService.isDumb(getElement().getProject())) {
             return ResolveResult.EMPTY_ARRAY;
         }
@@ -64,9 +65,8 @@ abstract public class AbstractServiceReference extends PsiPolyVariantReferenceBa
         return results.toArray(ResolveResult.EMPTY_ARRAY);
     }
 
-    @NotNull
     @Override
-    public Object[] getVariants() {
+    public Object[] getCompletionVariants() {
         if (DumbService.isDumb(getElement().getProject())) {
             return new Object[0];
         }

@@ -1,6 +1,8 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.templating.webpack;
 
-import com.intellij.openapi.vfs.VirtualFile;
+import org.junit.jupiter.api.Test;
+
+import consulo.virtualFileSystem.VirtualFile;
 import fr.adrienbrault.idea.symfony2plugin.templating.webpack.SymfonyWebpackUtil;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
 
@@ -18,6 +20,8 @@ public class SymfonyWebpackUtilTest extends SymfonyLightCodeInsightFixtureTestCa
     public String getTestDataPath() {
         return "src/test/java/fr/adrienbrault/idea/symfony2plugin/tests/templating/webpack/fixtures";
     }
+
+    @Test
 
     public void testVisitEntries() {
         myFixture.copyFileToProject("webpack.config.js");
@@ -40,6 +44,8 @@ public class SymfonyWebpackUtilTest extends SymfonyLightCodeInsightFixtureTestCa
         assertContainsElements(targets, "./assets/app.js");
     }
 
+    @Test
+
     public void testVisitManifestJsonEntries() {
         VirtualFile virtualFile = myFixture.copyFileToProject("manifest.json");
 
@@ -48,6 +54,8 @@ public class SymfonyWebpackUtilTest extends SymfonyLightCodeInsightFixtureTestCa
         SymfonyWebpackUtil.visitManifestJsonEntries(virtualFile, pair -> entries.add(pair.getFirst()));
         assertContainsElements(entries, "build/app.js", "build/dashboard.css", "build/images/logo.png");
     }
+
+    @Test
 
     public void testVisitManifestJsonArrayMustNotBreakParsing() {
         VirtualFile virtualFile = myFixture.copyFileToProject("entrypoints_invalid2.json");

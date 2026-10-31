@@ -1,7 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.util;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.psi.PsiElement;
+import consulo.project.Project;
+import consulo.language.psi.PsiElement;
 import com.jetbrains.php.PhpIndex;
 import com.jetbrains.php.lang.psi.elements.Constant;
 import com.jetbrains.php.lang.psi.elements.Field;
@@ -10,7 +10,6 @@ import fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern;
 import fr.adrienbrault.idea.symfony2plugin.templating.variable.TwigTypeContainer;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -24,8 +23,7 @@ public final class TwigConstantEnumResolver {
     private TwigConstantEnumResolver() {
     }
 
-    @NotNull
-    public static Collection<PsiElement> getConstantTargets(@NotNull PsiElement psiElement) {
+    public static Collection<PsiElement> getConstantTargets(PsiElement psiElement) {
         if (!TwigPattern.getPrintBlockOrTagFunctionPattern("constant").accepts(psiElement)) {
             return Collections.emptyList();
         }
@@ -33,8 +31,7 @@ public final class TwigConstantEnumResolver {
         return getConstantTargetsForArgument(psiElement);
     }
 
-    @NotNull
-    public static Collection<PsiElement> getConstantTargetsForArgument(@NotNull PsiElement psiElement) {
+    public static Collection<PsiElement> getConstantTargetsForArgument(PsiElement psiElement) {
         String contents = psiElement.getText();
         if (StringUtils.isBlank(contents)) {
             return Collections.emptyList();
@@ -76,8 +73,7 @@ public final class TwigConstantEnumResolver {
     /**
      * Resolves the object argument; example: <code>constant('CLUBS', order.suite)</code>.
      */
-    @NotNull
-    public static Collection<PhpClass> getObjectRelativeConstantClasses(@NotNull PsiElement firstArgumentElement) {
+    public static Collection<PhpClass> getObjectRelativeConstantClasses(PsiElement firstArgumentElement) {
         PsiElement expressionElement = TwigUtil.findTwigFunctionSecondArgumentPathLeaf(firstArgumentElement);
         if (expressionElement == null) {
             return Collections.emptyList();
@@ -101,8 +97,7 @@ public final class TwigConstantEnumResolver {
         return phpClasses;
     }
 
-    @NotNull
-    private static Collection<PsiElement> getObjectRelativeConstantTargets(@NotNull PsiElement psiElement, @NotNull String contents) {
+    private static Collection<PsiElement> getObjectRelativeConstantTargets(PsiElement psiElement, String contents) {
         if (contents.contains("\\") || contents.contains(":")) {
             return Collections.emptyList();
         }
@@ -121,8 +116,7 @@ public final class TwigConstantEnumResolver {
     /**
      * Resolves namespaced global constants; example: <code>constant('BugDemo\\NAMESPACED_CONST')</code>.
      */
-    @NotNull
-    private static Collection<PsiElement> getGlobalConstantTargets(@NotNull Project project, @NotNull String contents) {
+    private static Collection<PsiElement> getGlobalConstantTargets(Project project, String contents) {
         PhpIndex phpIndex = PhpIndex.getInstance(project);
         String fqn = normalizeGlobalConstantFqn(contents);
 
@@ -139,13 +133,11 @@ public final class TwigConstantEnumResolver {
         return Collections.emptyList();
     }
 
-    @NotNull
-    private static String normalizeGlobalConstantFqn(@NotNull String contents) {
+    private static String normalizeGlobalConstantFqn(String contents) {
         return "\\" + StringUtils.stripStart(contents.replace("\\\\", "\\"), "\\");
     }
 
-    @NotNull
-    public static Collection<PhpClass> getEnumTargets(@NotNull PsiElement psiElement) {
+    public static Collection<PhpClass> getEnumTargets(PsiElement psiElement) {
         if (!TwigPattern.getPrintBlockOrTagFunctionPattern("enum", "enum_cases").accepts(psiElement)) {
             return Collections.emptyList();
         }

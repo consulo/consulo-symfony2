@@ -1,6 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.twig.annotation;
 
-import com.intellij.psi.PsiElement;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.psi.PsiElement;
 import de.espend.idea.php.annotation.extension.PhpAnnotationDocTagGotoHandler;
 import de.espend.idea.php.annotation.extension.parameter.AnnotationDocTagGotoHandlerParameter;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
@@ -12,6 +13,7 @@ import java.util.Collection;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class TemplateAnnotationGotoHandler implements PhpAnnotationDocTagGotoHandler {
     @Override
     public void getGotoDeclarationTargets(AnnotationDocTagGotoHandlerParameter parameter) {

@@ -1,8 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.stubs.dict;
 
 import org.apache.commons.lang3.builder.HashCodeBuilder;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.io.Serializable;
 import java.util.Objects;
@@ -21,7 +20,7 @@ public class DispatcherEvent implements Serializable {
     public DispatcherEvent() {
     }
 
-    public DispatcherEvent(@NotNull String fqn, @Nullable String instance) {
+    public DispatcherEvent(String fqn, @Nullable String instance) {
         this.fqn = fqn;
         this.instance = instance;
     }

@@ -1,7 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.dic;
 
 import fr.adrienbrault.idea.symfony2plugin.dic.container.ServiceInterface;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 
@@ -10,7 +9,6 @@ import java.util.*;
  * @author Adrien Brault <adrien.brault@gmail.com>
  */
 public class ServiceMap {
-    @NotNull
     final private Collection<ServiceInterface> services;
 
     private Collection<String> ids;
@@ -19,7 +17,7 @@ public class ServiceMap {
         this.services = Collections.emptyList();
     }
 
-    ServiceMap(@NotNull Collection<ServiceInterface> services) {
+    ServiceMap(Collection<ServiceInterface> services) {
         this.services = Collections.unmodifiableCollection(services);
     }
 
@@ -38,7 +36,6 @@ public class ServiceMap {
         return this.ids = Collections.unmodifiableCollection(map);
     }
 
-    @NotNull
     public Collection<ServiceInterface> getServices() {
         return services;
     }

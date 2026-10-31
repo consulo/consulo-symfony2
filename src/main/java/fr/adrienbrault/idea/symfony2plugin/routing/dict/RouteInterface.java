@@ -1,7 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.routing.dict;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Collection;
 
@@ -10,7 +9,6 @@ import java.util.Collection;
  */
 public interface RouteInterface {
 
-    @NotNull
     String getName();
 
     @Nullable
@@ -19,6 +17,5 @@ public interface RouteInterface {
     @Nullable
     String getPath();
 
-    @NotNull
     Collection<String> getMethods();
 }

@@ -1,13 +1,14 @@
 package fr.adrienbrault.idea.symfony2plugin.doctrine.metadata;
 
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.openapi.project.Project;
-import com.intellij.psi.PsiElement;
 import com.jetbrains.php.lang.psi.elements.MethodReference;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
 import com.jetbrains.php.lang.psi.elements.PhpExpression;
 import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
 import com.jetbrains.php.lang.psi.resolve.types.PhpType;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.psi.PsiElement;
+import consulo.project.Project;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionProvider;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionRegistrar;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionRegistrarParameter;
@@ -19,16 +20,20 @@ import fr.adrienbrault.idea.symfony2plugin.doctrine.dict.DoctrineModelInterface;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.util.DoctrineMetadataUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.MethodMatcher;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
-import org.jetbrains.annotations.NotNull;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 import java.util.function.Function;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class ObjectRepositoryFindGotoCompletionRegistrar implements GotoCompletionRegistrar {
-    public void register(@NotNull GotoCompletionRegistrarParameter registrar) {
+    public void register(GotoCompletionRegistrarParameter registrar) {
 
         // "@var $om \Doctrine\Common\Persistence\ObjectManager"
         // "$om->getRepository('Foo\Bar')->" + s + "(['foo' => 'foo', '<caret>' => 'foo'])"
@@ -86,15 +91,13 @@ public class ObjectRepositoryFindGotoCompletionRegistrar implements GotoCompleti
     }
 
     private static class MyArrayFieldMetadataGotoCompletionRegistrar extends GotoCompletionProvider {
-        @NotNull
         private final Collection<PhpClass> phpClasses;
 
-        MyArrayFieldMetadataGotoCompletionRegistrar(@NotNull PsiElement element, @NotNull Collection<PhpClass> phpClasses) {
+        MyArrayFieldMetadataGotoCompletionRegistrar(PsiElement element, Collection<PhpClass> phpClasses) {
             super(element);
             this.phpClasses = phpClasses;
         }
 
-        @NotNull
         @Override
         public Collection<LookupElement> getLookupElements() {
             List<LookupElement> results = new ArrayList<>();
@@ -109,7 +112,6 @@ public class ObjectRepositoryFindGotoCompletionRegistrar implements GotoCompleti
             return results;
         }
 
-        @NotNull
         @Override
         public Collection<PsiElement> getPsiTargets(PsiElement element) {
             String content = GotoCompletionUtil.getTextValueForElement(element);

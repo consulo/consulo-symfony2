@@ -1,12 +1,14 @@
 package fr.adrienbrault.idea.symfony2plugin.completion;
 
-import com.intellij.codeInsight.completion.*;
-import com.intellij.codeInsight.lookup.LookupElementBuilder;
-import com.intellij.codeInsight.navigation.actions.GotoDeclarationHandler;
-import com.intellij.openapi.editor.Editor;
-import com.intellij.openapi.project.Project;
-import com.intellij.psi.PsiElement;
-import com.intellij.util.ProcessingContext;
+import consulo.language.editor.completion.CompletionParameters;
+import consulo.language.editor.completion.CompletionProvider;
+import consulo.language.editor.completion.CompletionResultSet;
+import consulo.language.editor.completion.lookup.LookupElementBuilder;
+import consulo.language.editor.navigation.GotoDeclarationHandler;
+import consulo.codeEditor.Editor;
+import consulo.project.Project;
+import consulo.language.psi.PsiElement;
+import consulo.language.util.ProcessingContext;
 import com.jetbrains.php.lang.psi.elements.*;
 import de.espend.idea.php.annotation.pattern.AnnotationPattern;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
@@ -15,10 +17,9 @@ import fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper;
 import fr.adrienbrault.idea.symfony2plugin.util.MethodMatcher;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import icons.SymfonyIcons;
-import kotlin.Pair;
+import consulo.util.lang.Pair;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.*;
 import java.util.function.Consumer;
@@ -27,13 +28,12 @@ import java.util.function.Consumer;
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class PhpGotoDeclarationCompletionContributor {
-    public static class Completion extends CompletionContributor {
-        public Completion() {
-            // $httpClient->request('', '', ['<caret>' => '']);
-            extend(CompletionType.BASIC, PhpElementsUtil.getParameterListArrayValuePattern(), new HttpClientCompletionProvider());
-        }
-    }
+    // Consulo port: nested "Completion" contributor moved to top-level PhpGotoDeclarationCompletionContributorCompletion
+    // (Consulo cannot register nested extension classes)
 
+    /**
+     * Registered via top-level subclass {@link PhpGotoDeclarationCompletionContributorGotoDeclaration}
+     */
     public static class GotoDeclaration implements GotoDeclarationHandler {
         @Override
         public PsiElement @Nullable [] getGotoDeclarationTargets(@Nullable PsiElement psiElement, int offset, Editor editor) {
@@ -73,7 +73,7 @@ public class PhpGotoDeclarationCompletionContributor {
         /**
          * "#[Route('/test/te<caret>st/test')] => '/test/"
          */
-        private static Collection<PsiElement> partialRouteNavigation(@NotNull Project project, @NotNull String contents, @NotNull PsiElement psiElement, int offset) {
+        private static Collection<PsiElement> partialRouteNavigation(Project project, String contents, PsiElement psiElement, int offset) {
             int calulatedOffset = offset - psiElement.getTextRange().getStartOffset();
             if (calulatedOffset < 0) {
                 calulatedOffset = 0;
@@ -114,9 +114,10 @@ public class PhpGotoDeclarationCompletionContributor {
         }
     }
 
-    private static class HttpClientCompletionProvider extends CompletionProvider<CompletionParameters> {
+    // Consulo port: package-private (was private) for PhpGotoDeclarationCompletionContributorCompletion
+    static class HttpClientCompletionProvider implements CompletionProvider {
         @Override
-        protected void addCompletions(@NotNull CompletionParameters completionParameters, @NotNull ProcessingContext processingContext, @NotNull CompletionResultSet completionResultSet) {
+        public void addCompletions(CompletionParameters completionParameters, ProcessingContext processingContext, CompletionResultSet completionResultSet) {
             PsiElement psiElement = completionParameters.getOriginalPosition();
             if (psiElement == null) {
                 return;
@@ -148,7 +149,7 @@ public class PhpGotoDeclarationCompletionContributor {
         }
     }
 
-    private static void consumeHttpClientOptions(@NotNull Project project, @NotNull Consumer<Pair<String, Pair<PsiElement, PsiElement>>> consumer) {
+    private static void consumeHttpClientOptions(Project project, Consumer<Pair<String, Pair<PsiElement, PsiElement>>> consumer) {
         for (PhpClass phpClass : PhpElementsUtil.getClassesInterface(project, "\\Symfony\\Contracts\\HttpClient\\HttpClientInterface")) {
             Field optionsDefaults = phpClass.findFieldByName("OPTIONS_DEFAULTS", true);
             if (optionsDefaults != null && optionsDefaults.isConstant()) {
@@ -162,7 +163,7 @@ public class PhpGotoDeclarationCompletionContributor {
         }
     }
 
-    private static boolean isHttpClientOptionArgument(@NotNull PsiElement psiElement) {
+    private static boolean isHttpClientOptionArgument(PsiElement psiElement) {
         ArrayCreationExpression arrayCreationExpression = PhpElementsUtil.getCompletableArrayCreationElement(psiElement.getParent());
         if (arrayCreationExpression == null) {
             return false;

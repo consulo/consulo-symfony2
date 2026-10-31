@@ -1,16 +1,15 @@
 package fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.driver;
 
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
 import com.jetbrains.php.lang.psi.PhpFile;
 import com.jetbrains.php.lang.psi.elements.*;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.dict.DoctrineModelField;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.dict.DoctrineMetadataModel;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.util.DoctrineMetadataUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpPsiAttributesUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -29,7 +28,7 @@ import java.util.Map;
  */
 public class DoctrinePhpAttributeMappingDriver implements DoctrineMappingDriverInterface {
     @Override
-    public DoctrineMetadataModel getMetadata(@NotNull DoctrineMappingDriverArguments arguments) {
+    public DoctrineMetadataModel getMetadata(DoctrineMappingDriverArguments arguments) {
         PsiFile psiFile = arguments.getPsiFile();
         if(!(psiFile instanceof PhpFile)) {
             return null;
@@ -141,11 +140,11 @@ public class DoctrinePhpAttributeMappingDriver implements DoctrineMappingDriverI
     }
 
     private void addEmbeddedFields(
-        @NotNull DoctrineMappingDriverArguments arguments,
-        @NotNull PhpClass containingClass,
-        @NotNull Field field,
-        @NotNull PhpAttribute attribute,
-        @NotNull Collection<DoctrineModelField> fields
+        DoctrineMappingDriverArguments arguments,
+        PhpClass containingClass,
+        Field field,
+        PhpAttribute attribute,
+        Collection<DoctrineModelField> fields
     ) {
         String embeddedClass = PhpPsiAttributesUtil.getAttributeValueByNameAsString(attribute, 0, "class");
         if (StringUtils.isBlank(embeddedClass)) {
@@ -166,7 +165,7 @@ public class DoctrinePhpAttributeMappingDriver implements DoctrineMappingDriverI
         );
     }
 
-    private String getDeclaredClass(@NotNull Field field) {
+    private String getDeclaredClass(Field field) {
         PhpTypeDeclaration typeDeclaration = field.getTypeDeclaration();
         if (typeDeclaration == null) {
             return null;
@@ -181,8 +180,7 @@ public class DoctrinePhpAttributeMappingDriver implements DoctrineMappingDriverI
         return null;
     }
 
-    @NotNull
-    private String getColumnPrefix(@NotNull PhpAttribute attribute, @NotNull String propertyName) {
+    private String getColumnPrefix(PhpAttribute attribute, String propertyName) {
         PsiElement columnPrefixElement = PhpPsiAttributesUtil.getAttributeValuePsiElement(attribute, 1, "columnPrefix");
         if (columnPrefixElement != null && "false".equalsIgnoreCase(columnPrefixElement.getText())) {
             return "";

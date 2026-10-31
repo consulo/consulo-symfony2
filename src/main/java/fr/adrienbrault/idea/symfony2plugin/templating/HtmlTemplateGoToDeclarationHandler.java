@@ -1,18 +1,19 @@
 package fr.adrienbrault.idea.symfony2plugin.templating;
 
-import com.intellij.codeInsight.navigation.actions.GotoDeclarationHandler;
-import com.intellij.openapi.editor.Editor;
-import com.intellij.openapi.project.Project;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.html.HtmlTag;
-import com.intellij.psi.xml.XmlAttribute;
-import com.intellij.psi.xml.XmlAttributeValue;
-import com.intellij.psi.xml.XmlElementType;
-import com.intellij.psi.xml.XmlTag;
-import com.intellij.psi.xml.XmlToken;
-import com.intellij.psi.xml.XmlTokenType;
+import consulo.language.editor.navigation.GotoDeclarationHandler;
+import consulo.codeEditor.Editor;
+import consulo.project.Project;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.html.language.psi.HtmlTag;
+import consulo.xml.language.psi.XmlAttribute;
+import consulo.xml.language.psi.XmlAttributeValue;
+import consulo.xml.language.psi.XmlElementType;
+import consulo.xml.language.psi.XmlTag;
+import consulo.xml.language.psi.XmlToken;
+import consulo.xml.language.psi.XmlTokenType;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
+import consulo.annotation.component.ExtensionImpl;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.routing.Route;
 import fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper;
@@ -20,8 +21,7 @@ import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigHtmlCompletionUti
 import fr.adrienbrault.idea.symfony2plugin.twig.utils.TwigBlockUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.UxUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -29,6 +29,7 @@ import java.util.Collection;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class HtmlTemplateGoToDeclarationHandler implements GotoDeclarationHandler {
     public PsiElement[] getGotoDeclarationTargets(PsiElement psiElement, int offset, Editor editor) {
         if (!Symfony2ProjectComponent.isEnabled(psiElement)) {
@@ -137,7 +138,7 @@ public class HtmlTemplateGoToDeclarationHandler implements GotoDeclarationHandle
     }
 
     @Nullable
-    private static String getParentComponentName(@NotNull XmlTag tag) {
+    private static String getParentComponentName(XmlTag tag) {
         XmlTag parentTag = tag.getParentTag();
         while (parentTag != null) {
             String name = parentTag.getName();

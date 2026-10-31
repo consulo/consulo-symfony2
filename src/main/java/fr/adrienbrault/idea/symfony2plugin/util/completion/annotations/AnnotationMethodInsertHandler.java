@@ -1,11 +1,10 @@
 package fr.adrienbrault.idea.symfony2plugin.util.completion.annotations;
 
-import com.intellij.codeInsight.completion.InsertHandler;
-import com.intellij.codeInsight.completion.InsertionContext;
-import com.intellij.codeInsight.lookup.LookupElement;
 import com.jetbrains.php.completion.insert.PhpInsertHandlerUtil;
+import consulo.language.editor.completion.lookup.InsertHandler;
+import consulo.language.editor.completion.lookup.InsertionContext;
+import consulo.language.editor.completion.lookup.LookupElement;
 import fr.adrienbrault.idea.symfony2plugin.util.annotation.AnnotationValue;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -14,7 +13,7 @@ public class AnnotationMethodInsertHandler implements InsertHandler<LookupElemen
 
     private static final AnnotationMethodInsertHandler instance = new AnnotationMethodInsertHandler();
 
-    public void handleInsert(@NotNull InsertionContext context, @NotNull LookupElement lookupElement) {
+    public void handleInsert(InsertionContext context, LookupElement lookupElement) {
         if(lookupElement.getObject() instanceof AnnotationValue) {
             String addText = "=\"\"";
 

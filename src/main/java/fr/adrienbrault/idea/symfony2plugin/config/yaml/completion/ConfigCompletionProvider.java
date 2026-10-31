@@ -1,14 +1,14 @@
 package fr.adrienbrault.idea.symfony2plugin.config.yaml.completion;
 
-import com.intellij.codeInsight.completion.CompletionParameters;
-import com.intellij.codeInsight.completion.CompletionProvider;
-import com.intellij.codeInsight.completion.CompletionResultSet;
-import com.intellij.codeInsight.lookup.LookupElementBuilder;
-import com.intellij.openapi.util.text.StringUtil;
-import com.intellij.openapi.vfs.VfsUtil;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiElement;
-import com.intellij.util.ProcessingContext;
+import consulo.language.editor.completion.CompletionParameters;
+import consulo.language.editor.completion.CompletionProvider;
+import consulo.language.editor.completion.CompletionResultSet;
+import consulo.language.editor.completion.lookup.LookupElementBuilder;
+import consulo.language.psi.PsiElement;
+import consulo.language.util.ProcessingContext;
+import consulo.util.lang.StringUtil;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.virtualFileSystem.util.VirtualFileUtil;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.util.ProjectUtil;
@@ -17,11 +17,10 @@ import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.xerces.dom.CommentImpl;
 import org.apache.xerces.dom.DeferredTextImpl;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.jetbrains.yaml.psi.YAMLCompoundValue;
 import org.jetbrains.yaml.psi.YAMLDocument;
 import org.jetbrains.yaml.psi.YAMLKeyValue;
+import org.jspecify.annotations.Nullable;
 import org.w3c.dom.*;
 import org.xml.sax.SAXException;
 
@@ -31,6 +30,7 @@ import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -38,10 +38,10 @@ import java.util.regex.Pattern;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
-public class ConfigCompletionProvider extends CompletionProvider<CompletionParameters> {
+public class ConfigCompletionProvider implements CompletionProvider {
 
     @Override
-    protected void addCompletions(@NotNull CompletionParameters completionParameters, ProcessingContext processingContext, @NotNull CompletionResultSet completionResultSet) {
+    public void addCompletions(CompletionParameters completionParameters, ProcessingContext processingContext, CompletionResultSet completionResultSet) {
 
         PsiElement element = completionParameters.getPosition();
         if(!Symfony2ProjectComponent.isEnabled(element)) {
@@ -113,11 +113,17 @@ public class ConfigCompletionProvider extends CompletionProvider<CompletionParam
         try {
             DocumentBuilder builder = SecureXmlUtil.createDocumentBuilder();
 
-            VirtualFile virtualFile = VfsUtil.findRelativeFile(projectBaseDir, ".idea", "symfony2-config.xml");
+            VirtualFile virtualFile = VirtualFileUtil.findRelativeFile(projectBaseDir, ".idea", "symfony2-config.xml");
             if(virtualFile != null) {
-                document = builder.parse(VfsUtil.virtualToIoFile(virtualFile));
+                document = builder.parse(VirtualFileUtil.virtualToIoFile(virtualFile));
             } else {
-                document = builder.parse(ConfigCompletionProvider.class.getResourceAsStream("/symfony2-config.xml"));
+                try (InputStream inputStream = ConfigCompletionProvider.class.getResourceAsStream("/symfony2-config.xml")) {
+                    if (inputStream == null) {
+                        return null;
+                    }
+
+                    document = builder.parse(inputStream);
+                }
             }
 
             return document;
@@ -205,7 +211,7 @@ public class ConfigCompletionProvider extends CompletionProvider<CompletionParam
     }
 
     @Nullable
-    private Element getElementByTagNameWithUnPluralize(@NotNull Element element, String tagName) {
+    private Element getElementByTagNameWithUnPluralize(Element element, String tagName) {
 
         NodeList nodeList = element.getElementsByTagName(tagName);
         if(nodeList.getLength() > 0) {
@@ -292,7 +298,6 @@ public class ConfigCompletionProvider extends CompletionProvider<CompletionParam
         return false;
     }
 
-    @NotNull
     private Map<String, String> getNodeCommentVars(@Nullable Node node) {
         Map<String, String> comments = new HashMap<>();
 

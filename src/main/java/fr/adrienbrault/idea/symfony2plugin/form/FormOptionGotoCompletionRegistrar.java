@@ -1,11 +1,12 @@
 package fr.adrienbrault.idea.symfony2plugin.form;
 
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.util.PsiTreeUtil;
 import com.jetbrains.php.lang.PhpLanguage;
 import com.jetbrains.php.lang.psi.elements.*;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.util.PsiTreeUtil;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionContributor;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionProvider;
@@ -21,14 +22,14 @@ import fr.adrienbrault.idea.symfony2plugin.util.ParameterBag;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.*;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class FormOptionGotoCompletionRegistrar implements GotoCompletionRegistrar {
     /**
      * Symfony 2 / 3 switch
@@ -38,7 +39,7 @@ public class FormOptionGotoCompletionRegistrar implements GotoCompletionRegistra
         "Symfony\\Component\\Form\\Extension\\Core\\Type\\FormType"
     };
 
-    public void register(@NotNull GotoCompletionRegistrarParameter registrar) {
+    public void register(GotoCompletionRegistrarParameter registrar) {
         registrar.register(
             PlatformPatterns.psiElement().withLanguage(PhpLanguage.INSTANCE),
             new FormOptionBuilderCompletionContributor()
@@ -81,7 +82,7 @@ public class FormOptionGotoCompletionRegistrar implements GotoCompletionRegistra
     private static class FormOptionBuilderCompletionContributor implements GotoCompletionContributor {
         @Nullable
         @Override
-        public GotoCompletionProvider getProvider(@NotNull PsiElement psiElement) {
+        public GotoCompletionProvider getProvider(PsiElement psiElement) {
             if (!Symfony2ProjectComponent.isEnabled(psiElement)) {
                 return null;
             }
@@ -105,7 +106,7 @@ public class FormOptionGotoCompletionRegistrar implements GotoCompletionRegistra
             return null;
         }
 
-        private GotoCompletionProvider getMatchingOption(ParameterList parameterList, @NotNull PsiElement psiElement) {
+        private GotoCompletionProvider getMatchingOption(ParameterList parameterList, PsiElement psiElement) {
             // form name can be a string alias; also resolve on constants, properties, ...
             PsiElement psiElementAt = PsiElementUtils.getMethodParameterPsiElementAt(parameterList, 1);
 
@@ -128,15 +129,13 @@ public class FormOptionGotoCompletionRegistrar implements GotoCompletionRegistra
     }
 
     private static class FormReferenceCompletionProvider extends GotoCompletionProvider {
-        @NotNull
         private final Collection<String> formTypes;
 
-        FormReferenceCompletionProvider(@NotNull PsiElement element, @NotNull Collection<String> formTypes) {
+        FormReferenceCompletionProvider(PsiElement element, Collection<String> formTypes) {
             super(element);
             this.formTypes = formTypes;
         }
 
-        @NotNull
         public Collection<PsiElement> getPsiTargets(PsiElement psiElement) {
 
             PsiElement element = psiElement.getParent();
@@ -157,7 +156,6 @@ public class FormOptionGotoCompletionRegistrar implements GotoCompletionRegistra
             return psiElements;
         }
 
-        @NotNull
         public Collection<LookupElement> getLookupElements() {
             Collection<LookupElement> lookupElements = new ArrayList<>();
 
@@ -175,12 +173,11 @@ public class FormOptionGotoCompletionRegistrar implements GotoCompletionRegistra
     private static class FormOptionGotoCompletionProvider extends GotoCompletionProvider {
         private final Collection<String> formTypes;
 
-        FormOptionGotoCompletionProvider(PsiElement psiElement, @NotNull Collection<String> formTypes) {
+        FormOptionGotoCompletionProvider(PsiElement psiElement, Collection<String> formTypes) {
             super(psiElement);
             this.formTypes = formTypes;
         }
 
-        @NotNull
         @Override
         public Collection<LookupElement> getLookupElements() {
             Collection<LookupElement> elements = new ArrayList<>();
@@ -196,7 +193,6 @@ public class FormOptionGotoCompletionRegistrar implements GotoCompletionRegistra
             return elements;
         }
 
-        @NotNull
         @Override
         public Collection<PsiElement> getPsiTargets(PsiElement element) {
             String contents = GotoCompletionUtil.getTextValueForElement(element);
@@ -220,7 +216,7 @@ public class FormOptionGotoCompletionRegistrar implements GotoCompletionRegistra
     private static class OptionDefaultCompletionContributor implements GotoCompletionContributor {
         @Nullable
         @Override
-        public GotoCompletionProvider getProvider(@NotNull PsiElement psiElement) {
+        public GotoCompletionProvider getProvider(PsiElement psiElement) {
             PsiElement context = psiElement.getContext();
             if (!(context instanceof StringLiteralExpression)) {
                 return null;
@@ -263,7 +259,7 @@ public class FormOptionGotoCompletionRegistrar implements GotoCompletionRegistra
     private static class OptionDefaultsCompletionContributor implements GotoCompletionContributor {
         @Nullable
         @Override
-        public GotoCompletionProvider getProvider(@NotNull PsiElement psiElement) {
+        public GotoCompletionProvider getProvider(PsiElement psiElement) {
             PsiElement context = psiElement.getContext();
             if (!(context instanceof StringLiteralExpression)) {
                 return null;
@@ -319,7 +315,7 @@ public class FormOptionGotoCompletionRegistrar implements GotoCompletionRegistra
     private static class OptionDefaultsCompletionGotoCompletionProvider extends GotoCompletionProvider {
         private final Collection<String> formTypes;
 
-        OptionDefaultsCompletionGotoCompletionProvider(PsiElement psiElement, @NotNull Collection<String> formTypes) {
+        OptionDefaultsCompletionGotoCompletionProvider(PsiElement psiElement, Collection<String> formTypes) {
             super(psiElement);
             this.formTypes = new HashSet<>();
 
@@ -328,7 +324,6 @@ public class FormOptionGotoCompletionRegistrar implements GotoCompletionRegistra
             this.formTypes.addAll(formTypes);
         }
 
-        @NotNull
         @Override
         public Collection<LookupElement> getLookupElements() {
             Collection<LookupElement> elements = new ArrayList<>(
@@ -342,7 +337,6 @@ public class FormOptionGotoCompletionRegistrar implements GotoCompletionRegistra
             return elements;
         }
 
-        @NotNull
         @Override
         public Collection<PsiElement> getPsiTargets(PsiElement element) {
             PsiElement parent = element.getParent();
@@ -364,7 +358,7 @@ public class FormOptionGotoCompletionRegistrar implements GotoCompletionRegistra
 
     private static class FormArrayAccessOptionGotoCompletionContributor implements GotoCompletionContributor {
         @Override
-        public @Nullable GotoCompletionProvider getProvider(@NotNull PsiElement psiElement) {
+        public @Nullable GotoCompletionProvider getProvider(PsiElement psiElement) {
             if (!Symfony2ProjectComponent.isEnabled(psiElement)) {
                 return null;
             }

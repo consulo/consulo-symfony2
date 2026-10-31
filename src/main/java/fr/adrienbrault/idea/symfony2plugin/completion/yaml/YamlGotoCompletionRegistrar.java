@@ -1,7 +1,8 @@
 package fr.adrienbrault.idea.symfony2plugin.completion.yaml;
 
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.util.PsiTreeUtil;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.util.PsiTreeUtil;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionRegistrar;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionRegistrarParameter;
 import fr.adrienbrault.idea.symfony2plugin.completion.DecoratedServiceCompletionProvider;
@@ -9,18 +10,19 @@ import fr.adrienbrault.idea.symfony2plugin.config.yaml.YamlElementPatternHelper;
 import fr.adrienbrault.idea.symfony2plugin.routing.RouteGotoCompletionProvider;
 import fr.adrienbrault.idea.symfony2plugin.templating.TemplateGotoCompletionRegistrar;
 import fr.adrienbrault.idea.symfony2plugin.util.completion.PhpConstGotoCompletionProvider;
+import fr.adrienbrault.idea.symfony2plugin.util.completion.PhpEnumGotoCompletionProvider;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.jetbrains.yaml.psi.YAMLMapping;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class YamlGotoCompletionRegistrar implements GotoCompletionRegistrar  {
 
     @Override
-    public void register(@NotNull GotoCompletionRegistrarParameter registrar) {
+    public void register(GotoCompletionRegistrarParameter registrar) {
         // defaults:
         //   route: <caret>
         registrar.register(
@@ -47,6 +49,12 @@ public class YamlGotoCompletionRegistrar implements GotoCompletionRegistrar  {
             YamlElementPatternHelper.getPhpConstPattern(),
             PhpConstGotoCompletionProvider::new
         );
+
+        // key: !php/enum <caret>
+        registrar.register(
+            YamlElementPatternHelper.getPhpEnumPattern(),
+            PhpEnumGotoCompletionProvider::new
+        );
     }
 
     private static class MyDecoratedServiceCompletionProvider extends DecoratedServiceCompletionProvider {
@@ -56,7 +64,7 @@ public class YamlGotoCompletionRegistrar implements GotoCompletionRegistrar  {
 
         @Nullable
         @Override
-        public String findClassForElement(@NotNull PsiElement psiElement) {
+        public String findClassForElement(PsiElement psiElement) {
             YAMLMapping parentOfType = PsiTreeUtil.getParentOfType(psiElement, YAMLMapping.class);
             if(parentOfType == null) {
                 return null;
@@ -67,7 +75,7 @@ public class YamlGotoCompletionRegistrar implements GotoCompletionRegistrar  {
 
         @Nullable
         @Override
-        public String findIdForElement(@NotNull PsiElement psiElement) {
+        public String findIdForElement(PsiElement psiElement) {
             YAMLMapping parentOfType = PsiTreeUtil.getParentOfType(psiElement, YAMLMapping.class);
             if(parentOfType == null) {
                 return null;

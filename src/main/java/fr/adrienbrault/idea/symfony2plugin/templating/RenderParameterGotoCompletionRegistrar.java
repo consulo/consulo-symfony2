@@ -1,13 +1,14 @@
 package fr.adrienbrault.idea.symfony2plugin.templating;
 
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.codeInsight.lookup.LookupElementBuilder;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.util.PsiTreeUtil;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.editor.completion.lookup.LookupElementBuilder;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.util.PsiTreeUtil;
 import com.jetbrains.php.lang.psi.elements.*;
 import com.jetbrains.twig.TwigFile;
+import consulo.annotation.component.ExtensionImpl;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionProvider;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionRegistrar;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionRegistrarParameter;
@@ -15,8 +16,7 @@ import fr.adrienbrault.idea.symfony2plugin.codeInsight.utils.GotoCompletionUtil;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.PhpMethodVariableResolveUtil;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
-import icons.TwigIcons;
-import org.jetbrains.annotations.NotNull;
+import com.jetbrains.twig.icons.TwigIcons;
 
 import java.util.*;
 
@@ -30,6 +30,7 @@ import java.util.*;
  *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class RenderParameterGotoCompletionRegistrar implements GotoCompletionRegistrar {
     /**
      * supported "array merge" function for template variables
@@ -39,7 +40,7 @@ public class RenderParameterGotoCompletionRegistrar implements GotoCompletionReg
     ));
 
     @Override
-    public void register(@NotNull GotoCompletionRegistrarParameter registrar) {
+    public void register(GotoCompletionRegistrarParameter registrar) {
         registrar.register(
             PlatformPatterns.psiElement().withParent(StringLiteralExpression.class),
             MyTemplateVariablesGotoCompletionProvider::new
@@ -51,7 +52,6 @@ public class RenderParameterGotoCompletionRegistrar implements GotoCompletionReg
             super(psiElement);
         }
 
-        @NotNull
         @Override
         public Collection<LookupElement> getLookupElements() {
             Collection<String> templateNames = getTemplatesForScope(getElement());
@@ -86,7 +86,6 @@ public class RenderParameterGotoCompletionRegistrar implements GotoCompletionReg
             return elements;
         }
 
-        @NotNull
         @Override
         public Collection<PsiElement> getPsiTargets(PsiElement element) {
             Collection<String> templateNames = getTemplatesForScope(element);
@@ -129,8 +128,7 @@ public class RenderParameterGotoCompletionRegistrar implements GotoCompletionReg
     /**
      * Extract template names from function, method or annotations
      */
-    @NotNull
-    public static Collection<String> getTemplatesForScope(@NotNull PsiElement psiElement) {
+    public static Collection<String> getTemplatesForScope(PsiElement psiElement) {
         PsiElement stringLiteral = psiElement.getParent();
         if(!(stringLiteral instanceof StringLiteralExpression)) {
             return Collections.emptyList();

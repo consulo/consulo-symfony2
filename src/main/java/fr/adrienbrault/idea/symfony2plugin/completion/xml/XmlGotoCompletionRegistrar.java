@@ -1,18 +1,18 @@
 package fr.adrienbrault.idea.symfony2plugin.completion.xml;
 
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.codeInsight.lookup.LookupElementBuilder;
-import com.intellij.openapi.project.Project;
-import com.intellij.patterns.XmlPatterns;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.util.PsiTreeUtil;
-import com.intellij.psi.xml.XmlAttribute;
-import com.intellij.psi.xml.XmlAttributeValue;
-import com.intellij.psi.xml.XmlTag;
-import com.intellij.psi.xml.XmlToken;
-import com.intellij.util.Consumer;
-import com.intellij.util.containers.ContainerUtil;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.editor.completion.lookup.LookupElementBuilder;
+import consulo.project.Project;
+import consulo.xml.language.psi.pattern.XmlPatterns;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.util.PsiTreeUtil;
+import consulo.xml.language.psi.XmlAttribute;
+import consulo.xml.language.psi.XmlAttributeValue;
+import consulo.xml.language.psi.XmlTag;
+import consulo.xml.language.psi.XmlToken;
+import consulo.util.collection.ContainerUtil;
 import com.jetbrains.php.completion.PhpLookupElement;
 import com.jetbrains.php.lang.psi.elements.Function;
 import com.jetbrains.php.lang.psi.elements.Parameter;
@@ -32,18 +32,19 @@ import fr.adrienbrault.idea.symfony2plugin.util.completion.PhpClassCompletionPro
 import fr.adrienbrault.idea.symfony2plugin.util.dict.ServiceUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.resource.FileResourceUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.*;
+import java.util.function.Consumer;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class XmlGotoCompletionRegistrar implements GotoCompletionRegistrar  {
 
     @Override
-    public void register(@NotNull GotoCompletionRegistrarParameter registrar) {
+    public void register(GotoCompletionRegistrarParameter registrar) {
         // <import resource="config_foo.xml"/>
         registrar.register(
             XmlPatterns.psiElement().withParent(XmlHelper.getImportResourcePattern()),
@@ -115,7 +116,6 @@ public class XmlGotoCompletionRegistrar implements GotoCompletionRegistrar  {
             super(element);
         }
 
-        @NotNull
         public Collection<PsiElement> getPsiTargets(PsiElement element) {
             return Collections.emptyList();
         }
@@ -127,7 +127,6 @@ public class XmlGotoCompletionRegistrar implements GotoCompletionRegistrar  {
             super(element);
         }
 
-        @NotNull
         @Override
         public Collection<PsiElement> getPsiTargets(PsiElement element) {
             String xmlAttributeValue = GotoCompletionUtil.getXmlAttributeValue(element);
@@ -161,7 +160,7 @@ public class XmlGotoCompletionRegistrar implements GotoCompletionRegistrar  {
         }
 
         @Override
-        public void getLookupElements(@NotNull GotoCompletionProviderLookupArguments arguments) {
+        public void getLookupElements(GotoCompletionProviderLookupArguments arguments) {
             // find class name of service tag
             PsiElement xmlToken = this.getElement();
             if(xmlToken instanceof XmlToken) {
@@ -211,7 +210,7 @@ public class XmlGotoCompletionRegistrar implements GotoCompletionRegistrar  {
         }
 
         @Override
-        public void getLookupElements(@NotNull GotoCompletionProviderLookupArguments arguments) {
+        public void getLookupElements(GotoCompletionProviderLookupArguments arguments) {
             arguments.getResultSet().addAllElements(
                 ServiceCompletionProvider.getLookupElements(null, ContainerCollectionResolver.getServices(getProject()).values()).getLookupElements()
             );
@@ -223,7 +222,6 @@ public class XmlGotoCompletionRegistrar implements GotoCompletionRegistrar  {
             super(element);
         }
 
-        @NotNull
         @Override
         public Collection<LookupElement> getLookupElements() {
             PsiElement parent = getElement().getParent();
@@ -257,7 +255,7 @@ public class XmlGotoCompletionRegistrar implements GotoCompletionRegistrar  {
 
         @Nullable
         @Override
-        public String findClassForElement(@NotNull PsiElement psiElement) {
+        public String findClassForElement(PsiElement psiElement) {
             XmlTag parentOfType = PsiTreeUtil.getParentOfType(psiElement, XmlTag.class);
             if (parentOfType != null) {
                 String aClass = parentOfType.getAttributeValue("class");
@@ -271,7 +269,7 @@ public class XmlGotoCompletionRegistrar implements GotoCompletionRegistrar  {
 
         @Nullable
         @Override
-        public String findIdForElement(@NotNull PsiElement psiElement) {
+        public String findIdForElement(PsiElement psiElement) {
             XmlTag parentOfType = PsiTreeUtil.getParentOfType(psiElement, XmlTag.class);
             if(parentOfType == null) {
                 return null;
@@ -284,10 +282,9 @@ public class XmlGotoCompletionRegistrar implements GotoCompletionRegistrar  {
     private static class MyGlobalStringTemplateGotoCompletionContributor implements GotoCompletionContributor {
         @Nullable
         @Override
-        public GotoCompletionProvider getProvider(@NotNull PsiElement psiElement) {
+        public GotoCompletionProvider getProvider(PsiElement psiElement) {
             return new GotoCompletionProvider(psiElement) {
 
-                @NotNull
                 @Override
                 public Collection<PsiElement> getPsiTargets(PsiElement element) {
                     String xmlAttributeValue = GotoCompletionUtil.getXmlAttributeValue(element);
@@ -323,7 +320,6 @@ public class XmlGotoCompletionRegistrar implements GotoCompletionRegistrar  {
             super(psiElement);
         }
 
-        @NotNull
         @Override
         public Collection<LookupElement> getLookupElements() {
             Collection<LookupElement> lookupElements = new ArrayList<>();
@@ -349,7 +345,6 @@ public class XmlGotoCompletionRegistrar implements GotoCompletionRegistrar  {
             return lookupElements;
         }
 
-        @NotNull
         @Override
         public Collection<PsiElement> getPsiTargets(PsiElement element) {
             String xmlAttributeValue = GotoCompletionUtil.getXmlAttributeValue(element);
@@ -374,7 +369,7 @@ public class XmlGotoCompletionRegistrar implements GotoCompletionRegistrar  {
             return targets;
         }
 
-        private void visitParameter(@NotNull XmlTag argumentTag, @NotNull Consumer<Parameter> consumer) {
+        private void visitParameter(XmlTag argumentTag, Consumer<Parameter> consumer) {
             PsiElement serviceTag = argumentTag.getParent();
             if(!(serviceTag instanceof XmlTag)) {
                 return;
@@ -411,7 +406,7 @@ public class XmlGotoCompletionRegistrar implements GotoCompletionRegistrar  {
 
             if(methodToVisit != null) {
                 for (Parameter parameter : methodToVisit.getParameters()) {
-                    consumer.consume(parameter);
+                    consumer.accept(parameter);
                 }
             }
         }

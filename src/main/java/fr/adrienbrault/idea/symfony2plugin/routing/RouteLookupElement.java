@@ -1,13 +1,12 @@
 package fr.adrienbrault.idea.symfony2plugin.routing;
 
-import com.intellij.codeInsight.completion.InsertHandler;
-import com.intellij.codeInsight.completion.InsertionContext;
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.codeInsight.lookup.LookupElementPresentation;
-import com.intellij.util.containers.ContainerUtil;
+import consulo.language.editor.completion.lookup.InsertHandler;
+import consulo.language.editor.completion.lookup.InsertionContext;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.editor.completion.lookup.LookupElementPresentation;
+import consulo.util.collection.ContainerUtil;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -25,16 +24,15 @@ public class RouteLookupElement extends LookupElement {
     private InsertHandler<RouteLookupElement> insertHandler;
     private boolean escape = false;
 
-    public RouteLookupElement(@NotNull Route route) {
+    public RouteLookupElement(Route route) {
         this.route = route;
     }
 
-    public RouteLookupElement(@NotNull Route route, boolean isWeak) {
+    public RouteLookupElement(Route route, boolean isWeak) {
         this(route);
         this.isWeak = isWeak;
     }
 
-    @NotNull
     @Override
     public String getLookupString() {
         if (escape) {
@@ -56,7 +54,7 @@ public class RouteLookupElement extends LookupElement {
     /**
      * "(GET|POST, var1, var2)"
      */
-    private void formatTail(@NotNull LookupElementPresentation presentation) {
+    private void formatTail(LookupElementPresentation presentation) {
         List<String> tails = new ArrayList<>();
 
         Collection<String> methods = route.getMethods();

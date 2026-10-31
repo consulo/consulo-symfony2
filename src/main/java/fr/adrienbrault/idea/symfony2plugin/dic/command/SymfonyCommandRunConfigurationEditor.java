@@ -1,70 +1,42 @@
 package fr.adrienbrault.idea.symfony2plugin.dic.command;
 
-import com.intellij.openapi.options.SettingsEditor;
-import com.intellij.openapi.ui.ComboBox;
-import com.intellij.ui.components.fields.ExtendableTextField;
-import com.intellij.util.ui.FormBuilder;
-import org.jetbrains.annotations.NotNull;
-
-import javax.swing.*;
-import java.awt.*;
-import java.util.Objects;
+import consulo.execution.configuration.ui.SettingsEditor;
+import consulo.localize.LocalizeValue;
+import consulo.ui.ComboBox;
+import consulo.ui.Component;
+import consulo.ui.Label;
+import consulo.ui.TextBox;
+import consulo.ui.annotation.RequiredUIAccess;
+import consulo.ui.util.FormBuilder;
+import org.apache.commons.lang3.StringUtils;
+import org.jspecify.annotations.Nullable;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class SymfonyCommandRunConfigurationEditor extends SettingsEditor<SymfonyCommandRunConfiguration> {
+    private final ComboBox<SymfonyCommandRunConfiguration.ExecutionMode> myExecutionModeCombo =
+        ComboBox.create(SymfonyCommandRunConfiguration.ExecutionMode.values());
+    private final TextBox myCommandNameField = TextBox.create();
+    private final TextBox myConsolePathField = TextBox.create();
+    private final TextBox myInterpreterPathField = TextBox.create();
+    private final TextBox mySymfonyCliPathField = TextBox.create();
+    private final TextBox myWorkingDirectoryField = TextBox.create();
+    private final TextBox myCommandLineParametersField = TextBox.create();
 
-    private final JPanel myPanel;
-    private final ComboBox<SymfonyCommandRunConfiguration.ExecutionMode> myExecutionModeCombo;
-    private final JTextField myCommandNameField;
-    private final JTextField myConsolePathField;
-    private final JTextField myInterpreterPathField;
-    private final JTextField mySymfonyCliPathField;
-    private final JTextField myWorkingDirectoryField;
-    private final JTextField myCommandLineParametersField;
+    private final Label myConsolePathLabel = Label.create(LocalizeValue.localizeTODO("Console path:"));
+    private final Label myInterpreterPathLabel = Label.create(LocalizeValue.localizeTODO("PHP interpreter:"));
+    private final Label mySymfonyCliPathLabel = Label.create(LocalizeValue.localizeTODO("Symfony CLI path:"));
 
-    private final JLabel myConsolePathLabel;
-    private final JLabel myInterpreterPathLabel;
-    private final JLabel mySymfonyCliPathLabel;
-
+    @RequiredUIAccess
     public SymfonyCommandRunConfigurationEditor() {
-        myExecutionModeCombo = new ComboBox<>(SymfonyCommandRunConfiguration.ExecutionMode.values());
-        myCommandNameField = new ExtendableTextField();
-        myConsolePathField = new ExtendableTextField();
-        myInterpreterPathField = new ExtendableTextField();
-        mySymfonyCliPathField = new ExtendableTextField();
-        myWorkingDirectoryField = new ExtendableTextField();
-        myCommandLineParametersField = new ExtendableTextField();
-
-        myConsolePathLabel = new JLabel("Console path:");
-        myInterpreterPathLabel = new JLabel("PHP interpreter:");
-        mySymfonyCliPathLabel = new JLabel("Symfony CLI path:");
-
-        myPanel = FormBuilder.createFormBuilder()
-            .addLabeledComponent("Execution mode:", myExecutionModeCombo)
-            .addLabeledComponent("Command:", myCommandNameField)
-            .addLabeledComponent(myConsolePathLabel, myConsolePathField)
-            .addLabeledComponent(myInterpreterPathLabel, myInterpreterPathField)
-            .addLabeledComponent(mySymfonyCliPathLabel, mySymfonyCliPathField)
-            .addLabeledComponent("Working directory:", myWorkingDirectoryField)
-            .addLabeledComponent("Additional parameters:", myCommandLineParametersField)
-            .addComponentFillVertically(new JPanel(), 0)
-            .getPanel();
-
-        Dimension size = new Dimension(300, myCommandNameField.getPreferredSize().height);
-        myCommandNameField.setPreferredSize(size);
-        myConsolePathField.setPreferredSize(size);
-        myInterpreterPathField.setPreferredSize(size);
-        mySymfonyCliPathField.setPreferredSize(size);
-        myWorkingDirectoryField.setPreferredSize(size);
-        myCommandLineParametersField.setPreferredSize(size);
-
-        myExecutionModeCombo.addActionListener(e -> updateFieldVisibility());
+        myExecutionModeCombo.selectFirst();
+        myExecutionModeCombo.addValueListener(event -> updateFieldVisibility());
     }
 
+    @RequiredUIAccess
     private void updateFieldVisibility() {
-        boolean isSymfonyCli = myExecutionModeCombo.getSelectedItem() == SymfonyCommandRunConfiguration.ExecutionMode.SYMFONY_CLI;
+        boolean isSymfonyCli = myExecutionModeCombo.getValue() == SymfonyCommandRunConfiguration.ExecutionMode.SYMFONY_CLI;
 
         myConsolePathLabel.setVisible(!isSymfonyCli);
         myConsolePathField.setVisible(!isSymfonyCli);
@@ -74,40 +46,54 @@ public class SymfonyCommandRunConfigurationEditor extends SettingsEditor<Symfony
         mySymfonyCliPathField.setVisible(isSymfonyCli);
     }
 
+    @RequiredUIAccess
     @Override
-    protected void resetEditorFrom(@NotNull SymfonyCommandRunConfiguration configuration) {
-        myExecutionModeCombo.setSelectedItem(configuration.getExecutionMode());
-        myCommandNameField.setText(nullToEmpty(configuration.getCommandName()));
-        myConsolePathField.setText(nullToDefault(configuration.getConsolePath(), "bin/console"));
-        myInterpreterPathField.setText(nullToDefault(configuration.getInterpreterPath(), "php"));
-        mySymfonyCliPathField.setText(nullToDefault(configuration.getSymfonyCliPath(), "symfony"));
-        myWorkingDirectoryField.setText(nullToEmpty(configuration.getWorkingDirectory()));
-        myCommandLineParametersField.setText(nullToEmpty(configuration.getCommandLineParameters()));
+    protected void resetEditorFrom(SymfonyCommandRunConfiguration configuration) {
+        myExecutionModeCombo.setValue(configuration.getExecutionMode());
+        myCommandNameField.setValue(nullToEmpty(configuration.getCommandName()));
+        myConsolePathField.setValue(nullToDefault(configuration.getConsolePath(), "bin/console"));
+        myInterpreterPathField.setValue(nullToDefault(configuration.getInterpreterPath(), "php"));
+        mySymfonyCliPathField.setValue(nullToDefault(configuration.getSymfonyCliPath(), "symfony"));
+        myWorkingDirectoryField.setValue(nullToEmpty(configuration.getWorkingDirectory()));
+        myCommandLineParametersField.setValue(nullToEmpty(configuration.getCommandLineParameters()));
         updateFieldVisibility();
     }
 
+    @RequiredUIAccess
     @Override
-    protected void applyEditorTo(@NotNull SymfonyCommandRunConfiguration configuration) {
-        configuration.setExecutionMode((SymfonyCommandRunConfiguration.ExecutionMode) Objects.requireNonNull(myExecutionModeCombo.getSelectedItem()));
-        configuration.setCommandName(myCommandNameField.getText().trim());
-        configuration.setConsolePath(myConsolePathField.getText().trim());
-        configuration.setInterpreterPath(myInterpreterPathField.getText().trim());
-        configuration.setSymfonyCliPath(mySymfonyCliPathField.getText().trim());
-        configuration.setWorkingDirectory(myWorkingDirectoryField.getText().trim());
-        configuration.setCommandLineParameters(myCommandLineParametersField.getText().trim());
+    protected void applyEditorTo(SymfonyCommandRunConfiguration configuration) {
+        configuration.setExecutionMode(myExecutionModeCombo.getValueOrError());
+        configuration.setCommandName(getTrimmedText(myCommandNameField));
+        configuration.setConsolePath(getTrimmedText(myConsolePathField));
+        configuration.setInterpreterPath(getTrimmedText(myInterpreterPathField));
+        configuration.setSymfonyCliPath(getTrimmedText(mySymfonyCliPathField));
+        configuration.setWorkingDirectory(getTrimmedText(myWorkingDirectoryField));
+        configuration.setCommandLineParameters(getTrimmedText(myCommandLineParametersField));
     }
 
-    @NotNull
     @Override
-    protected JComponent createEditor() {
-        return myPanel;
+    @RequiredUIAccess
+    protected Component createUIComponent() {
+        FormBuilder builder = FormBuilder.create();
+        builder.addLabeled(LocalizeValue.localizeTODO("Execution mode:"), myExecutionModeCombo);
+        builder.addLabeled(LocalizeValue.localizeTODO("Command:"), myCommandNameField);
+        builder.addLabeled(myConsolePathLabel, myConsolePathField);
+        builder.addLabeled(myInterpreterPathLabel, myInterpreterPathField);
+        builder.addLabeled(mySymfonyCliPathLabel, mySymfonyCliPathField);
+        builder.addLabeled(LocalizeValue.localizeTODO("Working directory:"), myWorkingDirectoryField);
+        builder.addLabeled(LocalizeValue.localizeTODO("Additional parameters:"), myCommandLineParametersField);
+        return builder.build();
     }
 
-    private static String nullToEmpty(String value) {
+    private static String getTrimmedText(TextBox textBox) {
+        return StringUtils.defaultString(textBox.getValue()).trim();
+    }
+
+    private static String nullToEmpty(@Nullable String value) {
         return value != null ? value : "";
     }
 
-    private static String nullToDefault(String value, String defaultValue) {
+    private static String nullToDefault(@Nullable String value, String defaultValue) {
         return value != null && !value.isEmpty() ? value : defaultValue;
     }
 }

@@ -1,12 +1,17 @@
 package fr.adrienbrault.idea.symfony2plugin.stubs.indexes;
 
-import com.intellij.openapi.util.io.FileUtil;
-import com.intellij.openapi.vfs.VfsUtil;
-import com.intellij.psi.PsiFile;
-import com.intellij.util.indexing.*;
-import com.intellij.util.io.DataExternalizer;
-import com.intellij.util.io.EnumeratorStringDescriptor;
-import com.intellij.util.io.KeyDescriptor;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.util.io.FileUtil;
+import consulo.virtualFileSystem.util.VirtualFileUtil;
+import consulo.language.psi.PsiFile;
+import consulo.index.io.DataIndexer;
+import consulo.index.io.ID;
+import consulo.language.psi.stub.FileBasedIndex;
+import consulo.language.psi.stub.FileBasedIndexExtension;
+import consulo.language.psi.stub.FileContent;
+import consulo.index.io.data.DataExternalizer;
+import consulo.index.io.EnumeratorStringDescriptor;
+import consulo.index.io.KeyDescriptor;
 import fr.adrienbrault.idea.symfony2plugin.Settings;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.dic.ContainerFile;
@@ -15,7 +20,6 @@ import fr.adrienbrault.idea.symfony2plugin.dic.container.util.ServiceContainerUt
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.externalizer.SerializableServiceExternalizer;
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.inputFilter.FileInputFilter;
 import fr.adrienbrault.idea.symfony2plugin.util.ProjectUtil;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.HashMap;
 import java.util.List;
@@ -26,6 +30,7 @@ import java.util.Set;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class ServicesDefinitionStubIndex extends FileBasedIndexExtension<String, ServiceSerializable> {
 
     private static final int MAX_FILE_BYTE_SIZE = 5242880;
@@ -34,7 +39,6 @@ public class ServicesDefinitionStubIndex extends FileBasedIndexExtension<String,
     private final KeyDescriptor<String> myKeyDescriptor = new EnumeratorStringDescriptor();
     private static final SerializableServiceExternalizer EXTERNALIZER = SerializableServiceExternalizer.INSTANCE;
 
-    @NotNull
     @Override
     // Index-safe only: no PhpIndex/type resolution here.
     public DataIndexer<String, ServiceSerializable, FileContent> getIndexer() {
@@ -56,25 +60,21 @@ public class ServicesDefinitionStubIndex extends FileBasedIndexExtension<String,
         };
     }
 
-    @NotNull
     @Override
     public ID<String, ServiceSerializable> getName() {
         return KEY;
     }
 
 
-    @NotNull
     @Override
     public KeyDescriptor<String> getKeyDescriptor() {
         return this.myKeyDescriptor;
     }
 
-    @NotNull
     public DataExternalizer<ServiceSerializable> getValueExternalizer() {
         return EXTERNALIZER;
     }
 
-    @NotNull
     @Override
     public FileBasedIndex.InputFilter getInputFilter() {
         return FileInputFilter.XML_YAML_PHP;
@@ -105,7 +105,7 @@ public class ServicesDefinitionStubIndex extends FileBasedIndexExtension<String,
 
         // possible fixture or test file
         // to support also library paths, only filter them on project files
-        String relativePath = VfsUtil.getRelativePath(inputData.getFile(), ProjectUtil.getProjectDir(inputData.getProject()), '/');
+        String relativePath = VirtualFileUtil.getRelativePath(inputData.getFile(), ProjectUtil.getProjectDir(psiFile.getProject()), '/');
 
         // exclude settings-configured service container paths (lightweight path comparison, no VFS lookups)
         List<ContainerFile> settingsContainerFiles = Settings.getInstance(psiFile.getProject()).containerFiles;

@@ -1,12 +1,11 @@
 package fr.adrienbrault.idea.symfony2plugin.translation.provider;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiElement;
+import consulo.language.psi.PsiElement;
+import consulo.project.Project;
+import consulo.virtualFileSystem.VirtualFile;
 import fr.adrienbrault.idea.symfony2plugin.extension.TranslatorProvider;
 import fr.adrienbrault.idea.symfony2plugin.extension.TranslatorProviderDict;
 import fr.adrienbrault.idea.symfony2plugin.translation.TranslationIndex;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -20,19 +19,18 @@ import java.util.stream.Collectors;
  */
 public class CompiledTranslatorProvider implements TranslatorProvider {
     @Override
-    public boolean hasTranslationKey(@NotNull Project project, @NotNull String keyName, @NotNull String domainName) {
+    public boolean hasTranslationKey(Project project, String keyName, String domainName) {
         Set<String> domainMap = TranslationIndex.getTranslationMap(project).getDomainMap(domainName);
         return domainMap != null && domainMap.contains(keyName);
     }
 
     @Override
-    public boolean hasDomain(@NotNull Project project, @NotNull String domainName) {
+    public boolean hasDomain(Project project, String domainName) {
         return TranslationIndex.getTranslationMap(project).getDomainList().contains(domainName);
     }
 
-    @NotNull
     @Override
-    public Collection<TranslatorProviderDict.TranslationDomain> getTranslationDomains(@NotNull Project project) {
+    public Collection<TranslatorProviderDict.TranslationDomain> getTranslationDomains(Project project) {
         return TranslationIndex.getTranslationMap(project)
             .getDomainList()
             .stream()
@@ -40,23 +38,20 @@ public class CompiledTranslatorProvider implements TranslatorProvider {
             .collect(Collectors.toList());
     }
 
-    @NotNull
     @Override
-    public Collection<PsiElement> getTranslationTargets(@NotNull Project project, @NotNull String translationKey, @NotNull String domain) {
+    public Collection<PsiElement> getTranslationTargets(Project project, String translationKey, String domain) {
         // targeting cache folder is not helpful for user
         return Collections.emptyList();
     }
 
-    @NotNull
     @Override
-    public Collection<VirtualFile> getDomainPsiFiles(Project project, @NotNull String domainName) {
+    public Collection<VirtualFile> getDomainPsiFiles(Project project, String domainName) {
         // targeting cache folder is not helpful for user
         return Collections.emptyList();
     }
 
-    @NotNull
     @Override
-    public Collection<TranslatorProviderDict.TranslationKey> getTranslationsForDomain(@NotNull Project project, @NotNull String domainName) {
+    public Collection<TranslatorProviderDict.TranslationKey> getTranslationsForDomain(Project project, String domainName) {
         Set<String> domainMap = TranslationIndex.getTranslationMap(project).getDomainMap(domainName);
         if (domainMap == null) {
             return Collections.emptyList();

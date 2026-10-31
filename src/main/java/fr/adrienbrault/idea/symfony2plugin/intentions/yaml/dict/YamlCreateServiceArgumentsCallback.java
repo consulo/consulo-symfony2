@@ -1,11 +1,10 @@
 package fr.adrienbrault.idea.symfony2plugin.intentions.yaml.dict;
 
-import com.intellij.openapi.editor.Document;
-import com.intellij.psi.PsiDocumentManager;
+import consulo.document.Document;
+import consulo.language.psi.PsiDocumentManager;
 import fr.adrienbrault.idea.symfony2plugin.action.ServiceActionUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.yaml.psi.YAMLKeyValue;
 
 import java.util.ArrayList;
@@ -16,10 +15,9 @@ import java.util.List;
  */
 public class YamlCreateServiceArgumentsCallback implements ServiceActionUtil.InsertServicesCallback {
 
-    @NotNull
     private final YAMLKeyValue serviceKeyValue;
 
-    public YamlCreateServiceArgumentsCallback(@NotNull final YAMLKeyValue serviceKeyValue) {
+    public YamlCreateServiceArgumentsCallback(final YAMLKeyValue serviceKeyValue) {
         this.serviceKeyValue = serviceKeyValue;
     }
 

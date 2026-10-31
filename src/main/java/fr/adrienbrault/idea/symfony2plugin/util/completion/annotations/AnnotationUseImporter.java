@@ -1,14 +1,14 @@
 package fr.adrienbrault.idea.symfony2plugin.util.completion.annotations;
 
-import com.intellij.codeInsight.completion.InsertionContext;
-import com.intellij.openapi.project.Project;
-import com.intellij.psi.PsiDocumentManager;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.util.PsiUtilCore;
 import com.jetbrains.php.codeInsight.PhpCodeInsightUtil;
 import com.jetbrains.php.lang.psi.PhpGroupUseElement;
 import com.jetbrains.php.lang.psi.elements.PhpPsiElement;
 import com.jetbrains.php.refactoring.PhpAliasImporter;
+import consulo.language.editor.completion.lookup.InsertionContext;
+import consulo.language.psi.PsiDocumentManager;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiUtilCore;
+import consulo.project.Project;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>

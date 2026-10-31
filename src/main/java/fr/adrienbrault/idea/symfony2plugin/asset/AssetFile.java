@@ -1,18 +1,15 @@
 package fr.adrienbrault.idea.symfony2plugin.asset;
 
-import com.intellij.openapi.vfs.VfsUtil;
-import com.intellij.openapi.vfs.VirtualFile;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.virtualFileSystem.util.VirtualFileUtil;
+import org.jspecify.annotations.Nullable;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class AssetFile {
-    @NotNull
     private final VirtualFile assetFile;
 
-    @NotNull
     private final AssetEnum.Position assetPosition;
 
     @Nullable
@@ -22,23 +19,23 @@ public class AssetFile {
 
     private String string = null;
 
-    public AssetFile(@NotNull VirtualFile assetFile, @NotNull AssetEnum.Position assetPosition, @NotNull VirtualFile relativeFolder, @NotNull String prefix) {
+    public AssetFile(VirtualFile assetFile, AssetEnum.Position assetPosition, VirtualFile relativeFolder, String prefix) {
         this(assetFile, assetPosition, relativeFolder);
         this.prefix = prefix;
     }
 
-    public AssetFile(@NotNull VirtualFile assetFile, @NotNull AssetEnum.Position assetPosition, @NotNull VirtualFile relativeFolder) {
+    public AssetFile(VirtualFile assetFile, AssetEnum.Position assetPosition, VirtualFile relativeFolder) {
         this.assetFile = assetFile;
         this.assetPosition = assetPosition;
         this.relativeFolder = relativeFolder;
     }
 
-    private AssetFile(@NotNull VirtualFile assetFile, @NotNull AssetEnum.Position assetPosition) {
+    private AssetFile(VirtualFile assetFile, AssetEnum.Position assetPosition) {
         this.assetFile = assetFile;
         this.assetPosition = assetPosition;
     }
 
-    public static AssetFile createVirtualManifestEntry(@NotNull VirtualFile manifestJson, @NotNull String name) {
+    public static AssetFile createVirtualManifestEntry(VirtualFile manifestJson, String name) {
         AssetFile myAssetFile = new AssetFile(manifestJson, AssetEnum.Position.Web);
 
         myAssetFile.string = name;
@@ -46,12 +43,10 @@ public class AssetFile {
         return myAssetFile;
     }
 
-    @NotNull
     public VirtualFile getFile() {
         return assetFile;
     }
 
-    @NotNull
     public AssetEnum.Position getAssetPosition() {
         return assetPosition;
     }
@@ -59,6 +54,6 @@ public class AssetFile {
     public String toString() {
         return this.string != null
             ? this.string
-            : this.prefix + (relativeFolder != null ? VfsUtil.getRelativePath(assetFile, relativeFolder, '/') : "");
+            : this.prefix + (relativeFolder != null ? VirtualFileUtil.getRelativePath(assetFile, relativeFolder, '/') : "");
     }
 }

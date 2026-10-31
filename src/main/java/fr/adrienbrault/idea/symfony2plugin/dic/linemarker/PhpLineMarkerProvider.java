@@ -1,15 +1,19 @@
 package fr.adrienbrault.idea.symfony2plugin.dic.linemarker;
 
-import com.intellij.codeInsight.daemon.LineMarkerInfo;
-import com.intellij.codeInsight.daemon.LineMarkerProvider;
-import com.intellij.codeInsight.navigation.NavigationGutterIconBuilder;
-import com.intellij.icons.AllIcons;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.NotNullLazyValue;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.util.PsiTreeUtil;
+import com.jetbrains.php.lang.PhpLanguage;
+import consulo.annotation.access.RequiredReadAction;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.Language;
+import consulo.language.editor.gutter.LineMarkerInfo;
+import consulo.language.editor.gutter.LineMarkerProvider;
+import consulo.language.editor.ui.navigation.NavigationGutterIconBuilder;
+import consulo.platform.base.icon.PlatformIconGroup;
+import consulo.project.Project;
+import consulo.application.util.NotNullLazyValue;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.util.PsiTreeUtil;
 import com.jetbrains.php.lang.psi.PhpFile;
 import com.jetbrains.php.lang.psi.elements.PhpNamespace;
 import com.jetbrains.php.lang.psi.elements.ArrayCreationExpression;
@@ -28,8 +32,7 @@ import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.ServiceUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Collection;
 import java.util.List;
@@ -39,15 +42,18 @@ import java.util.List;
  *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class PhpLineMarkerProvider implements LineMarkerProvider {
     @Nullable
     @Override
-    public LineMarkerInfo<?> getLineMarkerInfo(@NotNull PsiElement psiElement) {
+    @RequiredReadAction
+    public LineMarkerInfo<?> getLineMarkerInfo(PsiElement psiElement) {
         return null;
     }
 
     @Override
-    public void collectSlowLineMarkers(@NotNull List<? extends PsiElement> psiElements, @NotNull Collection<? super LineMarkerInfo<?>> result) {
+    @RequiredReadAction
+    public void collectSlowLineMarkers(List<PsiElement> psiElements, Collection<LineMarkerInfo> result) {
         if (psiElements.isEmpty()) {
             return;
         }
@@ -105,7 +111,7 @@ public class PhpLineMarkerProvider implements LineMarkerProvider {
     }
 
     @Nullable
-    private static PsiElement getServiceIdElement(@NotNull PsiElement psiElement) {
+    private static PsiElement getServiceIdElement(PsiElement psiElement) {
         if (psiElement instanceof StringLiteralExpression || psiElement instanceof ClassConstantReference) {
             return psiElement;
         }
@@ -114,12 +120,12 @@ public class PhpLineMarkerProvider implements LineMarkerProvider {
     }
 
     @Nullable
-    private static String getNormalizedServiceId(@NotNull PsiElement psiElement) {
+    private static String getNormalizedServiceId(PsiElement psiElement) {
         return StringUtils.stripStart(ServiceContainerUtil.normalizePhpStringValue(PhpElementsUtil.getStringValue(psiElement)), "\\");
     }
 
     @Nullable
-    private static PsiElement getLineMarkerLeafTarget(@NotNull PsiElement psiElement) {
+    private static PsiElement getLineMarkerLeafTarget(PsiElement psiElement) {
         if (psiElement instanceof StringLiteralExpression stringLiteralExpression) {
             return PsiElementUtils.getTextLeafElementFromStringLiteralExpression(stringLiteralExpression);
         }
@@ -138,7 +144,7 @@ public class PhpLineMarkerProvider implements LineMarkerProvider {
      * Accept only keys that belong to a PHP `services` entry like:
      * 'App\\' => ['resource' => '../src/']
      */
-    private static boolean isServiceDefinitionId(@NotNull PsiElement keyElement) {
+    private static boolean isServiceDefinitionId(PsiElement keyElement) {
         return PhpArrayServiceUtil.isServiceKey(keyElement) || isFluentServiceSetId(keyElement);
     }
 
@@ -147,7 +153,7 @@ public class PhpLineMarkerProvider implements LineMarkerProvider {
      * $services->set('app.mailer')->decorate(...)
      * $services->set(Mailer::class)->decorate(...)
      */
-    private static boolean isFluentServiceSetId(@NotNull PsiElement keyElement) {
+    private static boolean isFluentServiceSetId(PsiElement keyElement) {
         PsiElement parent = keyElement.getParent();
         if (!(parent instanceof ParameterList) || PsiElementUtils.getParameterIndexValue(keyElement) != 0) {
             return false;
@@ -162,7 +168,7 @@ public class PhpLineMarkerProvider implements LineMarkerProvider {
         return containingFile instanceof PhpFile phpFile && isContainerConfiguratorNamespace(phpFile);
     }
 
-    private static void visitServiceKeyForResources(@NotNull Project project, @NotNull PsiElement leafTarget, @NotNull PsiElement keyElement, @NotNull String serviceId, @Nullable VirtualFile virtualFile, @NotNull Collection<? super LineMarkerInfo<?>> result) {
+    private static void visitServiceKeyForResources(Project project, PsiElement leafTarget, PsiElement keyElement, String serviceId, @Nullable VirtualFile virtualFile, Collection<? super LineMarkerInfo<?>> result) {
         if (virtualFile == null || !serviceId.endsWith("\\")) {
             return;
         }
@@ -177,8 +183,8 @@ public class PhpLineMarkerProvider implements LineMarkerProvider {
             return;
         }
 
-        result.add(NavigationGutterIconBuilder.create(AllIcons.Modules.SourceRoot)
-            .setTargets(NotNullLazyValue.lazy(() -> ServiceIndexUtil.getClassesForServiceDefinition(project, virtualFile, service)))
+        result.add(NavigationGutterIconBuilder.create(PlatformIconGroup.modulesSourceroot())
+            .setTargets(NotNullLazyValue.createValue(() -> ServiceIndexUtil.getClassesForServiceDefinition(project, virtualFile, service)))
             .setTooltipText("Navigate to class")
             .createLineMarkerInfo(leafTarget));
     }
@@ -188,7 +194,7 @@ public class PhpLineMarkerProvider implements LineMarkerProvider {
      * Mailer::class => null
      * DecoratingMailer::class => ['decorates' => Mailer::class]
      */
-    private static void visitServiceKeyForDecorates(@NotNull Project project, @NotNull PsiElement leafTarget, @NotNull String serviceId, @NotNull Collection<? super LineMarkerInfo<?>> result, @NotNull LazyDecoratedParentServiceValues lazyDecoratedParentServiceValues) {
+    private static void visitServiceKeyForDecorates(Project project, PsiElement leafTarget, String serviceId, Collection<? super LineMarkerInfo<?>> result, LazyDecoratedParentServiceValues lazyDecoratedParentServiceValues) {
         NavigationGutterIconBuilder<PsiElement> decorateLineMarker = ServiceUtil.getLineMarkerForDecoratedServiceId(
             project,
             ServiceUtil.ServiceLineMarker.DECORATE,
@@ -212,7 +218,7 @@ public class PhpLineMarkerProvider implements LineMarkerProvider {
         }
     }
 
-    private static boolean visitArrayServiceAttributeValue(@NotNull PsiElement leafTarget, @NotNull PsiElement valueElement, @NotNull String serviceId, @NotNull Collection<? super LineMarkerInfo<?>> result) {
+    private static boolean visitArrayServiceAttributeValue(PsiElement leafTarget, PsiElement valueElement, String serviceId, Collection<? super LineMarkerInfo<?>> result) {
         String attributeName = getPhpServiceAttributeName(valueElement);
         if (attributeName == null) {
             return false;
@@ -232,7 +238,7 @@ public class PhpLineMarkerProvider implements LineMarkerProvider {
      * 'decorates' => Mailer::class
      */
     @Nullable
-    private static String getPhpServiceAttributeName(@NotNull PsiElement valueElement) {
+    private static String getPhpServiceAttributeName(PsiElement valueElement) {
         String key = PhpArrayServiceUtil.getServiceAttributeName(valueElement);
         if (!"decorates".equals(key) && !"parent".equals(key)) {
             return null;
@@ -245,7 +251,7 @@ public class PhpLineMarkerProvider implements LineMarkerProvider {
      * Add a forward gutter on fluent config, eg:
      * $services->set(DecoratingMailer::class)->decorate(Mailer::class)
      */
-    private static boolean visitFluentDecoratesMethod(@NotNull PsiElement leafTarget, @NotNull PsiElement parameterElement, @NotNull String serviceId, @NotNull Collection<? super LineMarkerInfo<?>> result) {
+    private static boolean visitFluentDecoratesMethod(PsiElement leafTarget, PsiElement parameterElement, String serviceId, Collection<? super LineMarkerInfo<?>> result) {
         PsiElement parent = parameterElement.getParent();
         if (!(parent instanceof ParameterList) || PsiElementUtils.getParameterIndexValue(parameterElement) != 0) {
             return false;
@@ -265,8 +271,7 @@ public class PhpLineMarkerProvider implements LineMarkerProvider {
         return true;
     }
 
-    @Nullable
-    private static ServiceUtil.ServiceLineMarker getFluentServiceLineMarker(@NotNull MethodReference methodReference) {
+    private static ServiceUtil.@Nullable ServiceLineMarker getFluentServiceLineMarker(MethodReference methodReference) {
         String name = methodReference.getName();
         if ("decorate".equals(name)) {
             return ServiceUtil.ServiceLineMarker.DECORATE;
@@ -282,7 +287,7 @@ public class PhpLineMarkerProvider implements LineMarkerProvider {
     /**
      * Restrict "decorate(...)" to service configurator chains that originate from ->set(...).
      */
-    private static boolean isFluentServiceDecorateMethod(@NotNull MethodReference methodReference) {
+    private static boolean isFluentServiceDecorateMethod(MethodReference methodReference) {
         PsiFile containingFile = methodReference.getContainingFile();
         if (!(containingFile instanceof PhpFile phpFile) || !isContainerConfiguratorNamespace(phpFile)) {
             return false;
@@ -300,7 +305,7 @@ public class PhpLineMarkerProvider implements LineMarkerProvider {
         return false;
     }
 
-    private static boolean isContainerConfiguratorNamespace(@NotNull PhpFile phpFile) {
+    private static boolean isContainerConfiguratorNamespace(PhpFile phpFile) {
         for (PhpNamespace phpNamespace : PhpNamespaceBraceConverter.getAllNamespaces(phpFile)) {
             if ("\\Symfony\\Component\\DependencyInjection\\Loader\\Configurator".equals(phpNamespace.getFQN())) {
                 return true;
@@ -308,5 +313,10 @@ public class PhpLineMarkerProvider implements LineMarkerProvider {
         }
 
         return false;
+    }
+
+    @Override
+    public Language getLanguage() {
+        return PhpLanguage.INSTANCE;
     }
 }

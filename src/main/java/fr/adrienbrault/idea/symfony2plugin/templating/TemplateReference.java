@@ -1,37 +1,35 @@
 package fr.adrienbrault.idea.symfony2plugin.templating;
 
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiElementResolveResult;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiPolyVariantReferenceBase;
-import com.intellij.psi.ResolveResult;
-import com.intellij.util.IncorrectOperationException;
+import fr.adrienbrault.idea.symfony2plugin.codeInsight.completion.SymfonyCompletionReference;
+
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiElementResolveResult;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.PsiPolyVariantReferenceBase;
+import consulo.language.psi.ResolveResult;
+import consulo.language.util.IncorrectOperationException;
 import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TemplateMoveRenameUtil;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  * @author Adrien Brault <adrien.brault@gmail.com>
  */
-public class TemplateReference extends PsiPolyVariantReferenceBase<PsiElement> {
-    @NotNull
+public class TemplateReference extends PsiPolyVariantReferenceBase<PsiElement> implements SymfonyCompletionReference {
     private final String templateName;
 
-    public TemplateReference(@NotNull StringLiteralExpression element) {
+    public TemplateReference(StringLiteralExpression element) {
         super(element);
         templateName = element.getContents();
     }
 
-    @NotNull
     @Override
-    public Object[] getVariants() {
+    public Object[] getCompletionVariants() {
         return TwigUtil.getAllTemplateLookupElements(getElement().getProject()).toArray();
     }
 
-    @NotNull
     @Override
     public ResolveResult[] multiResolve(boolean incompleteCode) {
         return PsiElementResolveResult
@@ -43,7 +41,7 @@ public class TemplateReference extends PsiPolyVariantReferenceBase<PsiElement> {
      * Twig file is moved to a new location.
      */
     @Override
-    public PsiElement bindToElement(@NotNull PsiElement element) throws IncorrectOperationException {
+    public PsiElement bindToElement(PsiElement element) throws IncorrectOperationException {
         if (!(element instanceof PsiFile newFile)) {
             return getElement();
         }
@@ -65,7 +63,7 @@ public class TemplateReference extends PsiPolyVariantReferenceBase<PsiElement> {
     }
 
     @Override
-    public PsiElement handleElementRename(@NotNull String newElementName) throws IncorrectOperationException {
+    public PsiElement handleElementRename(String newElementName) throws IncorrectOperationException {
         String newTemplateName = TemplateMoveRenameUtil.renameTemplateName(templateName, newElementName);
         PsiElement result = TemplateMoveRenameUtil.applyToStringLiteralElement(getElement(), newTemplateName);
         return result != null ? result : getElement();

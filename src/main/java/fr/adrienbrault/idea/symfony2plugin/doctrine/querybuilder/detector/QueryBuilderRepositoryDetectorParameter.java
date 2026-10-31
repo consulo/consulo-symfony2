@@ -1,9 +1,8 @@
 package fr.adrienbrault.idea.symfony2plugin.doctrine.querybuilder.detector;
 
-import com.intellij.openapi.project.Project;
 import com.jetbrains.php.lang.psi.elements.MethodReference;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import consulo.project.Project;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Collection;
 
@@ -12,18 +11,16 @@ import java.util.Collection;
  */
 public class QueryBuilderRepositoryDetectorParameter {
 
-    @NotNull
     private final Project project;
-    @NotNull
     private final Collection<MethodReference> methodReferences;
 
-    public QueryBuilderRepositoryDetectorParameter(@NotNull Project project, @NotNull Collection<MethodReference> methodReferences) {
+    public QueryBuilderRepositoryDetectorParameter(Project project, Collection<MethodReference> methodReferences) {
         this.project = project;
         this.methodReferences = methodReferences;
     }
 
     @Nullable
-    public MethodReference getMethodReferenceByName(@NotNull String methodName) {
+    public MethodReference getMethodReferenceByName(String methodName) {
 
         for (MethodReference methodReference : methodReferences) {
             if(methodName.equals(methodReference.getName())) {
@@ -34,12 +31,10 @@ public class QueryBuilderRepositoryDetectorParameter {
         return null;
     }
 
-    @NotNull
     public Project getProject() {
         return project;
     }
 
-    @NotNull
     public Collection<MethodReference> getMethodReferences() {
         return methodReferences;
     }

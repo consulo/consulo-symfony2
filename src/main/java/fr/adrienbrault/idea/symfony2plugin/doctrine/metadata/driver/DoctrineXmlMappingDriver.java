@@ -1,16 +1,15 @@
 package fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.driver;
 
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.xml.XmlFile;
-import com.intellij.psi.xml.XmlTag;
+import consulo.language.psi.PsiFile;
+import consulo.xml.language.psi.XmlFile;
+import consulo.xml.language.psi.XmlTag;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.EntityHelper;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.dict.DoctrineModelField;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.DoctrineMetadataPattern;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.dict.DoctrineMetadataModel;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.util.DoctrineMetadataUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -24,7 +23,7 @@ public class DoctrineXmlMappingDriver implements DoctrineMappingDriverInterface 
     private static final Collection<String> RELATIONS = Arrays.asList("reference-one", "reference-many", "embed-many", "embed-one");
 
     @Nullable
-    public DoctrineMetadataModel getMetadata(@NotNull DoctrineMappingDriverArguments args) {
+    public DoctrineMetadataModel getMetadata(DoctrineMappingDriverArguments args) {
 
         PsiFile psiFile = args.getPsiFile();
         if(!(psiFile instanceof XmlFile)) {
@@ -71,10 +70,10 @@ public class DoctrineXmlMappingDriver implements DoctrineMappingDriverInterface 
     }
 
     private void addEmbeddedFields(
-        @NotNull DoctrineMappingDriverArguments args,
-        @NotNull XmlTag rootTag,
-        @NotNull XmlTag entityTag,
-        @NotNull Collection<DoctrineModelField> fields
+        DoctrineMappingDriverArguments args,
+        XmlTag rootTag,
+        XmlTag entityTag,
+        Collection<DoctrineModelField> fields
     ) {
         String entityClass = entityTag.getAttributeValue("name");
         if (StringUtils.isBlank(entityClass)) {
@@ -97,7 +96,7 @@ public class DoctrineXmlMappingDriver implements DoctrineMappingDriverInterface 
     }
 
     @Nullable
-    private DoctrineMetadataModel getLocalEmbeddableMetadata(@NotNull XmlTag rootTag, @NotNull String className) {
+    private DoctrineMetadataModel getLocalEmbeddableMetadata(XmlTag rootTag, String className) {
         for (XmlTag embeddableTag : rootTag.findSubTags("embeddable")) {
             String name = embeddableTag.getAttributeValue("name");
             if (name == null || !StringUtils.stripStart(name, "\\").equals(StringUtils.stripStart(className, "\\"))) {
@@ -111,8 +110,7 @@ public class DoctrineXmlMappingDriver implements DoctrineMappingDriverInterface 
         return null;
     }
 
-    @NotNull
-    private String getColumnPrefix(@NotNull XmlTag embeddedTag, @NotNull String propertyName) {
+    private String getColumnPrefix(XmlTag embeddedTag, String propertyName) {
         if ("false".equalsIgnoreCase(embeddedTag.getAttributeValue("use-column-prefix"))) {
             return "";
         }
@@ -121,7 +119,7 @@ public class DoctrineXmlMappingDriver implements DoctrineMappingDriverInterface 
         return columnPrefix != null ? columnPrefix : propertyName + "_";
     }
 
-    private void getOdmFields(@NotNull XmlTag xmlTag, @NotNull Collection<DoctrineModelField> fields) {
+    private void getOdmFields(XmlTag xmlTag, Collection<DoctrineModelField> fields) {
         for (XmlTag tag : xmlTag.getSubTags()) {
             String tagName = tag.getName();
             if("field".equals(tagName)) {

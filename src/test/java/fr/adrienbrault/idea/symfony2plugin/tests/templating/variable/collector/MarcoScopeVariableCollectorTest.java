@@ -1,5 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.templating.variable.collector;
 
+import org.junit.jupiter.api.Test;
+
 import com.jetbrains.twig.TwigFileType;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
 
@@ -8,6 +10,7 @@ import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureT
  * @see fr.adrienbrault.idea.symfony2plugin.templating.variable.collector.MarcoScopeVariableCollector
  */
 public class MarcoScopeVariableCollectorTest extends SymfonyLightCodeInsightFixtureTestCase {
+    @Test
     public void testThatMacroProvidesCompletion() {
         assertCompletionContains(TwigFileType.INSTANCE, "" +
             "{% macro foo(foobar, foo, bar) %}\n" +

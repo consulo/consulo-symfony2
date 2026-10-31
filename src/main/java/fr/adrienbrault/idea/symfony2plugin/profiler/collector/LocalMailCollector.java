@@ -2,8 +2,7 @@ package fr.adrienbrault.idea.symfony2plugin.profiler.collector;
 
 import fr.adrienbrault.idea.symfony2plugin.profiler.dict.MailMessage;
 import org.intellij.lang.annotations.RegExp;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.*;
 import java.util.regex.Matcher;
@@ -14,14 +13,12 @@ import java.util.regex.Pattern;
  */
 public class LocalMailCollector implements MailCollectorInterface {
 
-    @NotNull
     private final String contents;
 
-    public LocalMailCollector(@NotNull String contents) {
+    public LocalMailCollector(String contents) {
         this.contents = contents;
     }
 
-    @NotNull
     public Collection<MailMessage> getMessages() {
         Collection<MailMessage> mails = new ArrayList<>();
 
@@ -70,7 +67,7 @@ public class LocalMailCollector implements MailCollectorInterface {
     }
 
     @Nullable
-    private String findTwice(@NotNull String content, @RegExp String regular) {
+    private String findTwice(String content, @RegExp String regular) {
         Matcher matcher = Pattern.compile(regular, Pattern.MULTILINE).matcher(content);
         if(matcher.find()){
             String domain = matcher.group(1);

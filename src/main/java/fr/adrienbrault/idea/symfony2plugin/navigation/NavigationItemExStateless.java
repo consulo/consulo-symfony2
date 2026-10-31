@@ -1,34 +1,29 @@
 package fr.adrienbrault.idea.symfony2plugin.navigation;
 
-import com.intellij.ide.util.PsiNavigationSupport;
-import com.intellij.navigation.ItemPresentation;
-import com.intellij.navigation.NavigationItem;
-import com.intellij.pom.Navigatable;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
-import javax.swing.*;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.PsiNavigationSupport;
+import consulo.localize.LocalizeValue;
+import consulo.navigation.ItemPresentation;
+import consulo.navigation.Navigatable;
+import consulo.navigation.NavigationItem;
+import consulo.ui.image.Image;
+import org.jspecify.annotations.Nullable;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class NavigationItemExStateless implements NavigationItem, ItemPresentation {
 
-    @NotNull
     private final PsiElement psiElement;
 
-    @NotNull
     private final String name;
 
-    @NotNull
-    private final Icon icon;
+    private final Image icon;
 
-    @NotNull
     private final String locationString;
 
-    private NavigationItemExStateless(@NotNull PsiElement psiElement, @NotNull String name, @NotNull Icon icon, @NotNull String locationString) {
+    private NavigationItemExStateless(PsiElement psiElement, String name, Image icon, String locationString) {
         this.psiElement = psiElement;
         this.name = name;
         this.icon = icon;
@@ -36,7 +31,7 @@ public class NavigationItemExStateless implements NavigationItem, ItemPresentati
     }
 
     @Override
-    public @NotNull String getName() {
+    public String getName() {
         return this.name;
     }
 
@@ -69,24 +64,23 @@ public class NavigationItemExStateless implements NavigationItem, ItemPresentati
         return this.name;
     }
 
-    @Nullable
     @Override
-    public String getPresentableText() {
-        return name;
+    public LocalizeValue getPresentableText() {
+        return LocalizeValue.of(name);
     }
 
     @Override
-    public @NotNull String getLocationString() {
+    public String getLocationString() {
         return this.locationString;
     }
     
     @Nullable
     @Override
-    public Icon getIcon(boolean b) {
+    public Image getIcon(boolean b) {
         return icon;
     }
 
-    public static NavigationItemExStateless create(@NotNull PsiElement psiElement, @NotNull String name, @NotNull Icon icon, @NotNull String locationString, boolean appendBundleLocation) {
+    public static NavigationItemExStateless create(PsiElement psiElement, String name, Image icon, String locationString, boolean appendBundleLocation) {
         String locationPathString = locationString;
 
         if (appendBundleLocation) {

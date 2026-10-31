@@ -1,17 +1,17 @@
 package fr.adrienbrault.idea.symfony2plugin.templating;
 
-import com.intellij.patterns.ElementPattern;
-import com.intellij.patterns.PatternCondition;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.patterns.PsiElementPattern;
-import com.intellij.psi.PsiComment;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiErrorElement;
-import com.intellij.psi.PsiWhiteSpace;
-import com.intellij.psi.tree.IElementType;
-import com.intellij.psi.tree.TokenSet;
-import com.intellij.psi.util.PsiTreeUtil;
-import com.intellij.util.ProcessingContext;
+import consulo.language.pattern.ElementPattern;
+import consulo.language.pattern.PatternCondition;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.pattern.PsiElementPattern;
+import consulo.language.psi.PsiComment;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiErrorElement;
+import consulo.language.psi.PsiWhiteSpace;
+import consulo.language.ast.IElementType;
+import consulo.language.ast.TokenSet;
+import consulo.language.psi.util.PsiTreeUtil;
+import consulo.language.util.ProcessingContext;
 import com.jetbrains.twig.TwigLanguage;
 import com.jetbrains.twig.TwigTokenTypes;
 import com.jetbrains.twig.elements.*;
@@ -19,7 +19,6 @@ import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigTypeResolveUtil;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -58,7 +57,7 @@ public class TwigPattern {
      */
     private static final PatternCondition<PsiElement> PARENTHESIZED_FUNCTION_NAME_WORKAROUND = new PatternCondition<>("PARENTHESIZED_EXPRESSION workaround") {
         @Override
-        public boolean accepts(@NotNull PsiElement psiElement, ProcessingContext context) {
+        public boolean accepts(PsiElement psiElement, ProcessingContext context) {
             PsiElement psiElement1 = null;
 
             String parent = psiElement.getNode().toString();
@@ -571,7 +570,7 @@ public class TwigPattern {
             ),
             PlatformPatterns.psiElement(TwigTokenTypes.TAG_NAME).with(new PatternCondition<>("aa") {
                 @Override
-                public boolean accepts(@NotNull PsiElement psiElement, ProcessingContext processingContext) {
+                public boolean accepts(PsiElement psiElement, ProcessingContext processingContext) {
                     return "apply".equalsIgnoreCase(psiElement.getText());
                 }
             })
@@ -843,7 +842,7 @@ public class TwigPattern {
      * {% include foo ? '' : '' %}
      * {% extends foo ? '' : '' %}
      */
-    public static ElementPattern<PsiElement> getTagTernaryPattern(@NotNull IElementType type) {
+    public static ElementPattern<PsiElement> getTagTernaryPattern(IElementType type) {
         return PlatformPatterns.or(
             PlatformPatterns.psiElement(TwigTokenTypes.STRING_TEXT)
                 .withParent(
@@ -951,7 +950,7 @@ public class TwigPattern {
      * {{ foo({'foobar', 'foo<caret>bar'}) }}
      * {{ foo({'fo<caret>obar'}) }}
      */
-    public static ElementPattern<PsiElement> getFunctionWithFirstParameterAsLiteralPattern(@NotNull String... functionName) {
+    public static ElementPattern<PsiElement> getFunctionWithFirstParameterAsLiteralPattern(String... functionName) {
         return PlatformPatterns
             .psiElement(TwigTokenTypes.STRING_TEXT).afterLeafSkipping(
                 PlatformPatterns.or(
@@ -984,7 +983,7 @@ public class TwigPattern {
      * {{ foo(bar, {'foobar', 'foo<caret>bar'}) }}
      * {{ foo(bar, {'fo<caret>obar'}) }}
      */
-    public static ElementPattern<PsiElement> getFunctionWithSecondParameterAsLiteralPattern(@NotNull String... functionName) {
+    public static ElementPattern<PsiElement> getFunctionWithSecondParameterAsLiteralPattern(String... functionName) {
         return PlatformPatterns
             .psiElement(TwigTokenTypes.STRING_TEXT).afterLeafSkipping(
                 PlatformPatterns.or(
@@ -1023,7 +1022,7 @@ public class TwigPattern {
      * {{ foo({'foo<caret>bar': 'foo'}}) }}
      * {{ foo({'foobar': 'foo', 'foo<caret>bar': 'foo'}}) }}
      */
-    public static ElementPattern<PsiElement> getFunctionWithFirstParameterAsKeyLiteralPattern(@NotNull String... functionName) {
+    public static ElementPattern<PsiElement> getFunctionWithFirstParameterAsKeyLiteralPattern(String... functionName) {
         return PlatformPatterns.or(
             PlatformPatterns
                 // ",'foo'", {'foo'"
@@ -1066,7 +1065,7 @@ public class TwigPattern {
      * {{ foo(12, {'foo<caret>bar': 'foo'}}) }}
      * {{ foo(12, {'foobar': 'foo', 'foo<caret>bar': 'foo'}}) }}
      */
-    public static ElementPattern<PsiElement> getFunctionWithSecondParameterAsKeyLiteralPattern(@NotNull String... functionName) {
+    public static ElementPattern<PsiElement> getFunctionWithSecondParameterAsKeyLiteralPattern(String... functionName) {
         PsiElementPattern.Capture<PsiElement> parameterPattern = PlatformPatterns.psiElement(TwigElementTypes.LITERAL).afterLeafSkipping(
             PlatformPatterns.or(
                 PlatformPatterns.psiElement(PsiWhiteSpace.class),
@@ -1118,7 +1117,7 @@ public class TwigPattern {
      * {{ foo(['foobar', 'foo<caret>bar']) }}
      * {{ foo(['fo<caret>obar']) }}
      */
-    public static ElementPattern<PsiElement> getFunctionWithFirstParameterAsArrayPattern(@NotNull String... functionName) {
+    public static ElementPattern<PsiElement> getFunctionWithFirstParameterAsArrayPattern(String... functionName) {
 
         // "foo(<caret>"
         PsiElementPattern.Capture<PsiElement> functionPattern = PlatformPatterns
@@ -1140,7 +1139,7 @@ public class TwigPattern {
      * {{ foo(bar, ['foobar', 'foo<caret>bar']) }}
      * {{ foo(bar, ['fo<caret>obar']) }}
      */
-    public static ElementPattern<PsiElement> getFunctionWithSecondParameterAsArrayPattern(@NotNull String... functionName) {
+    public static ElementPattern<PsiElement> getFunctionWithSecondParameterAsArrayPattern(String... functionName) {
 
         // "foo(param, [<caret>"
         PsiElementPattern.Capture<PsiElement> functionPattern = PlatformPatterns
@@ -1169,7 +1168,7 @@ public class TwigPattern {
      * Matches a STRING_TEXT token inside an array literal that follows the given {@code arrayOpenPattern}.
      * Handles both the first element and subsequent elements (after a comma).
      */
-    private static ElementPattern<PsiElement> getStringInArrayPattern(@NotNull PsiElementPattern.Capture<PsiElement> arrayOpenPattern) {
+    private static ElementPattern<PsiElement> getStringInArrayPattern(PsiElementPattern.Capture<PsiElement> arrayOpenPattern) {
         return PlatformPatterns.or(
             // first item: ['fo<caret>obar']
             PlatformPatterns
@@ -1214,7 +1213,7 @@ public class TwigPattern {
      *
      * @param tagName twig tag name
      */
-    public static ElementPattern<PsiElement> getStringAfterTagNamePattern(@NotNull String tagName) {
+    public static ElementPattern<PsiElement> getStringAfterTagNamePattern(String tagName) {
         return PlatformPatterns
             .psiElement(TwigTokenTypes.STRING_TEXT)
             .afterLeafSkipping(
@@ -1237,7 +1236,7 @@ public class TwigPattern {
      * "{% tagName foo"
      * "{% tagName 'foo'"
      */
-    public static ElementPattern<PsiElement> getArgumentAfterTagNamePattern(@NotNull String tagName) {
+    public static ElementPattern<PsiElement> getArgumentAfterTagNamePattern(String tagName) {
         return PlatformPatterns.or(
             PlatformPatterns
                 .psiElement(TwigTokenTypes.IDENTIFIER)
@@ -1326,7 +1325,7 @@ public class TwigPattern {
     /**
      * {% FOOBAR "WANTED.html.twig" %}
      */
-    public static ElementPattern<PsiElement> getTagNameParameterPattern(@NotNull IElementType elementType, @NotNull String tagName) {
+    public static ElementPattern<PsiElement> getTagNameParameterPattern(IElementType elementType, String tagName) {
         return PlatformPatterns
             .psiElement(TwigTokenTypes.STRING_TEXT)
             .withParent(
@@ -1369,12 +1368,12 @@ public class TwigPattern {
         return CACHED_SELF_MACRO_IDENTIFIER_PATTERN;
     }
 
-    public static ElementPattern<PsiElement> getLeafFunctionPattern(@NotNull String ...functionName) {
+    public static ElementPattern<PsiElement> getLeafFunctionPattern(String ...functionName) {
         return PlatformPatterns.psiElement(TwigTokenTypes.IDENTIFIER)
             .withParent(PlatformPatterns.psiElement(TwigElementTypes.FUNCTION_CALL))
             .withText(PlatformPatterns.string().with(new PatternCondition<>("Twig: Leaf function call") {
                 @Override
-                public boolean accepts(@NotNull String function, ProcessingContext processingContext) {
+                public boolean accepts(String function, ProcessingContext processingContext) {
                     String funcWithoutSpace = function.replaceAll(" +", "");
 
                     return Arrays.stream(functionName).anyMatch(wantFunction ->
@@ -1390,7 +1389,6 @@ public class TwigPattern {
      * {% if asset('') %}
      * {{ asset('') }}
      */
-    @NotNull
     private static ElementPattern<PsiElement> getFunctionCallScopePattern() {
         return FUNCTION_CALL_SCOPE_PATTERN;
     }
@@ -1588,13 +1586,12 @@ public class TwigPattern {
      * {% types { foo: '<caret>' } %}
      * {% types { foo?: '<caret>' } %}
      */
-    @NotNull
     public static ElementPattern<PsiElement> getTypesTagTypeStringPattern() {
         return PlatformPatterns
             .psiElement(TwigTokenTypes.STRING_TEXT)
             .with(new PatternCondition<>("types tag") {
                 @Override
-                public boolean accepts(@NotNull PsiElement element, ProcessingContext context) {
+                public boolean accepts(PsiElement element, ProcessingContext context) {
                     // Find the TAG element at any parent level
                     for (PsiElement parent = element.getParent(); parent != null; parent = parent.getParent()) {
                         if (parent instanceof TwigCompositeElement && parent.getNode().getElementType() == TwigElementTypes.TAG) {
@@ -1618,7 +1615,6 @@ public class TwigPattern {
      * {# @see \Class #}
      * {# \Class #}
      */
-    @NotNull
     public static ElementPattern<PsiElement> getTwigDocSeePattern() {
         return CACHED_TWI_DOC_SEE_PATTERN;
     }
@@ -1664,7 +1660,7 @@ public class TwigPattern {
      *
      * app.request.attributes.get('_route') == 'my_route'
      */
-    public static boolean isRouteCompareContext(@NotNull PsiElement element) {
+    public static boolean isRouteCompareContext(PsiElement element) {
         PsiElement prev = PsiTreeUtil.prevLeaf(element);
         while (prev != null) {
             IElementType type = prev.getNode().getElementType();
@@ -1699,7 +1695,7 @@ public class TwigPattern {
      * Just to support "idea-php-drupal-symfony2-bridge"
      */
     @Deprecated
-    public static ElementPattern<PsiElement> getTranslationPattern(@NotNull String... type) {
+    public static ElementPattern<PsiElement> getTranslationPattern(String... type) {
         return getTranslationKeyPattern(type);
     }
 
@@ -1710,8 +1706,7 @@ public class TwigPattern {
      * {{ 'foo<caret>bar'|trans() }}
      * {{ 'foo<caret>bar'|transchoice() }}
      */
-    @NotNull
-    public static ElementPattern<PsiElement> getTranslationKeyPattern(@NotNull String... type) {
+    public static ElementPattern<PsiElement> getTranslationKeyPattern(String... type) {
         return
             PlatformPatterns
                 .psiElement(TwigTokenTypes.STRING_TEXT)
@@ -1864,7 +1859,6 @@ public class TwigPattern {
     /**
      * Only a parameter is valid "('foobar',"
      */
-    @NotNull
     public static PsiElementPattern getFirstFunctionParameterAsStringPattern() {
         return CACHED_FIRST_FUNCTION_PARAMETER_AS_STRING_PATTERN;
     }
@@ -1872,12 +1866,11 @@ public class TwigPattern {
     /**
      * Only a parameter is valid ", 'foobar' [,)]"
      */
-    @NotNull
     public static PsiElementPattern getParameterAsStringPattern() {
         return CACHED_PARAMETER_AS_STRING_PATTERN;
     }
 
-    public static PsiElementPattern.Capture<PsiComment> getTwigDocBlockMatchPattern(@NotNull String pattern) {
+    public static PsiElementPattern.Capture<PsiComment> getTwigDocBlockMatchPattern(String pattern) {
         return PlatformPatterns
             .psiComment().withText(PlatformPatterns.string().matches(pattern))
             .withLanguage(TwigLanguage.INSTANCE);
@@ -1902,7 +1895,7 @@ public class TwigPattern {
         }
 
         @Override
-        public boolean accepts(@NotNull PsiElement psiElement, ProcessingContext processingContext) {
+        public boolean accepts(PsiElement psiElement, ProcessingContext processingContext) {
             IElementType elementType = psiElement.getNode().getElementType();
             return
                 elementType != TwigTokenTypes.LBRACE_CURL &&

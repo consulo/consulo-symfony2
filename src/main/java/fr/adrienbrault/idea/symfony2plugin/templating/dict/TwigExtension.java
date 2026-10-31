@@ -1,8 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.dict;
 
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigExtensionParser;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.*;
 
@@ -13,41 +12,36 @@ public class TwigExtension {
     @Nullable
     final private String signature;
 
-    @NotNull
     final private TwigExtensionParser.TwigExtensionType twigExtensionType;
 
-    @NotNull
     final private Map<String, String> options = new HashMap<>();
 
-    @NotNull
     private Collection<String> types = Collections.emptyList();
 
-    public TwigExtension(@NotNull TwigExtensionParser.TwigExtensionType twigExtensionType) {
+    public TwigExtension(TwigExtensionParser.TwigExtensionType twigExtensionType) {
         this(twigExtensionType, null);
     }
 
-    public TwigExtension(@NotNull TwigExtensionParser.TwigExtensionType twigExtensionType, @Nullable String signature) {
+    public TwigExtension(TwigExtensionParser.TwigExtensionType twigExtensionType, @Nullable String signature) {
         this.twigExtensionType = twigExtensionType;
         this.signature = signature;
     }
 
-    public TwigExtension(@NotNull TwigExtensionParser.TwigExtensionType twigExtensionType, @Nullable String signature, @NotNull Map<String, String> options) {
+    public TwigExtension(TwigExtensionParser.TwigExtensionType twigExtensionType, @Nullable String signature, Map<String, String> options) {
         this(twigExtensionType, signature);
         this.options.putAll(options);
     }
 
-    public TwigExtension(@NotNull TwigExtensionParser.TwigExtensionType twigExtensionType, @Nullable String signature, @NotNull Map<String, String> options, @NotNull Collection<String> types) {
+    public TwigExtension(TwigExtensionParser.TwigExtensionType twigExtensionType, @Nullable String signature, Map<String, String> options, Collection<String> types) {
         this(twigExtensionType, signature);
         this.options.putAll(options);
         this.types = new HashSet<>(types);
     }
 
-    @NotNull
     public TwigExtensionParser.TwigExtensionType getTwigExtensionType() {
         return twigExtensionType;
     }
 
-    @NotNull
     public String getType() {
         return twigExtensionType.toString();
     }
@@ -62,7 +56,6 @@ public class TwigExtension {
         return options.getOrDefault(key, null);
     }
 
-    @NotNull
     public Collection<String> getTypes() {
         return types;
     }

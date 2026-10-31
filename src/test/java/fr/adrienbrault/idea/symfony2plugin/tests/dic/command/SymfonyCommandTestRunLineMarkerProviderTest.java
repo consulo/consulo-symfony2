@@ -1,5 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.dic.command;
 
+import org.junit.jupiter.api.Test;
+
 import com.jetbrains.php.lang.psi.PhpPsiElementFactory;
 import com.jetbrains.php.lang.psi.elements.Method;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
@@ -24,6 +26,8 @@ public class SymfonyCommandTestRunLineMarkerProviderTest extends SymfonyLightCod
         return "src/test/java/fr/adrienbrault/idea/symfony2plugin/tests/dic/command/fixtures";
     }
 
+    @Test
+
     public void testCommandNameFromDefaultNameProperty() {
         PhpClass phpClass = PhpPsiElementFactory.createFromText(getProject(), PhpClass.class, "<?php\n" +
             "class FoobarCommand extends \\Symfony\\Component\\Console\\Command\\Command {\n" +
@@ -42,6 +46,8 @@ public class SymfonyCommandTestRunLineMarkerProviderTest extends SymfonyLightCod
         assertEquals(List.of("app:create-user", "foobar", "car"), SymfonyCommandUtil.getCommandNameFromClass(phpClass1));
     }
 
+    @Test
+
     public void testCommandNameFromDefaultPhpProperty() {
         PhpClass phpClass = PhpPsiElementFactory.createFromText(getProject(), PhpClass.class, "<?php\n" +
             "use Symfony\\Component\\Console\\Attribute\\AsCommand;\n" +
@@ -59,6 +65,8 @@ public class SymfonyCommandTestRunLineMarkerProviderTest extends SymfonyLightCod
         assertEquals(List.of("app:create-user", "app:add-user", "foo"), SymfonyCommandUtil.getCommandNameFromClass(phpClass));
     }
 
+    @Test
+
     public void testCommandNameFromDefaultPhpPropertyAsDefault() {
         PhpClass phpClass = PhpPsiElementFactory.createFromText(getProject(), PhpClass.class, "<?php\n" +
             "use Symfony\\Component\\Console\\Attribute\\AsCommand;\n" +
@@ -71,6 +79,8 @@ public class SymfonyCommandTestRunLineMarkerProviderTest extends SymfonyLightCod
         assertEquals(List.of("app:create-user"), SymfonyCommandUtil.getCommandNameFromClass(phpClass));
     }
 
+    @Test
+
     public void testCommandNameFromAsCommandAttributeWithoutExtendsCommand() {
         PhpClass phpClass = PhpPsiElementFactory.createFromText(getProject(), PhpClass.class, "<?php\n" +
             "use Symfony\\Component\\Console\\Attribute\\AsCommand;\n" +
@@ -82,6 +92,8 @@ public class SymfonyCommandTestRunLineMarkerProviderTest extends SymfonyLightCod
 
         assertEquals(List.of("app:create-user"), SymfonyCommandUtil.getCommandNameFromClass(phpClass));
     }
+
+    @Test
 
     public void testCommandNameFromSetName() {
         PhpClass phpClass = PhpPsiElementFactory.createFromText(getProject(), PhpClass.class, "<?php\n" +
@@ -96,6 +108,8 @@ public class SymfonyCommandTestRunLineMarkerProviderTest extends SymfonyLightCod
 
         assertEquals(List.of("set-const-command"), SymfonyCommandUtil.getCommandNameFromClass(phpClass));
     }
+
+    @Test
 
     public void testCommandTargetContextFromMethodCommandIdentifier() {
         PhpClass phpClass = PhpPsiElementFactory.createFromText(getProject(), PhpClass.class, "<?php\n" +
@@ -114,6 +128,8 @@ public class SymfonyCommandTestRunLineMarkerProviderTest extends SymfonyLightCod
         assertEquals(method, target);
         assertEquals(List.of("app:user:create"), SymfonyCommandTestRunLineMarkerProvider.getCommandNames(target));
     }
+
+    @Test
 
     public void testCommandTargetContextFromClassCommandIdentifier() {
         PhpClass phpClass = PhpPsiElementFactory.createFromText(getProject(), PhpClass.class, "<?php\n" +

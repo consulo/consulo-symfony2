@@ -1,9 +1,14 @@
 package fr.adrienbrault.idea.symfony2plugin.stubs.indexes;
 
-import com.intellij.util.indexing.*;
-import com.intellij.util.io.DataExternalizer;
-import com.intellij.util.io.EnumeratorStringDescriptor;
-import com.intellij.util.io.KeyDescriptor;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.index.io.DataIndexer;
+import consulo.index.io.ID;
+import consulo.language.psi.stub.FileBasedIndex;
+import consulo.language.psi.stub.FileBasedIndexExtension;
+import consulo.language.psi.stub.FileContent;
+import consulo.index.io.data.DataExternalizer;
+import consulo.index.io.EnumeratorStringDescriptor;
+import consulo.index.io.KeyDescriptor;
 import com.jetbrains.php.lang.PhpFileType;
 import com.jetbrains.php.lang.psi.PhpFile;
 import com.jetbrains.php.lang.psi.PhpPsiUtil;
@@ -11,8 +16,7 @@ import com.jetbrains.php.lang.psi.elements.*;
 import com.jetbrains.php.lang.psi.stubs.indexes.expectedArguments.PhpExpectedFunctionArgument;
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.externalizer.PhpAttributeTargetsDataExternalizer;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.*;
 
@@ -25,6 +29,7 @@ import java.util.*;
  *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class PhpAttributeIndex extends FileBasedIndexExtension<String, List<PhpAttributeIndex.AttributeTarget>> {
     public static final ID<String, List<AttributeTarget>> KEY = ID.create("fr.adrienbrault.idea.symfony2plugin.php_attribute.index");
 
@@ -35,37 +40,37 @@ public class PhpAttributeIndex extends FileBasedIndexExtension<String, List<PhpA
     }
 
     public record AttributeTarget(
-        @NotNull TargetScope scope,
-        @NotNull String classFqn,
+        TargetScope scope,
+        String classFqn,
         @Nullable String memberName,
-        @NotNull List<String> data
+        List<String> data
     ) {
     }
 
     @Override
-    public @NotNull ID<String, List<AttributeTarget>> getName() {
+    public ID<String, List<AttributeTarget>> getName() {
         return KEY;
     }
 
     @Override
     // Index-safe only: no PhpIndex/type resolution here.
-    public @NotNull DataIndexer<String, List<AttributeTarget>, FileContent> getIndexer() {
+    public DataIndexer<String, List<AttributeTarget>, FileContent> getIndexer() {
         return new PhpAttributeIndexer();
     }
 
     @Override
-    public @NotNull KeyDescriptor<String> getKeyDescriptor() {
+    public KeyDescriptor<String> getKeyDescriptor() {
         return EnumeratorStringDescriptor.INSTANCE;
     }
 
     @Override
-    public @NotNull DataExternalizer<List<AttributeTarget>> getValueExternalizer() {
+    public DataExternalizer<List<AttributeTarget>> getValueExternalizer() {
         return PhpAttributeTargetsDataExternalizer.INSTANCE;
     }
 
     @Override
-    public @NotNull FileBasedIndex.InputFilter getInputFilter() {
-        return virtualFile -> virtualFile.getFileType() == PhpFileType.INSTANCE;
+    public FileBasedIndex.InputFilter getInputFilter() {
+        return (project, virtualFile) -> virtualFile.getFileType() == PhpFileType.INSTANCE;
     }
 
     @Override
@@ -75,7 +80,7 @@ public class PhpAttributeIndex extends FileBasedIndexExtension<String, List<PhpA
 
     @Override
     public int getVersion() {
-        return 9;
+        return 10;
     }
 
     public static class PhpAttributeIndexer implements DataIndexer<String, List<AttributeTarget>, FileContent> {
@@ -92,11 +97,21 @@ public class PhpAttributeIndex extends FileBasedIndexExtension<String, List<PhpA
         // Symfony dependency injection attributes on classes
         public static final String EXCLUDE_ATTRIBUTE = "\\Symfony\\Component\\DependencyInjection\\Attribute\\Exclude";
 
+        // FrameworkBundle adds container.excluded to these classes when autoconfiguration is enabled (Symfony 7.3+).
+        public static final Set<String> AUTOCONFIGURATION_EXCLUDE_ATTRIBUTES = Set.of(
+            "\\Doctrine\\ORM\\Mapping\\Entity",
+            "\\Doctrine\\ORM\\Mapping\\Embeddable",
+            "\\Doctrine\\ORM\\Mapping\\MappedSuperclass",
+            "\\Symfony\\Component\\Messenger\\Attribute\\AsMessage",
+            "\\Symfony\\Component\\JsonStreamer\\Attribute\\JsonStreamable",
+            "\\Attribute"
+        );
+
         public static final String AS_FORM_TYPE_ATTRIBUTE = "\\Symfony\\Component\\Form\\Attribute\\AsFormType";
         public static final String FORM_FIELD_ATTRIBUTE = "\\Symfony\\Component\\Form\\Attribute\\FormField";
 
         @Override
-        public @NotNull Map<String, List<AttributeTarget>> map(@NotNull FileContent inputData) {
+        public Map<String, List<AttributeTarget>> map(FileContent inputData) {
             Map<String, List<AttributeTarget>> result = new HashMap<>();
             if (!(inputData.getPsiFile() instanceof PhpFile phpFile)) {
                 return result;
@@ -125,20 +140,21 @@ public class PhpAttributeIndex extends FileBasedIndexExtension<String, List<PhpA
         /**
          * Process attributes on class level (e.g., AsCommand on Command classes)
          */
-        private void processClassAttributes(@NotNull PhpClass phpClass, @NotNull String classFqn, @NotNull Map<String, List<AttributeTarget>> result) {
+        private void processClassAttributes(PhpClass phpClass, String classFqn, Map<String, List<AttributeTarget>> result) {
             for (PhpAttribute attribute : phpClass.getAttributes()) {
                 String attributeFqn = attribute.getFQN();
                 if (attributeFqn == null) {
                     continue;
                 }
 
-                if (AS_COMMAND_ATTRIBUTE.equals(attributeFqn) || EXCLUDE_ATTRIBUTE.equals(attributeFqn) || AS_FORM_TYPE_ATTRIBUTE.equals(attributeFqn)) {
+                if (AS_COMMAND_ATTRIBUTE.equals(attributeFqn) || EXCLUDE_ATTRIBUTE.equals(attributeFqn) || AS_FORM_TYPE_ATTRIBUTE.equals(attributeFqn)
+                    || AUTOCONFIGURATION_EXCLUDE_ATTRIBUTES.contains(attributeFqn)) {
                     addTarget(result, attributeFqn, new AttributeTarget(TargetScope.PHP_CLASS, classFqn, null, List.of()));
                 }
             }
         }
 
-        private void processPropertyAttributes(@NotNull String classFqn, @NotNull Field field, @NotNull Map<String, List<AttributeTarget>> result) {
+        private void processPropertyAttributes(String classFqn, Field field, Map<String, List<AttributeTarget>> result) {
             for (PhpAttribute attribute : field.getAttributes()) {
                 if (!FORM_FIELD_ATTRIBUTE.equals(attribute.getFQN())) {
                     continue;
@@ -153,7 +169,7 @@ public class PhpAttributeIndex extends FileBasedIndexExtension<String, List<PhpA
         /**
          * Process attributes on method level.
          */
-        private void processMethodAttributes(@NotNull String classFqn, @NotNull Method method, @NotNull Map<String, List<AttributeTarget>> result) {
+        private void processMethodAttributes(String classFqn, Method method, Map<String, List<AttributeTarget>> result) {
             for (PhpAttribute attribute : method.getAttributes()) {
                 String attributeFqn = attribute.getFQN();
                 if (attributeFqn == null) {
@@ -177,9 +193,9 @@ public class PhpAttributeIndex extends FileBasedIndexExtension<String, List<PhpA
         }
 
         private void addTarget(
-            @NotNull Map<String, List<AttributeTarget>> result,
-            @NotNull String attributeFqn,
-            @NotNull AttributeTarget target
+            Map<String, List<AttributeTarget>> result,
+            String attributeFqn,
+            AttributeTarget target
         ) {
             result.computeIfAbsent(attributeFqn, ignored -> new ArrayList<>()).add(target);
         }
@@ -188,7 +204,7 @@ public class PhpAttributeIndex extends FileBasedIndexExtension<String, List<PhpA
          * Extract the first parameter from a PHP attribute during indexing
          * We can't use PhpPsiAttributesUtil because it doesn't work reliably during indexing
          */
-        private String extractFirstAttributeParameter(@NotNull PhpAttribute attribute) {
+        private String extractFirstAttributeParameter(PhpAttribute attribute) {
             for (PhpAttribute.PhpAttributeArgument argument : attribute.getArguments()) {
                 PhpExpectedFunctionArgument funcArg = argument.getArgument();
                 if (funcArg != null && funcArg.getArgumentIndex() == 0) {

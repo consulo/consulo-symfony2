@@ -2,12 +2,11 @@ package fr.adrienbrault.idea.symfony2plugin.twig.assets;
 
 import fr.adrienbrault.idea.symfony2plugin.util.service.AbstractServiceParser;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.vfs.VirtualFile;
+import consulo.project.Project;
+import consulo.virtualFileSystem.VirtualFile;
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -18,7 +17,6 @@ import java.util.Set;
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class TwigNamedAssetsServiceParser extends AbstractServiceParser {
-    @NotNull
     private final Map<String, String[]> namedAssets = new HashMap<>();
 
     @Override
@@ -57,7 +55,6 @@ public class TwigNamedAssetsServiceParser extends AbstractServiceParser {
         }
     }
 
-    @NotNull
     public Map<String, String[]> getNamedAssets() {
         return namedAssets;
     }

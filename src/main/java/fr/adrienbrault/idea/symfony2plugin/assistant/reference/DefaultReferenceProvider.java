@@ -1,6 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.assistant.reference;
 
-import com.intellij.psi.PsiReference;
+import consulo.language.psi.PsiReference;
 import fr.adrienbrault.idea.symfony2plugin.assistant.AssistantReferenceProvider;
 import fr.adrienbrault.idea.symfony2plugin.config.PhpClassReference;
 import fr.adrienbrault.idea.symfony2plugin.config.component.ParameterReference;

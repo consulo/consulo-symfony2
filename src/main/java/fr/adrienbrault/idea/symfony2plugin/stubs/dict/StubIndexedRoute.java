@@ -2,8 +2,7 @@ package fr.adrienbrault.idea.symfony2plugin.stubs.dict;
 
 import fr.adrienbrault.idea.symfony2plugin.routing.dict.RouteInterface;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.io.Serializable;
 import java.util.Arrays;
@@ -16,7 +15,6 @@ import java.util.Objects;
  */
 public class StubIndexedRoute implements RouteInterface, Serializable {
 
-    @NotNull
     private final String name;
 
     @Nullable
@@ -25,10 +23,9 @@ public class StubIndexedRoute implements RouteInterface, Serializable {
     @Nullable
     private String path = null;
 
-    @NotNull
     private Collection<String> methods = new HashSet<>();
 
-    public StubIndexedRoute(@NotNull String name) {
+    public StubIndexedRoute(String name) {
         this.name = name;
     }
 
@@ -41,7 +38,6 @@ public class StubIndexedRoute implements RouteInterface, Serializable {
         this.controller = controller;
     }
 
-    @NotNull
     public String getName() {
         return name;
     }
@@ -55,16 +51,15 @@ public class StubIndexedRoute implements RouteInterface, Serializable {
         this.path = path;
     }
 
-    @NotNull
     public Collection<String> getMethods() {
         return methods;
     }
 
-    public void setMethods(@NotNull Collection<String> methods) {
+    public void setMethods(Collection<String> methods) {
         this.methods = methods;
     }
 
-    public void addMethod(@NotNull String[] content) {
+    public void addMethod(String[] content) {
         this.methods.addAll(Arrays.asList(content));
     }
 

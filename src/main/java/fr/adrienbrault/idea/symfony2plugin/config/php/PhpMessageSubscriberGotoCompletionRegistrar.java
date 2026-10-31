@@ -1,22 +1,22 @@
 package fr.adrienbrault.idea.symfony2plugin.config.php;
 
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.codeInsight.lookup.LookupElementBuilder;
-import com.intellij.patterns.PatternCondition;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.patterns.PsiElementPattern;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.util.PsiTreeUtil;
-import com.intellij.util.ProcessingContext;
 import com.jetbrains.php.lang.PhpLanguage;
 import com.jetbrains.php.lang.parser.PhpElementTypes;
 import com.jetbrains.php.lang.psi.elements.*;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.editor.completion.lookup.LookupElementBuilder;
+import consulo.language.pattern.PatternCondition;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.pattern.PsiElementPattern;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.util.PsiTreeUtil;
+import consulo.language.util.ProcessingContext;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionProvider;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionRegistrar;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionRegistrarParameter;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -33,6 +33,7 @@ import java.util.Collections;
  *
  * @author Stefano Arlandini <sarlandini@alice.it>
  */
+@ExtensionImpl
 public class PhpMessageSubscriberGotoCompletionRegistrar implements GotoCompletionRegistrar {
     private static final PsiElementPattern.Capture<PsiElement> REGISTRAR_PATTERN = PlatformPatterns.psiElement()
         .withLanguage(PhpLanguage.INSTANCE)
@@ -46,7 +47,7 @@ public class PhpMessageSubscriberGotoCompletionRegistrar implements GotoCompleti
                                 .withParent(PlatformPatterns.psiElement(ArrayCreationExpression.class).withParent(PhpReturn.class))
                                 .with(new PatternCondition<>("Key Type") {
                                     @Override
-                                    public boolean accepts(@NotNull ArrayHashElement arrayHashElement, ProcessingContext context) {
+                                    public boolean accepts(ArrayHashElement arrayHashElement, ProcessingContext context) {
                                         PhpPsiElement keyElement = arrayHashElement.getKey();
 
                                         return keyElement instanceof StringLiteralExpression || keyElement instanceof ClassConstantReference;
@@ -55,7 +56,7 @@ public class PhpMessageSubscriberGotoCompletionRegistrar implements GotoCompleti
                             PlatformPatterns.psiElement(ArrayHashElement.class)
                                 .with(new PatternCondition<>("Key Text") {
                                     @Override
-                                    public boolean accepts(@NotNull ArrayHashElement arrayHashElement, ProcessingContext context) {
+                                    public boolean accepts(ArrayHashElement arrayHashElement, ProcessingContext context) {
                                         PhpPsiElement keyElement = arrayHashElement.getKey();
 
                                         if (!(keyElement instanceof StringLiteralExpression)) {
@@ -70,7 +71,7 @@ public class PhpMessageSubscriberGotoCompletionRegistrar implements GotoCompleti
                                         PlatformPatterns.psiElement(PhpYield.class)
                                             .with(new PatternCondition<>("Yield Key Type") {
                                                 @Override
-                                                public boolean accepts(@NotNull PhpYield phpYield, ProcessingContext context) {
+                                                public boolean accepts(PhpYield phpYield, ProcessingContext context) {
                                                     PsiElement keyElement = phpYield.getArgument();
 
                                                     return keyElement instanceof StringLiteralExpression || keyElement instanceof ClassConstantReference;
@@ -84,7 +85,7 @@ public class PhpMessageSubscriberGotoCompletionRegistrar implements GotoCompleti
         );
 
     @Override
-    public void register(@NotNull GotoCompletionRegistrarParameter registrar) {
+    public void register(GotoCompletionRegistrarParameter registrar) {
         registrar.register(REGISTRAR_PATTERN, psiElement -> {
             Method method = PsiTreeUtil.getParentOfType(psiElement, Method.class, true, Function.class);
 
@@ -103,13 +104,12 @@ public class PhpMessageSubscriberGotoCompletionRegistrar implements GotoCompleti
     private static class PhpClassPublicMethodProvider extends GotoCompletionProvider {
         private final PhpClass phpClass;
 
-        public PhpClassPublicMethodProvider(@NotNull PhpClass phpClass) {
+        public PhpClassPublicMethodProvider(PhpClass phpClass) {
             super(phpClass);
 
             this.phpClass = phpClass;
         }
 
-        @NotNull
         @Override
         public Collection<LookupElement> getLookupElements() {
             Collection<LookupElement> elements = new ArrayList<>();
@@ -131,7 +131,6 @@ public class PhpMessageSubscriberGotoCompletionRegistrar implements GotoCompleti
             return elements;
         }
 
-        @NotNull
         @Override
         public Collection<PsiElement> getPsiTargets(PsiElement element) {
             PsiElement parentElement = element.getParent();

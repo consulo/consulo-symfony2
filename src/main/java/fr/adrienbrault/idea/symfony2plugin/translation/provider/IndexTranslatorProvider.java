@@ -1,16 +1,16 @@
 package fr.adrienbrault.idea.symfony2plugin.translation.provider;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.Key;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.search.GlobalSearchScope;
-import com.intellij.psi.util.CachedValue;
-import com.intellij.psi.util.CachedValueProvider;
-import com.intellij.psi.util.CachedValuesManager;
-import com.intellij.util.indexing.FileBasedIndex;
 import com.jetbrains.php.PhpIndex;
+import consulo.application.util.CachedValue;
+import consulo.application.util.CachedValueProvider;
+import consulo.application.util.CachedValuesManager;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.scope.GlobalSearchScope;
+import consulo.language.psi.stub.FileBasedIndex;
+import consulo.project.Project;
+import consulo.util.dataholder.Key;
+import consulo.virtualFileSystem.VirtualFile;
 import fr.adrienbrault.idea.symfony2plugin.extension.TranslatorProvider;
 import fr.adrienbrault.idea.symfony2plugin.extension.TranslatorProviderDict;
 import fr.adrienbrault.idea.symfony2plugin.stubs.SymfonyProcessors;
@@ -18,7 +18,6 @@ import fr.adrienbrault.idea.symfony2plugin.stubs.cache.FileIndexCaches;
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.TranslationStubIndex;
 import fr.adrienbrault.idea.symfony2plugin.translation.dict.TranslationUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -37,27 +36,25 @@ public class IndexTranslatorProvider implements TranslatorProvider {
         Key.create("SYMFONY_TRANSLATION_KEYS_BY_DOMAIN");
 
     @Override
-    public boolean hasTranslationKey(@NotNull Project project, @NotNull String keyName, @NotNull String domainName) {
+    public boolean hasTranslationKey(Project project, String keyName, String domainName) {
         return hasIndexedTranslationKey(project, keyName, domainName);
     }
 
     @Override
-    public boolean hasDomain(@NotNull Project project, @NotNull String domainName) {
+    public boolean hasDomain(Project project, String domainName) {
         return hasIndexedDomain(project, domainName);
     }
 
-    @NotNull
     @Override
-    public Collection<TranslatorProviderDict.TranslationDomain> getTranslationDomains(@NotNull Project project) {
+    public Collection<TranslatorProviderDict.TranslationDomain> getTranslationDomains(Project project) {
         return getIndexedDomains(project)
             .stream()
             .map(s -> new TranslatorProviderDict.TranslationDomain(s, true))
             .collect(Collectors.toList());
     }
 
-    @NotNull
     @Override
-    public Collection<PsiElement> getTranslationTargets(@NotNull Project project, @NotNull String translationKey, @NotNull String domain) {
+    public Collection<PsiElement> getTranslationTargets(Project project, String translationKey, String domain) {
         Collection<PsiElement> psiFoundElements = new ArrayList<>();
 
         Collection<VirtualFile> files = new HashSet<>();
@@ -73,9 +70,8 @@ public class IndexTranslatorProvider implements TranslatorProvider {
         return psiFoundElements;
     }
 
-    @NotNull
     @Override
-    public Collection<VirtualFile> getDomainPsiFiles(Project project, @NotNull String domainName) {
+    public Collection<VirtualFile> getDomainPsiFiles(Project project, String domainName) {
         Collection<VirtualFile> targets = new HashSet<>();
 
         FileBasedIndex.getInstance().getFilesWithKey(TranslationStubIndex.KEY, new HashSet<>(Collections.singletonList(domainName)), virtualFile -> {
@@ -86,17 +82,15 @@ public class IndexTranslatorProvider implements TranslatorProvider {
         return targets;
     }
 
-    @NotNull
     @Override
-    public Collection<TranslatorProviderDict.TranslationKey> getTranslationsForDomain(@NotNull Project project, @NotNull String domainName) {
+    public Collection<TranslatorProviderDict.TranslationKey> getTranslationsForDomain(Project project, String domainName) {
         return getIndexedTranslationKeys(project, domainName)
             .stream()
             .map(key -> new TranslatorProviderDict.TranslationKey(key, true))
             .collect(Collectors.toSet());
     }
 
-    @NotNull
-    private static Map<String, Set<String>> getTranslationKeysByDomain(@NotNull Project project) {
+    private static Map<String, Set<String>> getTranslationKeysByDomain(Project project) {
         return CachedValuesManager.getManager(project).getCachedValue(
             project,
             TRANSLATION_KEYS_BY_DOMAIN,
@@ -108,21 +102,19 @@ public class IndexTranslatorProvider implements TranslatorProvider {
         );
     }
 
-    public static boolean hasIndexedTranslationKey(@NotNull Project project, @NotNull String keyName, @NotNull String domainName) {
+    public static boolean hasIndexedTranslationKey(Project project, String keyName, String domainName) {
         return getIndexedTranslationKeys(project, domainName).contains(keyName);
     }
 
-    public static boolean hasIndexedDomain(@NotNull Project project, @NotNull String domainName) {
+    public static boolean hasIndexedDomain(Project project, String domainName) {
         return getIndexedDomains(project).contains(domainName);
     }
 
-    @NotNull
-    private static Set<String> getIndexedDomains(@NotNull Project project) {
+    private static Set<String> getIndexedDomains(Project project) {
         return FileIndexCaches.getIndexKeysCache(project, TRANSLATION_DOMAINS, TranslationStubIndex.KEY);
     }
 
-    @NotNull
-    private static Set<String> getIndexedTranslationKeys(@NotNull Project project, @NotNull String domainName) {
+    private static Set<String> getIndexedTranslationKeys(Project project, String domainName) {
         if (!hasIndexedDomain(project, domainName)) {
             return Collections.emptySet();
         }

@@ -2,7 +2,6 @@ package fr.adrienbrault.idea.symfony2plugin.stubs.dict;
 
 import fr.adrienbrault.idea.symfony2plugin.templating.dict.TemplateInclude.TYPE;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
-import org.jetbrains.annotations.NotNull;
 
 import java.io.Serializable;
 import java.util.Collections;
@@ -17,11 +16,10 @@ import java.util.Set;
  */
 public class TemplateInclude implements Serializable {
 
-    @NotNull
     private final String template;
     private final Set<TYPE> types;
 
-    public TemplateInclude(@NotNull String template, @NotNull Set<TYPE> types) {
+    public TemplateInclude(String template, Set<TYPE> types) {
         if (types.isEmpty()) {
             throw new IllegalArgumentException("Template include types must not be empty");
         }
@@ -29,12 +27,10 @@ public class TemplateInclude implements Serializable {
         this.types = Collections.unmodifiableSet(EnumSet.copyOf(types));
     }
 
-    @NotNull
     public Set<TYPE> getTypes() {
         return types;
     }
 
-    @NotNull
     public String getTemplate() {
         return template;
     }

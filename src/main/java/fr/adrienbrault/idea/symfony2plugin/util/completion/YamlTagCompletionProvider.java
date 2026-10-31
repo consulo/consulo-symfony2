@@ -1,20 +1,24 @@
 package fr.adrienbrault.idea.symfony2plugin.util.completion;
 
-import com.intellij.codeInsight.completion.*;
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.codeInsight.lookup.LookupElementBuilder;
-import com.intellij.openapi.editor.EditorModificationUtil;
-import com.intellij.openapi.project.Project;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.TokenType;
-import com.intellij.psi.impl.source.tree.LeafPsiElement;
-import com.intellij.psi.impl.source.tree.PsiErrorElementImpl;
-import com.intellij.psi.util.PsiTreeUtil;
-import com.intellij.util.ProcessingContext;
+import consulo.codeEditor.util.EditorModificationUtil;
+import consulo.language.ast.TokenType;
+import consulo.language.editor.completion.CompletionParameters;
+import consulo.language.editor.completion.CompletionProvider;
+import consulo.language.editor.completion.CompletionResultSet;
+import consulo.language.editor.completion.lookup.InsertHandler;
+import consulo.language.editor.completion.lookup.InsertionContext;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.editor.completion.lookup.LookupElementBuilder;
+import consulo.language.psi.LeafPsiElement;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiErrorElement;
+import consulo.language.psi.PsiUtilCore;
+import consulo.language.psi.util.PsiTreeUtil;
+import consulo.language.util.ProcessingContext;
+import consulo.project.Project;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.util.SymfonyUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.yaml.YAMLTokenTypes;
 
 import java.util.Arrays;
@@ -23,9 +27,10 @@ import java.util.List;
 /**
  * @author Thomas Schulz <mail@king2500.net>
  */
-public class YamlTagCompletionProvider extends CompletionProvider<CompletionParameters> {
+public class YamlTagCompletionProvider implements CompletionProvider {
 
     private static final String TAG_PHP_CONST = "!php/const";
+    private static final String TAG_PHP_ENUM = "!php/enum";
     private static final String TAG_PHP_OBJECT = "!php/object";
     private static final String TAG_TAGGED = "!tagged";
     private static final String TAG_TAGGED_ITERATOR = "!tagged_iterator";
@@ -36,6 +41,7 @@ public class YamlTagCompletionProvider extends CompletionProvider<CompletionPara
 
     private static final String[] yamlTags = {
         TAG_PHP_CONST,
+        TAG_PHP_ENUM,
         TAG_PHP_OBJECT,
         TAG_TAGGED,
         TAG_TAGGED_ITERATOR,
@@ -57,7 +63,8 @@ public class YamlTagCompletionProvider extends CompletionProvider<CompletionPara
         TAG_SERVICE_LOCATOR,
     };
 
-    protected void addCompletions(@NotNull CompletionParameters parameters, ProcessingContext context, @NotNull CompletionResultSet result) {
+    @Override
+    public void addCompletions(CompletionParameters parameters, ProcessingContext context, CompletionResultSet result) {
 
         PsiElement psiElement = parameters.getOriginalPosition();
         if (!Symfony2ProjectComponent.isEnabled(psiElement)) {
@@ -69,10 +76,10 @@ public class YamlTagCompletionProvider extends CompletionProvider<CompletionPara
         if (psiElement instanceof LeafPsiElement) {
             // Don't complete for multiple tags
             // key: !my_tag !<caret>
-            if (((LeafPsiElement) psiElement).getElementType() == YAMLTokenTypes.TAG) {
-                if (psiElement.getParent() instanceof PsiErrorElementImpl) {
+            if (PsiUtilCore.getElementType(psiElement) == YAMLTokenTypes.TAG) {
+                if (psiElement.getParent() instanceof PsiErrorElement) {
                     // Error "Multiple tags are not permitted"
-                    if (((PsiErrorElementImpl) psiElement.getParent()).getElementType() == TokenType.ERROR_ELEMENT) {
+                    if (PsiUtilCore.getElementType(psiElement.getParent()) == TokenType.ERROR_ELEMENT) {
                         return;
                     }
                 }
@@ -93,7 +100,7 @@ public class YamlTagCompletionProvider extends CompletionProvider<CompletionPara
 
             // Don't complete again after tag (after second "!")
             // key: !my_tag !!<caret>
-            if (((LeafPsiElement) psiElement).getElementType() == YAMLTokenTypes.TEXT) {
+            if (PsiUtilCore.getElementType(psiElement) == YAMLTokenTypes.TEXT) {
                 PsiElement prevElement = PsiTreeUtil.getPrevSiblingOfType(psiElement.getPrevSibling(), LeafPsiElement.class);
                 if (prevElement != null) {
                     if (prevElement.getText().startsWith("!")) {
@@ -126,7 +133,12 @@ public class YamlTagCompletionProvider extends CompletionProvider<CompletionPara
         for (String tag : yamlTags) {
             // in DI YamlFileLoader (services.yml and config.yml) we know for sure we have !php/const
             //  ...yamlParser->parse(..., Yaml::PARSE_CONSTANT | Yaml::PARSE_CUSTOM_TAGS ...
-            if (tag.equals(TAG_PHP_CONST) && !allTags && !isServices && !isConfig) {
+            if ((tag.equals(TAG_PHP_CONST) || tag.equals(TAG_PHP_ENUM)) && !allTags && !isServices && !isConfig) {
+                continue;
+            }
+
+            // !php/enum since Symfony 6.2; all tags invocation shows it regardless of detected version
+            if (tag.equals(TAG_PHP_ENUM) && !allTags && SymfonyUtil.isVersionLessThen(project, "6.2")) {
                 continue;
             }
 
@@ -183,7 +195,7 @@ public class YamlTagCompletionProvider extends CompletionProvider<CompletionPara
         private static final InsertSpaceInsertHandler instance = new InsertSpaceInsertHandler();
 
         @Override
-        public void handleInsert(InsertionContext context, @NotNull LookupElement lookupElement) {
+        public void handleInsert(InsertionContext context, LookupElement lookupElement) {
             EditorModificationUtil.insertStringAtCaret(context.getEditor(), " ", false, 1);
         }
 
@@ -196,7 +208,7 @@ public class YamlTagCompletionProvider extends CompletionProvider<CompletionPara
         private static final InsertQuotesInsertHandler instance = new InsertQuotesInsertHandler();
 
         @Override
-        public void handleInsert(InsertionContext context, @NotNull LookupElement lookupElement) {
+        public void handleInsert(InsertionContext context, LookupElement lookupElement) {
             EditorModificationUtil.insertStringAtCaret(context.getEditor(), " ''", false, 1);
         }
 

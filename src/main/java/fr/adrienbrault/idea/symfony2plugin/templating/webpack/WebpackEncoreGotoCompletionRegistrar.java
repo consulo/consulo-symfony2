@@ -1,20 +1,24 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.webpack;
 
-import com.intellij.codeInsight.completion.CompletionResultSet;
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.codeInsight.lookup.LookupElementBuilder;
-import com.intellij.openapi.vfs.VfsUtil;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiManager;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.editor.completion.CompletionResultSet;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.editor.completion.lookup.LookupElementBuilder;
+import consulo.virtualFileSystem.util.VirtualFileUtil;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.PsiManager;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
-import fr.adrienbrault.idea.symfony2plugin.codeInsight.*;
+import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionProvider;
+import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionProviderInterfaceEx;
+import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionProviderLookupArguments;
+import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionRegistrar;
+import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionRegistrarParameter;
 import fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -27,9 +31,10 @@ import java.util.HashSet;
  *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class WebpackEncoreGotoCompletionRegistrar implements GotoCompletionRegistrar {
     @Override
-    public void register(@NotNull GotoCompletionRegistrarParameter registrar) {
+    public void register(GotoCompletionRegistrarParameter registrar) {
         registrar.register(TwigPattern.getPrintBlockOrTagFunctionPattern("encore_entry_link_tags", "encore_entry_script_tags"), psiElement -> {
             if (!Symfony2ProjectComponent.isEnabled(psiElement)) {
                 return null;
@@ -40,11 +45,10 @@ public class WebpackEncoreGotoCompletionRegistrar implements GotoCompletionRegis
     }
 
     private static class EncoreEntry extends GotoCompletionProvider implements GotoCompletionProviderInterfaceEx {
-        private EncoreEntry(@NotNull PsiElement element) {
+        private EncoreEntry(PsiElement element) {
             super(element);
         }
 
-        @NotNull
         public Collection<PsiElement> getPsiTargets(PsiElement element) {
             String contents = element.getText();
 
@@ -63,7 +67,7 @@ public class WebpackEncoreGotoCompletionRegistrar implements GotoCompletionRegis
                             replace = replace.substring(2);
                         }
 
-                        VirtualFile relativeFile = VfsUtil.findRelativeFile(triple.getVirtualFile().getParent(), replace.split("/"));
+                        VirtualFile relativeFile = VirtualFileUtil.findRelativeFile(triple.getVirtualFile().getParent(), replace.split("/"));
                         if (relativeFile != null) {
                             PsiFile file = PsiManager.getInstance(getProject()).findFile(relativeFile);
                             if (file != null) {
@@ -88,7 +92,7 @@ public class WebpackEncoreGotoCompletionRegistrar implements GotoCompletionRegis
         }
 
         @Override
-        public void getLookupElements(@NotNull GotoCompletionProviderLookupArguments arguments) {
+        public void getLookupElements(GotoCompletionProviderLookupArguments arguments) {
             Collection<LookupElement> lookupElements = new ArrayList<>();
             SymfonyWebpackUtil.visitAllEntryFileTypes(getProject(), pair ->
                 {

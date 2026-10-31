@@ -1,15 +1,15 @@
 package fr.adrienbrault.idea.symfony2plugin.translation;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.Key;
-import com.intellij.openapi.util.SimpleModificationTracker;
-import com.intellij.openapi.util.io.FileUtil;
-import com.intellij.openapi.vfs.InvalidVirtualFileAccessException;
-import com.intellij.openapi.vfs.VfsUtil;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.util.CachedValue;
-import com.intellij.psi.util.CachedValueProvider;
-import com.intellij.psi.util.CachedValuesManager;
+import consulo.application.util.CachedValue;
+import consulo.application.util.CachedValueProvider;
+import consulo.application.util.CachedValuesManager;
+import consulo.component.util.SimpleModificationTracker;
+import consulo.project.Project;
+import consulo.util.dataholder.Key;
+import consulo.util.io.FileUtil;
+import consulo.virtualFileSystem.InvalidVirtualFileAccessException;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.virtualFileSystem.util.VirtualFileUtil;
 import fr.adrienbrault.idea.symfony2plugin.Settings;
 import fr.adrienbrault.idea.symfony2plugin.dic.container.util.ServiceContainerUtil;
 import fr.adrienbrault.idea.symfony2plugin.translation.parser.TranslationStringMap;
@@ -17,7 +17,6 @@ import fr.adrienbrault.idea.symfony2plugin.util.ProjectUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.SymfonyVarDirectoryWatcher;
 import fr.adrienbrault.idea.symfony2plugin.util.SymfonyVarDirectoryWatcherKt;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.Collection;
 import java.util.HashSet;
@@ -31,7 +30,7 @@ public class TranslationIndex {
     private TranslationIndex() {
     }
 
-    synchronized static public TranslationStringMap getTranslationMap(@NotNull Project project) {
+    synchronized static public TranslationStringMap getTranslationMap(Project project) {
         return CachedValuesManager.getManager(project).getCachedValue(
             project,
             SYMFONY_TRANSLATION_MAP_COMPILED,
@@ -58,8 +57,7 @@ public class TranslationIndex {
      *
      * Cache invalidation is handled by SymfonyVarDirectoryWatcher via VFS events.
      */
-    @NotNull
-    private static Collection<VirtualFile> findTranslationDirectories(@NotNull Project project) {
+    private static Collection<VirtualFile> findTranslationDirectories(Project project) {
         Collection<VirtualFile> files = new HashSet<>();
 
         VirtualFile projectDir = ProjectUtil.getProjectDir(project);
@@ -67,7 +65,7 @@ public class TranslationIndex {
             for (String root : new String[] {"var/cache", "app/cache"}) {
                 VirtualFile cache;
                 try {
-                    cache = VfsUtil.findRelativeFile(projectDir, root.split("/"));
+                    cache = VirtualFileUtil.findRelativeFile(projectDir, root.split("/"));
                 } catch (InvalidVirtualFileAccessException ignored) {
                     continue;
                 }
@@ -96,9 +94,9 @@ public class TranslationIndex {
             if (StringUtils.isNotBlank(translationPath)) {
                 VirtualFile vf;
                 if (FileUtil.isAbsolute(translationPath)) {
-                    vf = VfsUtil.findFileByIoFile(new java.io.File(translationPath), false);
+                    vf = VirtualFileUtil.findFileByIoFile(new java.io.File(translationPath), false);
                 } else {
-                    vf = VfsUtil.findRelativeFile(projectDir, translationPath.replace('\\', '/').split("/"));
+                    vf = VirtualFileUtil.findRelativeFile(projectDir, translationPath.replace('\\', '/').split("/"));
                 }
 
                 if (vf != null && vf.isDirectory()) {
@@ -109,7 +107,7 @@ public class TranslationIndex {
 
         for (String containerFile : ServiceContainerUtil.getContainerFiles(project)) {
             // resolve the file
-            VirtualFile containerVirtualFile = VfsUtil.findRelativeFile(containerFile, projectDir);
+            VirtualFile containerVirtualFile = VirtualFileUtil.findRelativeFile(containerFile, projectDir);
             if (containerVirtualFile == null) {
                 continue;
             }
@@ -130,7 +128,7 @@ public class TranslationIndex {
         return files;
     }
 
-    private static SimpleModificationTracker getTranslationsTracker(@NotNull Project project) {
+    private static SimpleModificationTracker getTranslationsTracker(Project project) {
         return SymfonyVarDirectoryWatcherKt.getSymfonyVarDirectoryWatcher(project)
             .getModificationTracker(SymfonyVarDirectoryWatcher.Scope.TRANSLATIONS);
     }

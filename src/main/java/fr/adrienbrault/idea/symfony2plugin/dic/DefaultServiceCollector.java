@@ -1,9 +1,9 @@
 package fr.adrienbrault.idea.symfony2plugin.dic;
 
+import consulo.annotation.component.ExtensionImpl;
 import fr.adrienbrault.idea.symfony2plugin.extension.ServiceCollector;
 import fr.adrienbrault.idea.symfony2plugin.extension.ServiceCollectorParameter;
 import fr.adrienbrault.idea.symfony2plugin.util.SymfonyUtil;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -11,6 +11,7 @@ import java.util.Map;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class DefaultServiceCollector implements ServiceCollector {
 
     private static final Map<String, String> DEFAULTS = new HashMap<>() {{
@@ -20,7 +21,7 @@ public class DefaultServiceCollector implements ServiceCollector {
     }};
 
     @Override
-    public void collectServices(@NotNull ServiceCollectorParameter.Service parameter) {
+    public void collectServices(ServiceCollectorParameter.Service parameter) {
         DEFAULTS.forEach(parameter::add);
 
         if(SymfonyUtil.isVersionLessThen(parameter.getProject(), "3.0")) {
@@ -29,7 +30,7 @@ public class DefaultServiceCollector implements ServiceCollector {
     }
 
     @Override
-    public void collectIds(@NotNull ServiceCollectorParameter.Id parameter) {
+    public void collectIds(ServiceCollectorParameter.Id parameter) {
         parameter.addAll(DEFAULTS.keySet());
 
         if(SymfonyUtil.isVersionLessThen(parameter.getProject(), "3.0")) {

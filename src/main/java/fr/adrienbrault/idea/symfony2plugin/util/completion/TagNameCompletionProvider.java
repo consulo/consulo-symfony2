@@ -1,13 +1,13 @@
 package fr.adrienbrault.idea.symfony2plugin.util.completion;
 
-import com.intellij.codeInsight.completion.CompletionParameters;
-import com.intellij.codeInsight.completion.CompletionProvider;
-import com.intellij.codeInsight.completion.CompletionResultSet;
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.openapi.project.Project;
-import com.intellij.psi.search.GlobalSearchScope;
-import com.intellij.util.ProcessingContext;
-import com.intellij.util.indexing.FileBasedIndex;
+import consulo.language.editor.completion.CompletionParameters;
+import consulo.language.editor.completion.CompletionProvider;
+import consulo.language.editor.completion.CompletionResultSet;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.psi.scope.GlobalSearchScope;
+import consulo.language.psi.stub.FileBasedIndex;
+import consulo.language.util.ProcessingContext;
+import consulo.project.Project;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.completion.lookup.ContainerTagLookupElement;
 import fr.adrienbrault.idea.symfony2plugin.dic.XmlTagParser;
@@ -17,16 +17,19 @@ import fr.adrienbrault.idea.symfony2plugin.stubs.SymfonyProcessors;
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.ContainerBuilderStubIndex;
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.ServicesTagStubIndex;
 import fr.adrienbrault.idea.symfony2plugin.util.service.ServiceXmlParserFactory;
-import org.jetbrains.annotations.NotNull;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
-public class TagNameCompletionProvider extends CompletionProvider<CompletionParameters> {
+public class TagNameCompletionProvider implements CompletionProvider {
     @Override
-    protected void addCompletions(@NotNull CompletionParameters completionParameters, ProcessingContext processingContext, @NotNull CompletionResultSet completionResultSet) {
+    public void addCompletions(CompletionParameters completionParameters, ProcessingContext processingContext, CompletionResultSet completionResultSet) {
 
         if(!Symfony2ProjectComponent.isEnabled(completionParameters.getPosition())) {
             return;
@@ -35,8 +38,7 @@ public class TagNameCompletionProvider extends CompletionProvider<CompletionPara
         completionResultSet.addAllElements(getTagLookupElements(completionParameters.getPosition().getProject()));
     }
 
-    @NotNull
-    public static Collection<LookupElement> getTagLookupElements(@NotNull Project project) {
+    public static Collection<LookupElement> getTagLookupElements(Project project) {
 
         Collection<LookupElement> lookupElements = new ArrayList<>();
 

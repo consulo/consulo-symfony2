@@ -2,7 +2,6 @@ package fr.adrienbrault.idea.symfony2plugin.util.dict;
 
 import com.jetbrains.php.lang.psi.elements.PhpClass;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -16,23 +15,20 @@ public class ServiceTag {
 
     private final HashMap<String, String> attributes = new HashMap<>();
 
-    @NotNull
     private final PhpClass phpClass;
 
-    @NotNull
     private final String tagName;
 
-    @NotNull
     public PhpClass getPhpClass() {
         return phpClass;
     }
 
-    public ServiceTag(@NotNull PhpClass phpClass, @NotNull String tagName) {
+    public ServiceTag(PhpClass phpClass, String tagName) {
         this.phpClass = phpClass;
         this.tagName = tagName;
     }
 
-    public void addAttribute(@NotNull String key, @NotNull String value) {
+    public void addAttribute(String key, String value) {
         this.attributes.put(key, value);
     }
 
@@ -40,12 +36,10 @@ public class ServiceTag {
         return attributes;
     }
 
-    @NotNull
     public String getTagName() {
         return tagName;
     }
 
-    @NotNull
     public String toXmlString() {
 
         List<String> options = new ArrayList<>();
@@ -56,7 +50,6 @@ public class ServiceTag {
         return String.format("<tag name=\"%s\" %s />", this.getTagName(), StringUtils.join(options, " "));
     }
 
-    @NotNull
     public String toYamlString() {
 
         List<String> attrs = new ArrayList<>();

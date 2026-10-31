@@ -1,7 +1,9 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.templating.util;
 
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.util.PsiTreeUtil;
+import org.junit.jupiter.api.Test;
+
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.util.PsiTreeUtil;
 import com.jetbrains.twig.TwigFileType;
 import com.jetbrains.twig.elements.TwigTagWithFileReference;
 import fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern;
@@ -15,6 +17,8 @@ import java.util.stream.Collectors;
 
 public class TwigIncludeContextParserTest extends SymfonyLightCodeInsightFixtureTestCase {
 
+    @Test
+
     public void testTagIncludeWithOnlyParsesArguments() {
         TwigIncludeContextParser.IncludeContext context = parseTagInclude("{% include 'partials/_card.html.twig' with {'title': 'Example', product: item.product} only %}");
 
@@ -24,6 +28,8 @@ public class TwigIncludeContextParserTest extends SymfonyLightCodeInsightFixture
         assertEquals("item.product", getArgumentValueText(context, "product"));
     }
 
+    @Test
+
     public void testTagIncludeWithIgnoreMissingKeepsParentContext() {
         TwigIncludeContextParser.IncludeContext context = parseTagInclude("{% include 'sidebar.html.twig' ignore missing with {'name': 'Fabien'} %}");
 
@@ -31,6 +37,8 @@ public class TwigIncludeContextParserTest extends SymfonyLightCodeInsightFixture
         assertArgumentNames(context, "name");
         assertEquals("'Fabien'", getArgumentValueText(context, "name"));
     }
+
+    @Test
 
     public void testTagIncludeSupportsQuotedKeys() {
         TwigIncludeContextParser.IncludeContext context = parseTagInclude("{% include 'partials/_card.html.twig' with {'itemAlias': item, \"itemLabel\": item.label} %}");
@@ -41,6 +49,8 @@ public class TwigIncludeContextParserTest extends SymfonyLightCodeInsightFixture
         assertEquals("item.label", getArgumentValueText(context, "itemLabel"));
     }
 
+    @Test
+
     public void testFunctionIncludeWithContextFalseParsesArguments() {
         TwigIncludeContextParser.IncludeContext context = parseFunctionInclude("{{ include('partials/_card.html.twig', {title: 'Example', product: item.product}, with_context: false) }}");
 
@@ -50,12 +60,16 @@ public class TwigIncludeContextParserTest extends SymfonyLightCodeInsightFixture
         assertEquals("item.product", getArgumentValueText(context, "product"));
     }
 
+    @Test
+
     public void testFunctionIncludeWithContextFalseEqualsWithoutArguments() {
         TwigIncludeContextParser.IncludeContext context = parseFunctionInclude("{{ include('partials/_card.html.twig', with_context = false) }}");
 
         assertFalse(context.withParentContext());
         assertTrue(context.arguments().isEmpty());
     }
+
+    @Test
 
     public void testFunctionIncludeSupportsQuotedKeysAndComplexValues() {
         TwigIncludeContextParser.IncludeContext context = parseFunctionInclude("{{ include('partials/_card.html.twig', {'itemAlias': item, \"itemLabel\": item.label, options: {label: item.name, flags: {'active': true}}}) }}");
@@ -66,6 +80,8 @@ public class TwigIncludeContextParserTest extends SymfonyLightCodeInsightFixture
         assertEquals("item.label", getArgumentValueText(context, "itemLabel"));
         assertTrue(getArgumentValueText(context, "options").contains("item.name"));
     }
+
+    @Test
 
     public void testIncludeWithHashKeyVariables() {
         addIncludeWithKeyTargetTemplate();
@@ -90,6 +106,8 @@ public class TwigIncludeContextParserTest extends SymfonyLightCodeInsightFixture
             .stream().map(TwigIncludeContextParser.IncludeWithContextTemplateVariable::name).collect(Collectors.toSet()));
     }
 
+    @Test
+
     public void testIncludeWithHashKeyTargets() {
         addIncludeWithKeyTargetTemplate();
 
@@ -98,6 +116,8 @@ public class TwigIncludeContextParserTest extends SymfonyLightCodeInsightFixture
         assertTargetNames("{% include 'include/_key_target.html.twig' with {plain<caret>Key: value} %}", "plainKey");
         assertTargetNames("{% embed 'include/_key_target.html.twig' with {embed<caret>Key: value} %}{% endembed %}", "embedKey");
     }
+
+    @Test
 
     public void testIncludeWithHashValueDoesNotCollectKeyVariables() {
         addIncludeWithKeyTargetTemplate();

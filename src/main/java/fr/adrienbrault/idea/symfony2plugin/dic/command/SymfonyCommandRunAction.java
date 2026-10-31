@@ -1,21 +1,21 @@
 package fr.adrienbrault.idea.symfony2plugin.dic.command;
 
-import com.intellij.execution.ExecutionException;
-import com.intellij.execution.ExecutionManager;
-import com.intellij.execution.RunManager;
-import com.intellij.execution.RunnerAndConfigurationSettings;
-import com.intellij.execution.executors.DefaultRunExecutor;
-import com.intellij.execution.runners.ExecutionEnvironmentBuilder;
-import com.intellij.openapi.actionSystem.AnAction;
-import com.intellij.openapi.actionSystem.AnActionEvent;
-import com.intellij.openapi.actionSystem.CommonDataKeys;
-import com.intellij.openapi.project.Project;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
 import com.jetbrains.php.lang.psi.elements.PhpNamedElement;
-import org.jetbrains.annotations.NotNull;
+import consulo.codeEditor.Caret;
+import consulo.execution.RunManager;
+import consulo.execution.RunnerAndConfigurationSettings;
+import consulo.execution.executor.DefaultRunExecutor;
+import consulo.execution.runner.ExecutionEnvironmentBuilder;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.localize.LocalizeValue;
+import consulo.process.ExecutionException;
+import consulo.project.Project;
+import consulo.ui.annotation.RequiredUIAccess;
+import consulo.ui.ex.action.AnAction;
+import consulo.ui.ex.action.AnActionEvent;
+import consulo.ui.image.Image;
 
-import javax.swing.*;
 import java.util.List;
 
 /**
@@ -25,23 +25,24 @@ public class SymfonyCommandRunAction extends AnAction {
 
     private final SymfonyCommandRunConfiguration.ExecutionMode myMode;
 
-    public SymfonyCommandRunAction(@NotNull SymfonyCommandRunConfiguration.ExecutionMode mode, @NotNull String text, @NotNull Icon icon) {
-        super(text, null, icon);
+    public SymfonyCommandRunAction(SymfonyCommandRunConfiguration.ExecutionMode mode, String text, Image icon) {
+        super(LocalizeValue.of(text), LocalizeValue.empty(), icon);
         this.myMode = mode;
     }
 
     @Override
-    public void actionPerformed(@NotNull AnActionEvent e) {
-        Project project = e.getProject();
+    @RequiredUIAccess
+    public void actionPerformed(AnActionEvent e) {
+        Project project = e.getData(Project.KEY);
         if (project == null) {
             return;
         }
 
-        PsiElement psiElement = e.getData(CommonDataKeys.PSI_ELEMENT);
+        PsiElement psiElement = e.getData(PsiElement.KEY);
         if (psiElement == null) {
-            PsiFile psiFile = e.getData(CommonDataKeys.PSI_FILE);
+            PsiFile psiFile = e.getData(PsiFile.KEY);
             if (psiFile != null) {
-                psiElement = psiFile.findElementAt(e.getData(CommonDataKeys.CARET) != null ? e.getData(CommonDataKeys.CARET).getOffset() : 0);
+                psiElement = psiFile.findElementAt(e.getData(Caret.KEY) != null ? e.getData(Caret.KEY).getOffset() : 0);
             }
         }
 
@@ -73,7 +74,7 @@ public class SymfonyCommandRunAction extends AnAction {
         RunManager runManager = RunManager.getInstance(project);
         SymfonyCommandRunConfigurationType type = SymfonyCommandRunConfigurationType.getInstance();
 
-        RunnerAndConfigurationSettings settings = runManager.createConfiguration(commandName, type.getFactory());
+        RunnerAndConfigurationSettings settings = runManager.createRunConfiguration(commandName, type.getFactory());
         SymfonyCommandRunConfiguration configuration = (SymfonyCommandRunConfiguration) settings.getConfiguration();
         configuration.setCommandName(commandName);
         configuration.setExecutionMode(myMode);

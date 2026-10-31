@@ -1,5 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.routing.annotation;
 
+import consulo.annotation.component.ExtensionImpl;
 import de.espend.idea.php.annotation.extension.PhpAnnotationCompletionProvider;
 import de.espend.idea.php.annotation.extension.parameter.AnnotationCompletionProviderParameter;
 import de.espend.idea.php.annotation.extension.parameter.AnnotationPropertyParameter;
@@ -12,6 +13,7 @@ import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
  *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class RouteUrlAnnotationCompletionProvider implements PhpAnnotationCompletionProvider {
     @Override
     public void getPropertyValueCompletions(AnnotationPropertyParameter annotationPropertyParameter, AnnotationCompletionProviderParameter annotationCompletionProviderParameter) {

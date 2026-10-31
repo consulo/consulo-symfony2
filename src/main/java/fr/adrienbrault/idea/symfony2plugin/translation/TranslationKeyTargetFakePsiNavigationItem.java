@@ -1,24 +1,26 @@
 package fr.adrienbrault.idea.symfony2plugin.translation;
 
-import com.intellij.icons.AllIcons;
+import com.intellij.json.JsonFileType;
 import com.intellij.json.psi.JsonFile;
-import com.intellij.navigation.ItemPresentation;
-import com.intellij.openapi.vfs.VfsUtil;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.xml.XmlFile;
-import com.intellij.ui.LayeredIcon;
-import com.intellij.ui.SizedIcon;
-import com.intellij.util.xml.model.gotosymbol.GoToSymbolProvider;
+import com.jetbrains.php.PhpIcons;
 import com.jetbrains.php.lang.psi.PhpFile;
+import consulo.component.util.Iconable;
+import consulo.language.icon.IconDescriptorUpdaters;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.localize.LocalizeValue;
+import consulo.navigation.ItemPresentation;
+import consulo.platform.base.icon.PlatformIconGroup;
+import consulo.ui.image.Image;
+import consulo.ui.image.ImageEffects;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.virtualFileSystem.util.VirtualFileUtil;
+import consulo.xml.language.psi.XmlFile;
+import consulo.xml.util.xml.model.gotosymbol.GoToSymbolProvider;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
-import icons.PhpIcons;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jetbrains.yaml.YAMLFileType;
 import org.jetbrains.yaml.psi.YAMLFile;
-
-import javax.swing.*;
+import org.jspecify.annotations.Nullable;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -28,16 +30,17 @@ public class TranslationKeyTargetFakePsiNavigationItem extends GoToSymbolProvide
     private final PsiElement myPsiElement;
     private final String rootDir;
 
-    public TranslationKeyTargetFakePsiNavigationItem(@NotNull VirtualFile projectDir, @NotNull PsiElement psiElement) {
+    public TranslationKeyTargetFakePsiNavigationItem(VirtualFile projectDir, PsiElement psiElement) {
         super(psiElement, "", null);
 
         this.projectDir = projectDir;
-        this.rootDir = VfsUtil.getRelativePath(psiElement.getContainingFile().getVirtualFile(), projectDir, '/');
+        this.rootDir = VirtualFileUtil.getRelativePath(psiElement.getContainingFile().getVirtualFile(), projectDir, '/');
         this.myPsiElement = psiElement;
     }
 
+    // consulo-port: upstream overrides ItemPresentation#getIcon(boolean); Consulo's primary method is getIcon()
     @Override
-    public Icon getIcon(boolean flags) {
+    public Image getIcon() {
         return getFileIcon();
     }
 
@@ -49,16 +52,17 @@ public class TranslationKeyTargetFakePsiNavigationItem extends GoToSymbolProvide
         return isSymfonyTranslationDirectory() ? 1 : 0;
     }
 
+    @Override
     public ItemPresentation getPresentation() {
         return new ItemPresentation() {
             @Override
-            public String getPresentableText() {
-                return myPsiElement.getContainingFile().getName();
+            public LocalizeValue getPresentableText() {
+                return LocalizeValue.of(myPsiElement.getContainingFile().getName());
             }
 
             @Override
             public String getLocationString() {
-                String relativePath = VfsUtil.getRelativePath(myPsiElement.getContainingFile().getVirtualFile(), projectDir, '/');
+                String relativePath = VirtualFileUtil.getRelativePath(myPsiElement.getContainingFile().getVirtualFile(), projectDir, '/');
                 if (relativePath != null) {
                     return '(' + relativePath + ')';
                 }
@@ -67,39 +71,38 @@ public class TranslationKeyTargetFakePsiNavigationItem extends GoToSymbolProvide
             }
 
             @Override
-            @Nullable
-            public Icon getIcon(boolean open) {
-                return TranslationKeyTargetFakePsiNavigationItem.this.getIcon(ICON_FLAG_VISIBILITY);
+            public @Nullable Image getIcon() {
+                // consulo-port: upstream getIcon(ICON_FLAG_VISIBILITY); PsiElement has no getIcon(int) in Consulo
+                return TranslationKeyTargetFakePsiNavigationItem.this.getIcon();
             }
         };
     }
 
-    private Icon getFileIcon() {
-        Icon fileIcon;
+    private Image getFileIcon() {
+        Image fileIcon;
 
         PsiFile containingFile = myPsiElement.getContainingFile();
         if (containingFile instanceof YAMLFile) {
-            fileIcon = AllIcons.FileTypes.Yaml;
+            fileIcon = YAMLFileType.YML.getIcon();
         } else if (containingFile instanceof PhpFile) {
             fileIcon =  PhpIcons.PhpIcon;
         } else if (containingFile instanceof XmlFile) {
-            fileIcon =  AllIcons.FileTypes.Xml;
+            fileIcon =  PlatformIconGroup.filetypesXml();
         } else if (containingFile instanceof JsonFile) {
-            fileIcon =  AllIcons.FileTypes.Json;
+            fileIcon =  JsonFileType.INSTANCE.getIcon();
         } else {
             // for non registered state
             String extension = myPsiElement.getContainingFile().getVirtualFile().getExtension();
 
             fileIcon = "xlf".equalsIgnoreCase(extension) || "xliff".equalsIgnoreCase(extension)
-                ? AllIcons.FileTypes.Xml
-                : myPsiElement.getIcon(ICON_FLAG_VISIBILITY);
+                ? PlatformIconGroup.filetypesXml()
+                : IconDescriptorUpdaters.getIcon(myPsiElement, Iconable.ICON_FLAG_VISIBILITY);
         }
 
         if (rootDir != null && isSymfonyTranslationDirectory()) {
-            SizedIcon sizedIcon = new SizedIcon(Symfony2Icons.SYMFONY_LINE_MARKER, fileIcon.getIconWidth() / 2, fileIcon.getIconHeight() / 2);
-            LayeredIcon icon = LayeredIcon.layeredIcon(new Icon[]{fileIcon, sizedIcon});
-            icon.setIcon(sizedIcon, 1, SwingConstants.SOUTH_EAST);
-            return icon;
+            Image sizedIcon = ImageEffects.resize(Symfony2Icons.SYMFONY_LINE_MARKER, fileIcon.getWidth() / 2, fileIcon.getHeight() / 2);
+            // TODO consulo-port: LayeredIcon#setIcon(sizedIcon, 1, SwingConstants.SOUTH_EAST) has no counterpart; ImageEffects.layered draws the overlay at the top-left
+            return ImageEffects.layered(fileIcon, sizedIcon);
         }
 
         return fileIcon;

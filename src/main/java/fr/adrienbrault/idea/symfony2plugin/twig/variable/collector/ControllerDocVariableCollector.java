@@ -1,21 +1,21 @@
 package fr.adrienbrault.idea.symfony2plugin.twig.variable.collector;
 
-import com.intellij.openapi.util.Key;
-import com.intellij.psi.PsiComment;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.util.CachedValue;
-import com.intellij.psi.util.CachedValueProvider;
-import com.intellij.psi.util.CachedValuesManager;
-import com.intellij.psi.util.PsiTreeUtil;
 import com.jetbrains.php.lang.psi.elements.Method;
 import com.jetbrains.twig.TwigFile;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.application.util.CachedValue;
+import consulo.application.util.CachedValueProvider;
+import consulo.language.psi.PsiComment;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.util.LanguageCachedValueUtil;
+import consulo.language.psi.util.PsiTreeUtil;
+import consulo.util.dataholder.Key;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.PhpMethodVariableResolveUtil;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
 import fr.adrienbrault.idea.symfony2plugin.templating.variable.TwigFileVariableCollector;
 import fr.adrienbrault.idea.symfony2plugin.templating.variable.TwigFileVariableCollectorParameter;
 import fr.adrienbrault.idea.symfony2plugin.templating.variable.dict.PsiVariable;
 import fr.adrienbrault.idea.symfony2plugin.util.controller.ControllerIndex;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -28,6 +28,7 @@ import java.util.regex.Pattern;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl(order = "after GlobalExtensionVariableCollector")
 public class ControllerDocVariableCollector implements TwigFileVariableCollector {
 
     public static final String DOC_PATTERN  = "\\{#[\\s]+@[C|c]ontroller[\\s]+([\\w\\\\\\[\\]:]+)[\\s]+#}";
@@ -35,7 +36,7 @@ public class ControllerDocVariableCollector implements TwigFileVariableCollector
     private static final Key<CachedValue<List<String>>> CONTROLLER_DOC_BLOCKS_CACHE = new Key<>("TWIG_CONTROLLER_DOC_BLOCKS");
 
     @Override
-    public void collectPsiVariables(@NotNull TwigFileVariableCollectorParameter parameter, @NotNull Map<String, PsiVariable> variables) {
+    public void collectPsiVariables(TwigFileVariableCollectorParameter parameter, Map<String, PsiVariable> variables) {
         PsiFile psiFile = parameter.getContainingFile();
         if(!(psiFile instanceof TwigFile)) {
             return;
@@ -56,9 +57,8 @@ public class ControllerDocVariableCollector implements TwigFileVariableCollector
         }
     }
 
-    @NotNull
-    private static List<String> findFileControllerDocBlocks(@NotNull TwigFile twigFile) {
-        return CachedValuesManager.getCachedValue(
+    private static List<String> findFileControllerDocBlocks(TwigFile twigFile) {
+        return LanguageCachedValueUtil.getCachedValue(
             twigFile,
             CONTROLLER_DOC_BLOCKS_CACHE,
             () -> CachedValueProvider.Result.create(
@@ -68,8 +68,7 @@ public class ControllerDocVariableCollector implements TwigFileVariableCollector
         );
     }
 
-    @NotNull
-    private static List<String> findFileControllerDocBlocksInner(@NotNull TwigFile twigFile) {
+    private static List<String> findFileControllerDocBlocksInner(TwigFile twigFile) {
 
         Pattern pattern = Pattern.compile(DOC_PATTERN);
 

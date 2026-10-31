@@ -1,7 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.profiler.collector;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -31,7 +30,6 @@ public interface DefaultDataCollectorInterface {
     /**
      * Rendered Twig templates in profiler order, eg "blog/show.html.twig", "base.html.twig".
      */
-    @NotNull
     default Collection<String> getRenderedTemplates() {
         return Collections.emptyList();
     }
@@ -39,6 +37,5 @@ public interface DefaultDataCollectorInterface {
     /**
      * Root form types used by the request, eg "App\\Form\\SearchType".
      */
-    @NotNull
     Collection<String> getFormTypes();
 }

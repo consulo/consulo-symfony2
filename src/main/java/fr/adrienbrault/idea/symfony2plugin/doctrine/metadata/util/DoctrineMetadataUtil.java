@@ -1,23 +1,23 @@
 package fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.util;
 
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.lang.xml.XMLLanguage;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.Key;
-import com.intellij.openapi.util.Pair;
-import com.intellij.openapi.util.text.StringUtil;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiManager;
-import com.intellij.psi.search.GlobalSearchScope;
-import com.intellij.psi.util.CachedValue;
-import com.intellij.psi.util.CachedValueProvider;
-import com.intellij.psi.util.CachedValuesManager;
-import com.intellij.psi.util.PsiTreeUtil;
-import com.intellij.psi.xml.XmlTag;
-import com.intellij.util.indexing.FileBasedIndex;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
+import consulo.application.util.CachedValue;
+import consulo.application.util.CachedValueProvider;
+import consulo.application.util.CachedValuesManager;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.PsiManager;
+import consulo.language.psi.scope.GlobalSearchScope;
+import consulo.language.psi.stub.FileBasedIndex;
+import consulo.language.psi.util.PsiTreeUtil;
+import consulo.project.Project;
+import consulo.util.dataholder.Key;
+import consulo.util.lang.Pair;
+import consulo.util.lang.StringUtil;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.xml.language.XMLLanguage;
+import consulo.xml.language.psi.XmlTag;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.EntityHelper;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.DoctrineMetadataPattern;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.DoctrineModel;
@@ -32,8 +32,7 @@ import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.DoctrineMetadataFileStu
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpIndexUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import static fr.adrienbrault.idea.symfony2plugin.util.StringUtils.underscore;
 import org.jetbrains.yaml.psi.*;
@@ -57,8 +56,7 @@ public class DoctrineMetadataUtil {
         new DoctrineMappingDriverFileCacheDecorator(new DoctrineYamlMappingDriver()),
     };
 
-    @NotNull
-    public static Collection<LookupElement> getObjectRepositoryLookupElements(@NotNull Project project) {
+    public static Collection<LookupElement> getObjectRepositoryLookupElements(Project project) {
         Collection<PhpClass> collection = new ArrayList<>();
 
         collection.addAll(PhpIndexUtil.getAllSubclasses(project, "\\Doctrine\\Common\\Persistence\\ObjectRepository"));
@@ -71,7 +69,7 @@ public class DoctrineMetadataUtil {
      * Try to find repository class on models scope on its metadata definition
      */
     @Nullable
-    public static PhpClass getClassRepository(final @NotNull Project project, final @NotNull String className) {
+    public static PhpClass getClassRepository(final Project project, final String className) {
 
         for (VirtualFile virtualFile : FileBasedIndex.getInstance().getContainingFiles(DoctrineMetadataFileStubIndex.KEY, className, GlobalSearchScope.allScope(project))) {
 
@@ -101,8 +99,7 @@ public class DoctrineMetadataUtil {
      *
      * @param className fully qualified class name, with or without leading backslash
      */
-    @NotNull
-    public static Collection<VirtualFile> findMetadataFiles(@NotNull Project project, @NotNull String className) {
+    public static Collection<VirtualFile> findMetadataFiles(Project project, String className) {
         className = StringUtils.stripStart(className, "\\");
         final Collection<VirtualFile> virtualFiles = new ArrayList<>();
 
@@ -119,8 +116,7 @@ public class DoctrineMetadataUtil {
      *
      * @param phpClass the repository PhpClass
      */
-    @NotNull
-    public static Collection<VirtualFile> findMetadataForRepositoryClass(@NotNull PhpClass phpClass) {
+    public static Collection<VirtualFile> findMetadataForRepositoryClass(PhpClass phpClass) {
         return findMetadataForRepositoryClass(
             phpClass.getProject(),
             StringUtils.stripStart(phpClass.getPresentableFQN(), "\\")
@@ -138,8 +134,7 @@ public class DoctrineMetadataUtil {
      *
      * @param repositoryClass fully qualified repository class name without leading backslash
      */
-    @NotNull
-    public static Collection<VirtualFile> findMetadataForRepositoryClass(final @NotNull Project project, @NotNull String repositoryClass) {
+    public static Collection<VirtualFile> findMetadataForRepositoryClass(final Project project, String repositoryClass) {
         Map<String, Collection<String>> cache = CachedValuesManager.getManager(project).getCachedValue(
             project,
             DOCTRINE_REPOSITORY_CACHE,
@@ -188,8 +183,7 @@ public class DoctrineMetadataUtil {
      * Find metadata model in which the given repository class is used
      * eg "@ORM\Entity(repositoryClass="FOOBAR")", xml or yaml
      */
-    @NotNull
-    public static Collection<DoctrineModelInterface> findMetadataModelForRepositoryClass(final @NotNull Project project, @NotNull String repositoryClass) {
+    public static Collection<DoctrineModelInterface> findMetadataModelForRepositoryClass(final Project project, String repositoryClass) {
         repositoryClass = StringUtils.stripStart(repositoryClass,"\\");
 
         Collection<DoctrineModelInterface> models = new ArrayList<>();
@@ -212,8 +206,7 @@ public class DoctrineMetadataUtil {
     /**
      * Returns cached pairs of (tableName, classFqn) from the Doctrine metadata index.
      */
-    @NotNull
-    public static Collection<Pair<String, String>> getTables(@NotNull Project project) {
+    public static Collection<Pair<String, String>> getTables(Project project) {
         return CachedValuesManager.getManager(project).getCachedValue(
             project,
             DOCTRINE_TABLES_CACHE,
@@ -238,8 +231,7 @@ public class DoctrineMetadataUtil {
      * Find Doctrine entity PHP classes for the given database table name.
      * Checks explicit table name mappings from the index, then guessing from the class.
      */
-    @NotNull
-    public static Collection<PhpClass> findEntityByTableName(@NotNull Project project, @NotNull String tableName) {
+    public static Collection<PhpClass> findEntityByTableName(Project project, String tableName) {
         String normalizedTableName = tableName.trim().toLowerCase();
         Collection<PhpClass> navigatables = new HashSet<>();
 
@@ -285,7 +277,7 @@ public class DoctrineMetadataUtil {
     }
 
     @Nullable
-    public static DoctrineMetadataModel getMetadataByTable(@NotNull Project project, @NotNull String tableName) {
+    public static DoctrineMetadataModel getMetadataByTable(Project project, String tableName) {
 
         for (String key : FileIndexCaches.getIndexKeysCache(project, CLASS_KEYS, DoctrineMetadataFileStubIndex.KEY)) {
             for (VirtualFile virtualFile : FileBasedIndex.getInstance().getContainingFiles(DoctrineMetadataFileStubIndex.KEY, key, GlobalSearchScope.allScope(project))) {
@@ -317,7 +309,7 @@ public class DoctrineMetadataUtil {
      * @param className fully qualified class name (preferred), with or without leading backslash
      */
     @Nullable
-    public static DoctrineMetadataModel getModelFields(@NotNull Project project, @NotNull String className) {
+    public static DoctrineMetadataModel getModelFields(Project project, String className) {
         for (VirtualFile file : findMetadataFiles(project, className)) {
             PsiFile psiFile = PsiManager.getInstance(project).findFile(file);
             if(psiFile == null) {
@@ -336,8 +328,7 @@ public class DoctrineMetadataUtil {
         return null;
     }
 
-    @NotNull
-    public static Collection<PhpClass> getModels(@NotNull Project project) {
+    public static Collection<PhpClass> getModels(Project project) {
 
         Collection<PhpClass> phpClasses = new ArrayList<>();
         for (String key : FileIndexCaches.getIndexKeysCache(project, CLASS_KEYS, DoctrineMetadataFileStubIndex.KEY)) {
@@ -351,7 +342,7 @@ public class DoctrineMetadataUtil {
     }
 
     @Nullable
-    public static DoctrineManagerEnum findManagerByScope(@NotNull PsiElement psiElement) {
+    public static DoctrineManagerEnum findManagerByScope(PsiElement psiElement) {
         String name = psiElement.getContainingFile().getName();
         Matcher matcher = Pattern.compile(".(mongodb|couchdb|orm|document|odm).(xml|yaml|yml)$", Pattern.CASE_INSENSITIVE).matcher(name);
 
@@ -367,7 +358,7 @@ public class DoctrineMetadataUtil {
     }
 
     @Nullable
-    public static String findModelNameInScope(@NotNull PsiElement psiElement) {
+    public static String findModelNameInScope(PsiElement psiElement) {
 
         if(psiElement.getLanguage().equals(XMLLanguage.INSTANCE)) {
             XmlTag xmlTag = PsiTreeUtil.getParentOfType(psiElement, XmlTag.class, false);
@@ -408,8 +399,7 @@ public class DoctrineMetadataUtil {
         return null;
     }
 
-    @NotNull
-    public static Collection<PhpClass> getClassInsideScope(@NotNull PsiElement psiElement, @NotNull String originValue) {
+    public static Collection<PhpClass> getClassInsideScope(PsiElement psiElement, String originValue) {
         Collection<PhpClass> classesInterface = new ArrayList<>();
         String modelNameInScope = DoctrineMetadataUtil.findModelNameInScope(psiElement);
         if(modelNameInScope != null) {

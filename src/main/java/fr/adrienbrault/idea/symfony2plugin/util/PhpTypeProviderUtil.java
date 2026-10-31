@@ -1,14 +1,13 @@
 package fr.adrienbrault.idea.symfony2plugin.util;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.text.StringUtil;
-import com.intellij.psi.PsiElement;
 import com.jetbrains.php.PhpIndex;
 import com.jetbrains.php.lang.psi.elements.*;
 import com.jetbrains.php.lang.psi.resolve.types.PhpType;
+import consulo.language.psi.PsiElement;
+import consulo.project.Project;
+import consulo.util.lang.StringUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -42,7 +41,7 @@ public class PhpTypeProviderUtil {
      * foo($this->foo), foo('foobar')
      */
     @Nullable
-    public static String getReferenceSignatureByFirstParameter(@NotNull FunctionReference functionReference, char trimKey) {
+    public static String getReferenceSignatureByFirstParameter(FunctionReference functionReference, char trimKey) {
         String refSignature = functionReference.getSignature();
         if(StringUtil.isEmpty(refSignature)) {
             return null;
@@ -82,7 +81,7 @@ public class PhpTypeProviderUtil {
      * overwrite parameter to get string value
      */
     @Nullable
-    public static String getResolvedParameter(@NotNull PhpIndex phpIndex, @NotNull String parameter) {
+    public static String getResolvedParameter(PhpIndex phpIndex, String parameter) {
 
         // PHP 5.5 class constant: "Class\Foo::class"
         if(parameter.startsWith("#K#C")) {
@@ -116,8 +115,7 @@ public class PhpTypeProviderUtil {
     /**
      * Mostly factory pattern doest not return a type, but eg in Doctrine getRepository we need to fallback to an interface
      */
-    @NotNull
-    public static Collection<? extends PhpNamedElement> mergeSignatureResults(@NotNull Collection<? extends PhpNamedElement> phpNamedElements, final @NotNull PhpNamedElement phpNamed) {
+    public static Collection<? extends PhpNamedElement> mergeSignatureResults(Collection<? extends PhpNamedElement> phpNamedElements, final PhpNamedElement phpNamed) {
 
         Collection<PhpNamedElement> result = new ArrayList<>();
         result.add(phpNamed);
@@ -150,7 +148,7 @@ public class PhpTypeProviderUtil {
         return result;
     }
 
-    private static boolean isPhpTypeEqual(@NotNull PhpType phpType, @NotNull PhpClass phpClass) {
+    private static boolean isPhpTypeEqual(PhpType phpType, PhpClass phpClass) {
 
         for (String s : phpType.getTypes()) {
             if(PhpElementsUtil.isInstanceOf(phpClass, s)) {
@@ -170,7 +168,7 @@ public class PhpTypeProviderUtil {
      * from "nothing found" can inspect {@link SignatureSplit#elements()} after a null check.
      */
     @Nullable
-    public static SignatureSplit resolveSignatureSplit(@NotNull String expression, char trimKey, @NotNull Project project) {
+    public static SignatureSplit resolveSignatureSplit(String expression, char trimKey, Project project) {
         int endIndex = expression.lastIndexOf(trimKey);
         if (endIndex == -1) {
             return null;
@@ -193,9 +191,9 @@ public class PhpTypeProviderUtil {
      * decoded parameter string, and the matched named elements.
      */
     public record SignatureSplit(
-        @NotNull PhpIndex phpIndex,
-        @NotNull String parameter,
-        @NotNull Collection<? extends PhpNamedElement> elements
+        PhpIndex phpIndex,
+        String parameter,
+        Collection<? extends PhpNamedElement> elements
     ) {}
 
     /**
@@ -204,8 +202,7 @@ public class PhpTypeProviderUtil {
      * #M#x#M#C\FooBar.get?doctrine.odm.mongodb.document_manager.getRepository|
      * #M#x#M#C\FooBar.get?doctrine.odm.mongodb.document_manager.getRepository
      */
-    @NotNull
-    public static Collection<? extends PhpNamedElement> getTypeSignature(@NotNull PhpIndex phpIndex, @NotNull String signature) {
+    public static Collection<? extends PhpNamedElement> getTypeSignature(PhpIndex phpIndex, String signature) {
 
         if (!signature.contains("|")) {
             return phpIndex.getBySignature(signature, null, 0);

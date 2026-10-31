@@ -1,8 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.profiler.collector;
 
 import fr.adrienbrault.idea.symfony2plugin.profiler.dict.ProfilerTwigComponent;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -23,7 +22,7 @@ public class LocalTwigComponentDataCollector implements TwigComponentDataCollect
     }
 
     @Override
-    public @NotNull Collection<ProfilerTwigComponent> getComponents() {
+    public Collection<ProfilerTwigComponent> getComponents() {
         String collectorContent = getTwigComponentCollectorContent();
         if (collectorContent == null) {
             return Collections.emptyList();
@@ -54,7 +53,7 @@ public class LocalTwigComponentDataCollector implements TwigComponentDataCollect
     }
 
     @Nullable
-    private static ComponentsContent findComponentsContent(@NotNull String collectorContent) {
+    private static ComponentsContent findComponentsContent(String collectorContent) {
         String dataObjectContent = findDirectValueByKey(collectorContent, "data");
         if (dataObjectContent == null) {
             return null;
@@ -93,7 +92,7 @@ public class LocalTwigComponentDataCollector implements TwigComponentDataCollect
         return valueEnd > valueStart ? contents.substring(valueStart + 1, valueEnd) : contents.substring(collectorIndex);
     }
 
-    private static int findSerializedValueEnd(@NotNull String content, int start) {
+    private static int findSerializedValueEnd(String content, int start) {
         int depth = 0;
         boolean hasCompoundValue = false;
 
@@ -122,7 +121,7 @@ public class LocalTwigComponentDataCollector implements TwigComponentDataCollect
     }
 
     @Nullable
-    private static SerializedValue readSerializedValue(@NotNull String content, int start) {
+    private static SerializedValue readSerializedValue(String content, int start) {
         if (content.startsWith("N;", start)) {
             return new SerializedValue(null, null, start + 2);
         }
@@ -144,7 +143,7 @@ public class LocalTwigComponentDataCollector implements TwigComponentDataCollect
     }
 
     @Nullable
-    private static SerializedValue readSerializedString(@NotNull String content, int start) {
+    private static SerializedValue readSerializedString(String content, int start) {
         Matcher matcher = SERIALIZED_STRING_PREFIX.matcher(content);
         matcher.region(start, content.length());
         if (!matcher.lookingAt()) {
@@ -171,13 +170,13 @@ public class LocalTwigComponentDataCollector implements TwigComponentDataCollect
         return null;
     }
 
-    private static int findSerializedStringEnd(@NotNull String content, int start) {
+    private static int findSerializedStringEnd(String content, int start) {
         SerializedValue value = readSerializedString(content, start);
         return value != null ? value.end : -1;
     }
 
     @Nullable
-    private static String findDirectValueByKey(@NotNull String serializedContent, @NotNull String expectedKey) {
+    private static String findDirectValueByKey(String serializedContent, String expectedKey) {
         for (SerializedPair pair : getDirectPairs(serializedContent)) {
             if (pair.key.stringValue != null && isPropertyName(pair.key.stringValue, expectedKey)) {
                 return pair.rawValue;
@@ -188,7 +187,7 @@ public class LocalTwigComponentDataCollector implements TwigComponentDataCollect
     }
 
     @Nullable
-    private static String findDirectValueByIntegerKey(@NotNull String serializedContent, int expectedKey) {
+    private static String findDirectValueByIntegerKey(String serializedContent, int expectedKey) {
         for (SerializedPair pair : getDirectPairs(serializedContent)) {
             if (pair.key.integerValue != null && pair.key.integerValue == expectedKey) {
                 return pair.rawValue;
@@ -198,8 +197,7 @@ public class LocalTwigComponentDataCollector implements TwigComponentDataCollect
         return null;
     }
 
-    @NotNull
-    private static String resolveVarDumperReference(@NotNull String serializedContent, @NotNull String dataContent) {
+    private static String resolveVarDumperReference(String serializedContent, String dataContent) {
         String referencedIndex = findDirectValueByIntegerKey(serializedContent, 1);
         if (referencedIndex == null) {
             return serializedContent;
@@ -214,8 +212,7 @@ public class LocalTwigComponentDataCollector implements TwigComponentDataCollect
         return resolvedContent != null ? resolvedContent : serializedContent;
     }
 
-    @NotNull
-    private static Collection<String> getDirectValues(@NotNull String serializedContent) {
+    private static Collection<String> getDirectValues(String serializedContent) {
         Collection<String> values = new ArrayList<>();
         for (SerializedPair pair : getDirectPairs(serializedContent)) {
             values.add(pair.rawValue);
@@ -224,8 +221,7 @@ public class LocalTwigComponentDataCollector implements TwigComponentDataCollect
         return values;
     }
 
-    @NotNull
-    private static Collection<SerializedPair> getDirectPairs(@NotNull String serializedContent) {
+    private static Collection<SerializedPair> getDirectPairs(String serializedContent) {
         Collection<SerializedPair> pairs = new ArrayList<>();
 
         Matcher arrayMatcher = SERIALIZED_ARRAY_PREFIX.matcher(serializedContent);
@@ -260,14 +256,13 @@ public class LocalTwigComponentDataCollector implements TwigComponentDataCollect
         return pairs;
     }
 
-    private static boolean isPropertyName(@NotNull String key, @NotNull String expectedKey) {
+    private static boolean isPropertyName(String key, String expectedKey) {
         int nullByte = key.lastIndexOf('\0');
         String normalizedKey = nullByte >= 0 ? key.substring(nullByte + 1) : key;
         return expectedKey.equals(normalizedKey);
     }
 
-    @NotNull
-    private static ComponentFields parseComponentFields(@NotNull String componentArrayContent) {
+    private static ComponentFields parseComponentFields(String componentArrayContent) {
         ComponentFields fields = new ComponentFields();
 
         for (SerializedPair pair : getDirectPairs(componentArrayContent)) {
@@ -322,9 +317,9 @@ public class LocalTwigComponentDataCollector implements TwigComponentDataCollect
     private record SerializedValue(@Nullable String stringValue, @Nullable Integer integerValue, int end) {
     }
 
-    private record SerializedPair(@NotNull SerializedValue key, @NotNull SerializedValue value, @NotNull String rawValue) {
+    private record SerializedPair(SerializedValue key, SerializedValue value, String rawValue) {
     }
 
-    private record ComponentsContent(@NotNull String componentsContent, @NotNull String dataContent) {
+    private record ComponentsContent(String componentsContent, String dataContent) {
     }
 }

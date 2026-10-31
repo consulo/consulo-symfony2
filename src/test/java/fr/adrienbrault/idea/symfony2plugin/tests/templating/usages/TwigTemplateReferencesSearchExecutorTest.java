@@ -1,11 +1,13 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.templating.usages;
 
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiReference;
-import com.intellij.psi.search.GlobalSearchScope;
-import com.intellij.psi.search.searches.ReferencesSearch;
-import com.intellij.psi.PsiManager;
-import com.intellij.openapi.util.TextRange;
+import org.junit.jupiter.api.Test;
+
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.PsiReference;
+import consulo.language.psi.scope.GlobalSearchScope;
+import consulo.language.psi.search.ReferencesSearch;
+import consulo.language.psi.PsiManager;
+import consulo.document.util.TextRange;
 import com.jetbrains.twig.TwigFile;
 import fr.adrienbrault.idea.symfony2plugin.templating.usages.TwigTemplateUsageReference;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
@@ -33,6 +35,8 @@ public class TwigTemplateReferencesSearchExecutorTest extends SymfonyLightCodeIn
         );
     }
 
+    @Test
+
     public void testFindsAllSupportedTemplateUsages() {
         addFixturesForAllUsageTypes();
 
@@ -51,6 +55,8 @@ public class TwigTemplateReferencesSearchExecutorTest extends SymfonyLightCodeIn
         assertContainsSourceFile(references, "src/Controller/HomeController.php");
     }
 
+    @Test
+
     public void testFindsComponentUsagesForComponentTemplateTarget() {
         addFixturesForAllUsageTypes();
 
@@ -61,6 +67,8 @@ public class TwigTemplateReferencesSearchExecutorTest extends SymfonyLightCodeIn
         assertContainsSourceFile(references, "templates/component_usage_html_tag_with_body.html.twig");
         assertContainsSourceFile(references, "templates/component_usage_twig_tag.html.twig");
     }
+
+    @Test
 
     public void testComponentHtmlTagReferenceRangeIsOnlyTagName() {
         addFixturesForAllUsageTypes();
@@ -75,6 +83,8 @@ public class TwigTemplateReferencesSearchExecutorTest extends SymfonyLightCodeIn
         assertFalse("Must not select full tag including body", range.equals(new TextRange(0, reference.getElement().getTextLength())));
         assertEquals("twig:Alert", selected);
     }
+
+    @Test
 
     public void testFindsEveryOccurrenceWithMultipleTypesInOneFile() {
         myFixture.addFileToProject("templates/base.html.twig", "");

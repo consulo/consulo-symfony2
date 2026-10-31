@@ -1,25 +1,25 @@
 package fr.adrienbrault.idea.symfony2plugin.util.completion;
 
-import com.intellij.codeInsight.completion.CompletionParameters;
-import com.intellij.codeInsight.completion.CompletionProvider;
-import com.intellij.codeInsight.completion.CompletionResultSet;
-import com.intellij.codeInsight.completion.InsertHandler;
-import com.intellij.codeInsight.lookup.LookupElementBuilder;
-import com.intellij.psi.PsiElement;
-import com.intellij.util.ProcessingContext;
 import com.jetbrains.php.PhpIndex;
 import com.jetbrains.php.completion.PhpLookupElement;
 import com.jetbrains.php.completion.insert.PhpReferenceInsertHandler;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
 import com.jetbrains.php.lang.psi.elements.PhpNamedElement;
+import consulo.language.editor.completion.CompletionParameters;
+import consulo.language.editor.completion.CompletionProvider;
+import consulo.language.editor.completion.CompletionResultSet;
+import consulo.language.editor.completion.lookup.InsertHandler;
+import consulo.language.editor.completion.lookup.LookupElementBuilder;
+import consulo.language.icon.IconDescriptorUpdaters;
+import consulo.language.psi.PsiElement;
+import consulo.language.util.ProcessingContext;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
-public class PhpClassCompletionProvider extends CompletionProvider<CompletionParameters> {
+public class PhpClassCompletionProvider implements CompletionProvider {
 
     private final boolean withInterface;
     private boolean withLeadingBackslash = false;
@@ -37,7 +37,8 @@ public class PhpClassCompletionProvider extends CompletionProvider<CompletionPar
         return this;
     }
 
-    public void addCompletions(@NotNull CompletionParameters parameters, ProcessingContext context, final @NotNull CompletionResultSet resultSet) {
+    @Override
+    public void addCompletions(CompletionParameters parameters, ProcessingContext context, final CompletionResultSet resultSet) {
 
         PsiElement psiElement = parameters.getOriginalPosition();
         if(!Symfony2ProjectComponent.isEnabled(psiElement)) {
@@ -56,7 +57,7 @@ public class PhpClassCompletionProvider extends CompletionProvider<CompletionPar
         // Foo\|Bar
         // Foo|\Bar
         PhpElementsUtil.visitNamespaceClassForCompletion(psiElement, parameters.getOffset(), (phpClass, presentableFQN, prefix) ->
-            resultSet.addElement(LookupElementBuilder.create(prefix + presentableFQN).withIcon(phpClass.getIcon()))
+            resultSet.addElement(LookupElementBuilder.create(prefix + presentableFQN).withIcon(IconDescriptorUpdaters.getIcon(phpClass, 0)))
         );
 
         PhpIndex phpIndex = PhpIndex.getInstance(psiElement.getProject());
@@ -91,7 +92,7 @@ public class PhpClassCompletionProvider extends CompletionProvider<CompletionPar
 
     private static class MyPhpLookupElement extends PhpLookupElement {
 
-        public MyPhpLookupElement(@NotNull PhpNamedElement namedElement) {
+        public MyPhpLookupElement(PhpNamedElement namedElement) {
             super(namedElement);
         }
 

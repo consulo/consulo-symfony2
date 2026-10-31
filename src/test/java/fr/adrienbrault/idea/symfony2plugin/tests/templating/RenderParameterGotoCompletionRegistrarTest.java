@@ -1,7 +1,9 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.templating;
 
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.psi.PsiElement;
+import org.junit.jupiter.api.Test;
+
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiElement;
 import com.jetbrains.php.lang.PhpFileType;
 import com.jetbrains.php.lang.psi.elements.Method;
 import com.jetbrains.twig.TwigFileType;
@@ -25,6 +27,8 @@ public class RenderParameterGotoCompletionRegistrarTest extends SymfonyLightCode
         return "src/test/java/fr/adrienbrault/idea/symfony2plugin/tests/templating/fixtures";
     }
 
+    @Test
+
     public void testTemplateNameExtractionForFunction() {
         myFixture.configureByText(PhpFileType.INSTANCE, "<?php foo('foo.html.twig', ['<caret>']);");
         PsiElement psiElement = myFixture.getFile().findElementAt(myFixture.getCaretOffset());
@@ -35,6 +39,8 @@ public class RenderParameterGotoCompletionRegistrarTest extends SymfonyLightCode
         assertContainsElements(RenderParameterGotoCompletionRegistrar.getTemplatesForScope(psiElement), "foo.html.twig");
     }
 
+    @Test
+
     public void testTemplateNameExtractionForFunctionForFunctions() {
         myFixture.configureByText(PhpFileType.INSTANCE, "<?php foo('foo.html.twig', array_merge(['<caret>' => 'foo']));");
         PsiElement psiElement = myFixture.getFile().findElementAt(myFixture.getCaretOffset());
@@ -42,11 +48,15 @@ public class RenderParameterGotoCompletionRegistrarTest extends SymfonyLightCode
         assertContainsElements(RenderParameterGotoCompletionRegistrar.getTemplatesForScope(psiElement), "foo.html.twig");
     }
 
+    @Test
+
     public void testSpecialReferencesTemplateNameResolve() {
         myFixture.configureByText(PhpFileType.INSTANCE, "<?php $var = 'foo.html.twig'; foo($var, ['<caret>']);");
         PsiElement psiElement = myFixture.getFile().findElementAt(myFixture.getCaretOffset());
         assertContainsElements(RenderParameterGotoCompletionRegistrar.getTemplatesForScope(psiElement), "foo.html.twig");
     }
+
+    @Test
 
     public void testTemplateNameExtractionForFunctionForFunctionsAsReturn() {
         myFixture.configureByText(PhpFileType.INSTANCE, "" +
@@ -71,6 +81,7 @@ public class RenderParameterGotoCompletionRegistrarTest extends SymfonyLightCode
     /**
      * Test that navigation from controller name goes to the method.
      */
+    @Test
     public void testRenderControllerNavigation() {
         myFixture.configureByText(PhpFileType.INSTANCE, "<?php\n" +
             "namespace App\\Controller;\n" +
@@ -93,6 +104,7 @@ public class RenderParameterGotoCompletionRegistrarTest extends SymfonyLightCode
     /**
      * Test that template variable completion works in render() parameter array.
      */
+    @Test
     public void testTemplateVariableCompletionInRender() {
         // Create a template with variables
         myFixture.addFileToProject(
@@ -114,6 +126,8 @@ public class RenderParameterGotoCompletionRegistrarTest extends SymfonyLightCode
             "message"
         );
     }
+
+    @Test
 
     public void testTemplateVariableCompletionOnlyContainsRootVariables() {
         myFixture.addFileToProject(
@@ -141,6 +155,8 @@ public class RenderParameterGotoCompletionRegistrarTest extends SymfonyLightCode
         assertFalse("Completion should not contain dotted variable path", lookupElements.contains("collection.children"));
     }
 
+    @Test
+
     public void testTemplateVariableCompletionResolvesTagIncludeWithContext() {
         myFixture.addFileToProject(
             "templates/list/_row.html.twig",
@@ -166,6 +182,8 @@ public class RenderParameterGotoCompletionRegistrarTest extends SymfonyLightCode
         assertFalse("Completion should not contain explicitly provided include variables", lookupElements.contains("mapped"));
         assertFalse("Completion should not contain dotted include argument paths", lookupElements.contains("source.child"));
     }
+
+    @Test
 
     public void testTemplateVariableCompletionResolvesTagIncludeOnlyContext() {
         myFixture.addFileToProject(
@@ -194,6 +212,8 @@ public class RenderParameterGotoCompletionRegistrarTest extends SymfonyLightCode
         assertFalse("Completion should not contain dotted include argument paths", lookupElements.contains("source.child"));
     }
 
+    @Test
+
     public void testTemplateVariableCompletionResolvesFunctionIncludeWithoutContext() {
         myFixture.addFileToProject(
             "templates/list/_function_row.html.twig",
@@ -220,6 +240,8 @@ public class RenderParameterGotoCompletionRegistrarTest extends SymfonyLightCode
         assertFalse("Completion should not contain isolated include variables", lookupElements.contains("inherited"));
         assertFalse("Completion should not contain dotted include argument paths", lookupElements.contains("source.child"));
     }
+
+    @Test
 
     public void testTemplateVariableCompletionFindsVariablesInFunctionArguments() {
         myFixture.addFileToProject(
@@ -256,6 +278,7 @@ public class RenderParameterGotoCompletionRegistrarTest extends SymfonyLightCode
     /**
      * Test that template variable completion works with array_merge.
      */
+    @Test
     public void testTemplateVariableCompletionWithArrayMerge() {
         myFixture.addFileToProject(
             "templates/email/welcome.html.twig",
@@ -276,6 +299,7 @@ public class RenderParameterGotoCompletionRegistrarTest extends SymfonyLightCode
     /**
      * Test that navigation from variable name goes to template usage.
      */
+    @Test
     public void testTemplateVariableNavigation() {
         myFixture.addFileToProject(
             "templates/view/detail.html.twig",
@@ -295,6 +319,7 @@ public class RenderParameterGotoCompletionRegistrarTest extends SymfonyLightCode
     /**
      * Test that completion works in @Template annotated method return array.
      */
+    @Test
     public void testTemplateVariableCompletionInAnnotationReturn() {
         myFixture.addFileToProject(
             "templates/article/view.html.twig",

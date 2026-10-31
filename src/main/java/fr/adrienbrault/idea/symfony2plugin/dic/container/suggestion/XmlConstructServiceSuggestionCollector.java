@@ -1,13 +1,12 @@
 package fr.adrienbrault.idea.symfony2plugin.dic.container.suggestion;
 
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.xml.XmlFile;
-import com.intellij.psi.xml.XmlTokenType;
+import consulo.language.psi.PsiElement;
+import consulo.xml.language.psi.XmlFile;
+import consulo.xml.language.psi.XmlTokenType;
 import fr.adrienbrault.idea.symfony2plugin.dic.ContainerService;
 import fr.adrienbrault.idea.symfony2plugin.dic.container.suggestion.utils.ServiceSuggestionUtil;
 import fr.adrienbrault.idea.symfony2plugin.dic.container.util.ServiceContainerUtil;
 import fr.adrienbrault.idea.symfony2plugin.stubs.ContainerCollectionResolver;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -17,8 +16,7 @@ import java.util.Collections;
  */
 public class XmlConstructServiceSuggestionCollector implements ServiceSuggestionCollector {
 
-    @NotNull
-    public Collection<String> collect(@NotNull PsiElement psiElement, @NotNull Collection<ContainerService> serviceMap) {
+    public Collection<String> collect(PsiElement psiElement, Collection<ContainerService> serviceMap) {
         if(!(psiElement.getContainingFile() instanceof XmlFile) || psiElement.getNode().getElementType() != XmlTokenType.XML_ATTRIBUTE_VALUE_TOKEN) {
             return Collections.emptyList();
         }

@@ -2,8 +2,7 @@ package fr.adrienbrault.idea.symfony2plugin.dic.attribute.value;
 
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.jetbrains.yaml.psi.YAMLKeyValue;
 
 import java.util.Collection;
@@ -13,17 +12,16 @@ import java.util.Collection;
  */
 public class YamlKeyValueAttributeValue extends AttributeValueAbstract {
 
-    @NotNull
     private final YAMLKeyValue yamlKeyValue;
 
-    public YamlKeyValueAttributeValue(@NotNull YAMLKeyValue yamlKeyValue) {
+    public YamlKeyValueAttributeValue(YAMLKeyValue yamlKeyValue) {
         super(yamlKeyValue);
         this.yamlKeyValue = yamlKeyValue;
     }
 
     @Nullable
     @Override
-    public String getString(@NotNull String key) {
+    public String getString(String key) {
         String value = YamlHelper.getYamlKeyValueAsString(yamlKeyValue, key);
         if(StringUtils.isBlank(value)) {
             return null;
@@ -32,15 +30,13 @@ public class YamlKeyValueAttributeValue extends AttributeValueAbstract {
         return value;
     }
 
-    @NotNull
     @Override
     public Collection<String> getTags() {
         return YamlHelper.collectServiceTags(yamlKeyValue);
     }
 
-    @NotNull
     @Override
-    public Collection<String> getStringArray(@NotNull String key) {
+    public Collection<String> getStringArray(String key) {
         return YamlHelper.getYamlKeyValueStringOrArray(yamlKeyValue, key);
     }
 }

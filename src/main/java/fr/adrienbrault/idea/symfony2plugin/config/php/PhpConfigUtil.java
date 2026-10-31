@@ -1,14 +1,13 @@
 package fr.adrienbrault.idea.symfony2plugin.config.php;
 
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.util.PsiTreeUtil;
 import com.jetbrains.php.lang.psi.PhpFile;
 import com.jetbrains.php.lang.psi.elements.*;
 import com.jetbrains.php.refactoring.PhpNamespaceBraceConverter;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.util.PsiTreeUtil;
 import fr.adrienbrault.idea.symfony2plugin.dic.container.util.ServiceContainerUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Utilities for detecting and navigating PHP-based Symfony config files.
@@ -25,7 +24,7 @@ public final class PhpConfigUtil {
      *
      * Matches: {@code 'framework' => [...]} at the top level of the config array.
      */
-    public static boolean isRootConfigKey(@NotNull StringLiteralExpression element) {
+    public static boolean isRootConfigKey(StringLiteralExpression element) {
         ArrayHashElement hashElement = getParentHashElementAsKey(element);
         if (hashElement == null) {
             return false;
@@ -43,7 +42,7 @@ public final class PhpConfigUtil {
      * Returns the {@link ArrayHashElement} for which the given string literal is the key.
      */
     @Nullable
-    private static ArrayHashElement getParentHashElementAsKey(@NotNull StringLiteralExpression element) {
+    private static ArrayHashElement getParentHashElementAsKey(StringLiteralExpression element) {
         ArrayHashElement hashElement = PhpConfigPsiUtil.getParentHashElement(element);
         if (hashElement == null) {
             return null;
@@ -64,7 +63,7 @@ public final class PhpConfigUtil {
      *
      * Matches: {@code 'framework'} in {@code 'when@prod' => ['framework' => [...]]}
      */
-    public static boolean isConditionalConfigKey(@NotNull StringLiteralExpression element) {
+    public static boolean isConditionalConfigKey(StringLiteralExpression element) {
         ArrayHashElement innerHash = getParentHashElementAsKey(element);
         if (innerHash == null) {
             return false;
@@ -112,7 +111,7 @@ public final class PhpConfigUtil {
      * {@code 'imports' => [['resource' => 'legacy_config.php']]}
      * {@code 'when@prod' => ['imports' => [['resource' => 'legacy_config.php']]]}
      */
-    public static boolean isImportResourceValue(@NotNull StringLiteralExpression element) {
+    public static boolean isImportResourceValue(StringLiteralExpression element) {
         // element must be the value of a 'resource' key
         ArrayHashElement resourceHash = getParentHashElementAsValue(element);
         if (resourceHash == null) {
@@ -192,7 +191,7 @@ public final class PhpConfigUtil {
      * - {@code return App::config([ ... ]);}
      * - {@code App::config([ ... ]);} (statement, no return)
      */
-    public static boolean isAcceptedConfigRootArray(@NotNull ArrayCreationExpression array) {
+    public static boolean isAcceptedConfigRootArray(ArrayCreationExpression array) {
         PsiElement parent = array.getParent();
 
         // return [ ... ];
@@ -216,7 +215,7 @@ public final class PhpConfigUtil {
         return false;
     }
 
-    private static boolean isAllowedPhpReturn(@NotNull PhpReturn phpReturn) {
+    private static boolean isAllowedPhpReturn(PhpReturn phpReturn) {
         Function function = PsiTreeUtil.getParentOfType(phpReturn, Function.class);
         if (function == null) {
             return true;
@@ -244,7 +243,7 @@ public final class PhpConfigUtil {
      * Returns the {@link ArrayHashElement} for which the given element is the value.
      */
     @Nullable
-    private static ArrayHashElement getParentHashElementAsValue(@NotNull PsiElement element) {
+    private static ArrayHashElement getParentHashElementAsValue(PsiElement element) {
         ArrayHashElement hashElement = PhpConfigPsiUtil.getParentHashElement(element);
         if (hashElement == null) {
             return null;
@@ -263,7 +262,7 @@ public final class PhpConfigUtil {
      * Returns the string contents of the key of an {@link ArrayHashElement}.
      */
     @Nullable
-    private static String getHashKeyContents(@NotNull ArrayHashElement hashElement) {
+    private static String getHashKeyContents(ArrayHashElement hashElement) {
         return hashElement.getKey() instanceof StringLiteralExpression str ? str.getContents() : null;
     }
 

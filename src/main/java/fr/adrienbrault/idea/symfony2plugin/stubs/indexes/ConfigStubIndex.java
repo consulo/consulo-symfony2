@@ -1,12 +1,18 @@
 package fr.adrienbrault.idea.symfony2plugin.stubs.indexes;
 
-import com.intellij.openapi.util.text.StringUtil;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.util.indexing.*;
-import com.intellij.util.io.DataExternalizer;
-import com.intellij.util.io.EnumeratorStringDescriptor;
-import com.intellij.util.io.KeyDescriptor;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.util.lang.StringUtil;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.index.io.DataIndexer;
+import consulo.index.io.ID;
+import consulo.language.psi.stub.FileBasedIndex;
+import consulo.language.psi.stub.FileBasedIndexExtension;
+import consulo.language.psi.stub.FileContent;
+import consulo.index.io.data.DataExternalizer;
+import consulo.index.io.EnumeratorStringDescriptor;
+import consulo.index.io.KeyDescriptor;
+import consulo.project.Project;
 import com.jetbrains.php.codeInsight.PhpScopeHolder;
 import com.jetbrains.php.codeInsight.controlFlow.PhpControlFlowUtil;
 import com.jetbrains.php.codeInsight.controlFlow.PhpInstructionProcessor;
@@ -22,11 +28,9 @@ import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.jetbrains.yaml.YAMLFileType;
 import org.jetbrains.yaml.psi.*;
-import org.jetbrains.yaml.psi.impl.YAMLPlainTextImpl;
 
 import java.util.*;
 import java.util.function.Consumer;
@@ -34,6 +38,7 @@ import java.util.function.Consumer;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class ConfigStubIndex extends FileBasedIndexExtension<String, ConfigIndex> {
     public static final ID<String, ConfigIndex> KEY = ID.create("fr.adrienbrault.idea.symfony2plugin.config_stub_index");
     private final KeyDescriptor<String> myKeyDescriptor = new EnumeratorStringDescriptor();
@@ -43,7 +48,6 @@ public class ConfigStubIndex extends FileBasedIndexExtension<String, ConfigIndex
     private static final String TWIG_COMPONENT_DEFAULTS = "twig_component_defaults";
     private static final String ANONYMOUS_TEMPLATE_DIRECTORY = "anonymous_template_directory";
 
-    @NotNull
     @Override
     public ID<String, ConfigIndex> getName() {
         return KEY;
@@ -51,9 +55,10 @@ public class ConfigStubIndex extends FileBasedIndexExtension<String, ConfigIndex
 
     @Override
     // Index-safe only: no PhpIndex/type resolution here.
-    public @NotNull DataIndexer<String, ConfigIndex, FileContent> getIndexer() {
+    public DataIndexer<String, ConfigIndex, FileContent> getIndexer() {
         return inputData -> {
-            if (!Symfony2ProjectComponent.isEnabledForIndex(inputData.getProject())) {
+            Project project = inputData.getProject();
+            if (project == null || !Symfony2ProjectComponent.isEnabledForIndex(project)) {
                 return Collections.emptyMap();
             }
 
@@ -88,8 +93,7 @@ public class ConfigStubIndex extends FileBasedIndexExtension<String, ConfigIndex
         };
     }
 
-    @NotNull
-    private static Map<String, ConfigIndex> mapYamlConfig(@NotNull YAMLFile yamlFile) {
+    private static Map<String, ConfigIndex> mapYamlConfig(YAMLFile yamlFile) {
         LinkedHashMap<String, LinkedHashMap<String, String>> configs = new LinkedHashMap<>();
         Set<String> anonymousTemplateDirectory = new LinkedHashSet<>();
 
@@ -115,8 +119,7 @@ public class ConfigStubIndex extends FileBasedIndexExtension<String, ConfigIndex
         return buildConfigMap(configs, anonymousTemplateDirectory);
     }
 
-    @NotNull
-    private static Map<String, ConfigIndex> mapPhpConfig(@NotNull PhpFile phpFile) {
+    private static Map<String, ConfigIndex> mapPhpConfig(PhpFile phpFile) {
         LinkedHashMap<String, LinkedHashMap<String, String>> configs = new LinkedHashMap<>();
         Set<String> anonymousTemplateDirectory = new LinkedHashSet<>();
 
@@ -125,10 +128,9 @@ public class ConfigStubIndex extends FileBasedIndexExtension<String, ConfigIndex
         return buildConfigMap(configs, anonymousTemplateDirectory);
     }
 
-    @NotNull
     private static Map<String, ConfigIndex> buildConfigMap(
-        @NotNull LinkedHashMap<String, LinkedHashMap<String, String>> configs,
-        @NotNull Set<String> anonymousTemplateDirectory
+        LinkedHashMap<String, LinkedHashMap<String, String>> configs,
+        Set<String> anonymousTemplateDirectory
     ) {
         Map<String, ConfigIndex> map = new HashMap<>();
 
@@ -144,9 +146,9 @@ public class ConfigStubIndex extends FileBasedIndexExtension<String, ConfigIndex
     }
 
     private static void visitYamlTwigComponent(
-        @NotNull YAMLKeyValue yamlKeyValue,
-        @NotNull LinkedHashMap<String, LinkedHashMap<String, String>> configs,
-        @NotNull Set<String> anonymousTemplateDirectory
+        YAMLKeyValue yamlKeyValue,
+        LinkedHashMap<String, LinkedHashMap<String, String>> configs,
+        Set<String> anonymousTemplateDirectory
     ) {
         YAMLValue value = yamlKeyValue.getValue();
         if (value instanceof YAMLMapping yamlMapping) {
@@ -158,7 +160,7 @@ public class ConfigStubIndex extends FileBasedIndexExtension<String, ConfigIndex
                         String keyText1 = keyValue.getKeyText();
 
                         YAMLValue value2 = keyValue.getValue();
-                        if (value2 instanceof YAMLQuotedText || value2 instanceof YAMLPlainTextImpl) {
+                        if (value2 instanceof YAMLQuotedText || YamlHelper.isPlainText(value2)) {
                             String s = PsiElementUtils.trimQuote(value2.getText());
                             if (!StringUtils.isBlank(s)) {
                                 LinkedHashMap<String, String> items = new LinkedHashMap<>();
@@ -194,9 +196,9 @@ public class ConfigStubIndex extends FileBasedIndexExtension<String, ConfigIndex
     }
 
     private static void visitPhpConfigFile(
-        @NotNull PhpFile phpFile,
-        @NotNull LinkedHashMap<String, LinkedHashMap<String, String>> configs,
-        @NotNull Set<String> anonymousTemplateDirectory
+        PhpFile phpFile,
+        LinkedHashMap<String, LinkedHashMap<String, String>> configs,
+        Set<String> anonymousTemplateDirectory
     ) {
         visitTopLevelReturnArguments(phpFile, argument -> {
             // Returned root forms: ['twig_component' => [...]] and App::config(['twig_component' => [...]]).
@@ -216,9 +218,9 @@ public class ConfigStubIndex extends FileBasedIndexExtension<String, ConfigIndex
     }
 
     private static void visitPhpConfigArray(
-        @NotNull ArrayCreationExpression configArray,
-        @NotNull LinkedHashMap<String, LinkedHashMap<String, String>> configs,
-        @NotNull Set<String> anonymousTemplateDirectory
+        ArrayCreationExpression configArray,
+        LinkedHashMap<String, LinkedHashMap<String, String>> configs,
+        Set<String> anonymousTemplateDirectory
     ) {
         // Config entries: ['twig_component' => [...]] and ['when@test' => ['twig_component' => [...]]].
         for (ArrayHashElement hashElement : configArray.getHashElements()) {
@@ -238,7 +240,7 @@ public class ConfigStubIndex extends FileBasedIndexExtension<String, ConfigIndex
     }
 
     @Nullable
-    private static Function findReturnedClosure(@NotNull PsiElement element) {
+    private static Function findReturnedClosure(PsiElement element) {
         Function function = unwrapPhpClosure(element);
         if (function != null) {
             return function;
@@ -263,9 +265,9 @@ public class ConfigStubIndex extends FileBasedIndexExtension<String, ConfigIndex
     }
 
     private static void visitPhpExtensionCalls(
-        @NotNull Function function,
-        @NotNull LinkedHashMap<String, LinkedHashMap<String, String>> configs,
-        @NotNull Set<String> anonymousTemplateDirectory
+        Function function,
+        LinkedHashMap<String, LinkedHashMap<String, String>> configs,
+        Set<String> anonymousTemplateDirectory
     ) {
         Set<String> parameterNames = new HashSet<>();
         for (Parameter parameter : function.getParameters()) {
@@ -296,7 +298,7 @@ public class ConfigStubIndex extends FileBasedIndexExtension<String, ConfigIndex
     }
 
     @Nullable
-    private static ArrayCreationExpression getRootConfigArray(@NotNull PsiElement argument) {
+    private static ArrayCreationExpression getRootConfigArray(PsiElement argument) {
         if (argument instanceof ArrayCreationExpression array && PhpConfigUtil.isAcceptedConfigRootArray(array)) {
             return array;
         }
@@ -309,8 +311,8 @@ public class ConfigStubIndex extends FileBasedIndexExtension<String, ConfigIndex
     }
 
     private static void visitTopLevelConfigFactoryCalls(
-        @NotNull PhpFile phpFile,
-        @NotNull Consumer<ArrayCreationExpression> consumer
+        PhpFile phpFile,
+        Consumer<ArrayCreationExpression> consumer
     ) {
         visitTopLevelPhpScopes(phpFile, scope -> {
             for (MethodReference methodReference : PhpElementsUtil.collectMethodReferencesInsideControlFlow(scope, "config")) {
@@ -327,7 +329,7 @@ public class ConfigStubIndex extends FileBasedIndexExtension<String, ConfigIndex
     }
 
     @Nullable
-    private static ArrayCreationExpression getConfigFactoryArray(@NotNull MethodReference methodReference) {
+    private static ArrayCreationExpression getConfigFactoryArray(MethodReference methodReference) {
         PsiElement[] parameters = methodReference.getParameters();
         if (parameters.length == 0 || !(parameters[0] instanceof ArrayCreationExpression array)) {
             return null;
@@ -336,12 +338,12 @@ public class ConfigStubIndex extends FileBasedIndexExtension<String, ConfigIndex
         return PhpConfigUtil.isAcceptedConfigRootArray(array) ? array : null;
     }
 
-    private static boolean isMethodCallOnParameter(@NotNull MethodReference methodReference, @NotNull Set<String> parameterNames) {
+    private static boolean isMethodCallOnParameter(MethodReference methodReference, Set<String> parameterNames) {
         PhpExpression classReference = methodReference.getClassReference();
         return classReference instanceof Variable variable && parameterNames.contains(variable.getName());
     }
 
-    private static void visitTopLevelReturnArguments(@NotNull PhpFile phpFile, @NotNull Consumer<PsiElement> consumer) {
+    private static void visitTopLevelReturnArguments(PhpFile phpFile, Consumer<PsiElement> consumer) {
         visitTopLevelPhpScopes(phpFile, scope -> PhpControlFlowUtil.processFlow(scope.getControlFlow(), new PhpInstructionProcessor() {
             @Override
             public boolean processReturnInstruction(PhpReturnInstruction instruction) {
@@ -355,7 +357,7 @@ public class ConfigStubIndex extends FileBasedIndexExtension<String, ConfigIndex
         }));
     }
 
-    private static void visitTopLevelPhpScopes(@NotNull PhpFile phpFile, @NotNull Consumer<PhpScopeHolder> consumer) {
+    private static void visitTopLevelPhpScopes(PhpFile phpFile, Consumer<PhpScopeHolder> consumer) {
         consumer.accept(phpFile);
 
         for (PhpNamedElement value : phpFile.getTopLevelDefs().values()) {
@@ -366,9 +368,9 @@ public class ConfigStubIndex extends FileBasedIndexExtension<String, ConfigIndex
     }
 
     private static void visitPhpTwigComponentArray(
-        @NotNull ArrayCreationExpression twigComponentArray,
-        @NotNull LinkedHashMap<String, LinkedHashMap<String, String>> configs,
-        @NotNull Set<String> anonymousTemplateDirectory
+        ArrayCreationExpression twigComponentArray,
+        LinkedHashMap<String, LinkedHashMap<String, String>> configs,
+        Set<String> anonymousTemplateDirectory
     ) {
         // twig_component array keys: 'defaults' and 'anonymous_template_directory'.
         PsiElement defaults = getPhpArrayValue(twigComponentArray, "defaults");
@@ -383,8 +385,8 @@ public class ConfigStubIndex extends FileBasedIndexExtension<String, ConfigIndex
     }
 
     private static void visitPhpTwigComponentDefaults(
-        @NotNull ArrayCreationExpression defaultsArray,
-        @NotNull LinkedHashMap<String, LinkedHashMap<String, String>> configs
+        ArrayCreationExpression defaultsArray,
+        LinkedHashMap<String, LinkedHashMap<String, String>> configs
     ) {
         // Defaults array entries: namespace => directory or namespace => ['template_directory' => directory, 'name_prefix' => prefix].
         for (ArrayHashElement hashElement : defaultsArray.getHashElements()) {
@@ -420,7 +422,7 @@ public class ConfigStubIndex extends FileBasedIndexExtension<String, ConfigIndex
     }
 
     @Nullable
-    private static PsiElement getPhpArrayValue(@NotNull ArrayCreationExpression array, @NotNull String key) {
+    private static PsiElement getPhpArrayValue(ArrayCreationExpression array, String key) {
         for (ArrayHashElement hashElement : array.getHashElements()) {
             if (key.equals(getPhpArrayKey(hashElement))) {
                 return hashElement.getValue();
@@ -431,7 +433,7 @@ public class ConfigStubIndex extends FileBasedIndexExtension<String, ConfigIndex
     }
 
     @Nullable
-    private static String getPhpArrayKey(@NotNull ArrayHashElement hashElement) {
+    private static String getPhpArrayKey(ArrayHashElement hashElement) {
         return getPhpStringLiteralContents(hashElement.getKey());
     }
 
@@ -445,12 +447,12 @@ public class ConfigStubIndex extends FileBasedIndexExtension<String, ConfigIndex
     }
 
     @Override
-    public @NotNull KeyDescriptor<String> getKeyDescriptor() {
+    public KeyDescriptor<String> getKeyDescriptor() {
         return this.myKeyDescriptor;
     }
 
     @Override
-    public @NotNull DataExternalizer<ConfigIndex> getValueExternalizer() {
+    public DataExternalizer<ConfigIndex> getValueExternalizer() {
         return EXTERNALIZER;
     }
 
@@ -460,8 +462,8 @@ public class ConfigStubIndex extends FileBasedIndexExtension<String, ConfigIndex
     }
 
     @Override
-    public FileBasedIndex.@NotNull InputFilter getInputFilter() {
-        return virtualFile -> virtualFile.getFileType() == YAMLFileType.YML || virtualFile.getFileType() == PhpFileType.INSTANCE;
+    public FileBasedIndex.InputFilter getInputFilter() {
+        return (project, virtualFile) -> virtualFile.getFileType() == YAMLFileType.YML || virtualFile.getFileType() == PhpFileType.INSTANCE;
     }
 
 

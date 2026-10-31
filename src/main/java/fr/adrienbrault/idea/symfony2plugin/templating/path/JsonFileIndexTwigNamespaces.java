@@ -3,15 +3,16 @@ package fr.adrienbrault.idea.symfony2plugin.templating.path;
 import com.google.gson.Gson;
 import com.google.gson.JsonIOException;
 import com.google.gson.JsonSyntaxException;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.vfs.VfsUtil;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiDirectory;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.search.FilenameIndex;
-import com.intellij.psi.search.GlobalSearchScope;
-import com.intellij.psi.util.CachedValueProvider;
-import com.intellij.psi.util.CachedValuesManager;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.application.util.CachedValueProvider;
+import consulo.language.psi.PsiDirectory;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.scope.GlobalSearchScope;
+import consulo.language.psi.search.FilenameIndex;
+import consulo.language.psi.util.LanguageCachedValueUtil;
+import consulo.project.Project;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.virtualFileSystem.util.VirtualFileUtil;
 import fr.adrienbrault.idea.symfony2plugin.extension.TwigNamespaceExtension;
 import fr.adrienbrault.idea.symfony2plugin.extension.TwigNamespaceExtensionParameter;
 import fr.adrienbrault.idea.symfony2plugin.templating.dict.TwigConfigJson;
@@ -20,7 +21,6 @@ import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
 import fr.adrienbrault.idea.symfony2plugin.util.VfsExUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -28,21 +28,20 @@ import java.util.Collection;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class JsonFileIndexTwigNamespaces implements TwigNamespaceExtension {
 
-    @NotNull
     @Override
-    public Collection<TwigPath> getNamespaces(final @NotNull TwigNamespaceExtensionParameter parameter) {
+    public Collection<TwigPath> getNamespaces(final TwigNamespaceExtensionParameter parameter) {
         return getNamespacesInner(parameter.getProject());
     }
 
-    @NotNull
-    private static Collection<TwigPath> getNamespacesInner(@NotNull Project project) {
+    private static Collection<TwigPath> getNamespacesInner(Project project) {
         Collection<TwigPath> twigPaths = new ArrayList<>();
 
-        @NotNull Collection<VirtualFile> filesByName = FilenameIndex.getVirtualFilesByName("ide-twig.json", GlobalSearchScope.allScope(project));
+        Collection<VirtualFile> filesByName = FilenameIndex.getVirtualFilesByName(project, "ide-twig.json", GlobalSearchScope.allScope(project));
         for (final PsiFile psiFile : PsiElementUtils.convertVirtualFilesToPsiFiles(project, filesByName)) {
-            Collection<TwigPath> cachedValue = CachedValuesManager.getCachedValue(psiFile, new MyJsonCachedValueProvider(psiFile));
+            Collection<TwigPath> cachedValue = LanguageCachedValueUtil.getCachedValue(psiFile, new MyJsonCachedValueProvider(psiFile));
             if(cachedValue != null) {
                 twigPaths.addAll(cachedValue);
             }
@@ -82,7 +81,7 @@ public class JsonFileIndexTwigNamespaces implements TwigNamespaceExtension {
                 // current directory check and subfolder
                 VirtualFile twigRoot;
                 if (!path.isEmpty()) {
-                    twigRoot = VfsUtil.findRelativeFile(parent.getVirtualFile(), path.split("/"));
+                    twigRoot = VirtualFileUtil.findRelativeFile(parent.getVirtualFile(), path.split("/"));
                 } else {
                     twigRoot = psiFile.getParent().getVirtualFile();
                 }

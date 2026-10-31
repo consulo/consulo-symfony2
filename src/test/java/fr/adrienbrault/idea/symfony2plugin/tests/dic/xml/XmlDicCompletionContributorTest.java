@@ -1,6 +1,8 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.dic.xml;
 
-import com.intellij.ide.highlighter.XmlFileType;
+import org.junit.jupiter.api.Test;
+
+import consulo.xml.language.XmlFileType;
 import fr.adrienbrault.idea.symfony2plugin.config.xml.XmlCompletionContributor;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
 
@@ -33,6 +35,7 @@ public class XmlDicCompletionContributorTest extends SymfonyLightCodeInsightFixt
     /**
      * @see XmlCompletionContributor
      */
+    @Test
     public void testServiceCompletion() {
         assertCompletionContains("service.xml",  "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
                 "<container>\n" +
@@ -65,6 +68,7 @@ public class XmlDicCompletionContributorTest extends SymfonyLightCodeInsightFixt
     /**
      * @see XmlCompletionContributor
      */
+    @Test
     public void testServiceCompletionForArgumentsWithInvalidTypeAttributeBuWithValidParentServiceTag() {
         assertCompletionContains("service.xml",  "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
                 "<container>\n" +
@@ -84,6 +88,8 @@ public class XmlDicCompletionContributorTest extends SymfonyLightCodeInsightFixt
             , "data_collector.router"
         );
     }
+
+    @Test
 
     public void testClassCompletion() {
 
@@ -106,6 +112,8 @@ public class XmlDicCompletionContributorTest extends SymfonyLightCodeInsightFixt
         );
     }
 
+    @Test
+
     public void testAutowiringType() {
         assertCompletionContains("service.xml",  "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
                 "<container>\n" +
@@ -118,6 +126,8 @@ public class XmlDicCompletionContributorTest extends SymfonyLightCodeInsightFixt
             , "FooClass"
         );
     }
+
+    @Test
 
     public void testClassCompletionResult() {
 
@@ -153,6 +163,8 @@ public class XmlDicCompletionContributorTest extends SymfonyLightCodeInsightFixt
 
     }
 
+    @Test
+
     public void testFactoryClassMethodCompletionResult() {
 
         assertCompletionContains("service.xml", "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
@@ -181,6 +193,7 @@ public class XmlDicCompletionContributorTest extends SymfonyLightCodeInsightFixt
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.config.xml.XmlCompletionContributor.ArgumentParameterCompletionProvider
      */
+    @Test
     public void testArgumentParameterCompletion() {
         // skip for 2019.x build
         // reference XmlText:null was created for XmlToken:XML_DATA_CHARACTERS but target XmlText, provider
@@ -201,6 +214,7 @@ public class XmlDicCompletionContributorTest extends SymfonyLightCodeInsightFixt
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.config.xml.XmlCompletionContributor.ArgumentParameterCompletionProvider
      */
+    @Test
     public void testEnvironmentArgumentParameterCompletion() {
         // skip for 2019.x build
         // reference XmlText:null was created for XmlToken:XML_DATA_CHARACTERS but target XmlText, provider
@@ -215,6 +229,8 @@ public class XmlDicCompletionContributorTest extends SymfonyLightCodeInsightFixt
         );
     }
 
+    @Test
+
     public void testServiceInstanceHighlightCompletion() {
         assertCompletionLookupContainsPresentableItem(XmlFileType.INSTANCE, "" +
                 "<services>" +
@@ -226,6 +242,8 @@ public class XmlDicCompletionContributorTest extends SymfonyLightCodeInsightFixt
         );
     }
 
+    @Test
+
     public void testThatUppserCaseServiceAreInsideCompletion() {
         assertCompletionContains(XmlFileType.INSTANCE, "" +
                 "<services>" +
@@ -236,6 +254,8 @@ public class XmlDicCompletionContributorTest extends SymfonyLightCodeInsightFixt
             "foo_bar_car_UPPER_COMPLETION"
         );
     }
+
+    @Test
 
     public void testServiceCompletionOfFactoryService() {
         assertCompletionContains(XmlFileType.INSTANCE, "" +

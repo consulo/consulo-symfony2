@@ -1,20 +1,23 @@
 package fr.adrienbrault.idea.symfony2plugin.routing;
 
-import com.intellij.codeInsight.daemon.LineMarkerInfo;
-import com.intellij.codeInsight.daemon.LineMarkerProvider;
-import com.intellij.codeInsight.daemon.RelatedItemLineMarkerInfo;
-import com.intellij.patterns.XmlPatterns;
-import com.intellij.patterns.XmlTagPattern;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.xml.XmlFile;
-import com.intellij.psi.xml.XmlTag;
+import consulo.annotation.access.RequiredReadAction;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.Language;
+import consulo.language.editor.gutter.LineMarkerInfo;
+import consulo.language.editor.gutter.LineMarkerProvider;
+import consulo.language.editor.gutter.RelatedItemLineMarkerInfo;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.xml.language.XMLLanguage;
+import consulo.xml.language.psi.XmlFile;
+import consulo.xml.language.psi.XmlTag;
+import consulo.xml.language.psi.pattern.XmlPatterns;
+import consulo.xml.language.psi.pattern.XmlTagPattern;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.config.xml.XmlHelper;
 import fr.adrienbrault.idea.symfony2plugin.util.resource.FileResourceUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Collection;
 import java.util.List;
@@ -22,10 +25,12 @@ import java.util.List;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class XmlLineMarkerProvider implements LineMarkerProvider {
 
     @Override
-    public void collectSlowLineMarkers(@NotNull List<? extends PsiElement> psiElements, @NotNull Collection<? super LineMarkerInfo<?>> lineMarkerInfos) {
+    @RequiredReadAction
+    public void collectSlowLineMarkers(List<PsiElement> psiElements, Collection<LineMarkerInfo> lineMarkerInfos) {
         if(psiElements.isEmpty() || !Symfony2ProjectComponent.isEnabled(psiElements.get(0))) {
             return;
         }
@@ -56,7 +61,7 @@ public class XmlLineMarkerProvider implements LineMarkerProvider {
 
     }
 
-    private void attachRouteActions(@NotNull PsiElement psiElement, @NotNull Collection<? super LineMarkerInfo<?>> lineMarkerInfos, @NotNull XmlTagPattern.Capture routeTagPattern) {
+    private void attachRouteActions(PsiElement psiElement, Collection<LineMarkerInfo> lineMarkerInfos, XmlTagPattern.Capture routeTagPattern) {
         PsiElement xmlTag = psiElement.getParent();
         if(!(xmlTag instanceof XmlTag) || !routeTagPattern.accepts(xmlTag)) {
             return;
@@ -71,7 +76,7 @@ public class XmlLineMarkerProvider implements LineMarkerProvider {
         }
     }
 
-    private void attachRouteImport(@NotNull PsiElement psiElement, @NotNull Collection<? super LineMarkerInfo<?>> lineMarkerInfos, @NotNull XmlTagPattern.Capture routeImportPattern) {
+    private void attachRouteImport(PsiElement psiElement, Collection<LineMarkerInfo> lineMarkerInfos, XmlTagPattern.Capture routeImportPattern) {
         PsiElement xmlTag = psiElement.getParent();
         if(!(xmlTag instanceof XmlTag) || !routeImportPattern.accepts(xmlTag)) {
             return;
@@ -98,7 +103,8 @@ public class XmlLineMarkerProvider implements LineMarkerProvider {
 
     @Nullable
     @Override
-    public LineMarkerInfo<?> getLineMarkerInfo(@NotNull PsiElement psiElement) {
+    @RequiredReadAction
+    public LineMarkerInfo<?> getLineMarkerInfo(PsiElement psiElement) {
         return null;
     }
 
@@ -117,5 +123,9 @@ public class XmlLineMarkerProvider implements LineMarkerProvider {
             ).inFile(XmlHelper.getXmlFilePattern());
         }
     }
-}
 
+    @Override
+    public Language getLanguage() {
+        return XMLLanguage.INSTANCE;
+    }
+}

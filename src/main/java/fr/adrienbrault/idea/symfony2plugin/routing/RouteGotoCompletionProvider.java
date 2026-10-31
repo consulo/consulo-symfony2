@@ -1,10 +1,9 @@
 package fr.adrienbrault.idea.symfony2plugin.routing;
 
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.psi.PsiElement;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.psi.PsiElement;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionProvider;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.utils.GotoCompletionUtil;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -17,13 +16,11 @@ public class RouteGotoCompletionProvider extends GotoCompletionProvider {
         super(element);
     }
 
-    @NotNull
     @Override
     public Collection<LookupElement> getLookupElements() {
         return RouteHelper.getRoutesLookupElements(getElement().getProject());
     }
 
-    @NotNull
     @Override
     public Collection<PsiElement> getPsiTargets(PsiElement element) {
         String value = GotoCompletionUtil.getTextValueForElement(element);

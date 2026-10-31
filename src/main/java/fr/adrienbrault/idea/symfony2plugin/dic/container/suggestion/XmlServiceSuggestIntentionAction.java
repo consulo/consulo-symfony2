@@ -1,14 +1,15 @@
 package fr.adrienbrault.idea.symfony2plugin.dic.container.suggestion;
 
-import com.intellij.codeInspection.LocalQuickFixAndIntentionActionOnPsiElement;
-import com.intellij.openapi.editor.Editor;
-import com.intellij.openapi.project.Project;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.util.PsiTreeUtil;
-import com.intellij.psi.xml.XmlTag;
-import com.intellij.util.containers.ContainerUtil;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
+import consulo.codeEditor.Editor;
+import consulo.language.editor.inspection.LocalQuickFixAndIntentionActionOnPsiElement;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.util.PsiTreeUtil;
+import consulo.localize.LocalizeValue;
+import consulo.project.Project;
+import consulo.util.collection.ContainerUtil;
+import consulo.xml.language.psi.XmlTag;
 import fr.adrienbrault.idea.symfony2plugin.dic.ContainerService;
 import fr.adrienbrault.idea.symfony2plugin.intentions.ui.ServiceSuggestDialog;
 import fr.adrienbrault.idea.symfony2plugin.intentions.xml.XmlServiceSuggestIntention;
@@ -16,9 +17,7 @@ import fr.adrienbrault.idea.symfony2plugin.stubs.ContainerCollectionResolver;
 import fr.adrienbrault.idea.symfony2plugin.util.IdeHelper;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.ServiceUtil;
-import org.jetbrains.annotations.Nls;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Collection;
 
@@ -26,29 +25,20 @@ import java.util.Collection;
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class XmlServiceSuggestIntentionAction extends LocalQuickFixAndIntentionActionOnPsiElement {
-    @NotNull
     private final String expectedClass;
 
-    public XmlServiceSuggestIntentionAction(@NotNull String expectedClass, @NotNull PsiElement target) {
+    public XmlServiceSuggestIntentionAction(String expectedClass, PsiElement target) {
         super(target);
         this.expectedClass = expectedClass;
     }
 
-    @Nls
-    @NotNull
     @Override
-    public String getFamilyName() {
-        return "Symfony";
-    }
-
-    @NotNull
-    @Override
-    public String getText() {
-        return "Symfony: Suggest Service";
+    public LocalizeValue getText() {
+        return LocalizeValue.localizeTODO("Symfony: Suggest Service");
     }
 
     @Override
-    public void invoke(@NotNull Project project, @NotNull PsiFile psiFile, @Nullable Editor editor, @NotNull PsiElement psiElement, @NotNull PsiElement psiElement1) {
+    public void invoke(Project project, PsiFile psiFile, @Nullable Editor editor, PsiElement psiElement, PsiElement psiElement1) {
         if(editor == null) {
             return;
         }

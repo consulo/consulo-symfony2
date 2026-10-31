@@ -1,13 +1,14 @@
 package fr.adrienbrault.idea.symfony2plugin.config.component;
 
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiPolyVariantReferenceBase;
-import com.intellij.psi.ResolveResult;
+import fr.adrienbrault.idea.symfony2plugin.codeInsight.completion.SymfonyCompletionReference;
+
 import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiPolyVariantReferenceBase;
+import consulo.language.psi.ResolveResult;
 import fr.adrienbrault.idea.symfony2plugin.dic.ContainerParameter;
 import fr.adrienbrault.idea.symfony2plugin.stubs.ContainerCollectionResolver;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -16,20 +17,18 @@ import java.util.Map;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
-public class ParameterReference  extends PsiPolyVariantReferenceBase<PsiElement> {
-    public ParameterReference(@NotNull StringLiteralExpression element) {
+public class ParameterReference  extends PsiPolyVariantReferenceBase<PsiElement> implements SymfonyCompletionReference {
+    public ParameterReference(StringLiteralExpression element) {
         super(element);
     }
 
-    @NotNull
     @Override
-    public ResolveResult @NotNull [] multiResolve(boolean incompleteCode) {
+    public ResolveResult[] multiResolve(boolean incompleteCode) {
         return ResolveResult.EMPTY_ARRAY;
     }
 
-    @NotNull
     @Override
-    public Object @NotNull [] getVariants() {
+    public Object[] getCompletionVariants() {
 
         List<LookupElement> results = new ArrayList<>();
 

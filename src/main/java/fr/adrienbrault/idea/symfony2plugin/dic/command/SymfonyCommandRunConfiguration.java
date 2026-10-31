@@ -1,22 +1,27 @@
 package fr.adrienbrault.idea.symfony2plugin.dic.command;
 
-import com.intellij.execution.DefaultExecutionResult;
-import com.intellij.execution.ExecutionException;
-import com.intellij.execution.Executor;
-import com.intellij.execution.configurations.*;
-import com.intellij.execution.impl.ConsoleViewImpl;
-import com.intellij.execution.process.KillableProcessHandler;
-import com.intellij.execution.process.ProcessHandler;
-import com.intellij.execution.process.ScriptRunnerUtil;
-import com.intellij.execution.runners.ExecutionEnvironment;
-import com.intellij.openapi.options.SettingsEditor;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.util.execution.ParametersListUtil;
+import consulo.execution.DefaultExecutionResult;
+import consulo.execution.RuntimeConfigurationException;
+import consulo.execution.configuration.ConfigurationFactory;
+import consulo.execution.configuration.LocatableConfigurationBase;
+import consulo.execution.configuration.RunConfiguration;
+import consulo.execution.configuration.RunProfileState;
+import consulo.execution.configuration.RuntimeConfigurationError;
+import consulo.execution.configuration.ui.SettingsEditor;
+import consulo.execution.executor.Executor;
+import consulo.execution.runner.ExecutionEnvironment;
+import consulo.execution.ui.console.ConsoleView;
+import consulo.execution.ui.console.TextConsoleBuilderFactory;
+import consulo.process.ExecutionException;
+import consulo.process.ProcessHandler;
+import consulo.process.cmd.GeneralCommandLine;
+import consulo.process.cmd.ParametersListUtil;
+import consulo.process.local.ProcessHandlerFactory;
+import consulo.project.Project;
+import consulo.virtualFileSystem.VirtualFile;
 import fr.adrienbrault.idea.symfony2plugin.util.ProjectUtil;
 import org.jdom.Element;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,7 +29,7 @@ import java.util.List;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
-public class SymfonyCommandRunConfiguration extends LocatableConfigurationBase<RunConfigurationOptions> {
+public class SymfonyCommandRunConfiguration extends LocatableConfigurationBase {
 
     public enum ExecutionMode {
         SYMFONY_CLI("Symfony CLI"),
@@ -50,12 +55,11 @@ public class SymfonyCommandRunConfiguration extends LocatableConfigurationBase<R
     private String symfonyCliPath = "symfony";
     private String commandLineParameters;
 
-    protected SymfonyCommandRunConfiguration(@NotNull Project project, @NotNull ConfigurationFactory factory, @NotNull String name) {
+    protected SymfonyCommandRunConfiguration(Project project, ConfigurationFactory factory, String name) {
         super(project, factory, name);
     }
 
-    @NotNull
-    @Override
+    // TODO consulo-port: RunConfiguration#getConfigurationEditor() does not exist in Consulo; the editor must be provided via RunConfiguration#createFragments() (RunConfigurationFragment)
     public SettingsEditor<? extends RunConfiguration> getConfigurationEditor() {
         return new SymfonyCommandRunConfigurationEditor();
     }
@@ -69,7 +73,7 @@ public class SymfonyCommandRunConfiguration extends LocatableConfigurationBase<R
 
     @Nullable
     @Override
-    public RunProfileState getState(@NotNull Executor executor, @NotNull ExecutionEnvironment environment) throws ExecutionException {
+    public RunProfileState getState(Executor executor, ExecutionEnvironment environment) throws ExecutionException {
         return (executor1, runner) -> {
             Project project = getProject();
             VirtualFile projectDir = ProjectUtil.getProjectDir(project);
@@ -97,27 +101,23 @@ public class SymfonyCommandRunConfiguration extends LocatableConfigurationBase<R
                 command.addAll(ParametersListUtil.parse(commandLineParameters));
             }
 
-            ProcessHandler processHandler = ScriptRunnerUtil.execute(
-                command.get(0),
-                workDir,
-                null,
-                command.subList(1, command.size()).toArray(new String[0]),
-                null,
-                commandLine -> {
-                    KillableProcessHandler handler = new KillableProcessHandler(commandLine);
-                    handler.setShouldKillProcessSoftly(false);
-                    return handler;
-                }
-            );
+            GeneralCommandLine commandLine = new GeneralCommandLine();
+            commandLine.setExePath(command.get(0));
+            commandLine.setPassParentEnvironment(true);
+            commandLine.addParameters(command.subList(1, command.size()).toArray(new String[0]));
+            commandLine.setWorkDirectory(workDir);
 
-            ConsoleViewImpl consoleView = new ConsoleViewImpl(project, false);
+            // TODO consulo-port: KillableProcessHandler#setShouldKillProcessSoftly(false) has no Consulo counterpart
+            ProcessHandler processHandler = ProcessHandlerFactory.getInstance().createKillableProcessHandler(commandLine);
+
+            ConsoleView consoleView = TextConsoleBuilderFactory.getInstance().createBuilder(project).getConsole();
             consoleView.attachToProcess(processHandler);
             return new DefaultExecutionResult(consoleView, processHandler);
         };
     }
 
     @Override
-    public void readExternal(@NotNull Element element) {
+    public void readExternal(Element element) {
         super.readExternal(element);
         Element settingsElement = element.getChild("symfony-command-settings");
         if (settingsElement != null) {
@@ -138,7 +138,7 @@ public class SymfonyCommandRunConfiguration extends LocatableConfigurationBase<R
     }
 
     @Override
-    public void writeExternal(@NotNull Element element) {
+    public void writeExternal(Element element) {
         super.writeExternal(element);
         Element settingsElement = new Element("symfony-command-settings");
         settingsElement.setAttribute("executionMode", executionMode.name());
@@ -151,12 +151,11 @@ public class SymfonyCommandRunConfiguration extends LocatableConfigurationBase<R
         element.addContent(settingsElement);
     }
 
-    @NotNull
     public ExecutionMode getExecutionMode() {
         return executionMode;
     }
 
-    public void setExecutionMode(@NotNull ExecutionMode executionMode) {
+    public void setExecutionMode(ExecutionMode executionMode) {
         this.executionMode = executionMode;
     }
 

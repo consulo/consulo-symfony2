@@ -1,12 +1,13 @@
 package fr.adrienbrault.idea.symfony2plugin.twig.variable.collector;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.Key;
-import com.intellij.psi.util.CachedValue;
-import com.intellij.psi.util.CachedValueProvider;
-import com.intellij.psi.util.CachedValuesManager;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
 import com.jetbrains.php.lang.psi.stubs.indexes.PhpClassFqnIndex;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.application.util.CachedValue;
+import consulo.application.util.CachedValueProvider;
+import consulo.application.util.CachedValuesManager;
+import consulo.project.Project;
+import consulo.util.dataholder.Key;
 import fr.adrienbrault.idea.symfony2plugin.stubs.cache.FileIndexCaches;
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.ServicesDefinitionStubIndex;
 import fr.adrienbrault.idea.symfony2plugin.twig.variable.globals.TwigGlobalEnum;
@@ -19,23 +20,26 @@ import fr.adrienbrault.idea.symfony2plugin.util.SymfonyVarDirectoryWatcherKt;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.ServiceUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.service.ServiceXmlParserFactory;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl(order = "after ControllerDocVariableCollector")
 public class ServiceContainerGlobalVariableCollector implements TwigFileVariableCollector {
     private static final Key<CachedValue<Map<String, Set<String>>>> CACHE = new Key<>("TWIG_SERVICE_CONTAINER_GLOBALS");
 
     @Override
-    public void collect(@NotNull TwigFileVariableCollectorParameter parameter, @NotNull Map<String, Set<String>> variables) {
+    public void collect(TwigFileVariableCollectorParameter parameter, Map<String, Set<String>> variables) {
         variables.putAll(getGlobals(parameter.getProject()));
     }
 
-    @NotNull
-    private static Map<String, Set<String>> getGlobals(@NotNull Project project) {
+    private static Map<String, Set<String>> getGlobals(Project project) {
         return CachedValuesManager.getManager(project).getCachedValue(
             project,
             CACHE,
@@ -49,8 +53,7 @@ public class ServiceContainerGlobalVariableCollector implements TwigFileVariable
         );
     }
 
-    @NotNull
-    private static Map<String, Set<String>> getGlobalsInner(@NotNull Project project) {
+    private static Map<String, Set<String>> getGlobalsInner(Project project) {
         Map<String, Set<String>> map = new HashMap<>();
 
         TwigGlobalsServiceParser twigPathServiceParser = ServiceXmlParserFactory.getInstance(project, TwigGlobalsServiceParser.class);
@@ -69,8 +72,7 @@ public class ServiceContainerGlobalVariableCollector implements TwigFileVariable
         return toImmutableMap(map);
     }
 
-    @NotNull
-    private static Map<String, Set<String>> toImmutableMap(@NotNull Map<String, Set<String>> map) {
+    private static Map<String, Set<String>> toImmutableMap(Map<String, Set<String>> map) {
         Map<String, Set<String>> result = new HashMap<>();
         map.forEach((key, value) -> result.put(key, Collections.unmodifiableSet(value)));
 

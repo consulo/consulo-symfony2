@@ -1,13 +1,15 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.routing;
 
-import com.intellij.ide.highlighter.XmlFileType;
-import com.intellij.openapi.util.Condition;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFileFactory;
-import com.intellij.psi.PsiManager;
-import com.intellij.psi.util.PsiTreeUtil;
-import com.intellij.psi.xml.XmlFile;
-import com.intellij.util.containers.ContainerUtil;
+import org.junit.jupiter.api.Test;
+
+import consulo.xml.language.XmlFileType;
+import consulo.util.lang.function.Condition;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFileFactory;
+import consulo.language.psi.PsiManager;
+import consulo.language.psi.util.PsiTreeUtil;
+import consulo.xml.language.psi.XmlFile;
+import consulo.util.collection.ContainerUtil;
 import com.jetbrains.php.lang.PhpFileType;
 import com.jetbrains.php.lang.psi.PhpFile;
 import com.jetbrains.php.lang.psi.PhpPsiElementFactory;
@@ -21,7 +23,6 @@ import fr.adrienbrault.idea.symfony2plugin.stubs.dict.StubIndexedRoute;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlPsiElementFactory;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.yaml.psi.YAMLDocument;
 
 import java.util.*;
@@ -48,6 +49,7 @@ public class RouteHelperTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper#getYamlRouteDefinitions
      */
+    @Test
     public void testGetYamlRouteDefinitionsAsHashAndKeyValue() {
         Collection<String[]> providers = new ArrayList<>() {{
             add(new String[]{"'MyController::fooAction'", "MyController::fooAction"});
@@ -95,6 +97,7 @@ public class RouteHelperTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper#getYamlRouteDefinitions
      */
+    @Test
     public void testGetYamlRouteDefinitionsWithMethods() {
         Collection<StubIndexedRoute> yamlRouteDefinitions = RouteHelper.getYamlRouteDefinitions(YamlPsiElementFactory.createFromText(getProject(), YAMLDocument.class,
             "route1:\n" +
@@ -116,6 +119,7 @@ public class RouteHelperTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper#getYamlRouteDefinitions
      */
+    @Test
     public void testGetYamlRouteDefinitionsForControllerKeyword() {
         Collection<StubIndexedRoute> yamlRouteDefinitions = RouteHelper.getYamlRouteDefinitions(YamlPsiElementFactory.createFromText(getProject(), YAMLDocument.class,
             "foo_keyword:\n" +
@@ -132,6 +136,7 @@ public class RouteHelperTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper#getXmlRouteDefinitions
      */
+    @Test
     public void testGetXmlRouteDefinitions() {
         Collection<XmlFile> xmlFiles = new ArrayList<>();
 
@@ -165,6 +170,7 @@ public class RouteHelperTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper#getXmlRouteDefinitions
      */
+    @Test
     public void testGetXmlRouteDefinitionsWithoutController() {
         StubIndexedRoute route1 = ContainerUtil.find(RouteHelper.getXmlRouteDefinitions(createXmlFile("" +
                 "<routes>\n" +
@@ -182,6 +188,7 @@ public class RouteHelperTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper#getXmlRouteDefinitions
      */
+    @Test
     public void testGetXmlRouteDefinitionsWithoutPath() {
 
         StubIndexedRoute route = ContainerUtil.find(RouteHelper.getXmlRouteDefinitions(createXmlFile("" +
@@ -200,6 +207,7 @@ public class RouteHelperTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper#getXmlRouteDefinitions
      */
+    @Test
     public void testGetXmlRouteDefinitionsWithMethods() {
         Collection<StubIndexedRoute> xmlRouteDefinitions = RouteHelper.getXmlRouteDefinitions(createXmlFile("" +
                 "<routes>\n" +
@@ -222,6 +230,7 @@ public class RouteHelperTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper#getXmlRouteDefinitions
      */
+    @Test
     public void testGetXmlRouteDefinitionsForControllerKeyword() {
         StubIndexedRoute route = ContainerUtil.find(RouteHelper.getXmlRouteDefinitions(createXmlFile("" +
             "<routes>\n" +
@@ -237,6 +246,7 @@ public class RouteHelperTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper#getAllRoutes
      */
+    @Test
     public void testGetAllRoutes() {
         Map<String, Route> allRoutes = RouteHelper.getAllRoutes(getProject());
 
@@ -248,6 +258,7 @@ public class RouteHelperTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper#getAllRoutesUnique
      */
+    @Test
     public void testGetAllRoutesUnique_prefersNamedRouteOverFqcnDuplicate() {
         myFixture.copyFileToProject("RouteHelper.duplicate_routes.yaml");
 
@@ -263,6 +274,7 @@ public class RouteHelperTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper#getRoutesLookupElements
      */
+    @Test
     public void testGetRoutesLookupElements() {
         assertNotNull(ContainerUtil.find(
             RouteHelper.getRoutesLookupElements(getProject()),
@@ -273,6 +285,7 @@ public class RouteHelperTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper#getRoutesInsideUrlGeneratorFile
      */
+    @Test
     public void testGetRoutesInsideUrlGeneratorFile() {
         Map<String, Route> routes = RouteHelper.getRoutesInsideUrlGeneratorFile(getProject(), myFixture.copyFileToProject("appTestUrlGenerator.php"));
         assertEquals("Lol\\CoreBundle\\Controller\\FeedbackController::feedbackAction", routes.get("feedback").getController());
@@ -289,6 +302,7 @@ public class RouteHelperTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper#getRoutesInsideUrlGeneratorFile
      */
+    @Test
     public void testGetRoutesInsideUrlGeneratorFileUrlGeneratorRoutes() {
         Map<String, Route> routes = RouteHelper.getRoutesInsideUrlGeneratorFile(getProject(), myFixture.copyFileToProject("url_generating_routes.php"));
 
@@ -318,6 +332,7 @@ public class RouteHelperTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper#convertMethodToRouteShortcutControllerName
      */
+    @Test
     public void testConvertMethodToRouteShortcutControllerName() {
         myFixture.configureFromExistingVirtualFile(myFixture.copyFileToProject("GetRoutesOnControllerAction.php"));
 
@@ -355,6 +370,7 @@ public class RouteHelperTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper#convertMethodToRouteShortcutControllerName
      */
+    @Test
     public void testConvertMethodToRouteShortcutControllerForInvoke()
     {
         myFixture.configureFromExistingVirtualFile(myFixture.copyFileToProject("GetRoutesOnControllerAction.php"));
@@ -378,6 +394,7 @@ public class RouteHelperTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper#getRoutesOnControllerAction
      */
+    @Test
     public void testGetRoutesOnControllerAction() {
         myFixture.copyFileToProject("GetRoutesOnControllerAction.php");
         myFixture.copyFileToProject("GetRoutesOnControllerAction.routing.xml");
@@ -422,6 +439,7 @@ public class RouteHelperTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper#getRoutesInsideUrlGeneratorFile
      */
+    @Test
     public void testGetRoutesInsideUrlGeneratorFileForConstructor() {
         Map<String, Route> routes = RouteHelper.getRoutesInsideUrlGeneratorFile(getProject(), myFixture.copyFileToProject("appDevUrlGenerator-28.php"));
         Route wdt = routes.get("_wdt");
@@ -434,6 +452,7 @@ public class RouteHelperTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper#getRouteNameTarget
      */
+    @Test
     public void testGetRouteNameTarget() {
         PsiElement element = RouteHelper.getRouteNameTarget(getProject(), "my_car_foo_stuff").iterator().next();
         assertNotNull(element);
@@ -455,6 +474,7 @@ public class RouteHelperTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper#getRouteNameTarget
      */
+    @Test
     public void testGetRouteNameTargetForPrefixedControler() {
         PsiElement element = RouteHelper.getRouteNameTarget(getProject(), "foobar_myfoobar_apple_index").iterator().next();
         assertNotNull(element);
@@ -462,6 +482,8 @@ public class RouteHelperTest extends SymfonyLightCodeInsightFixtureTestCase {
         element = RouteHelper.getRouteNameTarget(getProject(), "foobar_my_foo").iterator().next();
         assertNotNull(element);
     }
+
+    @Test
 
     public void testPhpFluentRoutingProvidesRouteTargetsAndControllerMatches() {
         myFixture.addFileToProject("config/routing_classes.php", "<?php\n" +
@@ -538,6 +560,7 @@ public class RouteHelperTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper#getPhpControllerShortcut
      */
+    @Test
     public void testGetPhpControllerShortcut() {
         myFixture.addFileToProject("config/routing_classes.php", "<?php\n" +
             "namespace Symfony\\Component\\Routing\\Loader\\Configurator\n" +
@@ -597,6 +620,7 @@ public class RouteHelperTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper#getPhpRouteDefinitions
      */
+    @Test
     public void testGetPhpRouteDefinitionsWithMethodsDefaultsAndPrefixes() {
         myFixture.addFileToProject("config/routing_classes.php", "<?php\n" +
             "namespace Symfony\\Component\\Routing\\Loader\\Configurator\n" +
@@ -667,6 +691,7 @@ public class RouteHelperTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper#isServiceController
      */
+    @Test
     public void testIsServiceController() {
         assertTrue(RouteHelper.isServiceController("Foo:foo"));
         assertTrue(RouteHelper.isServiceController("Foo\\Bar:foo"));
@@ -681,6 +706,7 @@ public class RouteHelperTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper#isServiceControllerInvoke
      */
+    @Test
     public void testIsServiceControllerInvoke() {
         assertTrue(RouteHelper.isServiceControllerInvoke("Foo"));
         assertTrue(RouteHelper.isServiceControllerInvoke("Foo\\Bar"));
@@ -694,6 +720,7 @@ public class RouteHelperTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper#getMethodsOnControllerShortcut
      */
+    @Test
     public void testGetMethodsOnControllerShortcutForControllerAsInvokeAction() {
         myFixture.configureByText(PhpFileType.INSTANCE, "<?php\n" +
             "namespace Foobar;\n" +
@@ -721,6 +748,7 @@ public class RouteHelperTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper#getMethodsOnControllerShortcut
      */
+    @Test
     public void testGetMethodsOnControllerShortcutForControllerAsInvokeWithoutInvokeMethodFallbackToClass() {
         myFixture.configureByText(PhpFileType.INSTANCE, "<?php\n" +
             "namespace Foobar;\n" +
@@ -736,6 +764,7 @@ public class RouteHelperTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper#getMethodsOnControllerShortcut
      */
+    @Test
     public void testGetMethodsOnControllerShortcutForControllerAsService() {
         PsiElement[] targets = RouteHelper.getMethodsOnControllerShortcut(getProject(), "foobar_controller:indexAction");
         assertEquals("CarController", ((Method) targets[0]).getContainingClass().getName());
@@ -747,10 +776,13 @@ public class RouteHelperTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper#getMethodsOnControllerShortcut
      */
+    @Test
     public void testGetMethodsOnControllerShortcutForControllerAsServiceWithInvoke() {
         PsiElement[] targets = RouteHelper.getMethodsOnControllerShortcut(getProject(), "invoke_._controller");
         assertEquals("InvokeController", ((Method) targets[0]).getContainingClass().getName());
     }
+
+    @Test
 
     public void testGetMethodsForPathWithPlaceholderMatch() {
         myFixture.addFileToProject("src/Controller/ReverseRouteMatcherController.php", "<?php\n" +
@@ -811,6 +843,8 @@ public class RouteHelperTest extends SymfonyLightCodeInsightFixtureTestCase {
         assertFalse(Arrays.stream(targets6).anyMatch(psiElement -> psiElement instanceof Method && "fooAction".equals(((Method) psiElement).getName())));
     }
 
+    @Test
+
     public void testNormalizeRouteSearchPath() {
         assertEquals("", RouteHelper.normalizeRouteSearchPath(""));
         assertEquals("", RouteHelper.normalizeRouteSearchPath("   "));
@@ -828,21 +862,20 @@ public class RouteHelperTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper#getRoute
      */
+    @Test
     public void testGetRoute() {
         assertTrue(!RouteHelper.getRoute(getProject(), "my_car_foo_stuff").isEmpty());
     }
 
-    @NotNull
-    private XmlFile createXmlFile(@NotNull String content) {
+    private XmlFile createXmlFile(String content) {
         return (XmlFile) PsiFileFactory.getInstance(getProject()).createFileFromText("DUMMY__." + XmlFileType.INSTANCE.getDefaultExtension(), XmlFileType.INSTANCE, content);
     }
 
     private static class MyEqualStubIndexedRouteCondition implements Condition<StubIndexedRoute> {
 
-        @NotNull
         private final String routeName;
 
-        public MyEqualStubIndexedRouteCondition(@NotNull String routeName) {
+        public MyEqualStubIndexedRouteCondition(String routeName) {
             this.routeName = routeName;
         }
 

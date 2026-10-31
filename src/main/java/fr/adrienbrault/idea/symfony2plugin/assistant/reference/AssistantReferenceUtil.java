@@ -1,14 +1,13 @@
 package fr.adrienbrault.idea.symfony2plugin.assistant.reference;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.psi.PsiReference;
 import com.jetbrains.php.lang.psi.elements.MethodReference;
 import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
+import consulo.language.psi.PsiReference;
+import consulo.project.Project;
 import fr.adrienbrault.idea.symfony2plugin.Settings;
 import fr.adrienbrault.idea.symfony2plugin.assistant.AssistantReferenceContributor;
 import fr.adrienbrault.idea.symfony2plugin.assistant.AssistantReferenceProvider;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -51,7 +50,6 @@ public class AssistantReferenceUtil {
         return null;
     }
 
-    @NotNull
     public static ArrayList<MethodParameterSetting> getMethodsParameterSettings(Project project) {
 
         List<MethodParameterSetting> methodParameterSettings = Settings.getInstance(project).methodParameterSettings;
@@ -75,7 +73,6 @@ public class AssistantReferenceUtil {
         return null;
     }
 
-    @NotNull
     public static PsiReference[] getPsiReference(MethodParameterSetting methodParameterSetting, StringLiteralExpression psiElement, List<MethodParameterSetting> configsMethodScope, MethodReference method) {
 
         // custom references

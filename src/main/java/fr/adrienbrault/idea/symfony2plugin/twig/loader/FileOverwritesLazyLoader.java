@@ -1,33 +1,32 @@
 package fr.adrienbrault.idea.symfony2plugin.twig.loader;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiManager;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.PsiManager;
+import consulo.project.Project;
+import consulo.virtualFileSystem.VirtualFile;
 import fr.adrienbrault.idea.symfony2plugin.twig.utils.TwigFileUtil;
-import org.jetbrains.annotations.NotNull;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class FileOverwritesLazyLoader {
-    @NotNull
     private final Project project;
 
-    @NotNull
     private final Map<VirtualFile, Collection<VirtualFile>> fileScope = new HashMap<>();
 
-    @NotNull
     private final Map<VirtualFile, Collection<VirtualFile>> selfScope = new HashMap<>();
 
-    public FileOverwritesLazyLoader(@NotNull Project project) {
+    public FileOverwritesLazyLoader(Project project) {
         this.project = project;
     }
 
-    @NotNull
-    public Collection<VirtualFile> getFiles(boolean includeSelf, @NotNull Collection<VirtualFile> virtualFiles) {
+    public Collection<VirtualFile> getFiles(boolean includeSelf, Collection<VirtualFile> virtualFiles) {
         Map<VirtualFile, Collection<VirtualFile>> target;
 
         if(includeSelf) {

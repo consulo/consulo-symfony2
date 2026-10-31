@@ -1,8 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.extension;
 
-import com.intellij.openapi.project.Project;
+import consulo.project.Project;
 import fr.adrienbrault.idea.symfony2plugin.dic.ContainerParameter;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.Collection;
 
@@ -12,27 +11,24 @@ import java.util.Collection;
 public class ServiceParameterCollectorParameter {
     public static class Id {
 
-        @NotNull
         private final Project project;
 
-        @NotNull
         private final Collection<ContainerParameter> ids;
 
-        public Id(@NotNull Project project, @NotNull Collection<ContainerParameter> ids) {
+        public Id(Project project, Collection<ContainerParameter> ids) {
             this.project = project;
             this.ids = ids;
         }
 
-        @NotNull
         public Project getProject() {
             return project;
         }
 
-        public void add(@NotNull ContainerParameter id) {
+        public void add(ContainerParameter id) {
             this.ids.add(id);
         }
 
-        public void addAll(@NotNull Collection<ContainerParameter> names) {
+        public void addAll(Collection<ContainerParameter> names) {
             this.ids.addAll(names);
         }
     }

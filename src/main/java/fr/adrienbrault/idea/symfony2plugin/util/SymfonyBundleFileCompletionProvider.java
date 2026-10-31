@@ -1,20 +1,19 @@
 package fr.adrienbrault.idea.symfony2plugin.util;
 
-import com.intellij.codeInsight.completion.CompletionParameters;
-import com.intellij.codeInsight.completion.CompletionProvider;
-import com.intellij.codeInsight.completion.CompletionResultSet;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.roots.ContentIterator;
-import com.intellij.openapi.vfs.VfsUtil;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.openapi.vfs.VirtualFileVisitor;
-import com.intellij.util.ProcessingContext;
+import consulo.content.ContentIterator;
+import consulo.language.editor.completion.CompletionParameters;
+import consulo.language.editor.completion.CompletionProvider;
+import consulo.language.editor.completion.CompletionResultSet;
+import consulo.language.util.ProcessingContext;
+import consulo.project.Project;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.virtualFileSystem.util.VirtualFileUtil;
+import consulo.virtualFileSystem.util.VirtualFileVisitor;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.BundleFile;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.ResourceFileInsertHandler;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.SymfonyBundle;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.SymfonyBundleFileLookupElement;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -22,7 +21,7 @@ import java.util.List;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
-public class SymfonyBundleFileCompletionProvider extends CompletionProvider<CompletionParameters> {
+public class SymfonyBundleFileCompletionProvider implements CompletionProvider {
 
     private final String[] paths;
 
@@ -31,7 +30,7 @@ public class SymfonyBundleFileCompletionProvider extends CompletionProvider<Comp
     }
 
     @Override
-    protected void addCompletions(@NotNull CompletionParameters completionParameters, ProcessingContext processingContext, @NotNull CompletionResultSet completionResultSet) {
+    public void addCompletions(CompletionParameters completionParameters, ProcessingContext processingContext, CompletionResultSet completionResultSet) {
 
         if(!Symfony2ProjectComponent.isEnabled(completionParameters.getPosition())) {
             return;
@@ -60,9 +59,9 @@ public class SymfonyBundleFileCompletionProvider extends CompletionProvider<Comp
         }
 
         final BundleContentIterator bundleContentIterator = new BundleContentIterator(symfonyBundle, bundleFiles, completionParameters.getPosition().getProject());
-        VfsUtil.visitChildrenRecursively(virtualFile, new VirtualFileVisitor() {
+        VirtualFileUtil.visitChildrenRecursively(virtualFile, new VirtualFileVisitor() {
             @Override
-            public boolean visitFile(@NotNull VirtualFile virtualFile) {
+            public boolean visitFile(VirtualFile virtualFile) {
                 bundleContentIterator.processFile(virtualFile);
                 return super.visitFile(virtualFile);
             }

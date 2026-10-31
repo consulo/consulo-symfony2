@@ -1,9 +1,8 @@
 package fr.adrienbrault.idea.symfony2plugin.assistant.signature;
 
-import com.intellij.openapi.project.Project;
 import com.jetbrains.php.lang.psi.elements.PhpNamedElement;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import consulo.project.Project;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Collection;
 
@@ -15,6 +14,5 @@ public interface PhpTypeSignatureInterface {
     @Nullable
     Collection<? extends PhpNamedElement> getByParameter(Project project, String parameter);
 
-    @NotNull
     String getName();
 }

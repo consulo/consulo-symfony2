@@ -1,7 +1,9 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.templating;
 
-import com.intellij.codeInsight.completion.CompletionUtilCore;
-import com.intellij.psi.PsiElement;
+import org.junit.jupiter.api.Test;
+
+import consulo.language.editor.completion.CompletionUtilCore;
+import consulo.language.psi.PsiElement;
 import com.jetbrains.twig.TwigFileType;
 import fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
@@ -14,6 +16,7 @@ public class TwigPatternTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern#getBlockTagPattern
      */
+    @Test
     public void testGetBlockTagPattern() {
         String[] blocks = {
             "{% block 'a<caret>a' %}",
@@ -33,6 +36,7 @@ public class TwigPatternTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern#getBlockTagPattern
      */
+    @Test
     public void testGetAutocompletableAssetPattern() {
         myFixture.configureByText(TwigFileType.INSTANCE, "{{ asset('bundles/<caret>test/img/' ~ entity.img ~ '.png') }}");
         assertFalse(fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern.getAutocompletableAssetPattern().accepts(
@@ -48,6 +52,7 @@ public class TwigPatternTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern#getPrintBlockOrTagFunctionPattern
      */
+    @Test
     public void testGetPrintBlockOrTagFunctionPattern() {
         assertTrue(fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern.getPrintBlockOrTagFunctionPattern("foobar").accepts(
             findElementAt(TwigFileType.INSTANCE, "{{ foobar('f<caret>o') }}")
@@ -73,6 +78,7 @@ public class TwigPatternTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern#getLeafFunctionPattern
      */
+    @Test
     public void testGetFunctionPattern() {
         assertTrue(fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern.getLeafFunctionPattern("form").accepts(
             findElementAt(TwigFileType.INSTANCE, "{{ for<caret>m(test) }}")
@@ -90,6 +96,7 @@ public class TwigPatternTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see TwigPattern#captureVariableOrField()
      */
+    @Test
     public void testCaptureVariableOrField() {
         assertTrue(fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern.captureVariableOrField().accepts(
             findElementAt(TwigFileType.INSTANCE, "{{ <caret>foo }}").getParent()
@@ -115,6 +122,7 @@ public class TwigPatternTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern#getTypeCompletionPattern
      */
+    @Test
     public void testGetTypeCompletionPattern() {
         assertTrue(fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern.getTypeCompletionPattern().accepts(
             findElementAt(TwigFileType.INSTANCE, "{{ foo.b<caret>ar }}")
@@ -145,6 +153,8 @@ public class TwigPatternTest extends SymfonyLightCodeInsightFixtureTestCase {
         ));
     }
 
+    @Test
+
     public void testGetPrintBlockFunctionPattern() {
         assertTrue(fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern.getPrintBlockFunctionPattern().accepts(
             findElementAt(TwigFileType.INSTANCE, "{{ goto<caret>_me() }}")
@@ -163,6 +173,8 @@ public class TwigPatternTest extends SymfonyLightCodeInsightFixtureTestCase {
         ));
     }
 
+    @Test
+
     public void testSelfMacroFunctionPattern() {
         assertTrue(fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern.getSelfMacroFunctionPattern().accepts(
             findElementAt(TwigFileType.INSTANCE, "{{ _self.in<caret>put('password', '', 'password') }}")
@@ -172,6 +184,7 @@ public class TwigPatternTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see TwigPattern#getAfterOperatorPattern
      */
+    @Test
     public void testGetAfterOperatorPattern() {
         assertTrue(fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern.getAfterOperatorPattern().accepts(
             findElementAt(TwigFileType.INSTANCE, "{% if foo fa<caret>ke %}")
@@ -192,6 +205,8 @@ public class TwigPatternTest extends SymfonyLightCodeInsightFixtureTestCase {
             findElementAt(TwigFileType.INSTANCE, "{{ fa<caret>ke }}")
         ));
     }
+
+    @Test
 
     public void testAfterOperatorPatternForCompletionContexts() {
         assertAfterOperatorPatternForCompletion("{% if foo <caret> %}");
@@ -224,6 +239,7 @@ public class TwigPatternTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see TwigPattern#getCompletablePattern()
      */
+    @Test
     public void testGetCompletablePattern() {
         assertTrue(fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern.getCompletablePattern().accepts(
             findElementAt(TwigFileType.INSTANCE, "{{ b<caret>ar }}")
@@ -257,6 +273,7 @@ public class TwigPatternTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern#getFunctionWithFirstParameterAsArrayPattern
      */
+    @Test
     public void testGetFunctionWithFirstParameterAsArrayPattern() {
         assertTrue(fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern.getFunctionWithFirstParameterAsArrayPattern("foobar").accepts(
             findElementAt(TwigFileType.INSTANCE, "{{ foobar(['fo<caret>o']) }}")
@@ -278,6 +295,7 @@ public class TwigPatternTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern#getFunctionWithFirstParameterAsLiteralPattern
      */
+    @Test
     public void testFunctionWithFirstParameterAsLiteralPattern() {
         assertTrue(fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern.getFunctionWithFirstParameterAsLiteralPattern("foobar").accepts(
             findElementAt(TwigFileType.INSTANCE, "{{ foobar({'f<caret>o'}) }}")
@@ -303,6 +321,7 @@ public class TwigPatternTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern#getFunctionWithFirstParameterAsKeyLiteralPattern
      */
+    @Test
     public void testGetFunctionWithFirstParameterAsKeyLiteralPattern() {
         assertTrue(fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern.getFunctionWithFirstParameterAsKeyLiteralPattern("foobar").accepts(
             findElementAt(TwigFileType.INSTANCE, "{{ foobar({'f<caret>o': 'foobar'}) }}")
@@ -336,6 +355,7 @@ public class TwigPatternTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern#getFunctionWithSecondParameterAsKeyLiteralPattern
      */
+    @Test
     public void testGetFunctionWithSecondParameterAsKeyLiteralPattern() {
         assertTrue(fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern.getFunctionWithSecondParameterAsKeyLiteralPattern("foobar").accepts(
             findElementAt(TwigFileType.INSTANCE, "{{ foobar(12, {'f<caret>o': 'foobar'}) }}")
@@ -365,6 +385,7 @@ public class TwigPatternTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern#getTemplateImportFileReferenceTagPattern
      */
+    @Test
     public void testGetTemplateImportFileReferenceTagPattern() {
         assertTrue(fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern.getTemplateImportFileReferenceTagPattern().accepts(
             findElementAt(TwigFileType.INSTANCE, "{% from 'foo.html.twig' import te<caret>st %}")
@@ -390,6 +411,7 @@ public class TwigPatternTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern#getFromTemplateElementPattern
      */
+    @Test
     public void testGetFromTemplateElementPattern() {
         assertTrue(fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern.getFromTemplateElementPattern().accepts(
             findElementAt(TwigFileType.INSTANCE, "{% from 'foo.ht<caret>ml.twig' import aa %}")
@@ -403,6 +425,7 @@ public class TwigPatternTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern#getPathAfterLeafPattern
      */
+    @Test
     public void testGetPathAfterLeafPattern() {
         assertTrue(fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern.getPathAfterLeafPattern().accepts(
             findElementAt(TwigFileType.INSTANCE, "{{ path('foo', {'f<caret>o'}) }}")
@@ -420,6 +443,7 @@ public class TwigPatternTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern#getParameterAsStringPattern
      */
+    @Test
     public void testGetParameterAsStringPattern() {
         assertTrue(
             fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern.getParameterAsStringPattern().accepts(findElementAt(TwigFileType.INSTANCE, "{{ path('foo', 'f<caret>o') }}"))
@@ -437,6 +461,7 @@ public class TwigPatternTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern#getTransDomainPattern
      */
+    @Test
     public void testGetTransDomainPattern() {
         assertTrue(
             fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern.getTransDomainPattern().accepts(findElementAt(TwigFileType.INSTANCE, "{{ ''|trans({}, 'f<caret>o') }}"))
@@ -482,10 +507,13 @@ public class TwigPatternTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern#getTranslationKeyPattern
      */
+    @Test
     public void testGetTranslationPattern() {
         assertTrue(TwigPattern.getTranslationKeyPattern("trans").accepts(findElementAt(TwigFileType.INSTANCE, "{{ 'f<caret>oo'|trans }}")));
         assertTrue(TwigPattern.getTranslationKeyPattern("trans").accepts(findElementAt(TwigFileType.INSTANCE, "{{ 'f<caret>oo'|trans('foobar') }}")));
     }
+
+    @Test
 
     public void testGetVariableTypePatternMatchesForTagInVariableCases() {
         PsiElement elementAt = findElementAt(TwigFileType.INSTANCE, "{% for user in <caret> %}");
@@ -501,6 +529,8 @@ public class TwigPatternTest extends SymfonyLightCodeInsightFixtureTestCase {
         assertTrue(TwigPattern.getVariableTypePattern().accepts(elementAt4));
     }
 
+    @Test
+
     public void testGetFilterPattern() {
         PsiElement elementAt = findElementAt(TwigFileType.INSTANCE, "{{ 'f<caret>oo'|tr<caret>ans }}");
         assertTrue(TwigPattern.getFilterPattern().accepts(elementAt));
@@ -512,6 +542,7 @@ public class TwigPatternTest extends SymfonyLightCodeInsightFixtureTestCase {
     /**
      * @see TwigPattern#getPathAfterLeafForIdentifierPattern
      */
+    @Test
     public void testGetPathAfterLeafForIdentifierPattern() {
         assertTrue(TwigPattern.getPathAfterLeafForIdentifierPattern().accepts(
             findElementAt(TwigFileType.INSTANCE, "{{ path('foo', {f<caret>oo}) }}")

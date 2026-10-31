@@ -1,6 +1,5 @@
 package fr.adrienbrault.idea.symfony2plugin.profiler.reader;
 
-import org.jetbrains.annotations.NotNull;
 
 import java.io.*;
 import java.nio.MappedByteBuffer;
@@ -25,26 +24,25 @@ public class ReverseFileLineReader {
     private ByteArrayOutputStream baos = new ByteArrayOutputStream();
     private final RandomAccessFile raf;
 
-    public ReverseFileLineReader(@NotNull File file, @NotNull String encoding, int limit) throws IOException {
+    public ReverseFileLineReader(File file, String encoding, int limit) throws IOException {
         this.limit = limit;
         raf = new RandomAccessFile(file, "r");
         channel = raf.getChannel();
-        filePos = raf.length();
         this.encoding = encoding;
     }
 
     public String[] readLines() throws IOException {
-        List<String> lines = new ArrayList<>();
+        try (raf; channel) {
+            filePos = raf.length();
+            List<String> lines = new ArrayList<>();
 
-        String line;
-        while ((line = readLine()) != null && limit-- > 0) {
-            lines.add(line);
+            String line;
+            while ((line = readLine()) != null && limit-- > 0) {
+                lines.add(line);
+            }
+
+            return lines.toArray(new String[0]);
         }
-
-        channel.close();
-        raf.close();
-
-        return lines.toArray(new String[0]);
     }
 
     private String readLine() throws IOException {

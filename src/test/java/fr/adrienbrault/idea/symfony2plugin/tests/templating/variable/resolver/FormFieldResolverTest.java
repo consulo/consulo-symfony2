@@ -1,7 +1,9 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.templating.variable.resolver;
 
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.util.PsiTreeUtil;
+import org.junit.jupiter.api.Test;
+
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.util.PsiTreeUtil;
 import com.jetbrains.php.lang.PhpFileType;
 import com.jetbrains.php.lang.psi.elements.MethodReference;
 import fr.adrienbrault.idea.symfony2plugin.templating.variable.TwigTypeContainer;
@@ -11,7 +13,6 @@ import fr.adrienbrault.idea.symfony2plugin.templating.variable.resolver.TwigForm
 import fr.adrienbrault.idea.symfony2plugin.templating.variable.resolver.holder.FormFieldDataHolder;
 import fr.adrienbrault.idea.symfony2plugin.templating.variable.resolver.holder.FormViewDataHolder;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -23,6 +24,7 @@ import java.util.stream.Collectors;
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class FormFieldResolverTest extends SymfonyLightCodeInsightFixtureTestCase {
+    @Test
     public void testGetFormTypeFqnsFromFormFactory() {
         myFixture.configureByText(PhpFileType.INSTANCE, "<?php\n" +
             "namespace Symfony\\Component\\Form { interface FormInterface {} interface FormView {} interface FormTypeInterface {} }\n" +
@@ -42,6 +44,8 @@ public class FormFieldResolverTest extends SymfonyLightCodeInsightFixtureTestCas
 
         assertContainsElements(formTypeFqns, "\\App\\Form\\ProductType");
     }
+
+    @Test
 
     public void testVisitFormFieldsProvidesPrimitiveFieldMetadata() {
         myFixture.configureByText(PhpFileType.INSTANCE, "<?php\n" +
@@ -79,6 +83,8 @@ public class FormFieldResolverTest extends SymfonyLightCodeInsightFixtureTestCas
         assertNull(plain.fieldTypeFqn());
         assertEquals("\\App\\Form\\ProductType", plain.ownerFormTypeFqn());
     }
+
+    @Test
 
     public void testResolveUsesPrimitiveFormTypeFqnsWithoutPsiElement() {
         myFixture.configureByText(PhpFileType.INSTANCE, "<?php\n" +
@@ -119,6 +125,8 @@ public class FormFieldResolverTest extends SymfonyLightCodeInsightFixtureTestCas
         assertEquals("\\App\\Form\\ProductType", formFieldDataHolder.ownerFormTypeFqn());
     }
 
+    @Test
+
     public void testResolveDoesNotUseFormViewClassWithoutFormViewDataHolder() {
         myFixture.configureByText(PhpFileType.INSTANCE, "<?php\n" +
             "namespace Symfony\\Component\\Form { class FormView {} interface FormTypeInterface {} interface FormBuilderInterface { public function add(); } }\n" +
@@ -138,8 +146,7 @@ public class FormFieldResolverTest extends SymfonyLightCodeInsightFixtureTestCas
         assertFalse(targets.stream().anyMatch(twigTypeContainer -> "title".equals(twigTypeContainer.getStringElement())));
     }
 
-    @NotNull
-    private MethodReference findMethodReference(@NotNull String name) {
+    private MethodReference findMethodReference(String name) {
         for (PsiElement psiElement : PsiTreeUtil.collectElementsOfType(myFixture.getFile(), MethodReference.class)) {
             MethodReference methodReference = (MethodReference) psiElement;
             if (name.equals(methodReference.getName())) {

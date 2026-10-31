@@ -3,8 +3,7 @@ package fr.adrienbrault.idea.symfony2plugin.doctrine.querybuilder.util;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.ObjectRepositoryTypeProvider;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.querybuilder.dict.QueryBuilderCompletionContribution;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.querybuilder.dict.QueryBuilderCompletionContributionType;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -21,7 +20,7 @@ public class QueryBuilderUtil {
      * $em->getRepository('Class\Car')->createQueryBuilder('f')->andWhere('<caret>')
      * $em->getRepository(Car::class)->createQueryBuilder('f')->andWhere('<caret>')
      */
-    public static Collection<String> extractQueryBuilderRepositoryParameters(@NotNull String content) {
+    public static Collection<String> extractQueryBuilderRepositoryParameters(String content) {
         Collection<String> results = new HashSet<>();
 
         for(String signature : content.split("\\|")) {
@@ -43,7 +42,7 @@ public class QueryBuilderUtil {
      * test "test.fooTe<caret>aa = aa"
      */
     @Nullable
-    public static String getFieldString(@NotNull String content, int offset) {
+    public static String getFieldString(String content, int offset) {
         if (offset > content.length()) {
             return null;
         }

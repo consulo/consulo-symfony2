@@ -1,15 +1,14 @@
 package fr.adrienbrault.idea.symfony2plugin.util.completion;
 
-import com.intellij.codeInsight.completion.CompletionParameters;
-import com.intellij.codeInsight.completion.CompletionProvider;
-import com.intellij.codeInsight.completion.CompletionResultSet;
-import com.intellij.codeInsight.completion.CompletionUtil;
-import com.intellij.codeInsight.lookup.LookupElementBuilder;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.impl.source.tree.LeafPsiElement;
-import com.intellij.util.ProcessingContext;
+import consulo.language.editor.completion.CompletionParameters;
+import consulo.language.editor.completion.CompletionProvider;
+import consulo.language.editor.completion.CompletionResultSet;
+import consulo.language.editor.completion.CompletionUtilCore;
+import consulo.language.editor.completion.lookup.LookupElementBuilder;
+import consulo.language.psi.LeafPsiElement;
+import consulo.language.psi.PsiElement;
+import consulo.language.util.ProcessingContext;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -17,7 +16,7 @@ import java.util.Map;
 /**
  * @author Thomas Schulz <mail@king2500.net>
  */
-public class YamlKeywordsCompletionProvider extends CompletionProvider<CompletionParameters> {
+public class YamlKeywordsCompletionProvider implements CompletionProvider {
     private final static Map<String, String> YAML_KEYWORDS = new HashMap<>() {{
         put("~", "null");
         put("null", "null");
@@ -27,7 +26,7 @@ public class YamlKeywordsCompletionProvider extends CompletionProvider<Completio
     }};
 
     @Override
-    protected void addCompletions(@NotNull CompletionParameters parameters, ProcessingContext context, @NotNull CompletionResultSet result) {
+    public void addCompletions(CompletionParameters parameters, ProcessingContext context, CompletionResultSet result) {
         PsiElement psiElement = parameters.getPosition();
 
         if (psiElement instanceof LeafPsiElement) {
@@ -46,8 +45,8 @@ public class YamlKeywordsCompletionProvider extends CompletionProvider<Completio
 
             String prefix = psiElement.getText();
 
-            if (prefix.contains(CompletionUtil.DUMMY_IDENTIFIER_TRIMMED)) {
-                prefix = prefix.substring(0, prefix.indexOf(CompletionUtil.DUMMY_IDENTIFIER_TRIMMED));
+            if (prefix.contains(CompletionUtilCore.DUMMY_IDENTIFIER_TRIMMED)) {
+                prefix = prefix.substring(0, prefix.indexOf(CompletionUtilCore.DUMMY_IDENTIFIER_TRIMMED));
             }
 
             result = result.withPrefixMatcher(prefix);

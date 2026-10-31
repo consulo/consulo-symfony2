@@ -1,15 +1,14 @@
 package fr.adrienbrault.idea.symfony2plugin.completion.insertHandler;
 
-import com.intellij.codeInsight.completion.InsertHandler;
-import com.intellij.codeInsight.completion.InsertionContext;
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.openapi.editor.Document;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.SmartPsiElementPointer;
+import consulo.language.editor.completion.lookup.InsertHandler;
+import consulo.language.editor.completion.lookup.InsertionContext;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.document.Document;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.SmartPsiElementPointer;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
 import com.jetbrains.php.lang.psi.elements.PhpClassMember;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.Objects;
 
@@ -22,7 +21,7 @@ public class TwigEscapedSlashInsertHandler implements InsertHandler<LookupElemen
     private static final TwigEscapedSlashInsertHandler instance = new TwigEscapedSlashInsertHandler();
 
     @Override
-    public void handleInsert(@NotNull InsertionContext context, @NotNull LookupElement item) {
+    public void handleInsert(InsertionContext context, LookupElement item) {
         if (!(item.getObject() instanceof SmartPsiElementPointer<?> smartPsiElementPointer)) {
             return;
         }

@@ -1,10 +1,9 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.variable;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import org.jetbrains.annotations.NotNull;
+import consulo.project.Project;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
 
 import java.util.Set;
 
@@ -18,7 +17,7 @@ public class TwigFileVariableCollectorParameter {
     private final Project project;
     private final PsiFile containingFile;
 
-    public TwigFileVariableCollectorParameter(@NotNull PsiElement psiElement, @NotNull PsiFile containingFile, @NotNull Set<VirtualFile> visitedFiles) {
+    public TwigFileVariableCollectorParameter(PsiElement psiElement, PsiFile containingFile, Set<VirtualFile> visitedFiles) {
         this.psiElement = psiElement;
         this.project = psiElement.getProject();
         this.containingFile = containingFile;
@@ -33,7 +32,6 @@ public class TwigFileVariableCollectorParameter {
         return project;
     }
 
-    @NotNull
     public PsiFile getContainingFile() {
         return containingFile;
     }

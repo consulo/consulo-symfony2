@@ -1,29 +1,41 @@
 package fr.adrienbrault.idea.symfony2plugin.config.yaml;
 
-import com.intellij.openapi.util.TextRange;
-import com.intellij.patterns.PatternCondition;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.patterns.StandardPatterns;
-import com.intellij.psi.*;
-import com.intellij.util.ProcessingContext;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.document.util.TextRange;
+import consulo.language.Language;
+import consulo.language.pattern.PatternCondition;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.pattern.StandardPatterns;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiReference;
+import consulo.language.psi.PsiReferenceContributor;
+import consulo.language.psi.PsiReferenceProvider;
+import consulo.language.psi.PsiReferenceRegistrar;
+import consulo.language.util.ProcessingContext;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.yaml.psi.*;
+import org.jetbrains.yaml.YAMLLanguage;
+import org.jetbrains.yaml.psi.YAMLKeyValue;
+import org.jetbrains.yaml.psi.YAMLMapping;
+import org.jetbrains.yaml.psi.YAMLQuotedText;
+import org.jetbrains.yaml.psi.YAMLScalar;
+import org.jetbrains.yaml.psi.YAMLSequence;
+import org.jetbrains.yaml.psi.YAMLSequenceItem;
 
+@ExtensionImpl
 public class YamlReferenceContributor extends PsiReferenceContributor {
     private static final String TAG_PHP_CONST = "!php/const";
+    private static final String TAG_PHP_ENUM = "!php/enum";
 
     @Override
-    public void registerReferenceProviders(@NotNull PsiReferenceRegistrar registrar) {
+    public void registerReferenceProviders(PsiReferenceRegistrar registrar) {
         registrar.registerReferenceProvider(
             PlatformPatterns.psiElement(YAMLScalar.class)
                 .withText(StandardPatterns.string()
                     .contains(TAG_PHP_CONST)
                 ),
             new PsiReferenceProvider() {
-                @NotNull
                 @Override
-                public PsiReference @NotNull [] getReferencesByElement(@NotNull PsiElement element, @NotNull ProcessingContext context) {
+                public PsiReference[] getReferencesByElement(PsiElement element, ProcessingContext context) {
                     if (!Symfony2ProjectComponent.isEnabled(element)) {
                         return PsiReference.EMPTY_ARRAY;
                     }
@@ -39,7 +51,37 @@ public class YamlReferenceContributor extends PsiReferenceContributor {
                 }
 
                 @Override
-                public boolean acceptsTarget(@NotNull PsiElement target) {
+                public boolean acceptsTarget(PsiElement target) {
+                    return Symfony2ProjectComponent.isEnabled(target);
+                }
+            }
+        );
+
+        // key: !php/enum Foo\Bar::BAZ
+        registrar.registerReferenceProvider(
+            PlatformPatterns.psiElement(YAMLScalar.class)
+                .withText(StandardPatterns.string()
+                    .contains(TAG_PHP_ENUM)
+                ),
+            new PsiReferenceProvider() {
+                @Override
+                public PsiReference[] getReferencesByElement(PsiElement element, ProcessingContext context) {
+                    if (!Symfony2ProjectComponent.isEnabled(element)) {
+                        return PsiReference.EMPTY_ARRAY;
+                    }
+
+                    YAMLScalar scalar = (YAMLScalar) element;
+                    if (scalar.getTextValue().isEmpty()) {
+                        return PsiReference.EMPTY_ARRAY;
+                    }
+
+                    return new PsiReference[]{
+                        new EnumCaseYamlReference(scalar)
+                    };
+                }
+
+                @Override
+                public boolean acceptsTarget(PsiElement target) {
                     return Symfony2ProjectComponent.isEnabled(target);
                 }
             }
@@ -153,7 +195,7 @@ public class YamlReferenceContributor extends PsiReferenceContributor {
                         .psiElement(YAMLSequenceItem.class)
                         .with(new PatternCondition<>("is first sequence item") {
                             @Override
-                            public boolean accepts(@NotNull YAMLSequenceItem element, ProcessingContext context) {
+                            public boolean accepts(YAMLSequenceItem element, ProcessingContext context) {
                                 return element.getItemIndex() == 0;
                             }
                         })
@@ -230,6 +272,11 @@ public class YamlReferenceContributor extends PsiReferenceContributor {
         );
     }
 
+    @Override
+    public Language getLanguage() {
+        return YAMLLanguage.INSTANCE;
+    }
+
     private static class YAMLScalarServiceReferenceProvider extends PsiReferenceProvider {
 
         private static final String PREFIX = "@";
@@ -248,7 +295,7 @@ public class YamlReferenceContributor extends PsiReferenceContributor {
         }
 
         @Override
-        public PsiReference @NotNull [] getReferencesByElement(@NotNull PsiElement element, @NotNull ProcessingContext context) {
+        public PsiReference[] getReferencesByElement(PsiElement element, ProcessingContext context) {
             if (!Symfony2ProjectComponent.isEnabled(element)) {
                 return PsiReference.EMPTY_ARRAY;
             }
@@ -281,11 +328,11 @@ public class YamlReferenceContributor extends PsiReferenceContributor {
             return PsiReference.EMPTY_ARRAY;
         }
 
-        private boolean isValidServiceNameWithPrefix(@NotNull String serviceName) {
+        private boolean isValidServiceNameWithPrefix(String serviceName) {
             return serviceName.length() > 1 && serviceName.startsWith(PREFIX) && !serviceName.startsWith(ESCAPED_PREFIX);
         }
 
-        public boolean acceptsTarget(@NotNull PsiElement target) {
+        public boolean acceptsTarget(PsiElement target) {
             return Symfony2ProjectComponent.isEnabled(target);
         }
     }

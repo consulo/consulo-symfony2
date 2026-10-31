@@ -1,10 +1,12 @@
 package fr.adrienbrault.idea.symfony2plugin.extension;
 
-import org.jetbrains.annotations.NotNull;
+import consulo.annotation.component.ComponentScope;
+import consulo.annotation.component.ExtensionAPI;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionAPI(ComponentScope.APPLICATION)
 public interface RoutingLoader {
-    void invoke(@NotNull RoutingLoaderParameter parameter);
+    void invoke(RoutingLoaderParameter parameter);
 }

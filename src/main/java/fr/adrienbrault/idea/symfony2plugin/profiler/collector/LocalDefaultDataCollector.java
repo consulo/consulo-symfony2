@@ -1,9 +1,8 @@
 package fr.adrienbrault.idea.symfony2plugin.profiler.collector;
 
-import kotlin.Pair;
+import consulo.util.lang.Pair;
 import org.intellij.lang.annotations.RegExp;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.*;
 import java.util.regex.Matcher;
@@ -51,7 +50,7 @@ public class LocalDefaultDataCollector implements DefaultDataCollectorInterface 
     }
 
     @Override
-    public @NotNull Collection<String> getRenderedTemplates() {
+    public Collection<String> getRenderedTemplates() {
         if (this.contents == null) {
             return Collections.emptyList();
         }
@@ -138,7 +137,7 @@ public class LocalDefaultDataCollector implements DefaultDataCollectorInterface 
     }
 
     @Override
-    public @NotNull Collection<String> getFormTypes() {
+    public Collection<String> getFormTypes() {
         if (this.contents == null) {
             return Collections.emptyList();
         }

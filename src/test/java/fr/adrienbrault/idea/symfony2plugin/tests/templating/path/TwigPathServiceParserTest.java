@@ -1,6 +1,8 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.templating.path;
 
-import com.intellij.openapi.vfs.VirtualFile;
+import org.junit.jupiter.api.Test;
+
+import consulo.virtualFileSystem.VirtualFile;
 import fr.adrienbrault.idea.symfony2plugin.templating.path.TwigPath;
 import fr.adrienbrault.idea.symfony2plugin.templating.path.TwigPathServiceParser;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
@@ -22,6 +24,8 @@ public class TwigPathServiceParserTest extends SymfonyLightCodeInsightFixtureTes
             .collect(Collectors.toList());
     }
 
+    @Test
+
     public void testRelativePathFallbackSkipsNonExistentPath() throws Exception {
         String xml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>" +
             "<container><services>" +
@@ -40,6 +44,8 @@ public class TwigPathServiceParserTest extends SymfonyLightCodeInsightFixtureTes
 
         assertEquals(0, pathsFor(parser, "Ghost").size());
     }
+
+    @Test
 
     public void testAbsolutePathWithoutKernelProjectDirIsSkipped() throws Exception {
         String xml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>" +

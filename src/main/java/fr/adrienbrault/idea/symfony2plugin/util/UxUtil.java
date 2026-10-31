@@ -1,26 +1,5 @@
 package fr.adrienbrault.idea.symfony2plugin.util;
 
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.codeInsight.lookup.LookupElementBuilder;
-import com.intellij.lang.ASTNode;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.Key;
-import com.intellij.openapi.vfs.VfsUtil;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.openapi.vfs.VirtualFileVisitor;
-import com.intellij.openapi.vfs.VirtualFileManager;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.formatter.FormatterUtil;
-import com.intellij.psi.search.GlobalSearchScope;
-import com.intellij.psi.tree.IElementType;
-import com.intellij.psi.util.CachedValue;
-import com.intellij.psi.util.CachedValueProvider;
-import com.intellij.psi.util.CachedValuesManager;
-import com.intellij.psi.util.PsiTreeUtil;
-import com.intellij.psi.xml.XmlTag;
-import com.intellij.util.indexing.FileBasedIndex;
 import com.jetbrains.php.lang.psi.PhpFile;
 import com.jetbrains.php.lang.psi.elements.*;
 import com.jetbrains.twig.TwigFile;
@@ -28,6 +7,28 @@ import com.jetbrains.twig.TwigFileType;
 import com.jetbrains.twig.TwigTokenTypes;
 import com.jetbrains.twig.elements.TwigCompositeElement;
 import com.jetbrains.twig.elements.TwigElementTypes;
+import consulo.application.util.CachedValue;
+import consulo.application.util.CachedValueProvider;
+import consulo.application.util.CachedValuesManager;
+import consulo.language.ast.ASTNode;
+import consulo.language.ast.IElementType;
+import consulo.language.codeStyle.FormatterUtil;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.editor.completion.lookup.LookupElementBuilder;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.scope.GlobalSearchScope;
+import consulo.language.psi.stub.FileBasedIndex;
+import consulo.language.psi.util.LanguageCachedValueUtil;
+import consulo.language.psi.util.PsiTreeUtil;
+import consulo.project.Project;
+import consulo.util.dataholder.Key;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.virtualFileSystem.VirtualFileManager;
+import consulo.virtualFileSystem.util.VirtualFileUtil;
+import consulo.virtualFileSystem.util.VirtualFileVisitor;
+import consulo.xml.language.psi.XmlTag;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
 import fr.adrienbrault.idea.symfony2plugin.dic.tags.ServiceTagInterface;
 import fr.adrienbrault.idea.symfony2plugin.dic.tags.xml.XmlServiceTag;
@@ -47,14 +48,13 @@ import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigTypeResolveUtil;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.CompiledTwigComponent;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.ServiceUtil;
-import fr.adrienbrault.idea.symfony2plugin.util.service.ServiceXmlParserFactory;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.TwigComponentNamespace;
+import fr.adrienbrault.idea.symfony2plugin.util.service.ServiceXmlParserFactory;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
-import kotlin.Pair;
+import consulo.util.lang.Pair;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.jetbrains.yaml.psi.YAMLKeyValue;
+import org.jspecify.annotations.Nullable;
 
 import java.util.*;
 import java.util.function.Consumer;
@@ -91,7 +91,7 @@ public class UxUtil {
     private static final Key<CachedValue<Collection<String>>> COMPONENT_CLASS_FQNS_FOR_TEMPLATE_FILE = new Key<>("SYMFONY_UX_COMPONENT_CLASS_FQNS_FOR_TEMPLATE_FILE");
     private static final Key<CachedValue<Collection<UxComponent>>> TAG_COMPONENTS = new Key<>("SYMFONY_UX_TAG_COMPONENTS");
 
-    public static Collection<TwigComponentNamespace> getNamespaces(@NotNull Project project) {
+    public static Collection<TwigComponentNamespace> getNamespaces(Project project) {
         return CachedValuesManager.getManager(project).getCachedValue(
             project,
             TWIG_COMPONENTS_NAMESPACES,
@@ -99,7 +99,7 @@ public class UxUtil {
             false
         );
     }
-    private static Collection<TwigComponentNamespace> getNamespacesInner(@NotNull Project project) {
+    private static Collection<TwigComponentNamespace> getNamespacesInner(Project project) {
         Collection<TwigComponentNamespace> namespaces = new ArrayList<>();
 
         // Symfony UX supports short-form defaults:
@@ -144,7 +144,7 @@ public class UxUtil {
         return namespaces;
     }
 
-    public static void visitComponentsForIndex(@NotNull PhpFile phpFile, @NotNull Consumer<TwigComponentIndex> consumer) {
+    public static void visitComponentsForIndex(PhpFile phpFile, Consumer<TwigComponentIndex> consumer) {
         for (PhpNamedElement topLevelElement : phpFile.getTopLevelDefs().values()) {
             if (topLevelElement instanceof PhpClass clazz) {
                 for (Map.Entry<TwigComponentType, String> entry : COMPONENTS.entrySet()) {
@@ -173,7 +173,7 @@ public class UxUtil {
      * - \App\Twig\Components\Alert -> components/Alert.html.twig
      * - \App\Twig\Components\ShopCard -> components/shop/Card.html.twig from the compiled container
      */
-    public static Collection<String> getComponentTemplatesForPhpClass(@NotNull PhpClass phpClass) {
+    public static Collection<String> getComponentTemplatesForPhpClass(PhpClass phpClass) {
         Set<String> templates = new HashSet<>();
         String fqn = phpClass.getFQN();
 
@@ -246,23 +246,22 @@ public class UxUtil {
         return templates;
     }
 
-    public static Set<String> getTwigComponentNames(@NotNull Project project) {
+    public static Set<String> getTwigComponentNames(Project project) {
         // @TODO filter TwigComponentType.TWIG_COMPONENT
         return getAllComponentNames(project).stream().map(TwigComponent::name).collect(Collectors.toSet());
     }
 
     @Nullable
-    public static String resolveTwigComponentName(@NotNull Project project, @NotNull String name) {
+    public static String resolveTwigComponentName(Project project, String name) {
         Set<String> names = getTwigComponentNames(project);
         return names.contains(name) ? name : null;
     }
 
-    public static boolean hasTwigComponentName(@NotNull Project project, @NotNull String name) {
+    public static boolean hasTwigComponentName(Project project, String name) {
         return resolveTwigComponentName(project, name) != null;
     }
 
-    @NotNull
-    private static Set<String> getAnonymousTemplateDirectories(@NotNull Project project) {
+    private static Set<String> getAnonymousTemplateDirectories(Project project) {
         Set<String> list = new LinkedHashSet<>();
 
         // Source A: YAML config via index (twig_component.anonymous_template_directory)
@@ -293,8 +292,7 @@ public class UxUtil {
      * {@code TwigComponentPass} does at compile time: {@code findTaggedServiceIds('twig.component')},
      * reading the "key" and "template" tag attributes for each match.
      */
-    @NotNull
-    private static Collection<UxComponent> getTagComponents(@NotNull Project project) {
+    private static Collection<UxComponent> getTagComponents(Project project) {
         return CachedValuesManager.getManager(project).getCachedValue(
             project,
             TAG_COMPONENTS,
@@ -306,8 +304,7 @@ public class UxUtil {
         );
     }
 
-    @NotNull
-    private static Collection<UxComponent> getTagComponentsInner(@NotNull Project project) {
+    private static Collection<UxComponent> getTagComponentsInner(Project project) {
         Collection<UxComponent> components = new ArrayList<>();
 
         for (String serviceId : ServiceUtil.getTaggedServices(project, TWIG_COMPONENT_TAG)) {
@@ -330,7 +327,7 @@ public class UxUtil {
         return components;
     }
 
-    private static void visitServiceTags(@NotNull String serviceId, @NotNull PsiElement psiElement, @NotNull String tagName, @NotNull Consumer<ServiceTagInterface> consumer) {
+    private static void visitServiceTags(String serviceId, PsiElement psiElement, String tagName, Consumer<ServiceTagInterface> consumer) {
         if (psiElement instanceof YAMLKeyValue yamlKeyValue) {
             YamlHelper.visitTagsOnServiceDefinition(yamlKeyValue, tag -> {
                 if (tagName.equals(tag.getName())) {
@@ -358,7 +355,7 @@ public class UxUtil {
      * still resolved (independently of naming) when the class falls under one, so the template directory
      * conventions in {@link #getComponentTemplates} keep working.
      */
-    private static void mergeTagComponent(@NotNull Map<String, TwigComponent> names, @NotNull UxComponent value, @NotNull Collection<TwigComponentNamespace> namespaces) {
+    private static void mergeTagComponent(Map<String, TwigComponent> names, UxComponent value, Collection<TwigComponentNamespace> namespaces) {
         NamespaceMatch match = findMatchingNamespace(value.phpClass(), namespaces);
 
         String name = value.name();
@@ -376,7 +373,7 @@ public class UxUtil {
     }
 
     @Nullable
-    private static String removeNamePrefix(@NotNull String componentName, @Nullable String namePrefix) {
+    private static String removeNamePrefix(String componentName, @Nullable String namePrefix) {
         if (StringUtils.isBlank(namePrefix)) {
             return componentName;
         }
@@ -385,8 +382,7 @@ public class UxUtil {
         return componentName.startsWith(prefix) ? componentName.substring(prefix.length()) : null;
     }
 
-    @NotNull
-    private static String addNamePrefix(@NotNull String componentName, @Nullable String namePrefix) {
+    private static String addNamePrefix(String componentName, @Nullable String namePrefix) {
         return StringUtils.isBlank(namePrefix) ? componentName : namePrefix + ":" + componentName;
     }
 
@@ -395,14 +391,14 @@ public class UxUtil {
      * every caller needs both: the namespace for template-directory/name-prefix conventions, and the
      * prefix length to cut the class FQN down to its component name.
      */
-    private record NamespaceMatch(@NotNull TwigComponentNamespace namespace, @NotNull String prefix) {}
+    private record NamespaceMatch(TwigComponentNamespace namespace, String prefix) {}
 
     /**
      * Finds the first namespace (in declaration order, matching Symfony UX's own first-match resolution)
      * whose class prefix contains {@code phpClassFqn}, or {@code null} if none matches.
      */
     @Nullable
-    private static NamespaceMatch findMatchingNamespace(@NotNull String phpClassFqn, @NotNull Collection<TwigComponentNamespace> namespaces) {
+    private static NamespaceMatch findMatchingNamespace(String phpClassFqn, Collection<TwigComponentNamespace> namespaces) {
         for (TwigComponentNamespace namespace : namespaces) {
             String prefix = "\\" + StringUtils.strip(namespace.namespace(), "\\") + "\\";
             if (phpClassFqn.startsWith(prefix)) {
@@ -413,7 +409,7 @@ public class UxUtil {
         return null;
     }
 
-    public static Collection<TwigComponent> getAllComponentNames(@NotNull Project project) {
+    public static Collection<TwigComponent> getAllComponentNames(Project project) {
         Map<String, TwigComponent> names = new HashMap<>();
         Collection<TwigComponentNamespace> namespaces = getNamespaces(project);
 
@@ -462,13 +458,13 @@ public class UxUtil {
 
                 if (namespace == null && twigPath.isGlobalNamespace() && twigPath.getNamespaceType() == TwigUtil.NamespaceType.ADD_PATH) {
                     VirtualFile directory = twigPath.getDirectory(project);
-                    relativeFile = VfsUtil.findRelativeFile(directory, StringUtils.strip(valueValue.replace("\\", "/"), "/").split("/"));
+                    relativeFile = VirtualFileUtil.findRelativeFile(directory, StringUtils.strip(valueValue.replace("\\", "/"), "/").split("/"));
                 } else if (namespace != null && twigPath.getNamespaceType() == TwigUtil.NamespaceType.ADD_PATH && namespace.equals(twigPath.getNamespace())) {
                     // @namespace resolve
                     VirtualFile directory = twigPath.getDirectory(project);
                     String[] split2 = StringUtils.strip(valueValue.replace("\\", "/"), "/").split("/");
                     String[] split = Arrays.copyOfRange(split2, 1, split2.length);
-                    relativeFile = VfsUtil.findRelativeFile(directory, split);
+                    relativeFile = VirtualFileUtil.findRelativeFile(directory, split);
                 }
 
                 if (relativeFile == null) {
@@ -486,8 +482,7 @@ public class UxUtil {
         return names.values();
     }
 
-    @NotNull
-    private static Collection<TwigComponent> getNamespacedAnonymousComponents(@NotNull Project project) {
+    private static Collection<TwigComponent> getNamespacedAnonymousComponents(Project project) {
         return CachedValuesManager.getManager(project).getCachedValue(
             project,
             NAMESPACED_ANONYMOUS_COMPONENTS,
@@ -499,8 +494,7 @@ public class UxUtil {
         );
     }
 
-    @NotNull
-    private static Collection<TwigComponent> getNamespacedAnonymousComponentsInner(@NotNull Project project) {
+    private static Collection<TwigComponent> getNamespacedAnonymousComponentsInner(Project project) {
         Map<String, TwigComponent> names = new HashMap<>();
 
         for (TwigPath twigPath : TwigUtil.getTwigNamespaces(project)) {
@@ -509,7 +503,7 @@ public class UxUtil {
             }
 
             VirtualFile directory = twigPath.getDirectory(project);
-            VirtualFile componentsDirectory = directory != null ? VfsUtil.findRelativeFile(directory, "components") : null;
+            VirtualFile componentsDirectory = directory != null ? VirtualFileUtil.findRelativeFile(directory, "components") : null;
             if (componentsDirectory == null) {
                 continue;
             }
@@ -520,10 +514,10 @@ public class UxUtil {
         return names.values();
     }
 
-    private static void visitAnonymousTemplateComponents(@NotNull VirtualFile rootDirectory, @Nullable String namePrefix, @NotNull Map<String, TwigComponent> names) {
-        VfsUtil.visitChildrenRecursively(rootDirectory, new VirtualFileVisitor<>() {
+    private static void visitAnonymousTemplateComponents(VirtualFile rootDirectory, @Nullable String namePrefix, Map<String, TwigComponent> names) {
+        VirtualFileUtil.visitChildrenRecursively(rootDirectory, new VirtualFileVisitor<>() {
             @Override
-            public boolean visitFile(@NotNull VirtualFile file) {
+            public boolean visitFile(VirtualFile file) {
                 if (file.isDirectory()) {
                     return super.visitFile(file);
                 }
@@ -532,7 +526,7 @@ public class UxUtil {
                     return super.visitFile(file);
                 }
 
-                String relativePath = VfsUtil.getRelativePath(file, rootDirectory, '/');
+                String relativePath = VirtualFileUtil.getRelativePath(file, rootDirectory, '/');
                 if (relativePath == null) {
                     return super.visitFile(file);
                 }
@@ -548,8 +542,7 @@ public class UxUtil {
         });
     }
 
-    @NotNull
-    public static Set<PhpClass> getTwigComponentPhpClasses(@NotNull Project project, @NotNull String component) {
+    public static Set<PhpClass> getTwigComponentPhpClasses(Project project, String component) {
         Set<PhpClass> phpClasses = new HashSet<>();
 
         for (TwigComponent entry : getAllComponentNames(project)) {
@@ -573,7 +566,7 @@ public class UxUtil {
      * - Alert -> templates/components/Alert.html.twig
      * - Shop:Card -> templates/components/Shop/Card.html.twig
      */
-    public static Collection<PsiFile> getComponentTemplates(@NotNull Project project, @NotNull String component) {
+    public static Collection<PsiFile> getComponentTemplates(Project project, String component) {
         Collection<VirtualFile> virtualFiles = new LinkedHashSet<>();
 
         for (TwigComponent entry: getAllComponentNames(project)) {
@@ -605,7 +598,7 @@ public class UxUtil {
     }
 
     @Nullable
-    private static String getAnonymousComponentNameFromRelativePath(@NotNull String relativePath) {
+    private static String getAnonymousComponentNameFromRelativePath(String relativePath) {
         // Normalize Twig template names to component names (e.g. "Nav/index.html.twig" -> "Nav:index")
         String normalized = relativePath.replace("/", ":").replaceAll("(\\.html)?\\.twig$", "");
         if (normalized.isBlank()) {
@@ -626,7 +619,7 @@ public class UxUtil {
         return normalized;
     }
 
-    private static void addAnonymousComponentTemplateFiles(@NotNull Project project, @NotNull String component, @NotNull Collection<VirtualFile> virtualFiles) {
+    private static void addAnonymousComponentTemplateFiles(Project project, String component, Collection<VirtualFile> virtualFiles) {
         String componentPath = component.replace(":", "/");
         for (String directory : getAnonymousTemplateDirectories(project)) {
             String templateName = StringUtils.strip(directory, "/") + "/" + componentPath + ".html.twig";
@@ -655,8 +648,7 @@ public class UxUtil {
         addTemplateFilesWithFallback(project, "@" + namespace + "/components/" + componentName + "/index.html.twig", virtualFiles);
     }
 
-    @NotNull
-    public static Set<String> getTemplateComponentNames(@NotNull TwigFile twigFile) {
+    public static Set<String> getTemplateComponentNames(TwigFile twigFile) {
         Project project = twigFile.getProject();
         Set<String> names = new HashSet<>();
 
@@ -682,7 +674,7 @@ public class UxUtil {
         return names;
     }
 
-    public static boolean hasComponentUsages(@NotNull TwigFile twigFile) {
+    public static boolean hasComponentUsages(TwigFile twigFile) {
         Project project = twigFile.getProject();
         Collection<String> componentNames = getTemplateComponentNames(twigFile);
         VirtualFile excludeFile = twigFile.getVirtualFile();
@@ -723,7 +715,7 @@ public class UxUtil {
      * - components/Alert.html.twig resolved by Twig namespaces
      * - templates/components/Alert.html.twig via project fallback
      */
-    private static boolean addTemplateFilesWithFallback(@NotNull Project project, @NotNull String templateName, @NotNull Collection<VirtualFile> virtualFiles) {
+    private static boolean addTemplateFilesWithFallback(Project project, String templateName, Collection<VirtualFile> virtualFiles) {
         // Use Twig's resolver first, including configured namespaces like "@Admin/components/Card.html.twig".
         Collection<VirtualFile> files = TwigUtil.getTemplateFiles(project, templateName);
         if (!files.isEmpty()) {
@@ -737,9 +729,9 @@ public class UxUtil {
         }
 
         // Compiled UX metadata stores names relative to templates/, for example "components/Alert.html.twig".
-        VirtualFile templatesDir = VfsUtil.findRelativeFile(baseDir, "templates");
+        VirtualFile templatesDir = VirtualFileUtil.findRelativeFile(baseDir, "templates");
         if (templatesDir != null) {
-            VirtualFile virtualFile = VfsUtil.findRelativeFile(templatesDir, templateName.split("/"));
+            VirtualFile virtualFile = VirtualFileUtil.findRelativeFile(templatesDir, templateName.split("/"));
             if (virtualFile != null) {
                 virtualFiles.add(virtualFile);
                 return true;
@@ -749,9 +741,8 @@ public class UxUtil {
         return false;
     }
 
-    @NotNull
-    public static Collection<PhpClass> getComponentClassesForTemplateFile(@NotNull Project project, @NotNull PsiFile psiFile) {
-        Collection<String> phpClassFqns = CachedValuesManager.getCachedValue(
+    public static Collection<PhpClass> getComponentClassesForTemplateFile(Project project, PsiFile psiFile) {
+        Collection<String> phpClassFqns = LanguageCachedValueUtil.getCachedValue(
             psiFile,
             COMPONENT_CLASS_FQNS_FOR_TEMPLATE_FILE,
             () -> CachedValueProvider.Result.create(
@@ -775,8 +766,7 @@ public class UxUtil {
         return phpClasses;
     }
 
-    @NotNull
-    private static Collection<String> getComponentClassFqnsForTemplateFileInner(@NotNull Project project, @NotNull PsiFile psiFile) {
+    private static Collection<String> getComponentClassFqnsForTemplateFileInner(Project project, PsiFile psiFile) {
         Collection<String> phpClassFqns = new HashSet<>();
 
         for (String template : TwigUtil.getTemplateNamesForFile(psiFile)) {
@@ -817,23 +807,21 @@ public class UxUtil {
     }
 
     @Nullable
-    private static UxComponentFactoryParser getCompiledTwigComponentFactoryParser(@NotNull Project project) {
+    private static UxComponentFactoryParser getCompiledTwigComponentFactoryParser(Project project) {
         return ServiceXmlParserFactory.getInstance(project, UxComponentFactoryParser.class);
     }
 
-    @NotNull
     private static Map<String, CompiledTwigComponent> getCompiledTwigComponents(@Nullable UxComponentFactoryParser parser) {
         return parser != null ? parser.getComponents() : Collections.emptyMap();
     }
 
-    @NotNull
-    private static Map<String, CompiledTwigComponent> getCompiledTwigComponents(@NotNull Project project) {
+    private static Map<String, CompiledTwigComponent> getCompiledTwigComponents(Project project) {
         return getCompiledTwigComponents(getCompiledTwigComponentFactoryParser(project));
     }
 
     private static void mergeCompiledComponent(
-        @NotNull Map<String, TwigComponent> components,
-        @NotNull CompiledTwigComponent compiledComponent
+        Map<String, TwigComponent> components,
+        CompiledTwigComponent compiledComponent
     ) {
         TwigComponent existing = components.get(compiledComponent.name());
 
@@ -857,14 +845,14 @@ public class UxUtil {
         ));
     }
 
-    private static Collection<UxComponent> getComponentsWithTemplates(@NotNull Project project) {
+    private static Collection<UxComponent> getComponentsWithTemplates(Project project) {
         return IndexUtil.getAllKeysForProject(UxTemplateStubIndex.KEY, project)
             .stream().flatMap(key -> FileBasedIndex.getInstance().getValues(UxTemplateStubIndex.KEY, key, GlobalSearchScope.allScope(project)).stream())
             .filter(value -> value.template() != null)
             .collect(Collectors.toList());
     }
 
-    public static Set<PhpClass> getTwigComponentAllTargets(@NotNull Project project) {
+    public static Set<PhpClass> getTwigComponentAllTargets(Project project) {
         Set<PhpClass> phpClasses = new HashSet<>();
 
         for (TwigComponent entry : getAllComponentNames(project)) {
@@ -882,7 +870,7 @@ public class UxUtil {
     }
 
 
-    public static Collection<LookupElement> getComponentLookupElements(@NotNull Project project) {
+    public static Collection<LookupElement> getComponentLookupElements(Project project) {
         Map<String, String> components = new HashMap<>();
 
         for (TwigComponent entry : getAllComponentNames(project)) {
@@ -899,7 +887,7 @@ public class UxUtil {
             .collect(Collectors.toList());
     }
 
-    public static void visitComponentVariables(@NotNull PhpClass phpClass, @NotNull Consumer<Pair<String, PhpNamedElement>> consumer) {
+    public static void visitComponentVariables(PhpClass phpClass, Consumer<Pair<String, PhpNamedElement>> consumer) {
         for (Field field : phpClass.getFields()) {
             if (field.getModifier().isPublic()) {
                 for (String name : getExposeName(field)) {
@@ -923,7 +911,7 @@ public class UxUtil {
         }
     }
 
-    public static void visitComponentTemplateProps(@NotNull Project project, @NotNull String componentName, @NotNull Consumer<Pair<String, PsiElement>> consumer) {
+    public static void visitComponentTemplateProps(Project project, String componentName, Consumer<Pair<String, PsiElement>> consumer) {
         for (PsiFile componentTemplate : getComponentTemplates(project, componentName)) {
             if (componentTemplate instanceof TwigFile twigFile) {
                 visitComponentTemplateProps(twigFile, consumer);
@@ -931,7 +919,7 @@ public class UxUtil {
         }
     }
 
-    public static void visitComponentTemplateProps(@NotNull TwigFile twigFile, @NotNull Consumer<Pair<String, PsiElement>> consumer) {
+    public static void visitComponentTemplateProps(TwigFile twigFile, Consumer<Pair<String, PsiElement>> consumer) {
         for (ParsedProp prop : parseComponentTemplateProps(twigFile)) {
             PsiElement target = prop.nameOffset() >= 0 ? twigFile.findElementAt(prop.nameOffset()) : null;
             consumer.accept(new Pair<>(prop.name(), target != null ? target : twigFile));
@@ -943,7 +931,7 @@ public class UxUtil {
      * comment (Twig 3.29 documentation comment) merged with the default value declared in the same
      * {@code {% props %}} tag. {@code type} and {@code description} are empty when the prop has no doc comment.
      */
-    public record TwigComponentProp(@NotNull String name, @NotNull String type, @NotNull String description, @Nullable String defaultValue) {}
+    public record TwigComponentProp(String name, String type, String description, @Nullable String defaultValue) {}
 
     /**
      * Matches a whole {@code {%- props ... -%}} tag; group 1 is the body between {@code props} and the close.
@@ -968,8 +956,7 @@ public class UxUtil {
      *
      * @return prop name to its documentation, in declaration order
      */
-    @NotNull
-    public static Map<String, TwigComponentProp> getComponentTemplateProps(@NotNull TwigFile twigFile) {
+    public static Map<String, TwigComponentProp> getComponentTemplateProps(TwigFile twigFile) {
         Map<String, TwigComponentProp> props = new LinkedHashMap<>();
         for (ParsedProp prop : parseComponentTemplateProps(twigFile)) {
             props.put(prop.name(), new TwigComponentProp(prop.name(), prop.type(), prop.description(), prop.defaultValue()));
@@ -981,14 +968,13 @@ public class UxUtil {
      * A prop parsed from the {@code {% props %}} tag, plus {@code nameOffset}: the absolute file offset of
      * the name token (or {@code -1} if unknown), used to resolve a navigable PSI element.
      */
-    private record ParsedProp(@NotNull String name, @NotNull String type, @NotNull String description, @Nullable String defaultValue, int nameOffset) {}
+    private record ParsedProp(String name, String type, String description, @Nullable String defaultValue, int nameOffset) {}
 
     /**
      * Scans the component's {@code {% props %}} tag once from its raw text (see {@link #getComponentTemplateProps}
      * for why PSI tokens cannot be trusted here) and returns every declared prop in declaration order.
      */
-    @NotNull
-    private static List<ParsedProp> parseComponentTemplateProps(@NotNull TwigFile twigFile) {
+    private static List<ParsedProp> parseComponentTemplateProps(TwigFile twigFile) {
         Matcher tag = PROPS_TAG_PATTERN.matcher(twigFile.getText());
         if (!tag.find()) {
             return Collections.emptyList();
@@ -1050,7 +1036,7 @@ public class UxUtil {
         return props;
     }
 
-    private static void collectParsedProp(@NotNull StringBuilder segment, int segmentStart, int bodyStart, @NotNull List<String> pendingDoc, @NotNull List<ParsedProp> props) {
+    private static void collectParsedProp(StringBuilder segment, int segmentStart, int bodyStart, List<String> pendingDoc, List<ParsedProp> props) {
         String code = segment.toString().trim();
         segment.setLength(0);
 
@@ -1082,8 +1068,7 @@ public class UxUtil {
     /**
      * Prop name to its default value (as written) for every prop that declares one; required props are excluded.
      */
-    @NotNull
-    public static Map<String, String> getComponentTemplatePropDefaults(@NotNull TwigFile twigFile) {
+    public static Map<String, String> getComponentTemplatePropDefaults(TwigFile twigFile) {
         Map<String, String> defaults = new LinkedHashMap<>();
         for (TwigComponentProp prop : getComponentTemplateProps(twigFile).values()) {
             if (prop.defaultValue() != null) {
@@ -1094,7 +1079,7 @@ public class UxUtil {
     }
 
 
-    private static Collection<String> getExposeName(@NotNull PhpAttributesOwner phpAttributesOwner) {
+    private static Collection<String> getExposeName(PhpAttributesOwner phpAttributesOwner) {
         Collection<String> names = new HashSet<>();
 
         // public state
@@ -1135,10 +1120,10 @@ public class UxUtil {
         TWIG_COMPONENT,
     }
 
-    public record TwigComponentIndex(@Nullable String name, @NotNull PhpClass phpClass, @Nullable String template, @NotNull TwigComponentType type) {}
+    public record TwigComponentIndex(@Nullable String name, PhpClass phpClass, @Nullable String template, TwigComponentType type) {}
 
     public record TwigComponent(
-        @NotNull String name,
+        String name,
         @Nullable String phpClass,
         @Nullable TwigComponentNamespace twigComponentNamespace,
         @Nullable String template,

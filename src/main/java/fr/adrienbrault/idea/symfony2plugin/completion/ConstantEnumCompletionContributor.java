@@ -1,23 +1,30 @@
 package fr.adrienbrault.idea.symfony2plugin.completion;
 
-import com.intellij.codeInsight.completion.*;
-import com.intellij.codeInsight.lookup.LookupElementBuilder;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.util.PsiTreeUtil;
-import com.intellij.util.ProcessingContext;
+import com.jetbrains.php.lang.PhpLanguage;
 import com.jetbrains.php.lang.psi.elements.*;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.Language;
+import consulo.language.editor.completion.CompletionContributor;
+import consulo.language.editor.completion.CompletionParameters;
+import consulo.language.editor.completion.CompletionProvider;
+import consulo.language.editor.completion.CompletionResultSet;
+import consulo.language.editor.completion.CompletionType;
+import consulo.language.editor.completion.lookup.LookupElementBuilder;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.util.PsiTreeUtil;
+import consulo.language.util.ProcessingContext;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.completion.constant.ConstantEnumCompletionProvider;
 import fr.adrienbrault.idea.symfony2plugin.completion.constant.EnumConstantFilter;
 import fr.adrienbrault.idea.symfony2plugin.completion.lookup.PhpConstantFieldPhpLookupElement;
 import fr.adrienbrault.idea.symfony2plugin.util.MethodMatcher;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class ConstantEnumCompletionContributor extends CompletionContributor {
     public static final ConstantEnumCompletionProvider[] CONSTANTS_ENUMS = new ConstantEnumCompletionProvider[] {
         new ConstantEnumCompletionProvider(
@@ -37,9 +44,9 @@ public class ConstantEnumCompletionContributor extends CompletionContributor {
         // fields
 
         // $this->method(TEST:HTTP);
-        extend(CompletionType.BASIC, PlatformPatterns.psiElement(), new CompletionProvider<>() {
+        extend(CompletionType.BASIC, PlatformPatterns.psiElement(), new CompletionProvider() {
             @Override
-            protected void addCompletions(@NotNull CompletionParameters completionParameters, @NotNull ProcessingContext processingContext, @NotNull CompletionResultSet completionResultSet) {
+            public void addCompletions(CompletionParameters completionParameters, ProcessingContext processingContext, CompletionResultSet completionResultSet) {
                 PsiElement psiElement = completionParameters.getOriginalPosition();
                 if (!Symfony2ProjectComponent.isEnabled(psiElement) || !(psiElement.getParent() instanceof MethodReference)) {
                     return;
@@ -55,9 +62,9 @@ public class ConstantEnumCompletionContributor extends CompletionContributor {
         });
 
         // $test = TEST::HTTP
-        extend(CompletionType.BASIC, PlatformPatterns.psiElement(), new CompletionProvider<>() {
+        extend(CompletionType.BASIC, PlatformPatterns.psiElement(), new CompletionProvider() {
             @Override
-            protected void addCompletions(@NotNull CompletionParameters completionParameters, @NotNull ProcessingContext processingContext, @NotNull CompletionResultSet completionResultSet) {
+            public void addCompletions(CompletionParameters completionParameters, ProcessingContext processingContext, CompletionResultSet completionResultSet) {
 
                 PsiElement psiElement = completionParameters.getOriginalPosition();
                 if (!Symfony2ProjectComponent.isEnabled(psiElement)) {
@@ -86,9 +93,9 @@ public class ConstantEnumCompletionContributor extends CompletionContributor {
 
         });
 
-        extend(CompletionType.BASIC, PlatformPatterns.psiElement(), new CompletionProvider<>() {
+        extend(CompletionType.BASIC, PlatformPatterns.psiElement(), new CompletionProvider() {
             @Override
-            protected void addCompletions(@NotNull CompletionParameters completionParameters, @NotNull ProcessingContext processingContext, @NotNull CompletionResultSet completionResultSet) {
+            public void addCompletions(CompletionParameters completionParameters, ProcessingContext processingContext, CompletionResultSet completionResultSet) {
 
                 PsiElement psiElement = completionParameters.getOriginalPosition();
                 if (!Symfony2ProjectComponent.isEnabled(psiElement)) {
@@ -119,9 +126,9 @@ public class ConstantEnumCompletionContributor extends CompletionContributor {
 
         // strings
 
-        extend(CompletionType.BASIC, PlatformPatterns.psiElement(), new CompletionProvider<>() {
+        extend(CompletionType.BASIC, PlatformPatterns.psiElement(), new CompletionProvider() {
             @Override
-            protected void addCompletions(@NotNull CompletionParameters completionParameters, @NotNull ProcessingContext processingContext, @NotNull CompletionResultSet completionResultSet) {
+            public void addCompletions(CompletionParameters completionParameters, ProcessingContext processingContext, CompletionResultSet completionResultSet) {
 
                 PsiElement psiElement = completionParameters.getPosition().getOriginalElement();
                 if (!(psiElement.getParent() instanceof StringLiteralExpression) || !Symfony2ProjectComponent.isEnabled(psiElement)) {
@@ -142,9 +149,9 @@ public class ConstantEnumCompletionContributor extends CompletionContributor {
 
         });
 
-        extend(CompletionType.BASIC, PlatformPatterns.psiElement(), new CompletionProvider<>() {
+        extend(CompletionType.BASIC, PlatformPatterns.psiElement(), new CompletionProvider() {
             @Override
-            protected void addCompletions(@NotNull CompletionParameters completionParameters, @NotNull ProcessingContext processingContext, @NotNull CompletionResultSet completionResultSet) {
+            public void addCompletions(CompletionParameters completionParameters, ProcessingContext processingContext, CompletionResultSet completionResultSet) {
 
                 PsiElement psiElement = completionParameters.getPosition().getOriginalElement();
                 if (!(psiElement.getParent() instanceof StringLiteralExpression) || !Symfony2ProjectComponent.isEnabled(psiElement)) {
@@ -201,4 +208,8 @@ public class ConstantEnumCompletionContributor extends CompletionContributor {
 
     }
 
+    @Override
+    public Language getLanguage() {
+        return PhpLanguage.INSTANCE;
+    }
 }

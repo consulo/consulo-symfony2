@@ -1,16 +1,15 @@
 package fr.adrienbrault.idea.symfony2plugin.profiler.factory;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.vfs.VfsUtil;
-import com.intellij.openapi.vfs.VirtualFile;
+import consulo.project.Project;
+import consulo.virtualFileSystem.util.VirtualFileUtil;
+import consulo.virtualFileSystem.VirtualFile;
 import fr.adrienbrault.idea.symfony2plugin.Settings;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.profiler.LocalProfilerIndex;
 import fr.adrienbrault.idea.symfony2plugin.profiler.ProfilerIndexInterface;
 import fr.adrienbrault.idea.symfony2plugin.util.ProjectUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.io.File;
 
@@ -20,7 +19,7 @@ import java.io.File;
 public class LocalProfilerFactory implements ProfilerFactoryInterface {
     @Nullable
     @Override
-    public ProfilerIndexInterface createProfilerIndex(@NotNull Project project) {
+    public ProfilerIndexInterface createProfilerIndex(Project project) {
         File csvIndex = findCsvProfilerFile(project);
         if (csvIndex == null) {
             return null;
@@ -42,31 +41,31 @@ public class LocalProfilerFactory implements ProfilerFactoryInterface {
      * find csv on settings or container configuration
      */
     @Nullable
-    private File findCsvProfilerFile(@NotNull Project project) {
+    private File findCsvProfilerFile(Project project) {
         String profilerCsvPath = Settings.getInstance(project).profilerCsvPath;
         if (StringUtils.isBlank(profilerCsvPath)) {
             return getCsvIndex(project);
         }
 
-        VirtualFile relativeFile = VfsUtil.findRelativeFile(ProjectUtil.getProjectDir(project), profilerCsvPath.replace("\\", "/").split("/"));
+        VirtualFile relativeFile = VirtualFileUtil.findRelativeFile(ProjectUtil.getProjectDir(project), profilerCsvPath.replace("\\", "/").split("/"));
         if (relativeFile != null) {
-            return VfsUtil.virtualToIoFile(relativeFile);
+            return VirtualFileUtil.virtualToIoFile(relativeFile);
         }
 
         return null;
     }
 
     @Nullable
-    protected File getCsvIndex(@NotNull Project project) {
+    protected File getCsvIndex(Project project) {
         for (VirtualFile file : Symfony2ProjectComponent.getContainerFiles(project)) {
             VirtualFile parent = file.getParent();
             if (parent == null) {
                 continue;
             }
 
-            VirtualFile csvFile = VfsUtil.findRelativeFile(parent, "profiler", "index.csv");
+            VirtualFile csvFile = VirtualFileUtil.findRelativeFile(parent, "profiler", "index.csv");
             if (csvFile != null && csvFile.exists()) {
-                return VfsUtil.virtualToIoFile(csvFile);
+                return VirtualFileUtil.virtualToIoFile(csvFile);
             }
         }
 
@@ -74,7 +73,7 @@ public class LocalProfilerFactory implements ProfilerFactoryInterface {
     }
 
     @Override
-    public boolean accepts(@NotNull Project project) {
+    public boolean accepts(Project project) {
         return Settings.getInstance(project).profilerLocalEnabled;
     }
 }

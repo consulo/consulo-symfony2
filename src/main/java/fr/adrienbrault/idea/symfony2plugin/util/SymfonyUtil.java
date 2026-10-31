@@ -1,18 +1,17 @@
 package fr.adrienbrault.idea.symfony2plugin.util;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.Key;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.util.CachedValue;
-import com.intellij.psi.util.CachedValueProvider;
-import com.intellij.psi.util.CachedValuesManager;
-import com.intellij.psi.util.PsiModificationTracker;
-import com.intellij.util.text.VersionComparatorUtil;
 import com.jetbrains.php.lang.PhpLanguage;
 import com.jetbrains.php.lang.psi.elements.Field;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
 import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
-import org.jetbrains.annotations.NotNull;
+import consulo.application.util.CachedValue;
+import consulo.application.util.CachedValueProvider;
+import consulo.application.util.CachedValuesManager;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiModificationTracker;
+import consulo.project.Project;
+import consulo.util.dataholder.Key;
+import consulo.util.lang.VersionComparatorUtil;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -26,7 +25,7 @@ public class SymfonyUtil {
 
     private static final Key<CachedValue<Set<String>>> CACHE = new Key<>("SYMFONY_VERSION_CACHE");
 
-    private static boolean compare(@NotNull Project project, @NotNull String version, @NotNull Comparator comparator) {
+    private static boolean compare(Project project, String version, Comparator comparator) {
         Set<String> cache = CachedValuesManager.getManager(project).getCachedValue(
             project,
             CACHE,
@@ -43,8 +42,7 @@ public class SymfonyUtil {
         return false;
     }
 
-    @NotNull
-    public static Set<String> getVersions(@NotNull Project project) {
+    public static Set<String> getVersions(Project project) {
         Set<String> versions = new HashSet<>();
 
         for (PhpClass phpClass : PhpElementsUtil.getClassesInterface(project, "Symfony\\Component\\HttpKernel\\Kernel")) {
@@ -71,23 +69,23 @@ public class SymfonyUtil {
         return versions;
     }
 
-    public static boolean isVersionGreaterThenEquals(@NotNull Project project, @NotNull String version) {
+    public static boolean isVersionGreaterThenEquals(Project project, String version) {
         return compare(project, version, contents -> VersionComparatorUtil.compare(contents, version) >= 0);
     }
 
-    public static boolean isVersionGreaterThen(@NotNull Project project, @NotNull String version) {
+    public static boolean isVersionGreaterThen(Project project, String version) {
         return compare(project, version, contents -> VersionComparatorUtil.compare(contents, version) > 0);
     }
 
-    public static boolean isVersionLessThenEquals(@NotNull Project project, @NotNull String version) {
+    public static boolean isVersionLessThenEquals(Project project, String version) {
         return compare(project, version, contents -> VersionComparatorUtil.compare(contents, version) <= 0);
     }
 
-    public static boolean isVersionLessThen(@NotNull Project project, @NotNull String version) {
+    public static boolean isVersionLessThen(Project project, String version) {
         return compare(project, version, contents -> VersionComparatorUtil.compare(contents, version) < 0);
     }
 
     private interface Comparator {
-        boolean accepts(@NotNull String contents);
+        boolean accepts(String contents);
     }
 }

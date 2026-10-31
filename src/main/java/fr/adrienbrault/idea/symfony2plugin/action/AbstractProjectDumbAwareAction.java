@@ -1,33 +1,33 @@
 package fr.adrienbrault.idea.symfony2plugin.action;
 
-import com.intellij.openapi.actionSystem.ActionUpdateThread;
-import com.intellij.openapi.actionSystem.AnActionEvent;
-import com.intellij.openapi.actionSystem.PlatformDataKeys;
-import com.intellij.openapi.project.DumbAwareAction;
-import com.intellij.openapi.project.Project;
+import consulo.localize.LocalizeValue;
+import consulo.project.Project;
+import consulo.ui.ex.action.AnActionEvent;
+import consulo.ui.ex.action.AnActionWithAsyncUpdate;
+import consulo.ui.ex.action.DumbAwareAction;
+import consulo.ui.ex.action.coroutine.ActionSafeReadLock;
+import consulo.ui.image.Image;
+import consulo.util.concurrent.coroutine.Coroutine;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
-import org.jetbrains.annotations.NotNull;
-
-import javax.swing.*;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
-abstract public class AbstractProjectDumbAwareAction extends DumbAwareAction {
+abstract public class AbstractProjectDumbAwareAction extends DumbAwareAction implements AnActionWithAsyncUpdate {
+
+    public AbstractProjectDumbAwareAction(String text, String description, Image phpFile) {
+        super(LocalizeValue.localizeTODO(text), LocalizeValue.localizeTODO(description), phpFile);
+    }
 
     @Override
-    public @NotNull ActionUpdateThread getActionUpdateThread() {
-        return ActionUpdateThread.BGT;
+    public Coroutine<?, ?> updateAsync(AnActionEvent e) {
+        return Coroutine.first(ActionSafeReadLock.run(e, presentation -> update(e)));
     }
 
-    public AbstractProjectDumbAwareAction(String text, String description, Icon phpFile) {
-        super(text, description, phpFile);
-    }
-
-    public void update(@NotNull AnActionEvent event) {
+    public void update(AnActionEvent event) {
         setStatus(event, false);
 
-        Project project = event.getData(PlatformDataKeys.PROJECT);
+        Project project = event.getData(Project.KEY);
         if (Symfony2ProjectComponent.isEnabled(project)) {
             setStatus(event, true);
         }

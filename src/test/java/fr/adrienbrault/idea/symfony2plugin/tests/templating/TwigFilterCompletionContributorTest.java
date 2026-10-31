@@ -1,7 +1,9 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.templating;
 
-import com.intellij.codeInsight.lookup.LookupElementPresentation;
-import com.intellij.patterns.PlatformPatterns;
+import org.junit.jupiter.api.Test;
+
+import consulo.language.editor.completion.lookup.LookupElementPresentation;
+import consulo.language.pattern.PlatformPatterns;
 import com.jetbrains.php.lang.psi.elements.Function;
 import com.jetbrains.php.lang.psi.elements.Method;
 import com.jetbrains.twig.TwigFileType;
@@ -27,6 +29,8 @@ public class TwigFilterCompletionContributorTest extends SymfonyLightCodeInsight
     public String getTestDataPath() {
         return "src/test/java/fr/adrienbrault/idea/symfony2plugin/tests/templating/fixtures";
     }
+
+    @Test
 
     public void testTwigExtensionFilterCompletionAndNavigation() {
         assertCompletionContains(TwigFileType.INSTANCE, "{{ 'test'|<caret> }}", "doctrine_minify_query", "doctrine_pretty_query");
@@ -61,6 +65,7 @@ public class TwigFilterCompletionContributorTest extends SymfonyLightCodeInsight
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.templating.TwigTemplateCompletionContributor.TagTokenParserCompletionProvider
      */
+    @Test
     public void testTagAndSimpleTestCompletions() {
         assertCompletionContains(TwigFileType.INSTANCE, "{% <caret> %}", "foo_tag");
         assertCompletionContains(TwigFileType.INSTANCE, "{% if foo is <caret> %}", "bar_even");
@@ -75,6 +80,7 @@ public class TwigFilterCompletionContributorTest extends SymfonyLightCodeInsight
      * @see TwigPattern#getAfterOperatorPattern
      * @see fr.adrienbrault.idea.symfony2plugin.templating.TwigTemplateCompletionContributor.TwigSimpleTestParametersCompletionProvider
      */
+    @Test
     public void testOperatorExtension() {
         // Syntax variants are covered by TwigPatternTest.testAfterOperatorPatternForCompletionContexts.
         assertCompletionContains(TwigFileType.INSTANCE, "{% if foo <caret> %}",
@@ -92,6 +98,7 @@ public class TwigFilterCompletionContributorTest extends SymfonyLightCodeInsight
     /**
      * @see fr.adrienbrault.idea.symfony2plugin.templating.TwigTemplateCompletionContributor
      */
+    @Test
     public void testFunctionAndMacroCompletions() {
         assertNavigationContains(TwigFileType.INSTANCE, "{{ foo<caret>bar() }}", "Doctrine\\Bundle\\DoctrineBundle\\Twig\\DoctrineExtension::foobar");
         assertNavigationContains(TwigFileType.INSTANCE, "{{ json_<caret>bar() }}", "my_json_decode");
@@ -110,6 +117,7 @@ public class TwigFilterCompletionContributorTest extends SymfonyLightCodeInsight
      * @see fr.adrienbrault.idea.symfony2plugin.templating.TwigTemplateCompletionContributor
      * @see fr.adrienbrault.idea.symfony2plugin.templating.TwigTemplateGoToDeclarationHandler
      */
+    @Test
     public void testControllerReferences() {
         assertCompletionContains(TwigFileType.INSTANCE, "{{ controller('<caret>') }}", "FooBundle:Foo:bar");
         assertNavigationMatch(TwigFileType.INSTANCE, "{{ controller('FooBundl<caret>e:Foo:bar') }}", PlatformPatterns.psiElement(Method.class).withName("barAction"));
@@ -134,6 +142,7 @@ public class TwigFilterCompletionContributorTest extends SymfonyLightCodeInsight
      * @see fr.adrienbrault.idea.symfony2plugin.templating.TwigTemplateCompletionContributor
      * @see fr.adrienbrault.idea.symfony2plugin.templating.TwigTemplateGoToDeclarationHandler
      */
+    @Test
     public void testSetTagIsAvailableForFunctionReferences() {
         assertCompletionContains(TwigFileType.INSTANCE, "{% set = <caret> %}", "json_bar");
         assertNavigationMatch(TwigFileType.INSTANCE, "{% set = json_<caret>bar() %}", PlatformPatterns.psiElement(Function.class));

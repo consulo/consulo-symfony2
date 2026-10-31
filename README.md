@@ -17,7 +17,7 @@ IntelliJ IDEA / PhpStorm Symfony Plugin
 Install
 ---------------------
 * Install the plugin by going to `Settings -> Plugins -> Browse repositories` and then search for `Symfony`.
-* Enabled it per project (File -> Settings -> Languages & Framework -> PHP -> Symfony)
+* Enable it per module: File -> Project Structure -> select the PHP module -> check the "Symfony" module extension (all Symfony settings are configured there)
 * Install [Php Annotation](http://plugins.jetbrains.com/plugin/7320) plugin to enjoy all the annotation stuff
 * Plugin needs a valid PhpStorm indexer, use "File > Invalidate Caches / Restart" if something crazy is going on
 
@@ -50,7 +50,7 @@ Autocomplete (or something else) is not working! Help! :open_mouth:
 -------------------------------------------------------------------
 
 * You usually need to trigger the autocomplete popup yourself, by pressing CTRL+SPACE (maybe a different shortcut depending on your keymap).
-* Check your File -> Settings -> PHP -> Symfony -> Enable Plugin for this Project
+* Check that the "Symfony" module extension is enabled: File -> Project Structure -> module -> Symfony
 
 Technical Diagram (Work In Progress)
 --------------------

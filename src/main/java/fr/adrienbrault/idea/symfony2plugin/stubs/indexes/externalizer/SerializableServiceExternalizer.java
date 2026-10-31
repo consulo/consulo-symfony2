@@ -1,9 +1,8 @@
 package fr.adrienbrault.idea.symfony2plugin.stubs.indexes.externalizer;
 
-import com.intellij.util.io.DataExternalizer;
+import consulo.index.io.data.DataExternalizer;
 import fr.adrienbrault.idea.symfony2plugin.dic.container.SerializableService;
 import fr.adrienbrault.idea.symfony2plugin.dic.container.ServiceSerializable;
-import org.jetbrains.annotations.NotNull;
 
 import java.io.DataInput;
 import java.io.DataOutput;
@@ -19,7 +18,7 @@ public class SerializableServiceExternalizer implements DataExternalizer<Service
     public static final SerializableServiceExternalizer INSTANCE = new SerializableServiceExternalizer();
 
     @Override
-    public void save(@NotNull DataOutput out, ServiceSerializable value) throws IOException {
+    public void save(DataOutput out, ServiceSerializable value) throws IOException {
         if (!(value instanceof SerializableService service)) {
             throw new IOException("Unexpected type: " + value.getClass());
         }
@@ -41,7 +40,7 @@ public class SerializableServiceExternalizer implements DataExternalizer<Service
     }
 
     @Override
-    public SerializableService read(@NotNull DataInput in) throws IOException {
+    public SerializableService read(DataInput in) throws IOException {
         SerializableService service = new SerializableService(in.readUTF());
         service.setClassName(readNullableString(in));
         service.setIsPublic(readNullableBoolean(in));
@@ -60,18 +59,18 @@ public class SerializableServiceExternalizer implements DataExternalizer<Service
         return service;
     }
 
-    private static void writeNullableString(@NotNull DataOutput out, String value) throws IOException {
+    private static void writeNullableString(DataOutput out, String value) throws IOException {
         out.writeBoolean(value != null);
         if (value != null) {
             out.writeUTF(value);
         }
     }
 
-    private static String readNullableString(@NotNull DataInput in) throws IOException {
+    private static String readNullableString(DataInput in) throws IOException {
         return in.readBoolean() ? in.readUTF() : null;
     }
 
-    private static void writeNullableBoolean(@NotNull DataOutput out, Boolean value) throws IOException {
+    private static void writeNullableBoolean(DataOutput out, Boolean value) throws IOException {
         if (value == null) {
             out.writeByte(0);
         } else if (value) {
@@ -81,13 +80,13 @@ public class SerializableServiceExternalizer implements DataExternalizer<Service
         }
     }
 
-    private static Boolean readNullableBoolean(@NotNull DataInput in) throws IOException {
+    private static Boolean readNullableBoolean(DataInput in) throws IOException {
         byte b = in.readByte();
         if (b == 0) return null;
         return b == 1;
     }
 
-    private static void writeStringCollection(@NotNull DataOutput out, Collection<String> values) throws IOException {
+    private static void writeStringCollection(DataOutput out, Collection<String> values) throws IOException {
         Collection<String> filteredValues = new ArrayList<>();
         if (values != null) {
             for (String value : values) {
@@ -103,7 +102,7 @@ public class SerializableServiceExternalizer implements DataExternalizer<Service
         }
     }
 
-    private static Collection<String> readStringCollection(@NotNull DataInput in) throws IOException {
+    private static Collection<String> readStringCollection(DataInput in) throws IOException {
         int size = in.readInt();
         Collection<String> result = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {

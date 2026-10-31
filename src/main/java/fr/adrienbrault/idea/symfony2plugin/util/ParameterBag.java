@@ -1,6 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.util;
 
-import com.intellij.psi.PsiElement;
+import consulo.language.psi.PsiElement;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>

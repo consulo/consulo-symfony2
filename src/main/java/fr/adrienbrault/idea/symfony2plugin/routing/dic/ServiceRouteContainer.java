@@ -1,14 +1,14 @@
 package fr.adrienbrault.idea.symfony2plugin.routing.dic;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.Key;
-import com.intellij.openapi.vfs.VirtualFileManager;
-import com.intellij.psi.util.CachedValue;
-import com.intellij.psi.util.CachedValueProvider;
-import com.intellij.psi.util.CachedValuesManager;
-import com.jetbrains.php.lang.psi.stubs.indexes.PhpClassFqnIndex;
 import com.jetbrains.php.lang.psi.elements.Method;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
+import com.jetbrains.php.lang.psi.stubs.indexes.PhpClassFqnIndex;
+import consulo.application.util.CachedValue;
+import consulo.application.util.CachedValueProvider;
+import consulo.application.util.CachedValuesManager;
+import consulo.project.Project;
+import consulo.util.dataholder.Key;
+import consulo.virtualFileSystem.VirtualFileManager;
 import fr.adrienbrault.idea.symfony2plugin.routing.Route;
 import fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper;
 import fr.adrienbrault.idea.symfony2plugin.stubs.ContainerCollectionResolver;
@@ -20,7 +20,6 @@ import fr.adrienbrault.idea.symfony2plugin.util.SymfonyVarDirectoryWatcher;
 import fr.adrienbrault.idea.symfony2plugin.util.SymfonyVarDirectoryWatcherKt;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.ServiceUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 
@@ -34,18 +33,16 @@ public class ServiceRouteContainer  {
     // Holds the pre-split controller parts alongside the Route to avoid re-splitting on every lookup.
     private record RouteEntry(String serviceId, String methodName, Route route) {}
 
-    private record ServiceRouteData(@NotNull Map<String, List<RouteEntry>> routesByMethodName, @NotNull Set<String> serviceNames) {}
+    private record ServiceRouteData(Map<String, List<RouteEntry>> routesByMethodName, Set<String> serviceNames) {}
 
     /**
      * Returns service ids referenced by service-style route controllers.
      */
-    @NotNull
-    public static Set<String> getServiceNames(@NotNull Project project) {
+    public static Set<String> getServiceNames(Project project) {
         return getServiceRouteData(project).serviceNames();
     }
 
-    @NotNull
-    public static Collection<Route> getMethodMatchesForRouteController(@NotNull Method method) {
+    public static Collection<Route> getMethodMatchesForRouteController(Method method) {
         PhpClass originClass = method.getContainingClass();
         if(originClass == null) {
             return Collections.emptyList();
@@ -79,8 +76,7 @@ public class ServiceRouteContainer  {
         return routes;
     }
 
-    @NotNull
-    private static ServiceRouteData getServiceRouteData(@NotNull Project project) {
+    private static ServiceRouteData getServiceRouteData(Project project) {
         return CachedValuesManager.getManager(project).getCachedValue(
             project,
             SERVICE_ROUTE_DATA_CACHE,
@@ -92,7 +88,7 @@ public class ServiceRouteContainer  {
         );
     }
 
-    private static Object @NotNull [] getCacheDependencies(@NotNull Project project) {
+    private static Object[] getCacheDependencies(Project project) {
         return new Object[] {
             FileIndexCaches.getModificationTrackerForIndexId(project, RoutesStubIndex.KEY),
             SymfonyVarDirectoryWatcherKt.getSymfonyVarDirectoryWatcher(project).getModificationTracker(SymfonyVarDirectoryWatcher.Scope.ROUTES),
@@ -109,7 +105,7 @@ public class ServiceRouteContainer  {
      *
      * @param routes Unfiltered routes
      */
-    private static ServiceRouteData buildUncached(@NotNull Project project, @NotNull Map<String, Route> routes) {
+    private static ServiceRouteData buildUncached(Project project, Map<String, Route> routes) {
         Map<String, List<RouteEntry>> routesByMethodName = new HashMap<>();
         Set<String> serviceNames = new HashSet<>();
 

@@ -1,8 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.extension;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.vfs.VirtualFile;
-import org.jetbrains.annotations.NotNull;
+import consulo.project.Project;
+import consulo.virtualFileSystem.VirtualFile;
 
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -15,29 +14,25 @@ import java.util.Collection;
 @Deprecated
 public class CompiledServiceBuilderArguments {
 
-    public record StreamEntry(@NotNull InputStream stream, @NotNull VirtualFile virtualFile) {}
+    public record StreamEntry(InputStream stream, VirtualFile virtualFile) {}
 
-    @NotNull
     final private Collection<StreamEntry> streams = new ArrayList<>();
 
-    @NotNull
     private final Project project;
 
-    public CompiledServiceBuilderArguments(@NotNull Project project) {
+    public CompiledServiceBuilderArguments(Project project) {
         this.project = project;
     }
 
-    @NotNull
     public Project getProject() {
         return project;
     }
 
-    @NotNull
     public Collection<StreamEntry> getStreams() {
         return streams;
     }
 
-    public void addStream(@NotNull InputStream inputStream, @NotNull VirtualFile virtualFile) {
+    public void addStream(InputStream inputStream, VirtualFile virtualFile) {
         streams.add(new StreamEntry(inputStream, virtualFile));
     }
 }

@@ -1,10 +1,11 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.dic.container;
 
+import org.junit.jupiter.api.Test;
+
+import fr.adrienbrault.idea.symfony2plugin.tests.JUnit3Assert;
+
 import fr.adrienbrault.idea.symfony2plugin.dic.container.ServiceInterface;
 import fr.adrienbrault.idea.symfony2plugin.dic.container.XmlService;
-import org.jetbrains.annotations.NotNull;
-import org.junit.Assert;
-import org.junit.Test;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.xml.sax.InputSource;
@@ -19,7 +20,7 @@ import java.util.Collection;
  *
  * @see fr.adrienbrault.idea.symfony2plugin.dic.container.XmlService
  */
-public class XmlServiceTest extends Assert {
+public class XmlServiceTest extends JUnit3Assert {
     @Test
     public void testThatServiceIsGenerated() {
         assertEquals(
@@ -67,11 +68,11 @@ public class XmlServiceTest extends Assert {
         assertArrayEquals(new String[] {"foo_tag"}, tags.toArray(new String[0]));
     }
 
-    private ServiceInterface createServiceFromTag(@NotNull String content) {
+    private ServiceInterface createServiceFromTag(String content) {
         return XmlService.createFromXml(createElementFromTag(content));
     }
 
-    private Element createElementFromTag(@NotNull String content) {
+    private Element createElementFromTag(String content) {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         DocumentBuilder builder;
         try {

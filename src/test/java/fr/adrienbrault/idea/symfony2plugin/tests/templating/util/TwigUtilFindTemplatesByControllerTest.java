@@ -1,5 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.templating.util;
 
+import org.junit.jupiter.api.Test;
+
 import com.jetbrains.php.lang.PhpFileType;
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.PhpTwigTemplateUsageStubIndex;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
@@ -12,6 +14,8 @@ import java.util.*;
  * @see fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil#findTemplatesByControllers
  */
 public class TwigUtilFindTemplatesByControllerTest extends SymfonyLightCodeInsightFixtureTestCase {
+
+    @Test
 
     public void testFindTemplatesByControllersBatch() {
         myFixture.configureByText(PhpFileType.INSTANCE, "<?php\n" +
@@ -77,6 +81,8 @@ public class TwigUtilFindTemplatesByControllerTest extends SymfonyLightCodeInsig
         );
     }
 
+    @Test
+
     public void testFindTemplatesReturnsEmptyForUnknownController() {
         myFixture.configureByText(PhpFileType.INSTANCE, "<?php\n" +
             "namespace App\\Controller;\n" +
@@ -97,6 +103,8 @@ public class TwigUtilFindTemplatesByControllerTest extends SymfonyLightCodeInsig
 
         assertTrue(templates.isEmpty());
     }
+
+    @Test
 
     public void testFindTemplatesWithLeadingBackslash() {
         myFixture.configureByText(PhpFileType.INSTANCE, "<?php\n" +

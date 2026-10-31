@@ -1,15 +1,19 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.annotation;
 
-import com.intellij.lang.annotation.AnnotationHolder;
-import com.intellij.lang.annotation.Annotator;
-import com.intellij.lang.annotation.HighlightSeverity;
-import com.intellij.openapi.editor.colors.TextAttributesKey;
-import com.intellij.openapi.util.TextRange;
-import com.intellij.psi.PsiElement;
+import consulo.language.editor.annotation.AnnotationHolder;
+import consulo.language.editor.annotation.Annotator;
+import consulo.language.editor.annotation.HighlightSeverity;
+import consulo.colorScheme.TextAttributesKey;
+import consulo.document.util.TextRange;
+import consulo.language.psi.PsiElement;
 import com.jetbrains.php.lang.highlighter.PhpHighlightingData;
+import com.jetbrains.twig.TwigLanguage;
 import com.jetbrains.twig.TwigTokenTypes;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.Language;
+import consulo.language.editor.annotation.AnnotatorFactory;
+import org.jspecify.annotations.Nullable;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -29,7 +33,8 @@ import java.util.regex.Pattern;
  * @author Daniel Espendiller <daniel@espendiller.net>
  * @see fr.adrienbrault.idea.symfony2plugin.templating.util.TwigTypeResolveUtil
  */
-public class TwigVarCommentAnnotator implements Annotator {
+@ExtensionImpl
+public class TwigVarCommentAnnotator implements Annotator, AnnotatorFactory {
     private static final String DOC_TYPE_ATOM_PATTERN = "[\\w\\\\\\[\\]]+";
     private static final String DOC_UNION_TYPE_PATTERN = DOC_TYPE_ATOM_PATTERN + "(?:\\|" + DOC_TYPE_ATOM_PATTERN + ")*";
     private static final String DOC_TYPE_BOUNDARY_PATTERN = "(?=\\s|$)";
@@ -57,7 +62,17 @@ public class TwigVarCommentAnnotator implements Annotator {
     );
 
     @Override
-    public void annotate(@NotNull PsiElement element, @NotNull AnnotationHolder holder) {
+    public @Nullable Annotator createAnnotator() {
+        return this;
+    }
+
+    @Override
+    public Language getLanguage() {
+        return TwigLanguage.INSTANCE;
+    }
+
+    @Override
+    public void annotate(PsiElement element, AnnotationHolder holder) {
         if (!Symfony2ProjectComponent.isEnabled(element.getProject())) {
             return;
         }
@@ -99,11 +114,11 @@ public class TwigVarCommentAnnotator implements Annotator {
     }
 
     private void highlight(
-        @NotNull AnnotationHolder holder,
+        AnnotationHolder holder,
         int baseOffset,
-        @NotNull Matcher matcher,
+        Matcher matcher,
         int group,
-        @NotNull TextAttributesKey key
+        TextAttributesKey key
     ) {
         if (matcher.group(group) == null) {
             return;

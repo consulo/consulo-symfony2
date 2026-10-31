@@ -1,19 +1,18 @@
 package fr.adrienbrault.idea.symfony2plugin.completion;
 
-import com.intellij.codeInsight.completion.InsertHandler;
-import com.intellij.codeInsight.completion.InsertionContext;
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.openapi.editor.Document;
-import com.intellij.openapi.project.Project;
-import com.intellij.psi.PsiDocumentManager;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.util.PsiTreeUtil;
+import consulo.language.editor.completion.lookup.InsertHandler;
+import consulo.language.editor.completion.lookup.InsertionContext;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.document.Document;
+import consulo.project.Project;
+import consulo.language.psi.PsiDocumentManager;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.util.PsiTreeUtil;
 import com.jetbrains.php.codeInsight.PhpCodeInsightUtil;
 import com.jetbrains.php.lang.psi.elements.*;
 import fr.adrienbrault.idea.symfony2plugin.util.CodeUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.Objects;
 
@@ -28,15 +27,15 @@ import java.util.Objects;
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public record PhpDoctrineLifecycleAttributeInsertHandler(
-    @NotNull String attributeFqn,
-    @NotNull String shortClassName,
-    @NotNull PhpDoctrineAttributeInsertHandler delegate
+    String attributeFqn,
+    String shortClassName,
+    PhpDoctrineAttributeInsertHandler delegate
 ) implements InsertHandler<LookupElement> {
 
     private static final String DOCTRINE_LIFECYCLE_CLASS = "\\Doctrine\\ORM\\Mapping\\HasLifecycleCallbacks";
 
     @Override
-    public void handleInsert(@NotNull InsertionContext context, @NotNull LookupElement item) {
+    public void handleInsert(InsertionContext context, LookupElement item) {
         // IMPORTANT: Find the target field BEFORE modifying the document
         int startOffset = context.getStartOffset();
         PsiFile file = context.getFile();
@@ -83,7 +82,7 @@ public record PhpDoctrineLifecycleAttributeInsertHandler(
         addAttributeToMethod(file.getProject(), phpClass, "#[" + attributeText  + "]");
     }
 
-    private void addAttributeToMethod(@NotNull Project project, @NotNull PhpClass phpClass, @NotNull String attributeText) {
+    private void addAttributeToMethod(Project project, PhpClass phpClass, String attributeText) {
         // Insert attribute text directly before the method
         PsiFile file = phpClass.getContainingFile();
         Document document = PsiDocumentManager.getInstance(project).getDocument(file);

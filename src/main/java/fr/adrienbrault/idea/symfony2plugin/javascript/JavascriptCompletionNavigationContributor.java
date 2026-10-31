@@ -1,82 +1,44 @@
 package fr.adrienbrault.idea.symfony2plugin.javascript;
 
-import com.intellij.codeInsight.completion.*;
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.codeInsight.lookup.LookupElementBuilder;
-import com.intellij.codeInsight.navigation.actions.GotoDeclarationHandler;
-import com.intellij.lang.javascript.JSTokenTypes;
-import com.intellij.lang.javascript.patterns.JSElementPattern;
-import com.intellij.lang.javascript.patterns.JSPatterns;
-import com.intellij.lang.javascript.psi.*;
+import com.intellij.lang.javascript.psi.JSLiteralExpression;
+import consulo.language.pattern.InitialPatternCondition;
 import com.intellij.lang.javascript.psi.resolve.JSResolveUtil;
-import com.intellij.openapi.editor.Document;
-import com.intellij.openapi.editor.Editor;
-import com.intellij.patterns.InitialPatternCondition;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.psi.PsiElement;
-import com.intellij.util.ProcessingContext;
-import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
+import com.intellij.lang.javascript.psi.JSParameter;
+import com.intellij.lang.javascript.psi.JSObjectLiteralExpression;
+import com.intellij.lang.javascript.psi.JSExpression;
+import com.intellij.lang.javascript.psi.JSArgumentList;
+import com.intellij.lang.javascript.patterns.JSPatterns;
+import com.intellij.lang.javascript.patterns.JSElementPattern;
+import consulo.javascript.lang.JavaScriptTokenSets;
+import consulo.codeEditor.Editor;
+import consulo.document.Document;
+import consulo.language.editor.completion.lookup.InsertHandler;
+import consulo.language.editor.completion.lookup.InsertionContext;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.editor.navigation.GotoDeclarationHandler;
+import consulo.language.psi.PsiElement;
+import consulo.language.util.ProcessingContext;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.routing.Route;
 import fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper;
-import kotlin.jvm.internal.Intrinsics;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
+
+import java.util.Objects;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class JavascriptCompletionNavigationContributor {
 
-    private static final InsertHandler<LookupElement> INSERT_HANDLER_ROUTE_PATH_REPLACE = new MyLookupElementReplaceRouteWithPath();
+    static final InsertHandler<LookupElement> INSERT_HANDLER_ROUTE_PATH_REPLACE = new MyLookupElementReplaceRouteWithPath();
 
-    public static class Completion extends CompletionContributor {
-        public Completion() {
-            extend(CompletionType.BASIC, PlatformPatterns.psiElement().withElementType(JSTokenTypes.STRING_LITERAL).withParent(JSPatterns.jsLiteralExpression()), new CompletionParametersCompletionProvider());
-        }
-
-        private static class CompletionParametersCompletionProvider extends CompletionProvider<CompletionParameters> {
-            @Override
-            protected void addCompletions(@NotNull CompletionParameters parameters, @NotNull ProcessingContext context, @NotNull CompletionResultSet result) {
-                PsiElement psiElement = parameters.getOriginalPosition();
-                if (!Symfony2ProjectComponent.isEnabled(psiElement) || psiElement.getNode().getElementType() != JSTokenTypes.STRING_LITERAL || !(psiElement.getContext() instanceof JSLiteralExpression jsLiteral)) {
-                    return;
-                }
-
-                if (isAcceptedRouteNamePattern(jsLiteral)) {
-                    result.addAllElements(RouteHelper.getRoutesLookupElements(psiElement.getProject()));
-
-                    return;
-                }
-
-                if (!isAcceptedUrlPattern(jsLiteral)) {
-                    return;
-                }
-
-                // add by resolved path
-                result.addAllElements(RouteHelper.getRoutesPathLookupElements(psiElement.getProject()));
-
-                // provide route name, but replace it by path on insert
-                for (Route route : RouteHelper.getAllRoutes(psiElement.getProject()).values()) {
-                    String path = route.getPath();
-                    if (path != null) {
-                        LookupElementBuilder lookupElementBuilder = LookupElementBuilder
-                            .create(route, route.getName())
-                            .withIcon(Symfony2Icons.SYMFONY)
-                            .withTypeText(path)
-                            .withInsertHandler(INSERT_HANDLER_ROUTE_PATH_REPLACE);
-
-                        result.addElement(lookupElementBuilder);
-                    }
-                }
-            }
-        }
-    }
-
+    /**
+     * consulo-port: registered through {@link JavascriptCompletionNavigationContributorGotoDeclaration}
+     */
     public static class GotoDeclaration implements GotoDeclarationHandler {
         @Override
         public PsiElement @Nullable [] getGotoDeclarationTargets(@Nullable PsiElement psiElement, int offset, Editor editor) {
-            if (!Symfony2ProjectComponent.isEnabled(psiElement) || psiElement.getNode().getElementType() != JSTokenTypes.STRING_LITERAL || !(psiElement.getContext() instanceof JSLiteralExpression jsLiteralExpression)) {
+            if (!Symfony2ProjectComponent.isEnabled(psiElement) || !JavaScriptTokenSets.STRING_LITERALS.contains(psiElement.getNode().getElementType()) || !(psiElement.getContext() instanceof JSLiteralExpression jsLiteralExpression)) {
                 return null;
             }
 
@@ -107,7 +69,7 @@ public class JavascriptCompletionNavigationContributor {
      */
     private static class MyLookupElementReplaceRouteWithPath implements InsertHandler<LookupElement> {
         @Override
-        public void handleInsert(@NotNull InsertionContext context, @NotNull LookupElement item) {
+        public void handleInsert(InsertionContext context, LookupElement item) {
             Document document = context.getDocument();
 
             document.deleteString(context.getStartOffset(), context.getTailOffset());
@@ -126,7 +88,7 @@ public class JavascriptCompletionNavigationContributor {
      * Routing.generate('foo_route')
      * fos.Router.generate('foo_route')
      */
-    private static boolean isAcceptedRouteNamePattern(@NotNull final JSLiteralExpression jsLiteral) {
+    static boolean isAcceptedRouteNamePattern(final JSLiteralExpression jsLiteral) {
         return JSPatterns.jsLiteralExpression()
             .inside(false, JSPatterns.jsArgument(JSPatterns.jsReferenceExpression().withQualifiedName("Routing.generate"), 0))
             .accepts(jsLiteral)
@@ -136,7 +98,7 @@ public class JavascriptCompletionNavigationContributor {
             .accepts(jsLiteral);
     }
 
-    private static boolean isAcceptedUrlPattern(@NotNull final JSLiteralExpression jsLiteral) {
+    static boolean isAcceptedUrlPattern(final JSLiteralExpression jsLiteral) {
         return
             // axios.create('')
             // axios.create(baseURL: '')
@@ -162,26 +124,15 @@ public class JavascriptCompletionNavigationContributor {
             ;
     }
 
-    private static JSElementPattern.Capture<JSExpression> jsArgumentOfName(@NotNull final String name) {
+    private static JSElementPattern.Capture<JSExpression> jsArgumentOfName(final String name) {
         return new JSElementPattern.Capture<>(new InitialPatternCondition<>(JSExpression.class) {
-            public boolean accepts(@Nullable Object o, @NotNull ProcessingContext context) {
-                Intrinsics.checkNotNullParameter(context, "context");
-                if (!(o instanceof JSExpression)) {
+            @Override
+            public boolean accepts(@Nullable Object o, ProcessingContext context) {
+                if (!(o instanceof JSExpression expression) || !(expression.getParent() instanceof JSArgumentList argumentList)) {
                     return false;
-                } else {
-                    PsiElement var10000 = ((JSExpression)o).getParent();
-                    if (!(var10000 instanceof JSArgumentList)) {
-                        var10000 = null;
-                    }
-
-                    JSArgumentList var4 = (JSArgumentList)var10000;
-                    if (var4 != null) {
-                        JSParameterItem var5 = JSResolveUtil.findParameterForUsedArgument((JSExpression)o, var4);
-                        return Intrinsics.areEqual(var5 != null ? var5.getName() : null, name);
-                    } else {
-                        return false;
-                    }
                 }
+                JSParameter parameter = JSResolveUtil.findParameterForUsedArgument(expression, argumentList);
+                return parameter != null && Objects.equals(parameter.getName(), name);
             }
         });
     }

@@ -1,21 +1,19 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.completion;
 
-import com.intellij.codeInsight.completion.InsertHandler;
-import com.intellij.codeInsight.completion.InsertionContext;
-import com.intellij.psi.PsiElement;
 import com.jetbrains.php.completion.insert.PhpInsertHandlerUtil;
+import consulo.language.editor.completion.lookup.InsertHandler;
+import consulo.language.editor.completion.lookup.InsertionContext;
+import consulo.language.psi.PsiElement;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
 import fr.adrienbrault.idea.symfony2plugin.translation.TranslatorLookupElement;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class TwigTranslationFilterInsertHandler implements InsertHandler<TranslatorLookupElement> {
-    @NotNull
     private static final TwigTranslationFilterInsertHandler instance = new TwigTranslationFilterInsertHandler();
 
-    public void handleInsert(@NotNull InsertionContext context, @NotNull TranslatorLookupElement lookupElement) {
+    public void handleInsert(InsertionContext context, TranslatorLookupElement lookupElement) {
         PsiElement elementAt = context.getFile().findElementAt(context.getStartOffset());
 
         String domain = null;
@@ -49,7 +47,6 @@ public class TwigTranslationFilterInsertHandler implements InsertHandler<Transla
         PhpInsertHandlerUtil.insertStringAtCaret(context.getEditor(), stringBuilder.toString());
     }
 
-    @NotNull
     public static TwigTranslationFilterInsertHandler getInstance(){
         return instance;
     }

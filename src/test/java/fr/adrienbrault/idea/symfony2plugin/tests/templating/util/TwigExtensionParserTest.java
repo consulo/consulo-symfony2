@@ -1,5 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.templating.util;
 
+import org.junit.jupiter.api.Test;
+
 import fr.adrienbrault.idea.symfony2plugin.templating.dict.TwigExtension;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigExtensionParser;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
@@ -20,6 +22,8 @@ public class TwigExtensionParserTest extends SymfonyLightCodeInsightFixtureTestC
     public String getTestDataPath() {
         return "src/test/java/fr/adrienbrault/idea/symfony2plugin/tests/templating/util/fixtures";
     }
+
+    @Test
 
     public void testExtensionAreCollected() {
         Map<String, TwigExtension> functions = TwigExtensionParser.getFunctions(getProject());
@@ -127,6 +131,8 @@ public class TwigExtensionParserTest extends SymfonyLightCodeInsightFixtureTestC
         );
     }
 
+    @Test
+
     public void testExtensionAreCollectedForDeprecated() {
         Map<String, TwigExtension> functions = TwigExtensionParser.getFunctions(getProject());
         Map<String, TwigExtension> filters = TwigExtensionParser.getFilters(getProject());
@@ -152,6 +158,8 @@ public class TwigExtensionParserTest extends SymfonyLightCodeInsightFixtureTestC
         );
     }
 
+    @Test
+
     public void testExtensionDeprecatedOptions() {
         Map<String, TwigExtension> filters = TwigExtensionParser.getFilters(getProject());
         Map<String, TwigExtension> functions = TwigExtensionParser.getFunctions(getProject());
@@ -162,6 +170,8 @@ public class TwigExtensionParserTest extends SymfonyLightCodeInsightFixtureTestC
         assertTrue(functions.get("deprecated_function_info").isDeprecated());
         assertTrue(functions.get("deprecated_function").isDeprecated());
     }
+
+    @Test
 
     public void testExtensionAreCollectedForVersion2() {
         assertEquals(
@@ -180,6 +190,8 @@ public class TwigExtensionParserTest extends SymfonyLightCodeInsightFixtureTestC
         );
     }
 
+    @Test
+
     public void testExtensionAreCollectedForVersion3() {
         assertEquals(
             "#M#C\\Twig\\Extensions.foobar",
@@ -197,6 +209,8 @@ public class TwigExtensionParserTest extends SymfonyLightCodeInsightFixtureTestC
         );
     }
 
+    @Test
+
     public void testExtensionAreCollectedForStringExtension() {
         myFixture.copyFileToProject("StringExtension.php");
 
@@ -213,6 +227,8 @@ public class TwigExtensionParserTest extends SymfonyLightCodeInsightFixtureTestC
             "\\Symfony\\Component\\String\\UnicodeString"
         );
     }
+
+    @Test
 
     public void testAttributeFilterReturnTypesAreCollected() {
         myFixture.addFileToProject(
@@ -232,6 +248,8 @@ public class TwigExtensionParserTest extends SymfonyLightCodeInsightFixtureTestC
             "\\Symfony\\Component\\String\\UnicodeString"
         );
     }
+
+    @Test
 
     public void testAttributeFunctionReturnTypesAreCollected() {
         myFixture.addFileToProject(

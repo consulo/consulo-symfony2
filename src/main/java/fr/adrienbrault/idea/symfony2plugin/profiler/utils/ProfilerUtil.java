@@ -2,24 +2,29 @@ package fr.adrienbrault.idea.symfony2plugin.profiler.utils;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import com.intellij.lang.html.HTMLLanguage;
-import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.Pair;
-import com.intellij.psi.PsiFileFactory;
-import com.intellij.psi.impl.source.html.HtmlFileImpl;
-import com.intellij.psi.util.PsiTreeUtil;
-import com.intellij.psi.xml.XmlTag;
-import com.intellij.psi.xml.XmlTagValue;
+import consulo.application.ApplicationManager;
+import consulo.html.language.HTMLLanguage;
+import consulo.language.psi.PsiFileFactory;
+import consulo.language.psi.util.PsiTreeUtil;
+import consulo.project.Project;
+import consulo.util.lang.Pair;
+import consulo.xml.language.psi.XmlTag;
+import consulo.xml.language.psi.XmlTagValue;
+import consulo.xml.psi.impl.source.html.HtmlFileImpl;
 import fr.adrienbrault.idea.symfony2plugin.profiler.collector.HttpDefaultDataCollector;
 import fr.adrienbrault.idea.symfony2plugin.profiler.dict.HttpProfilerRequest;
 import fr.adrienbrault.idea.symfony2plugin.profiler.dict.ProfilerRequestInterface;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.net.MalformedURLException;
 import java.net.HttpURLConnection;
 import java.net.URI;
@@ -27,8 +32,21 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -61,9 +79,8 @@ public class ProfilerUtil {
      * Extract "table.search-results tbody tr td"
      * We dont have complete xpath with html support inside so reuse internal html parser
      */
-    @NotNull
-    public static Collection<ProfilerRequestInterface> createRequestsFromIndexHtml(@NotNull Project project, @NotNull String html, @NotNull String baseUrl) {
-        HtmlFileImpl htmlFile = (HtmlFileImpl) PsiFileFactory.getInstance(project).createFileFromText(HTMLLanguage.INSTANCE, html);
+    public static Collection<ProfilerRequestInterface> createRequestsFromIndexHtml(Project project, String html, String baseUrl) {
+        HtmlFileImpl htmlFile = (HtmlFileImpl) PsiFileFactory.getInstance(project).createFileFromText("foo.bar", HTMLLanguage.INSTANCE, html);
 
         final XmlTag[] result = new XmlTag[1];
 
@@ -159,14 +176,10 @@ public class ProfilerUtil {
 
         return requests;
     }
-
-    @NotNull
-    private static String getProfilerAbsoluteUrl(@NotNull String baseUrl, @NotNull String href) {
+    private static String getProfilerAbsoluteUrl(String baseUrl, String href) {
         return StringUtils.stripEnd(baseUrl, "/") + href.substring(href.indexOf("/_profiler/"));
     }
-
-    @NotNull
-    public static Collection<ProfilerRequestInterface> collectHttpDataForRequest(@NotNull Project project, @NotNull Collection<ProfilerRequestInterface> requests) {
+    public static Collection<ProfilerRequestInterface> collectHttpDataForRequest(Project project, Collection<ProfilerRequestInterface> requests) {
         Collection<Callable<ProfilerRequestInterface>> callable = requests.stream().map(
             request -> new MyProfilerRequestDecoratedCollectorCallable(project, request)).collect(Collectors.toCollection(ArrayList::new)
         );
@@ -183,9 +196,8 @@ public class ProfilerUtil {
      *  <td>foo_route</td>
      * </tr>
      */
-    @NotNull
-    public static Map<String, String> getRequestAttributes(@NotNull Project project, @NotNull String html) {
-        HtmlFileImpl htmlFile = (HtmlFileImpl) PsiFileFactory.getInstance(project).createFileFromText(HTMLLanguage.INSTANCE, html);
+    public static Map<String, String> getRequestAttributes(Project project, String html) {
+        HtmlFileImpl htmlFile = (HtmlFileImpl) PsiFileFactory.getInstance(project).createFileFromText("foo.bar", HTMLLanguage.INSTANCE, html);
 
         String[] keys = new String[] {"_controller", "_route"};
 
@@ -230,8 +242,8 @@ public class ProfilerUtil {
      *  <td class="font-normal">1</td>
      * </tr>
      */
-    public static Map<String, Integer> getRenderedElementTwigTemplates(@NotNull Project project, @NotNull String html) {
-        HtmlFileImpl htmlFile = (HtmlFileImpl) PsiFileFactory.getInstance(project).createFileFromText(HTMLLanguage.INSTANCE, html);
+    public static Map<String, Integer> getRenderedElementTwigTemplates(Project project, String html) {
+        HtmlFileImpl htmlFile = (HtmlFileImpl) PsiFileFactory.getInstance(project).createFileFromText("foo.bar", HTMLLanguage.INSTANCE, html);
 
         final XmlTag[] xmlTag = new XmlTag[1];
         PsiTreeUtil.processElements(htmlFile, psiElement -> {
@@ -293,20 +305,16 @@ public class ProfilerUtil {
 
         return templates;
     }
-
-    @NotNull
-    public static List<String> getRenderedElementTwigTemplateNames(@NotNull Project project, @NotNull String html) {
+    public static List<String> getRenderedElementTwigTemplateNames(Project project, String html) {
         return new ArrayList<>(getRenderedElementTwigTemplates(project, html).keySet());
     }
-
-    @NotNull
-    private static String stripHtmlTags(@NotNull String text)
+    private static String stripHtmlTags(String text)
     {
         return text.replaceAll("<[^>]*>", "");
     }
 
     @Nullable
-    public static String getProfilerUrlContent(@NotNull String url) {
+    public static String getProfilerUrlContent(String url) {
         URI uri = createHttpProfilerUri(url);
         if (uri == null) {
             return null;
@@ -349,7 +357,7 @@ public class ProfilerUtil {
     }
 
     @Nullable
-    private static URI createHttpProfilerUri(@NotNull String url) {
+    private static URI createHttpProfilerUri(String url) {
         try {
             URI uri = new URI(url);
             String scheme = uri.getScheme();
@@ -368,16 +376,11 @@ public class ProfilerUtil {
     }
 
     private static class MyProfilerRequestDecoratedCollectorCallable implements Callable<ProfilerRequestInterface> {
-        @NotNull
         private final Project project;
-
-        @NotNull
         private final ProfilerRequestInterface request;
-
-        @NotNull
         private final String profilerUrl;
 
-        MyProfilerRequestDecoratedCollectorCallable(@NotNull Project project, @NotNull ProfilerRequestInterface request) {
+        MyProfilerRequestDecoratedCollectorCallable(Project project, ProfilerRequestInterface request) {
             this.project = project;
             this.request = request;
             this.profilerUrl = request.getProfilerUrl();
@@ -402,9 +405,7 @@ public class ProfilerUtil {
 
             return httpProfilerRequest;
         }
-
-        @NotNull
-        private List<String> getRenderedTemplates(@NotNull Map<String, String> requestAttributes) {
+        private List<String> getRenderedTemplates(Map<String, String> requestAttributes) {
             String requestContent = getUrlContent(profilerUrl + "?panel=request");
             String twigContent = getUrlContent(profilerUrl + "?panel=twig");
 
@@ -433,7 +434,7 @@ public class ProfilerUtil {
             return Collections.emptyList();
         }
 
-        private String getUrlContent(@NotNull String url) {
+        private String getUrlContent(String url) {
             String contents = REQUEST_CACHE.getIfPresent(url);
 
             if(contents == null) {
@@ -451,8 +452,7 @@ public class ProfilerUtil {
      * Decorated request model with loaded collector data
      * loads data on multiple thread to be as fast as possible
      */
-    @NotNull
-    public static List<ProfilerRequestInterface> getProfilerRequestCollectorDecorated(@NotNull Collection<Callable<ProfilerRequestInterface>> callable, int threads) {
+    public static List<ProfilerRequestInterface> getProfilerRequestCollectorDecorated(Collection<Callable<ProfilerRequestInterface>> callable, int threads) {
         ExecutorService executor = Executors.newFixedThreadPool(threads);
 
         List<Future<ProfilerRequestInterface>> futures;
@@ -489,7 +489,7 @@ public class ProfilerUtil {
      * https://127.0.0.1:8000/app_dev.php
      */
     @Nullable
-    public static String getBaseProfilerUrlFromRequest(@NotNull ProfilerRequestInterface request) {
+    public static String getBaseProfilerUrlFromRequest(ProfilerRequestInterface request) {
         URL url = null;
         try {
             url = URI.create(request.getProfilerUrl()).toURL();
@@ -521,7 +521,7 @@ public class ProfilerUtil {
     }
 
     @Nullable
-    public static String formatProfilerRow(@NotNull ProfilerRequestInterface profilerRequest) {
+    public static String formatProfilerRow(ProfilerRequestInterface profilerRequest) {
         int statusCode = profilerRequest.getStatusCode();
 
         String path = profilerRequest.getUrl();
@@ -542,7 +542,7 @@ public class ProfilerUtil {
     }
 
     @Nullable
-    public static String getContentForFile(@NotNull File file) {
+    public static String getContentForFile(File file) {
         if (!file.isFile() || file.length() > MAX_PROFILER_FILE_BYTES) {
             return null;
         }
@@ -571,7 +571,7 @@ public class ProfilerUtil {
     }
 
     @Nullable
-    private static String getContentForRaw(@NotNull File file) {
+    private static String getContentForRaw(File file) {
         try (BufferedReader in = new BufferedReader(new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8))) {
             return readLimited(in);
         } catch (IOException ignored) {
@@ -593,7 +593,7 @@ public class ProfilerUtil {
     }
 
     @Nullable
-    private static String readLimited(@NotNull BufferedReader reader) throws IOException {
+    private static String readLimited(BufferedReader reader) throws IOException {
         StringBuilder content = new StringBuilder();
         String line;
 
@@ -609,7 +609,7 @@ public class ProfilerUtil {
     }
 
     @Nullable
-    private static String readHttpLimited(@NotNull Reader reader) throws IOException {
+    private static String readHttpLimited(Reader reader) throws IOException {
         StringBuilder content = new StringBuilder();
         char[] buffer = new char[8192];
         int read;

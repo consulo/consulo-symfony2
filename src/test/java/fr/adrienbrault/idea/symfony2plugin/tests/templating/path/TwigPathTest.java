@@ -1,5 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.templating.path;
 
+import org.junit.jupiter.api.Test;
+
 import fr.adrienbrault.idea.symfony2plugin.templating.path.TwigPath;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
 
@@ -8,6 +10,7 @@ import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureT
  * @see TwigPath
  */
 public class TwigPathTest extends SymfonyLightCodeInsightFixtureTestCase {
+    @Test
     public void testRelativePathResolving() {
         myFixture.addFileToProject("app/views", "");
 

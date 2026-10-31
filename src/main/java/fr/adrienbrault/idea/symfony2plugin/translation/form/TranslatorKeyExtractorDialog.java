@@ -1,11 +1,30 @@
 package fr.adrienbrault.idea.symfony2plugin.translation.form;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.psi.PsiFile;
-import com.intellij.ui.ToolbarDecorator;
-import com.intellij.ui.table.TableView;
-import com.intellij.util.ui.ColumnInfo;
-import com.intellij.util.ui.ListTableModel;
+import consulo.application.ReadAction;
+import consulo.disposer.Disposable;
+import consulo.language.icon.IconDescriptorUpdaters;
+import consulo.language.psi.PsiFile;
+import consulo.localize.LocalizeValue;
+import consulo.project.Project;
+import consulo.ui.CheckBox;
+import consulo.ui.ComboBox;
+import consulo.ui.Component;
+import consulo.ui.ComponentItemRenderer;
+import consulo.ui.Table;
+import consulo.ui.TableItemEditor;
+import consulo.ui.TextBox;
+import consulo.ui.UIAccess;
+import consulo.ui.ValueComponent;
+import consulo.ui.WidthAndHeight;
+import consulo.ui.annotation.RequiredUIAccess;
+import consulo.ui.ex.dialog.DialogDescriptor;
+import consulo.ui.ex.dialog.DialogService;
+import consulo.ui.image.Image;
+import consulo.ui.layout.DockLayout;
+import consulo.ui.layout.ScrollableLayout;
+import consulo.ui.model.FlatDataModel;
+import consulo.ui.model.MutableFlatDataModel;
+import consulo.ui.util.FormBuilder;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
 import fr.adrienbrault.idea.symfony2plugin.action.comparator.PsiWeightListComparator;
 import fr.adrienbrault.idea.symfony2plugin.action.dict.TranslationFileModel;
@@ -13,16 +32,9 @@ import fr.adrienbrault.idea.symfony2plugin.translation.dict.TranslationUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.SymfonyBundleUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.SymfonyBundle;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.jetbrains.yaml.psi.YAMLFile;
+import org.jspecify.annotations.Nullable;
 
-import javax.swing.*;
-import java.awt.*;
-import java.awt.event.ItemEvent;
-import java.awt.event.KeyEvent;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -31,293 +43,165 @@ import java.util.stream.Collectors;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
-public class TranslatorKeyExtractorDialog extends JDialog {
+public class TranslatorKeyExtractorDialog extends DialogDescriptor {
+    private final Project myProject;
+    private final PsiFile myFileContext;
+    private final Collection<String> myDomains;
+    private final @Nullable String myDefaultKey;
+    private final String myDefaultDomain;
 
-    private JPanel contentPane;
-    private JButton buttonOK;
-    private JButton buttonCancel;
-    private JTextField textTranslationKey;
-    private JPanel panelTableView;
-    private JComboBox<String> comboBox1;
-    private JCheckBox checkNavigateTo;
+    private final MutableFlatDataModel<TranslationFileModel> myListTableModel = FlatDataModel.of(List.of());
+    private final TextBox myTextTranslationKey = TextBox.create();
+    private final CheckBox myCheckNavigateTo = CheckBox.create(LocalizeValue.localizeTODO("Navigate to created key (first file only)"));
+    private @Nullable ComboBox<String> myComboBox;
 
-    private final ListTableModel<TranslationFileModel> listTableModel;
-    private final OnOkCallback okCallback;
+    @RequiredUIAccess
+    private TranslatorKeyExtractorDialog(
+        Project project,
+        PsiFile fileContext,
+        Collection<String> domains,
+        @Nullable String defaultKey,
+        String defaultDomain
+    ) {
+        super(LocalizeValue.localizeTODO("Symfony: Extract Translation Key"));
+        myProject = project;
+        myFileContext = fileContext;
+        myDomains = domains;
+        myDefaultKey = defaultKey;
+        myDefaultDomain = defaultDomain;
+    }
 
-    private final Project project;
-    private final PsiFile fileContext;
+    @Override
+    public @Nullable WidthAndHeight getInitialSize() {
+        return WidthAndHeight.ofPixel(600, 300);
+    }
 
-    public TranslatorKeyExtractorDialog(@NotNull Project project, @NotNull PsiFile fileContext, @NotNull Collection<String> domains, @Nullable String defaultKey, @NotNull String defaultDomain, @NotNull OnOkCallback okCallback) {
+    @RequiredUIAccess
+    @Override
+    public Component createCenterComponent(Disposable uiDisposable) {
+        ComboBox<String> comboBox = ComboBox.create(new ArrayList<>(myDomains));
+        myComboBox = comboBox;
 
-        this.project = project;
-        this.fileContext = fileContext;
-        this.okCallback = okCallback;
-
-        createUIComponents();
-
-        for(String domain: domains) {
-            comboBox1.addItem(domain);
+        if (myDefaultKey != null) {
+            myTextTranslationKey.setValue(myDefaultKey);
         }
 
-        if(defaultKey != null) {
-            textTranslationKey.setText(defaultKey);
-        }
-
-        setContentPane(contentPane);
-        setModal(true);
-        getRootPane().setDefaultButton(buttonOK);
-
-        buttonOK.addActionListener(e -> onOK());
-
-        buttonCancel.addActionListener(e -> onCancel());
-
-        comboBox1.addItemListener(e -> {
-            if (e.getStateChange() == ItemEvent.SELECTED) {
-                Object item = e.getItem();
-                if(item instanceof String) {
-                    filterList((String) item);
+        Table<TranslationFileModel> tableView = Table.create(myListTableModel);
+        tableView.addColumn(LocalizeValue.empty(), TranslatorKeyExtractorDialog::getFileIcon)
+            .setWidth(32)
+            .setResizable(false)
+            .setRenderer((presentation, item) -> presentation.withIcon(item.getValue()));
+        tableView.addColumn(LocalizeValue.localizeTODO("Path"), TranslatorKeyExtractorDialog::getPathName);
+        tableView.addColumn(LocalizeValue.localizeTODO("Name"), domainModel -> domainModel.getPsiFile().getName())
+            .setWidth(190);
+        tableView.addColumn(LocalizeValue.localizeTODO("Create"), TranslationFileModel::isEnabled)
+            .setWidth(50)
+            .setResizable(false)
+            .setRenderer(ComponentItemRenderer.reusable(
+                () -> CheckBox.create(LocalizeValue.empty()),
+                (checkBox, item) -> checkBox.setValue(Boolean.TRUE.equals(item.getValue()), false)
+            ))
+            .setEditor(new TableItemEditor<>() {
+                @RequiredUIAccess
+                @Override
+                public ValueComponent<Boolean> createComponent(TranslationFileModel domainModel) {
+                    return CheckBox.create(LocalizeValue.empty(), domainModel.isEnabled());
                 }
+
+                @RequiredUIAccess
+                @Override
+                public void commit(TranslationFileModel domainModel, @Nullable Boolean value) {
+                    domainModel.setEnabled(Boolean.TRUE.equals(value));
+                    myListTableModel.update(domainModel);
+                }
+            });
+
+        comboBox.setValue(myDefaultDomain);
+        filterList(myDefaultDomain);
+
+        comboBox.addValueListener(event -> {
+            String domain = event.getValue();
+            if (domain != null) {
+                filterList(domain);
             }
         });
 
-        setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
-        addWindowListener(new WindowAdapter() {
-            public void windowClosing(WindowEvent e) {
-                onCancel();
-            }
-        });
+        FormBuilder builder = FormBuilder.create();
+        builder.addLabeled(LocalizeValue.localizeTODO("Translation Key"), myTextTranslationKey);
+        builder.addLabeled(LocalizeValue.localizeTODO("Domain"), comboBox);
 
-        contentPane.registerKeyboardAction(e -> onCancel(), KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
-
-
-        listTableModel = new ListTableModel<>(
-            new IconColumn(),
-            new PathNameColumn(),
-            new FileNameColumn(),
-            new BooleanColumn("Create")
-        );
-
-        comboBox1.setSelectedItem(defaultDomain);
-        filterList(defaultDomain);
-
-        TableView<TranslationFileModel> tableView = new TableView<>();
-        tableView.setModelAndUpdateColumns(listTableModel);
-
-        panelTableView.add(ToolbarDecorator.createDecorator(tableView)
-            .disableAddAction()
-            .disableDownAction()
-            .disableRemoveAction()
-            .disableUpDownActions()
-            .createPanel()
-        );
-
+        DockLayout layout = DockLayout.create();
+        layout.top(builder.build());
+        layout.center(ScrollableLayout.create(tableView));
+        layout.bottom(myCheckNavigateTo);
+        return layout;
     }
 
-    private void createUIComponents() {
-        textTranslationKey = new JTextField(20);
-        comboBox1 = new JComboBox<>();
-        checkNavigateTo = new JCheckBox("Navigate to created key (first file only)");
-        buttonOK = new JButton("OK");
-        buttonCancel = new JButton("Cancel");
-        panelTableView = new JPanel(new BorderLayout());
-
-        JPanel fieldsPanel = new JPanel(new GridBagLayout());
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(2, 4, 2, 4);
-        gbc.anchor = GridBagConstraints.WEST;
-
-        gbc.gridx = 0; gbc.gridy = 0; gbc.fill = GridBagConstraints.NONE; gbc.weightx = 0;
-        fieldsPanel.add(new JLabel("Translation Key"), gbc);
-        gbc.gridx = 1; gbc.fill = GridBagConstraints.HORIZONTAL; gbc.weightx = 1.0;
-        fieldsPanel.add(textTranslationKey, gbc);
-
-        gbc.gridx = 0; gbc.gridy = 1; gbc.fill = GridBagConstraints.NONE; gbc.weightx = 0;
-        fieldsPanel.add(new JLabel("Domain"), gbc);
-        gbc.gridx = 1; gbc.fill = GridBagConstraints.HORIZONTAL; gbc.weightx = 1.0;
-        fieldsPanel.add(comboBox1, gbc);
-
-        gbc.gridx = 0; gbc.gridy = 2; gbc.gridwidth = 2; gbc.fill = GridBagConstraints.BOTH; gbc.weightx = 1.0; gbc.weighty = 1.0;
-        fieldsPanel.add(panelTableView, gbc);
-
-        JPanel buttonsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
-        buttonsPanel.add(checkNavigateTo);
-        buttonsPanel.add(buttonOK);
-        buttonsPanel.add(buttonCancel);
-
-        contentPane = new JPanel(new BorderLayout(0, 5));
-        contentPane.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        contentPane.add(fieldsPanel, BorderLayout.CENTER);
-        contentPane.add(buttonsPanel, BorderLayout.SOUTH);
+    @RequiredUIAccess
+    @Override
+    public Component getPreferredFocusedComponent() {
+        return myTextTranslationKey;
     }
 
+    @RequiredUIAccess
     private void filterList(String domainName) {
-
-        // clear list no all*() method?
-        while(this.listTableModel.getRowCount() > 0) {
-            this.listTableModel.removeRow(0);
-        }
-
         // we only support yaml files right now
         // filter on PsiFile instance
-        Collection<PsiFile> domainPsiFilesYaml = TranslationUtil.getDomainPsiFiles(this.project, domainName).stream()
+        Collection<PsiFile> domainPsiFilesYaml = TranslationUtil.getDomainPsiFiles(myProject, domainName).stream()
             .filter(domainPsiFile -> domainPsiFile instanceof YAMLFile || TranslationUtil.isSupportedXlfFile(domainPsiFile))
             .collect(Collectors.toCollection(ArrayList::new));
 
-        this.listTableModel.addRows(this.getFormattedFileModelList(domainPsiFilesYaml));
+        List<TranslationFileModel> items = getFormattedFileModelList(domainPsiFilesYaml);
 
         // only one domain; fine preselect it
-        if(this.listTableModel.getRowCount() == 1) {
-            this.listTableModel.getItem(0).setEnabled(true);
+        if (items.size() == 1) {
+            items.get(0).setEnabled(true);
         }
 
+        myListTableModel.replaceAll(items);
     }
 
-    private void onOK() {
-        String text = textTranslationKey.getText();
-
-        if(StringUtils.isNotBlank(text)) {
-            List<TranslationFileModel> psiFiles = new ArrayList<>();
-            for(TranslationFileModel translationFileModel: listTableModel.getItems()) {
-                if(translationFileModel.isEnabled()) {
-                    psiFiles.add(translationFileModel);
-                }
-            }
-
-            if(!psiFiles.isEmpty()) {
-                okCallback.onClick(psiFiles, text, (String) comboBox1.getSelectedItem(), checkNavigateTo.isSelected());
-                dispose();
-                return;
-            }
-
+    private static @Nullable Image getFileIcon(TranslationFileModel modelParameter) {
+        if (modelParameter.isBoldness()) {
+            return Symfony2Icons.BUNDLE;
         }
 
-        dispose();
+        return ReadAction.compute(() -> IconDescriptorUpdaters.getIcon(modelParameter.getPsiFile(), 0));
     }
 
-    private void onCancel() {
-        dispose();
-    }
-
-    private static class FileNameColumn extends ColumnInfo<TranslationFileModel, String> {
-
-        public FileNameColumn() {
-            super("Name");
+    private static String getPathName(TranslationFileModel domainModel) {
+        SymfonyBundle symfonyBundle = domainModel.getSymfonyBundle();
+        if (symfonyBundle != null) {
+            return symfonyBundle.getName();
         }
 
-        @Nullable
-        @Override
-        public String valueOf(TranslationFileModel domainModel) {
-            return domainModel.getPsiFile().getName();
+        String relative = domainModel.getRelativePath();
+        if (relative != null) {
+            return relative;
         }
 
-        public int getWidth(JTable table) {
-            return 190;
-        }
-
-    }
-
-    private static class PathNameColumn extends ColumnInfo<TranslationFileModel, String> {
-
-        public PathNameColumn() {
-            super("Path");
-        }
-
-        @Nullable
-        @Override
-        public String valueOf(TranslationFileModel domainModel) {
-
-            if(domainModel.getSymfonyBundle() != null) {
-                return domainModel.getSymfonyBundle().getName();
-            }
-
-            String relative = domainModel.getRelativePath();
-            if(relative != null) {
-                return relative;
-            }
-
-            return domainModel.getPsiFile().getName();
-        }
-
-    }
-
-    private static class BooleanColumn extends ColumnInfo<TranslationFileModel, Boolean>
-    {
-        public BooleanColumn(String name) {
-            super(name);
-        }
-
-        @Nullable
-        @Override
-        public Boolean valueOf(TranslationFileModel domainModel) {
-            return domainModel.isEnabled();
-        }
-
-        public boolean isCellEditable(TranslationFileModel groupItem)
-        {
-            return true;
-        }
-
-        public void setValue(TranslationFileModel domainModel, Boolean value){
-            domainModel.setEnabled(value);
-        }
-
-        public Class getColumnClass()
-        {
-            return Boolean.class;
-        }
-
-        public int getWidth(JTable table) {
-            return 50;
-        }
-    }
-
-    private static class IconColumn extends ColumnInfo<TranslationFileModel, Icon> {
-
-        public IconColumn() {
-            super("");
-        }
-
-        @Nullable
-        @Override
-        public Icon valueOf(TranslationFileModel modelParameter) {
-
-            if(modelParameter.isBoldness()) {
-                return Symfony2Icons.BUNDLE;
-            }
-
-            return modelParameter.getPsiFile().getIcon(0);
-        }
-
-        public java.lang.Class getColumnClass() {
-            return ImageIcon.class;
-        }
-
-        @Override
-        public int getWidth(JTable table) {
-            return 32;
-        }
-
+        return domainModel.getPsiFile().getName();
     }
 
     private List<TranslationFileModel> getFormattedFileModelList(Collection<PsiFile> psiFiles) {
-
-        SymfonyBundleUtil symfonyBundleUtil = new SymfonyBundleUtil(this.project);
-        final SymfonyBundle symfonyBundle = symfonyBundleUtil.getContainingBundle(fileContext);
+        SymfonyBundleUtil symfonyBundleUtil = new SymfonyBundleUtil(myProject);
+        final SymfonyBundle symfonyBundle = symfonyBundleUtil.getContainingBundle(myFileContext);
 
         List<TranslationFileModel> psiFilesSorted = new ArrayList<>();
-        for(PsiFile psiFile: psiFiles) {
+        for (PsiFile psiFile : psiFiles) {
             TranslationFileModel psiWeightList = new TranslationFileModel(psiFile);
 
-            if(symfonyBundle != null && symfonyBundle.isInBundle(psiFile)) {
+            if (symfonyBundle != null && symfonyBundle.isInBundle(psiFile)) {
                 psiWeightList.setSymfonyBundle(symfonyBundle);
                 psiWeightList.setBoldness(true);
                 psiWeightList.addWeight(2);
-            } else {
+            }
+            else {
                 psiWeightList.setSymfonyBundle(symfonyBundleUtil.getContainingBundle(psiFile));
             }
 
             String relativePath = psiWeightList.getRelativePath();
-            if(relativePath != null && (relativePath.startsWith("src") || relativePath.startsWith("app"))) {
+            if (relativePath != null && (relativePath.startsWith("src") || relativePath.startsWith("app"))) {
                 psiWeightList.addWeight(1);
             }
 
@@ -329,9 +213,50 @@ public class TranslatorKeyExtractorDialog extends JDialog {
         return psiFilesSorted;
     }
 
+    @RequiredUIAccess
+    private void onOK(OnOkCallback okCallback) {
+        String text = myTextTranslationKey.getValue();
+        if (StringUtils.isBlank(text)) {
+            return;
+        }
+
+        List<TranslationFileModel> psiFiles = new ArrayList<>();
+        for (TranslationFileModel translationFileModel : myListTableModel) {
+            if (translationFileModel.isEnabled()) {
+                psiFiles.add(translationFileModel);
+            }
+        }
+
+        ComboBox<String> comboBox = myComboBox;
+        String domain = comboBox != null ? comboBox.getValue() : null;
+        if (!psiFiles.isEmpty()) {
+            okCallback.onClick(psiFiles, text, domain != null ? domain : myDefaultDomain, myCheckNavigateTo.getValueOrError());
+        }
+    }
 
     public interface OnOkCallback {
         void onClick(List<TranslationFileModel> files, String keyName, String domain, boolean navigateTo);
     }
 
+    @RequiredUIAccess
+    public static void show(
+        Project project,
+        PsiFile fileContext,
+        Collection<String> domains,
+        @Nullable String defaultKey,
+        String defaultDomain,
+        OnOkCallback okCallback
+    ) {
+        TranslatorKeyExtractorDialog descriptor = new TranslatorKeyExtractorDialog(project, fileContext, domains, defaultKey, defaultDomain);
+
+        UIAccess uiAccess = UIAccess.current();
+        project.getApplication().getInstance(DialogService.class)
+            .build(project, descriptor)
+            .showAsync()
+            .whenCompleteAsync((value, error) -> {
+                if (error == null && value != null) {
+                    descriptor.onOK(okCallback);
+                }
+            }, uiAccess);
+    }
 }

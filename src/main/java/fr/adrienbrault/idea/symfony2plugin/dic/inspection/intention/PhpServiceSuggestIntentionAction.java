@@ -1,11 +1,10 @@
 package fr.adrienbrault.idea.symfony2plugin.dic.inspection.intention;
 
-import com.intellij.openapi.editor.Editor;
-import com.intellij.psi.PsiElement;
+import consulo.codeEditor.Editor;
+import consulo.language.psi.PsiElement;
 import com.jetbrains.php.lang.psi.elements.ClassConstantReference;
 import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
 import fr.adrienbrault.idea.symfony2plugin.intentions.ui.ServiceSuggestDialog;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Quick-fix for {@link fr.adrienbrault.idea.symfony2plugin.dic.inspection.PhpServiceInstanceInspection} that
@@ -19,7 +18,7 @@ import org.jetbrains.annotations.NotNull;
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class PhpServiceSuggestIntentionAction extends AbstractServiceSuggestIntentionAction {
-    public PhpServiceSuggestIntentionAction(@NotNull String expectedClass, @NotNull PsiElement psiElement) {
+    public PhpServiceSuggestIntentionAction(String expectedClass, PsiElement psiElement) {
         super(expectedClass, psiElement);
     }
 
@@ -29,7 +28,7 @@ public class PhpServiceSuggestIntentionAction extends AbstractServiceSuggestInte
     }
 
     @Override
-    protected @NotNull ServiceSuggestDialog.Callback createInsertCallback(@NotNull Editor editor, @NotNull PsiElement psiElement) {
+    protected ServiceSuggestDialog.Callback createInsertCallback(Editor editor, PsiElement psiElement) {
         return new MyInsertCallback(editor, psiElement);
     }
 
@@ -39,18 +38,16 @@ public class PhpServiceSuggestIntentionAction extends AbstractServiceSuggestInte
      * - For '@old_id': replaces only the part after '@', keeping the '@' prefix
      */
     public static class MyInsertCallback implements ServiceSuggestDialog.Callback {
-        @NotNull
         private final Editor editor;
-        @NotNull
         private final PsiElement psiElement;
 
-        public MyInsertCallback(@NotNull Editor editor, @NotNull PsiElement psiElement) {
+        public MyInsertCallback(Editor editor, PsiElement psiElement) {
             this.editor = editor;
             this.psiElement = psiElement;
         }
 
         @Override
-        public void insert(@NotNull String selected) {
+        public void insert(String selected) {
             int startOffset = psiElement.getTextRange().getStartOffset();
             int endOffset = psiElement.getTextRange().getEndOffset();
 

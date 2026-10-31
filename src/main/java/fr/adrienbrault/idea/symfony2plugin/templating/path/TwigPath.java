@@ -1,16 +1,15 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.path;
 
-import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.io.FileUtil;
-import com.intellij.openapi.vfs.VfsUtil;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.search.FilenameIndex;
-import com.intellij.psi.search.GlobalSearchScope;
+import consulo.application.Application;
+import consulo.language.psi.scope.GlobalSearchScope;
+import consulo.language.psi.search.FilenameIndex;
+import consulo.project.Project;
+import consulo.util.io.FileUtil;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.virtualFileSystem.util.VirtualFileUtil;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.ProjectUtil;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.io.File;
 import java.util.Collection;
@@ -19,48 +18,44 @@ import java.util.Collection;
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class TwigPath {
-    @NotNull
     private final String path;
 
-    @NotNull
     private String namespace = TwigUtil.MAIN;
 
-    @NotNull
     private TwigUtil.NamespaceType namespaceType = TwigUtil.NamespaceType.ADD_PATH;
 
     private boolean enabled = true;
     private boolean customPath = false;
 
-    @NotNull
     public TwigUtil.NamespaceType getNamespaceType() {
         return namespaceType;
     }
 
-    public TwigPath(@NotNull String path) {
+    public TwigPath(String path) {
         this.path = path;
     }
 
-    public TwigPath(@NotNull String path, @NotNull String namespace) {
+    public TwigPath(String path, String namespace) {
         this.path = path;
         this.namespace = namespace;
     }
 
-    public TwigPath(@NotNull String path, @NotNull String namespace, @NotNull TwigUtil.NamespaceType namespaceType, boolean customPath) {
+    public TwigPath(String path, String namespace, TwigUtil.NamespaceType namespaceType, boolean customPath) {
         this(path, namespace, namespaceType);
         this.customPath = customPath;
     }
 
-    public static TwigPath createTwigPath(@NotNull String path, @NotNull String namespace, @NotNull TwigUtil.NamespaceType namespaceType, boolean customPath, boolean enabled) {
+    public static TwigPath createTwigPath(String path, String namespace, TwigUtil.NamespaceType namespaceType, boolean customPath, boolean enabled) {
         TwigPath twigPath = new TwigPath(path, namespace, namespaceType, customPath);
         twigPath.enabled = enabled;
         return twigPath;
     }
 
-    public static TwigPath createClone(@NotNull TwigPath twigPath) {
+    public static TwigPath createClone(TwigPath twigPath) {
         return createClone(twigPath, twigPath.isEnabled());
     }
 
-    public static TwigPath createClone(@NotNull TwigPath twigPath, boolean enabled) {
+    public static TwigPath createClone(TwigPath twigPath, boolean enabled) {
         TwigPath newTwigPath = new TwigPath(
             twigPath.getPath(),
             twigPath.getNamespace(),
@@ -72,12 +67,11 @@ public class TwigPath {
         return newTwigPath;
     }
 
-    public TwigPath(@NotNull String path, @NotNull String namespace, @NotNull TwigUtil.NamespaceType namespaceType) {
+    public TwigPath(String path, String namespace, TwigUtil.NamespaceType namespaceType) {
         this(path, namespace);
         this.namespaceType = namespaceType;
     }
 
-    @NotNull
     public String getNamespace() {
         return namespace;
     }
@@ -87,35 +81,35 @@ public class TwigPath {
     }
 
     @Nullable
-    public String getRelativePath(@NotNull Project project) {
+    public String getRelativePath(Project project) {
         if(!FileUtil.isAbsolute(path)) {
             return path;
         }
 
-        VirtualFile virtualFile = VfsUtil.findFileByIoFile(new File(path), false);
+        VirtualFile virtualFile = VirtualFileUtil.findFileByIoFile(new File(path), false);
         if(virtualFile == null) {
             return null;
         }
 
-        return VfsUtil.getRelativePath(virtualFile, ProjectUtil.getProjectDir(project), '/');
+        return VirtualFileUtil.getRelativePath(virtualFile, ProjectUtil.getProjectDir(project), '/');
     }
 
     @Nullable
-    public VirtualFile getDirectory(@NotNull Project project) {
+    public VirtualFile getDirectory(Project project) {
         if(!FileUtil.isAbsolute(path)) {
             VirtualFile baseDir = ProjectUtil.getProjectDir(project);
-            VirtualFile relativeFile = VfsUtil.findRelativeFile(baseDir, path.split("/"));
+            VirtualFile relativeFile = VirtualFileUtil.findRelativeFile(baseDir, path.split("/"));
 
             if (relativeFile != null) {
                 return relativeFile;
             }
 
             // Fallback for unit tests: find directory by name via index
-            if (ApplicationManager.getApplication().isUnitTestMode()) {
+            if (Application.get().isUnitTestMode()) {
                 String[] parts = path.split("/");
                 if (parts.length > 0) {
                     String dirName = parts[parts.length - 1];
-                    Collection<VirtualFile> dirs = FilenameIndex.getVirtualFilesByName(dirName, GlobalSearchScope.projectScope(project));
+                    Collection<VirtualFile> dirs = FilenameIndex.getVirtualFilesByName(project, dirName, GlobalSearchScope.projectScope(project));
                     for (VirtualFile dir : dirs) {
                         if (dir.isDirectory()) {
                             return dir;
@@ -124,7 +118,7 @@ public class TwigPath {
                 }
             }
         } else {
-            VirtualFile fileByIoFile = VfsUtil.findFileByIoFile(new File(path), false);
+            VirtualFile fileByIoFile = VirtualFileUtil.findFileByIoFile(new File(path), false);
             if(fileByIoFile != null) {
                 return fileByIoFile;
             }
@@ -133,7 +127,6 @@ public class TwigPath {
         return null;
     }
 
-    @NotNull
     public String getPath() {
         return path;
     }

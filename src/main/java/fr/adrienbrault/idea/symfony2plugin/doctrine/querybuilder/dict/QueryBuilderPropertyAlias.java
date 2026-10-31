@@ -1,8 +1,8 @@
 package fr.adrienbrault.idea.symfony2plugin.doctrine.querybuilder.dict;
 
-import com.intellij.psi.PsiElement;
+import consulo.language.psi.PsiElement;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.dict.DoctrineModelField;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Collection;
 import java.util.Collections;

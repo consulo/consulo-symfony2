@@ -1,7 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.stubs.dict;
 
 import org.apache.commons.lang3.builder.HashCodeBuilder;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.io.Serializable;
 import java.util.Objects;

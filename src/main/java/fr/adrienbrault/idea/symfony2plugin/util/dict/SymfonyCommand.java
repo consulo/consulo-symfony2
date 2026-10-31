@@ -1,32 +1,28 @@
 package fr.adrienbrault.idea.symfony2plugin.util.dict;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class SymfonyCommand {
-    @NotNull
     private final String name;
 
-    @NotNull
     private final String fqn;
 
-    @Nullable
-    private final String methodName;
+    private final @Nullable String methodName;
 
     /**
      * @param fqn starting with "\"
      */
-    public SymfonyCommand(@NotNull String name, @NotNull String fqn) {
+    public SymfonyCommand(String name, String fqn) {
         this(name, fqn, null);
     }
 
     /**
      * @param fqn starting with "\"
      */
-    public SymfonyCommand(@NotNull String name, @NotNull String fqn, @Nullable String methodName) {
+    public SymfonyCommand(String name, String fqn, @Nullable String methodName) {
         if (!fqn.startsWith("\\")) {
             throw new IllegalArgumentException("Invalid fqn: " + fqn);
         }
@@ -36,17 +32,15 @@ public class SymfonyCommand {
         this.methodName = methodName;
     }
     
-    @NotNull
     public String getName() {
         return name;
     }
 
-    public @NotNull String getFqn() {
+    public String getFqn() {
         return fqn;
     }
 
-    @Nullable
-    public String getMethodName() {
+    public @Nullable String getMethodName() {
         return methodName;
     }
 

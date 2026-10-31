@@ -1,12 +1,11 @@
 package fr.adrienbrault.idea.symfony2plugin.dic;
 
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.codeInsight.lookup.LookupElementPresentation;
-import com.intellij.util.containers.ContainerUtil;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.editor.completion.lookup.LookupElementPresentation;
+import consulo.util.collection.ContainerUtil;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Objects;
 
@@ -15,26 +14,25 @@ import java.util.Objects;
  */
 public class ServiceStringLookupElement extends LookupElement {
 
-    @NotNull
     private final ContainerService containerService;
 
     private boolean boldText = false;
 
-    public ServiceStringLookupElement(@NotNull ContainerService containerService) {
+    public ServiceStringLookupElement(ContainerService containerService) {
         this.containerService = containerService;
     }
 
-    public ServiceStringLookupElement(@NotNull ContainerService containerService, boolean boldText) {
+    public ServiceStringLookupElement(ContainerService containerService, boolean boldText) {
         this(containerService);
         this.boldText = boldText;
     }
 
-    @NotNull
     @Override
     public String getLookupString() {
         return containerService.getName();
     }
 
+    @Override
     public void renderElement(LookupElementPresentation presentation) {
         presentation.setItemText(getLookupString());
         presentation.setTypeGrayed(true);
@@ -65,7 +63,7 @@ public class ServiceStringLookupElement extends LookupElement {
     }
 
     @Nullable
-    private String getClassName(@NotNull ContainerService containerService) {
+    private String getClassName(ContainerService containerService) {
         return ContainerUtil.find(containerService.getClassNames(), Objects::nonNull);
     }
 }

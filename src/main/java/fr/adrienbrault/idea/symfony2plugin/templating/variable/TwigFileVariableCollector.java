@@ -1,7 +1,8 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.variable;
 
+import consulo.annotation.component.ComponentScope;
+import consulo.annotation.component.ExtensionAPI;
 import fr.adrienbrault.idea.symfony2plugin.templating.variable.dict.PsiVariable;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.Map;
 import java.util.Set;
@@ -9,9 +10,10 @@ import java.util.Set;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionAPI(ComponentScope.APPLICATION)
 public interface TwigFileVariableCollector {
 
-    default void collect(@NotNull TwigFileVariableCollectorParameter parameter, @NotNull Map<String, Set<String>> variables) {}
+    default void collect(TwigFileVariableCollectorParameter parameter, Map<String, Set<String>> variables) {}
 
-    default void collectPsiVariables(@NotNull TwigFileVariableCollectorParameter parameter, @NotNull Map<String, PsiVariable> variables) {}
+    default void collectPsiVariables(TwigFileVariableCollectorParameter parameter, Map<String, PsiVariable> variables) {}
 }

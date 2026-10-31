@@ -1,16 +1,16 @@
 package fr.adrienbrault.idea.symfony2plugin.templating;
 
-import com.intellij.codeInsight.completion.CompletionResultSet;
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
+import consulo.language.editor.completion.CompletionResultSet;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.annotation.component.ExtensionImpl;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.*;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
 import fr.adrienbrault.idea.symfony2plugin.twig.utils.TwigBlockUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -22,8 +22,9 @@ import java.util.stream.Collectors;
  *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class BlockGotoCompletionRegistrar implements GotoCompletionRegistrar {
-    public void register(@NotNull GotoCompletionRegistrarParameter registrar) {
+    public void register(GotoCompletionRegistrarParameter registrar) {
         // {{ block('foo_block') }}
         registrar.register(TwigPattern.getPrintBlockOrTagFunctionPattern("block"), psiElement -> {
             if (!Symfony2ProjectComponent.isEnabled(psiElement)) {
@@ -35,11 +36,10 @@ public class BlockGotoCompletionRegistrar implements GotoCompletionRegistrar {
     }
 
     private static class BlockFunctionReferenceCompletionProvider extends GotoCompletionProvider implements GotoCompletionProviderInterfaceEx {
-        private BlockFunctionReferenceCompletionProvider(@NotNull PsiElement element) {
+        private BlockFunctionReferenceCompletionProvider(PsiElement element) {
             super(element);
         }
 
-        @NotNull
         public Collection<PsiElement> getPsiTargets(PsiElement element) {
             String blockName = PsiElementUtils.trimQuote(element.getText());
             if(StringUtils.isBlank(blockName)) {
@@ -72,7 +72,7 @@ public class BlockGotoCompletionRegistrar implements GotoCompletionRegistrar {
         }
 
         @Override
-        public void getLookupElements(@NotNull GotoCompletionProviderLookupArguments arguments) {
+        public void getLookupElements(GotoCompletionProviderLookupArguments arguments) {
             Collection<PsiFile> explicitTemplateTargets = TwigBlockUtil.getBlockFunctionTemplateTargets(getElement());
             Collection<PsiFile> templateTargets = explicitTemplateTargets.isEmpty()
                 ? Collections.singleton(arguments.getParameters().getOriginalFile())

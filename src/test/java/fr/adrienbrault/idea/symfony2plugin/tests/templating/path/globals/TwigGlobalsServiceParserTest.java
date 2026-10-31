@@ -1,6 +1,8 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.templating.path.globals;
 
-import com.intellij.openapi.vfs.VirtualFile;
+import org.junit.jupiter.api.Test;
+
+import consulo.virtualFileSystem.VirtualFile;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
 import fr.adrienbrault.idea.symfony2plugin.twig.variable.globals.TwigGlobalEnum;
 import fr.adrienbrault.idea.symfony2plugin.twig.variable.globals.TwigGlobalsServiceParser;
@@ -13,6 +15,8 @@ public class TwigGlobalsServiceParserTest extends SymfonyLightCodeInsightFixture
     protected String getTestDataPath() {
         return "src/test/java/fr/adrienbrault/idea/symfony2plugin/tests/templating/path/globals";
     }
+
+    @Test
 
     public void testParse() throws Exception {
         VirtualFile testFile = myFixture.copyFileToProject("appDevDebugProjectContainer.xml");

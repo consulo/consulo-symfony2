@@ -1,20 +1,28 @@
 package fr.adrienbrault.idea.symfony2plugin.action;
 
 
-import com.intellij.openapi.actionSystem.AnActionEvent;
-import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.fileEditor.OpenFileDescriptor;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.ui.Messages;
-import com.intellij.psi.*;
-import com.intellij.psi.codeStyle.CodeStyleManager;
-import com.intellij.psi.impl.file.PsiDirectoryFactory;
-import com.intellij.psi.util.PsiTreeUtil;
-import com.intellij.psi.xml.XmlTag;
 import com.jetbrains.php.lang.PhpFileType;
 import com.jetbrains.php.lang.psi.elements.Method;
 import com.jetbrains.php.lang.psi.elements.Parameter;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
+import consulo.application.Application;
+import consulo.language.codeStyle.CodeStyleManager;
+import consulo.language.psi.PsiDirectory;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.PsiFileFactory;
+import consulo.language.psi.PsiManager;
+import consulo.language.psi.util.PsiTreeUtil;
+import consulo.navigation.OpenFileDescriptorFactory;
+import consulo.project.Project;
+import consulo.ui.ex.action.AnActionEvent;
+import consulo.localize.LocalizeValue;
+import consulo.ui.InputBoxBuilder;
+import consulo.ui.MessageBoxes;
+import consulo.ui.UIAccess;
+import consulo.ui.annotation.RequiredUIAccess;
+import consulo.xml.language.psi.XmlElementFactory;
+import consulo.xml.language.psi.XmlTag;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
 import fr.adrienbrault.idea.symfony2plugin.action.ui.ServiceArgumentSelectionDialog;
 import fr.adrienbrault.idea.symfony2plugin.action.ui.SymfonyCreateService;
@@ -28,11 +36,23 @@ import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.ServiceUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.jetbrains.yaml.psi.*;
+import org.jetbrains.yaml.psi.YAMLCompoundValue;
+import org.jetbrains.yaml.psi.YAMLFile;
+import org.jetbrains.yaml.psi.YAMLKeyValue;
+import org.jetbrains.yaml.psi.YAMLMapping;
+import org.jetbrains.yaml.psi.YAMLScalar;
+import org.jetbrains.yaml.psi.YAMLValue;
+import org.jspecify.annotations.Nullable;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -51,7 +71,8 @@ public class ServiceActionUtil {
             .toArray(String[]::new);
     }
 
-    public static void buildFile(@NotNull AnActionEvent event, @NotNull Project project, @NotNull String templatePath) {
+    @RequiredUIAccess
+    public static void buildFile(AnActionEvent event, Project project, String templatePath) {
         String extension;
 
         if ((templatePath.endsWith(".yml") || templatePath.endsWith(".yaml"))) {
@@ -64,35 +85,55 @@ public class ServiceActionUtil {
             throw new RuntimeException("no valid extension for: " + templatePath);
         }
 
-        String fileName = Messages.showInputDialog(project, "File name (without extension)", String.format("Create %s Service", extension), Symfony2Icons.SYMFONY);
-        if(fileName == null || StringUtils.isBlank(fileName)) {
-            return;
-        }
-
+        // the event data is only valid while the action runs
         final PsiDirectory parentDirectory = NewFileActionUtil.getSelectedDirectoryFromAction(event);
         if (parentDirectory == null) {
             return;
         }
 
-        if(parentDirectory.findFile(fileName) != null) {
-            Messages.showInfoMessage("File exists", "Error");
-            return;
-        }
+        UIAccess uiAccess = UIAccess.current();
+        InputBoxBuilder.text()
+            .title(LocalizeValue.localizeTODO(String.format("Create %s Service", extension)))
+            .text(LocalizeValue.localizeTODO("File name (without extension)"))
+            .icon(Symfony2Icons.SYMFONY)
+            .showAsync(project)
+            .whenCompleteAsync((fileName, error) -> {
+                if (error != null || StringUtils.isBlank(fileName)) {
+                    return;
+                }
 
-        ApplicationManager.getApplication().runWriteAction(() -> {
+                if (parentDirectory.findFile(fileName) != null) {
+                    MessageBoxes.okInfo(LocalizeValue.localizeTODO("File exists"))
+                        .title(LocalizeValue.localizeTODO("Error"))
+                        .showAsync(project);
+                    return;
+                }
+
+                createServiceFile(project, parentDirectory, extension, templatePath);
+            }, uiAccess);
+    }
+
+    @RequiredUIAccess
+    private static void createServiceFile(Project project, PsiDirectory parentDirectory, String extension, String templatePath) {
+        Application.get().runWriteAction(() -> {
             PsiFile fileFromText = PsiFileFactory.getInstance(project).createFileFromText("services." + extension, PhpFileType.INSTANCE, NewFileActionUtil.getFileTemplateContent(templatePath));
 
             if (extension.equals("php")) {
                 CodeStyleManager.getInstance(project).reformat(fileFromText);
             }
 
-            PsiElement newFile = PsiDirectoryFactory.getInstance(project).createDirectory(parentDirectory.getVirtualFile()).add(fileFromText);
-            new OpenFileDescriptor(project, newFile.getContainingFile().getVirtualFile(), 0).navigate(true);
+            // consulo-port: no PsiDirectoryFactory, resolve the directory through PsiManager
+            PsiDirectory directory = PsiManager.getInstance(project).findDirectory(parentDirectory.getVirtualFile());
+            if (directory == null) {
+                return;
+            }
+
+            PsiElement newFile = directory.add(fileFromText);
+            OpenFileDescriptorFactory.getInstance(project).newBuilder(newFile.getContainingFile().getVirtualFile()).offset(0).build().navigate(true);
         });
     }
 
-    @NotNull
-    public static Set<String> getPossibleServices(@NotNull Project project, @NotNull String type, @NotNull Map<String, ContainerService> serviceClasses) {
+    public static Set<String> getPossibleServices(Project project, String type, Map<String, ContainerService> serviceClasses) {
         PhpClass typeClass = PhpElementsUtil.getClassInterface(project, type);
         if(typeClass == null) {
             return Collections.emptySet();
@@ -101,8 +142,7 @@ public class ServiceActionUtil {
         return getPossibleServices(typeClass, serviceClasses);
     }
 
-    @NotNull
-    public static Set<String> getPossibleServices(@NotNull PhpClass phpClass, @NotNull Map<String, ContainerService> serviceClasses) {
+    public static Set<String> getPossibleServices(PhpClass phpClass, Map<String, ContainerService> serviceClasses) {
         List<ContainerService> matchedContainer = new ArrayList<>(ServiceUtil.getServiceSuggestionForPhpClass(phpClass, serviceClasses));
         if(matchedContainer.isEmpty()) {
             return Collections.emptySet();
@@ -125,31 +165,25 @@ public class ServiceActionUtil {
 
     public static class ServiceYamlContainer {
 
-        @NotNull
         private final YAMLKeyValue serviceKey;
-        @Nullable
-        private final YAMLKeyValue argument;
+        private final @Nullable YAMLKeyValue argument;
 
-        @NotNull
         private final String className;
 
-        public ServiceYamlContainer(@NotNull YAMLKeyValue serviceKey, @Nullable YAMLKeyValue argument, @NotNull String className) {
+        public ServiceYamlContainer(YAMLKeyValue serviceKey, @Nullable YAMLKeyValue argument, String className) {
             this.serviceKey = serviceKey;
             this.argument = argument;
             this.className = className;
         }
 
-        @Nullable
-        public YAMLKeyValue getArgument() {
+        public @Nullable YAMLKeyValue getArgument() {
             return argument;
         }
 
-        @NotNull
         public String getClassName() {
             return className;
         }
 
-        @NotNull
         public YAMLKeyValue getServiceKey() {
             return serviceKey;
         }
@@ -159,8 +193,7 @@ public class ServiceActionUtil {
          *   class: foo
          *   arguments: []
          */
-        @Nullable
-        public static ServiceYamlContainer create(@NotNull YAMLKeyValue yamlServiceKeyValue) {
+        public static @Nullable ServiceYamlContainer create(YAMLKeyValue yamlServiceKeyValue) {
             YAMLMapping childOfType = PsiTreeUtil.getChildOfType(yamlServiceKeyValue, YAMLMapping.class);
             if(childOfType == null) {
                 return null;
@@ -198,8 +231,7 @@ public class ServiceActionUtil {
     /**
      * Gets all services inside yaml file with "arguments" key context
      */
-    @NotNull
-    public static Collection<ServiceYamlContainer> getYamlContainerServiceArguments(@NotNull YAMLFile yamlFile) {
+    public static Collection<ServiceYamlContainer> getYamlContainerServiceArguments(YAMLFile yamlFile) {
 
         Collection<ServiceYamlContainer> services = new ArrayList<>();
 
@@ -213,8 +245,7 @@ public class ServiceActionUtil {
         return services;
     }
 
-    @NotNull
-    public static List<String> getXmlMissingArgumentTypes(@NotNull XmlTag xmlTag, boolean collectOptionalParameter, @NotNull ContainerCollectionResolver.LazyServiceCollector collector) {
+    public static List<String> getXmlMissingArgumentTypes(XmlTag xmlTag, boolean collectOptionalParameter, ContainerCollectionResolver.LazyServiceCollector collector) {
         PhpClass resolvedClassDefinition = getPhpClassFromXmlTag(xmlTag, collector);
         if (resolvedClassDefinition == null) {
             return Collections.emptyList();
@@ -236,8 +267,7 @@ public class ServiceActionUtil {
         return collectMissingArgTypes(constructor, serviceArguments, collectOptionalParameter);
     }
 
-    @Nullable
-    public static XmlTag getServiceTagValid(@NotNull PsiElement psiElement) {
+    public static @Nullable XmlTag getServiceTagValid(PsiElement psiElement) {
         XmlTag xmlTag = PsiTreeUtil.getParentOfType(psiElement, XmlTag.class);
         if (xmlTag == null) {
             return null;
@@ -255,8 +285,7 @@ public class ServiceActionUtil {
         return null;
     }
 
-    @Nullable
-    public static PhpClass getPhpClassFromXmlTag(@NotNull XmlTag xmlTag, @NotNull ContainerCollectionResolver.LazyServiceCollector collector) {
+    public static @Nullable PhpClass getPhpClassFromXmlTag(XmlTag xmlTag, ContainerCollectionResolver.LazyServiceCollector collector) {
         String className = xmlTag.getAttributeValue("class");
         if(className == null) {
             String id = xmlTag.getAttributeValue("id");
@@ -276,8 +305,7 @@ public class ServiceActionUtil {
         return resolvedClassDefinition;
     }
 
-    @NotNull
-    public static List<String> getYamlMissingArgumentTypes(Project project, ServiceActionUtil.ServiceYamlContainer container, boolean collectOptionalParameter, @NotNull ContainerCollectionResolver.LazyServiceCollector collector) {
+    public static List<String> getYamlMissingArgumentTypes(Project project, ServiceActionUtil.ServiceYamlContainer container, boolean collectOptionalParameter, ContainerCollectionResolver.LazyServiceCollector collector) {
         PhpClass resolvedClassDefinition = ServiceUtil.getResolvedClassDefinition(project, container.getClassName(), collector);
         if(resolvedClassDefinition == null) {
             return Collections.emptyList();
@@ -310,8 +338,7 @@ public class ServiceActionUtil {
         return collectMissingArgTypes(constructor, serviceArguments, collectOptionalParameter);
     }
 
-    @NotNull
-    private static List<String> collectMissingArgTypes(@NotNull Method constructor, int serviceArguments, boolean collectOptionalParameter) {
+    private static List<String> collectMissingArgTypes(Method constructor, int serviceArguments, boolean collectOptionalParameter) {
         Parameter[] parameters = collectOptionalParameter ? constructor.getParameters() : PhpElementsUtil.getFunctionRequiredParameter(constructor);
         if (parameters.length <= serviceArguments) {
             return Collections.emptyList();
@@ -325,7 +352,7 @@ public class ServiceActionUtil {
         return args;
     }
 
-    public static boolean isValidXmlParameterInspectionService(@NotNull XmlTag xmlTag) {
+    public static boolean isValidXmlParameterInspectionService(XmlTag xmlTag) {
         if (!"service".equals(xmlTag.getName())) {
             return false;
         }
@@ -365,11 +392,11 @@ public class ServiceActionUtil {
         return true;
     }
 
-    public static void fixServiceArgument(@NotNull List<String> args, final @NotNull XmlTag xmlTag) {
+    public static void fixServiceArgument(List<String> args, final XmlTag xmlTag) {
         fixServiceArgument(xmlTag.getProject(), args, new XmlInsertServicesCallback(xmlTag));
     }
 
-    public static void fixServiceArgument(@NotNull YAMLKeyValue yamlKeyValue) {
+    public static void fixServiceArgument(YAMLKeyValue yamlKeyValue) {
         YAMLKeyValue argumentsKeyValue = YamlHelper.getYamlKeyValue(yamlKeyValue, "arguments");
 
         List<String> yamlMissingArgumentTypes = ServiceActionUtil.getYamlMissingArgumentTypes(
@@ -399,7 +426,7 @@ public class ServiceActionUtil {
         ServiceActionUtil.fixServiceArgument(yamlKeyValue.getProject(), yamlMissingArgumentTypes, insertServicesCallback);
     }
 
-    public static void fixServiceArgument(@NotNull Project project, @NotNull List<String> args, final @NotNull InsertServicesCallback callback) {
+    public static void fixServiceArgument(Project project, List<String> args, final InsertServicesCallback callback) {
 
         Map<String, ContainerService> services = ContainerCollectionResolver.getServices(project);
 
@@ -420,7 +447,7 @@ public class ServiceActionUtil {
                 }
             }
 
-            ApplicationManager.getApplication().runWriteAction(() -> callback.insert(items));
+            Application.get().runWriteAction(() -> callback.insert(items));
 
             return;
         }
@@ -458,10 +485,9 @@ public class ServiceActionUtil {
 
     public static class XmlInsertServicesCallback implements InsertServicesCallback {
 
-        @NotNull
         private final XmlTag xmlTag;
 
-        public XmlInsertServicesCallback(final @NotNull XmlTag xmlTag) {
+        public XmlInsertServicesCallback(final XmlTag xmlTag) {
             this.xmlTag = xmlTag;
         }
 

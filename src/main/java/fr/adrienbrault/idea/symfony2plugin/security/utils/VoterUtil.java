@@ -1,35 +1,62 @@
 package fr.adrienbrault.idea.symfony2plugin.security.utils;
 
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.codeInsight.lookup.LookupElementBuilder;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.Key;
-import com.intellij.openapi.util.Pair;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiReference;
-import com.intellij.psi.search.FilenameIndex;
-import com.intellij.psi.search.GlobalSearchScope;
-import com.intellij.psi.tree.IElementType;
-import com.intellij.psi.util.*;
 import com.jetbrains.php.lang.PhpLanguage;
 import com.jetbrains.php.lang.lexer.PhpTokenTypes;
 import com.jetbrains.php.lang.parser.PhpElementTypes;
-import com.jetbrains.php.lang.psi.elements.*;
+import com.jetbrains.php.lang.psi.elements.ArrayCreationExpression;
+import com.jetbrains.php.lang.psi.elements.BinaryExpression;
+import com.jetbrains.php.lang.psi.elements.Field;
+import com.jetbrains.php.lang.psi.elements.ForeachStatement;
+import com.jetbrains.php.lang.psi.elements.FunctionReference;
+import com.jetbrains.php.lang.psi.elements.MemberReference;
+import com.jetbrains.php.lang.psi.elements.Method;
+import com.jetbrains.php.lang.psi.elements.Parameter;
+import com.jetbrains.php.lang.psi.elements.ParameterList;
+import com.jetbrains.php.lang.psi.elements.PhpCase;
+import com.jetbrains.php.lang.psi.elements.PhpClass;
+import com.jetbrains.php.lang.psi.elements.PhpPsiElement;
+import com.jetbrains.php.lang.psi.elements.PhpSwitch;
+import com.jetbrains.php.lang.psi.elements.Variable;
+import consulo.application.util.CachedValue;
+import consulo.application.util.CachedValueProvider;
+import consulo.application.util.CachedValuesManager;
+import consulo.language.ast.IElementType;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.editor.completion.lookup.LookupElementBuilder;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.PsiModificationTracker;
+import consulo.language.psi.PsiReference;
+import consulo.language.psi.scope.GlobalSearchScope;
+import consulo.language.psi.search.FilenameIndex;
+import consulo.language.psi.util.PsiTreeUtil;
+import consulo.project.Project;
+import consulo.util.dataholder.Key;
+import consulo.util.lang.Pair;
+import consulo.virtualFileSystem.VirtualFile;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpIndexUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.yaml.YAMLFileType;
 import org.jetbrains.yaml.YAMLLanguage;
 import org.jetbrains.yaml.YAMLUtil;
-import org.jetbrains.yaml.psi.*;
+import org.jetbrains.yaml.psi.YAMLFile;
+import org.jetbrains.yaml.psi.YAMLKeyValue;
+import org.jetbrains.yaml.psi.YAMLMapping;
+import org.jetbrains.yaml.psi.YAMLPsiElement;
+import org.jetbrains.yaml.psi.YAMLScalar;
+import org.jetbrains.yaml.psi.YAMLSequence;
+import org.jetbrains.yaml.psi.YAMLSequenceItem;
+import org.jetbrains.yaml.psi.YAMLValue;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -38,9 +65,9 @@ import java.util.stream.Collectors;
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class VoterUtil {
-    private static final Key<CachedValue<Map<String, String>>> SYMFONY_VOTER_NAMES_CACHE = new Key<>("SYMFONY_VOTER_NAMES");
+    private static final Key<CachedValue<Map<String, String>>> SYMFONY_VOTER_NAMES_CACHE = Key.create("SYMFONY_VOTER_NAMES");
 
-    public static Collection<LookupElement> getVoterAttributeLookupElements(@NotNull Project project) {
+    public static Collection<LookupElement> getVoterAttributeLookupElements(Project project) {
         Map<String, String> result = CachedValuesManager.getManager(project).getCachedValue(
             project,
             SYMFONY_VOTER_NAMES_CACHE,
@@ -79,7 +106,7 @@ public class VoterUtil {
         }).collect(Collectors.toList());
     }
 
-    public static void visitAttribute(@NotNull Project project, @NotNull Consumer<Pair<String, PsiElement>> consumer) {
+    public static void visitAttribute(Project project, Consumer<Pair<String, PsiElement>> consumer) {
         for (PhpClass phpClass : PhpIndexUtil.getAllSubclasses(project, "Symfony\\Component\\Security\\Core\\Authorization\\Voter\\Voter")) {
             Method supports = phpClass.findMethodByName("supports");
             if(supports != null) {
@@ -100,7 +127,7 @@ public class VoterUtil {
         }
 
         for (String fileName : new String[]{"security.yml", "security.yaml"}) {
-            Collection<VirtualFile> virtualFilesByName = FilenameIndex.getVirtualFilesByName(fileName, GlobalSearchScope.getScopeRestrictedByFileTypes(GlobalSearchScope.allScope(project), YAMLFileType.YML));
+            Collection<VirtualFile> virtualFilesByName = FilenameIndex.getVirtualFilesByName(project, fileName, GlobalSearchScope.getScopeRestrictedByFileTypes(GlobalSearchScope.allScope(project), YAMLFileType.YML));
             for (PsiFile psiFile : PsiElementUtils.convertVirtualFilesToPsiFiles(project, virtualFilesByName)) {
                 if(!(psiFile instanceof YAMLFile)) {
                     continue;
@@ -173,7 +200,7 @@ public class VoterUtil {
         }
     }
 
-    private static void visitAttributeForeach(@NotNull Method method, @NotNull Consumer<Pair<String, PsiElement>> consumer) {
+    private static void visitAttributeForeach(Method method, Consumer<Pair<String, PsiElement>> consumer) {
         Parameter[] parameters = method.getParameters();
         if (parameters.length < 3) {
             return;
@@ -212,7 +239,7 @@ public class VoterUtil {
         }
     }
 
-    private static void visitAttribute(@NotNull Method method, @NotNull Consumer<Pair<String, PsiElement>> consumer) {
+    private static void visitAttribute(Method method, Consumer<Pair<String, PsiElement>> consumer) {
         Parameter[] parameters = method.getParameters();
         if (parameters.length == 0) {
             return;
@@ -231,20 +258,17 @@ public class VoterUtil {
             values.add(pair.getFirst());
         }
 
-        @NotNull
         public Set<String> getValues() {
             return values;
         }
     }
 
     public static class TargetPairConsumer implements Consumer<Pair<String, PsiElement>> {
-        @NotNull
         private final String filterValue;
 
-        @NotNull
         private final Set<PsiElement> values = new HashSet<>();
 
-        public TargetPairConsumer(@NotNull String filterValue) {
+        public TargetPairConsumer(String filterValue) {
             this.filterValue = filterValue;
         }
 
@@ -255,7 +279,6 @@ public class VoterUtil {
             }
         }
 
-        @NotNull
         public Set<PsiElement> getValues() {
             return values;
         }
@@ -264,7 +287,7 @@ public class VoterUtil {
     /**
      * Find security roles on Voter implementation and security roles in Yaml
      */
-    private static void visitVariable(@NotNull Variable resolve, @NotNull Consumer<Pair<String, PsiElement>> consumer) {
+    private static void visitVariable(Variable resolve, Consumer<Pair<String, PsiElement>> consumer) {
         PsiElement parent = resolve.getParent();
         if(parent instanceof BinaryExpression) {
             // 'VALUE' == $var
@@ -338,7 +361,7 @@ public class VoterUtil {
     /**
      * null == null, null != null, null === null
      */
-    private static boolean isIfOperand(@NotNull IElementType node) {
+    private static boolean isIfOperand(IElementType node) {
         return
             node == PhpTokenTypes.opIDENTICAL ||
                 node == PhpTokenTypes.opEQUAL ||

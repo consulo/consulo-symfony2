@@ -1,20 +1,21 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.usages;
 
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.xml.XmlTag;
-import com.intellij.patterns.ElementPattern;
-import com.intellij.usages.PsiElementUsageTarget;
-import com.intellij.usages.UsageTarget;
-import com.intellij.usages.impl.rules.UsageType;
-import com.intellij.usages.impl.rules.UsageTypeProviderEx;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.psi.PsiElement;
+import consulo.xml.language.psi.XmlTag;
+import consulo.language.pattern.ElementPattern;
+import consulo.usage.PsiElementUsageTarget;
+import consulo.usage.UsageTarget;
+import consulo.usage.UsageType;
+import consulo.localize.LocalizeValue;
+import consulo.usage.UsageTypeProvider;
 import com.jetbrains.php.lang.psi.PhpFile;
 import com.jetbrains.twig.TwigFile;
 import com.jetbrains.twig.TwigTokenTypes;
 import com.jetbrains.twig.elements.TwigElementTypes;
 import fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayDeque;
 
@@ -27,25 +28,26 @@ import java.util.ArrayDeque;
  *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
-public class TwigTemplateUsageTypeProvider implements UsageTypeProviderEx {
+@ExtensionImpl
+public class TwigTemplateUsageTypeProvider implements UsageTypeProvider {
 
-    private static final UsageType EXTENDS    = new UsageType(() -> "extends");
-    private static final UsageType INCLUDE    = new UsageType(() -> "include");
-    private static final UsageType EMBED      = new UsageType(() -> "embed");
-    private static final UsageType IMPORT     = new UsageType(() -> "import");
-    private static final UsageType FROM       = new UsageType(() -> "from");
-    private static final UsageType FORM_THEME = new UsageType(() -> "form_theme");
-    private static final UsageType CONTROLLER = new UsageType(() -> "controller");
-    private static final UsageType COMPONENT  = new UsageType(() -> "component");
+    private static final UsageType EXTENDS    = new UsageType(LocalizeValue.localizeTODO("extends"));
+    private static final UsageType INCLUDE    = new UsageType(LocalizeValue.localizeTODO("include"));
+    private static final UsageType EMBED      = new UsageType(LocalizeValue.localizeTODO("embed"));
+    private static final UsageType IMPORT     = new UsageType(LocalizeValue.localizeTODO("import"));
+    private static final UsageType FROM       = new UsageType(LocalizeValue.localizeTODO("from"));
+    private static final UsageType FORM_THEME = new UsageType(LocalizeValue.localizeTODO("form_theme"));
+    private static final UsageType CONTROLLER = new UsageType(LocalizeValue.localizeTODO("controller"));
+    private static final UsageType COMPONENT  = new UsageType(LocalizeValue.localizeTODO("component"));
 
-    /** Required by {@link com.intellij.usages.impl.rules.UsageTypeProvider}; not called when the Ex variant is available. */
+    /** Required by {@link UsageTypeProvider}; not called when the target-aware variant is available. */
     @Override
-    public @Nullable UsageType getUsageType(@NotNull PsiElement element) {
+    public @Nullable UsageType getUsageType(PsiElement element) {
         return null;
     }
 
     @Override
-    public @Nullable UsageType getUsageType(@NotNull PsiElement element, @NotNull UsageTarget @NotNull [] targets) {
+    public @Nullable UsageType getUsageType(PsiElement element, UsageTarget[] targets) {
         // Only activate when doing Find Usages for a Twig template file
         if (!isTwigFileTarget(targets)) {
             return null;
@@ -107,7 +109,7 @@ public class TwigTemplateUsageTypeProvider implements UsageTypeProviderEx {
         return null;
     }
 
-    private static boolean isTwigFileTarget(@NotNull UsageTarget @NotNull [] targets) {
+    private static boolean isTwigFileTarget(UsageTarget[] targets) {
         for (UsageTarget target : targets) {
             if (target instanceof PsiElementUsageTarget psiTarget
                     && psiTarget.getElement() instanceof TwigFile) {
@@ -120,7 +122,7 @@ public class TwigTemplateUsageTypeProvider implements UsageTypeProviderEx {
     /**
      * Returns true for the component name element in {% component Name %}.
      */
-    private static boolean isComponentTagValue(@NotNull PsiElement element) {
+    private static boolean isComponentTagValue(PsiElement element) {
         PsiElement parent = element.getParent();
         if (parent == null || parent.getNode() == null || parent.getNode().getElementType() != TwigElementTypes.TAG) {
             return false;
@@ -152,7 +154,7 @@ public class TwigTemplateUsageTypeProvider implements UsageTypeProviderEx {
         return componentValue == element;
     }
 
-    private static boolean hasPatternMatch(@NotNull PsiElement element, @NotNull ElementPattern<? super PsiElement> pattern) {
+    private static boolean hasPatternMatch(PsiElement element, ElementPattern<? super PsiElement> pattern) {
         ArrayDeque<PsiElement> stack = new ArrayDeque<>();
         stack.push(element);
 
@@ -170,7 +172,7 @@ public class TwigTemplateUsageTypeProvider implements UsageTypeProviderEx {
         return false;
     }
 
-    private static boolean hasTagName(@NotNull PsiElement element, @NotNull String tagName) {
+    private static boolean hasTagName(PsiElement element, String tagName) {
         for (PsiElement child = element.getFirstChild(); child != null; child = child.getNextSibling()) {
             if (child.getNode() != null
                 && child.getNode().getElementType() == TwigTokenTypes.TAG_NAME

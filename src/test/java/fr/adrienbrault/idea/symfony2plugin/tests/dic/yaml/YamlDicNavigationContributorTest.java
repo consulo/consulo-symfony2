@@ -1,6 +1,8 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.dic.yaml;
 
-import com.intellij.patterns.PlatformPatterns;
+import org.junit.jupiter.api.Test;
+
+import consulo.language.pattern.PlatformPatterns;
 import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
 import org.jetbrains.yaml.YAMLFileType;
@@ -29,6 +31,8 @@ public class YamlDicNavigationContributorTest extends SymfonyLightCodeInsightFix
         return "src/test/java/fr/adrienbrault/idea/symfony2plugin/tests/dic";
     }
 
+    @Test
+
     public void testFactoryClassMethodNavigation() {
 
         assertNavigationContains(YAMLFileType.YML, "services:\n" +
@@ -56,6 +60,8 @@ public class YamlDicNavigationContributorTest extends SymfonyLightCodeInsightFix
         );
     }
 
+    @Test
+
     public void testFactoryClassMethodnavigationForStringShortcut() {
         assertNavigationContains(YAMLFileType.YML, "services:\n" +
                 "    foo.factory:\n" +
@@ -65,6 +71,8 @@ public class YamlDicNavigationContributorTest extends SymfonyLightCodeInsightFix
             , "Foo\\Name\\FooClass::foo"
         );
     }
+
+    @Test
 
     public void testPhpArrayServiceNavigation() {
         assertNavigationMatch(YAMLFileType.YML, "services:\n" +

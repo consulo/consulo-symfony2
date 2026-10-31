@@ -1,16 +1,15 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.dict;
 
-import com.intellij.codeInsight.completion.InsertionContext;
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.psi.PsiElement;
 import com.jetbrains.php.completion.insert.PhpInsertHandlerUtil;
 import com.jetbrains.php.lang.psi.elements.Function;
 import com.jetbrains.php.lang.psi.elements.Parameter;
 import com.jetbrains.php.lang.psi.resolve.types.PhpType;
+import consulo.language.editor.completion.lookup.InsertionContext;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.psi.PsiElement;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.completion.FunctionInsertHandler;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -18,7 +17,7 @@ import org.jetbrains.annotations.NotNull;
 public class TwigExtensionInsertHandler {
     private static final TwigExtensionInsertHandler INSTANCE = new TwigExtensionInsertHandler();
 
-    public void handleInsert(@NotNull InsertionContext context, @NotNull LookupElement lookupElement, @NotNull TwigExtension twigExtension) {
+    public void handleInsert(InsertionContext context, LookupElement lookupElement, TwigExtension twigExtension) {
         // {{ form_javasc|() }}
         // {{ form_javasc| }}
         if(PhpInsertHandlerUtil.isStringAtCaret(context.getEditor(), "(")) {
@@ -61,7 +60,7 @@ public class TwigExtensionInsertHandler {
         }
     }
 
-    private boolean isString(@NotNull PhpType type) {
+    private boolean isString(PhpType type) {
         for (String s : type.getTypes()) {
             if(StringUtils.stripStart(s, "\\").equalsIgnoreCase("string")) {
                 return true;
@@ -71,7 +70,6 @@ public class TwigExtensionInsertHandler {
         return false;
     }
 
-    @NotNull
     public static TwigExtensionInsertHandler getInstance(){
         return INSTANCE;
     }

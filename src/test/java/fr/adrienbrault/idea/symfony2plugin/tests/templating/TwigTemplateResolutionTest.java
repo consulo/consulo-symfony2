@@ -1,6 +1,8 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.templating;
 
-import com.intellij.patterns.PlatformPatterns;
+import org.junit.jupiter.api.Test;
+
+import consulo.language.pattern.PlatformPatterns;
 import com.jetbrains.twig.TwigFileType;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
 
@@ -43,6 +45,7 @@ public class TwigTemplateResolutionTest extends SymfonyLightCodeInsightFixtureTe
      *
      * @see fr.adrienbrault.idea.symfony2plugin.templating.TwigTemplateCompletionContributor
      */
+    @Test
     public void testIncludeTemplatePathCompletion() {
         assertCompletionContains(
             TwigFileType.INSTANCE,
@@ -57,6 +60,7 @@ public class TwigTemplateResolutionTest extends SymfonyLightCodeInsightFixtureTe
     /**
      * Test that {% include %} tag provides template path completion.
      */
+    @Test
     public void testIncludeTagTemplatePathCompletion() {
         assertCompletionContains(
             TwigFileType.INSTANCE,
@@ -69,6 +73,7 @@ public class TwigTemplateResolutionTest extends SymfonyLightCodeInsightFixtureTe
     /**
      * Test that extends provides template path completion.
      */
+    @Test
     public void testExtendsTemplatePathCompletion() {
         assertCompletionContains(
             TwigFileType.INSTANCE,
@@ -81,6 +86,7 @@ public class TwigTemplateResolutionTest extends SymfonyLightCodeInsightFixtureTe
     /**
      * Test that embed provides template path completion.
      */
+    @Test
     public void testEmbedTemplatePathCompletion() {
         assertCompletionContains(
             TwigFileType.INSTANCE,
@@ -96,6 +102,7 @@ public class TwigTemplateResolutionTest extends SymfonyLightCodeInsightFixtureTe
      * @see fr.adrienbrault.idea.symfony2plugin.templating.TwigTemplateGoToDeclarationHandler
      * @see fr.adrienbrault.idea.symfony2plugin.templating.TemplateGotoCompletionRegistrar
      */
+    @Test
     public void testIncludeTemplateNavigation() {
         assertNavigationContainsFile(
             TwigFileType.INSTANCE,
@@ -107,6 +114,7 @@ public class TwigTemplateResolutionTest extends SymfonyLightCodeInsightFixtureTe
     /**
      * Test that clicking on an included template in tag form navigates to the file.
      */
+    @Test
     public void testIncludeTagTemplateNavigation() {
         assertNavigationContainsFile(
             TwigFileType.INSTANCE,
@@ -118,6 +126,7 @@ public class TwigTemplateResolutionTest extends SymfonyLightCodeInsightFixtureTe
     /**
      * Test that clicking on an extended template name navigates to the file.
      */
+    @Test
     public void testExtendsTemplateNavigation() {
         assertNavigationContainsFile(
             TwigFileType.INSTANCE,
@@ -129,6 +138,7 @@ public class TwigTemplateResolutionTest extends SymfonyLightCodeInsightFixtureTe
     /**
      * Test that clicking on an embedded template name navigates to the file.
      */
+    @Test
     public void testEmbedTemplateNavigation() {
         assertNavigationContainsFile(
             TwigFileType.INSTANCE,
@@ -146,6 +156,7 @@ public class TwigTemplateResolutionTest extends SymfonyLightCodeInsightFixtureTe
      * @see fr.adrienbrault.idea.symfony2plugin.templating.BlockGotoCompletionRegistrar
      * @see fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil#getBlockLookupElements
      */
+    @Test
     public void testBlockInheritanceCompletion() {
         // Create a child template that extends base.html.twig
         // The blocks from base.html.twig (title, header, content, footer) should be available
@@ -163,6 +174,7 @@ public class TwigTemplateResolutionTest extends SymfonyLightCodeInsightFixtureTe
     /**
      * Test block completion in override context.
      */
+    @Test
     public void testBlockOverrideCompletion() {
         assertCompletionContains(
             TwigFileType.INSTANCE,
@@ -175,6 +187,7 @@ public class TwigTemplateResolutionTest extends SymfonyLightCodeInsightFixtureTe
     /**
      * Test that {{ block() }} function provides block name completion.
      */
+    @Test
     public void testBlockFunctionCompletion() {
         // When using the block() function, available blocks should be completed
         assertCompletionContains(
@@ -188,6 +201,8 @@ public class TwigTemplateResolutionTest extends SymfonyLightCodeInsightFixtureTe
         );
     }
 
+    @Test
+
     public void testBlockFunctionTemplateArgumentCompletion() {
         assertCompletionContains(
             TwigFileType.INSTANCE,
@@ -199,6 +214,8 @@ public class TwigTemplateResolutionTest extends SymfonyLightCodeInsightFixtureTe
         );
     }
 
+    @Test
+
     public void testBlockFunctionTemplateArgumentNavigation() {
         assertNavigationContainsFile(
             TwigFileType.INSTANCE,
@@ -206,6 +223,8 @@ public class TwigTemplateResolutionTest extends SymfonyLightCodeInsightFixtureTe
             "base.html.twig"
         );
     }
+
+    @Test
 
     public void testBlockFunctionScopedCompletion() {
         assertCompletionContains(
@@ -222,6 +241,8 @@ public class TwigTemplateResolutionTest extends SymfonyLightCodeInsightFixtureTe
         );
     }
 
+    @Test
+
     public void testBlockFunctionScopedCompletionIncludesInheritedBlocks() {
         assertCompletionContains(
             TwigFileType.INSTANCE,
@@ -233,6 +254,8 @@ public class TwigTemplateResolutionTest extends SymfonyLightCodeInsightFixtureTe
         );
     }
 
+    @Test
+
     public void testBlockFunctionScopedNavigation() {
         assertNavigationMatch(
             TwigFileType.INSTANCE,
@@ -240,12 +263,16 @@ public class TwigTemplateResolutionTest extends SymfonyLightCodeInsightFixtureTe
         );
     }
 
+    @Test
+
     public void testBlockFunctionScopedNavigationIsEmptyForUnrelatedTemplate() {
         assertNavigationIsEmpty(
             TwigFileType.INSTANCE,
             "{{ block('only<caret>_b', 'block_target_a.html.twig') }}"
         );
     }
+
+    @Test
 
     public void testBlockFunctionWithDynamicTemplateFallsBackToCurrentScope() {
         assertCompletionContains(
@@ -262,6 +289,7 @@ public class TwigTemplateResolutionTest extends SymfonyLightCodeInsightFixtureTe
     /**
      * Test block navigation - clicking on block name should navigate to definition.
      */
+    @Test
     public void testBlockNavigation() {
         // Configure a template that extends base and overrides a block
         // Navigation should find the parent block definition
@@ -281,6 +309,7 @@ public class TwigTemplateResolutionTest extends SymfonyLightCodeInsightFixtureTe
      * @see fr.adrienbrault.idea.symfony2plugin.templating.TwigTemplateCompletionContributor
      * @see fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil#visitMacros
      */
+    @Test
     public void testExternalMacroImportCompletion() {
         assertCompletionContains(
             TwigFileType.INSTANCE,
@@ -295,6 +324,7 @@ public class TwigTemplateResolutionTest extends SymfonyLightCodeInsightFixtureTe
     /**
      * Test macro navigation - clicking on macro name should navigate to definition.
      */
+    @Test
     public void testExternalMacroNavigation() {
         assertNavigationMatch(
             TwigFileType.INSTANCE,
@@ -307,6 +337,7 @@ public class TwigTemplateResolutionTest extends SymfonyLightCodeInsightFixtureTe
     /**
      * Test macro navigation to textarea.
      */
+    @Test
     public void testExternalMacroTextareaNavigation() {
         assertNavigationMatch(
             TwigFileType.INSTANCE,
@@ -319,6 +350,7 @@ public class TwigTemplateResolutionTest extends SymfonyLightCodeInsightFixtureTe
     /**
      * Test {% from %} import syntax with macro completion.
      */
+    @Test
     public void testFromImportMacroCompletion() {
         assertCompletionContains(
             TwigFileType.INSTANCE,
@@ -332,6 +364,7 @@ public class TwigTemplateResolutionTest extends SymfonyLightCodeInsightFixtureTe
     /**
      * Test that template completion works with namespace prefix.
      */
+    @Test
     public void testTemplatePathCompletionWithNamespace() {
         // This tests that template names are properly indexed
         // The '@' namespace syntax should also work
@@ -345,6 +378,7 @@ public class TwigTemplateResolutionTest extends SymfonyLightCodeInsightFixtureTe
     /**
      * Test that completion doesn't suggest the current template.
      */
+    @Test
     public void testTemplateCompletionExcludesSelf() {
         // When in a template, we should not suggest including itself
         // This is more of a sanity check
@@ -358,6 +392,7 @@ public class TwigTemplateResolutionTest extends SymfonyLightCodeInsightFixtureTe
     /**
      * Test include with variables context.
      */
+    @Test
     public void testIncludeWithVariables() {
         // Include with 'with' should still provide template completion
         assertCompletionContains(
@@ -370,6 +405,7 @@ public class TwigTemplateResolutionTest extends SymfonyLightCodeInsightFixtureTe
     /**
      * Test embed with block overrides.
      */
+    @Test
     public void testEmbedWithBlockCompletion() {
         // Inside embed, blocks from the embedded template should be available
         assertCompletionContains(

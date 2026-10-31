@@ -1,28 +1,39 @@
 package fr.adrienbrault.idea.symfony2plugin.doctrine;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.Key;
-import fr.adrienbrault.idea.symfony2plugin.doctrine.dict.DoctrineClassMetadata;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiRecursiveElementWalkingVisitor;
-import com.intellij.psi.util.*;
-import com.jetbrains.php.lang.PhpLanguage;
-import com.intellij.psi.xml.XmlAttribute;
-import com.intellij.psi.xml.XmlFile;
-import com.intellij.psi.xml.XmlTag;
 import com.jetbrains.php.PhpIndex;
 import com.jetbrains.php.config.PhpLanguageLevel;
+import com.jetbrains.php.lang.PhpLanguage;
 import com.jetbrains.php.lang.documentation.phpdoc.PhpDocUtil;
 import com.jetbrains.php.lang.documentation.phpdoc.parser.PhpDocElementTypes;
 import com.jetbrains.php.lang.documentation.phpdoc.psi.PhpDocComment;
 import com.jetbrains.php.lang.documentation.phpdoc.psi.tags.PhpDocTag;
 import com.jetbrains.php.lang.psi.PhpFile;
 import com.jetbrains.php.lang.psi.PhpPsiUtil;
-import com.jetbrains.php.lang.psi.elements.*;
+import com.jetbrains.php.lang.psi.elements.ArrayHashElement;
+import com.jetbrains.php.lang.psi.elements.ClassConstantReference;
+import com.jetbrains.php.lang.psi.elements.ClassReference;
+import com.jetbrains.php.lang.psi.elements.Field;
+import com.jetbrains.php.lang.psi.elements.PhpAttribute;
+import com.jetbrains.php.lang.psi.elements.PhpClass;
+import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
 import com.jetbrains.php.refactoring.PhpNameUtil;
+import consulo.application.util.CachedValue;
+import consulo.application.util.CachedValueProvider;
+import consulo.application.util.CachedValuesManager;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.PsiModificationTracker;
+import consulo.language.psi.PsiRecursiveElementWalkingVisitor;
+import consulo.language.psi.util.LanguageCachedValueUtil;
+import consulo.language.psi.util.PsiTreeUtil;
+import consulo.project.Project;
+import consulo.util.dataholder.Key;
+import consulo.xml.language.psi.XmlAttribute;
+import consulo.xml.language.psi.XmlFile;
+import consulo.xml.language.psi.XmlTag;
 import de.espend.idea.php.annotation.util.AnnotationUtil;
+import fr.adrienbrault.idea.symfony2plugin.doctrine.dict.DoctrineClassMetadata;
 import fr.adrienbrault.idea.symfony2plugin.util.AnnotationBackportUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpPsiAttributesUtil;
@@ -30,9 +41,12 @@ import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.jetbrains.yaml.psi.*;
+import org.jetbrains.yaml.psi.YAMLDocument;
+import org.jetbrains.yaml.psi.YAMLFile;
+import org.jetbrains.yaml.psi.YAMLKeyValue;
+import org.jetbrains.yaml.psi.YAMLMapping;
+import org.jetbrains.yaml.psi.YAMLValue;
+import org.jspecify.annotations.Nullable;
 
 import java.util.*;
 
@@ -60,7 +74,7 @@ public class DoctrineUtil {
      * As of often class stay in static only context
      */
     @Nullable
-    public static Collection<DoctrineClassMetadata> getClassRepositoryPair(@NotNull PsiFile psiFile) {
+    public static Collection<DoctrineClassMetadata> getClassRepositoryPair(PsiFile psiFile) {
 
         Collection<DoctrineClassMetadata> pairs = null;
 
@@ -80,7 +94,7 @@ public class DoctrineUtil {
      * We support orm and all odm syntax here
      */
     @Nullable
-    private static Collection<DoctrineClassMetadata> getClassRepositoryPair(@NotNull XmlFile xmlFile) {
+    private static Collection<DoctrineClassMetadata> getClassRepositoryPair(XmlFile xmlFile) {
 
         XmlTag rootTag = xmlFile.getRootTag();
         if(rootTag == null || !rootTag.getName().toLowerCase().startsWith("doctrine")) {
@@ -140,8 +154,7 @@ public class DoctrineUtil {
      * Extract class and repository from all php annotations
      * We support multiple use case like orm an so on
      */
-    @NotNull
-    public static Collection<DoctrineClassMetadata> getClassRepositoryPair(@NotNull PhpFile phpFile) {
+    public static Collection<DoctrineClassMetadata> getClassRepositoryPair(PhpFile phpFile) {
         final Collection<DoctrineClassMetadata> pairs = new ArrayList<>();
         Collection<PhpClass> classes = PhpPsiUtil.findAllClasses(phpFile);
 
@@ -170,7 +183,7 @@ public class DoctrineUtil {
     }
 
     @Nullable
-    private static String extractTableNameFromAttributes(@NotNull PhpClass phpClass) {
+    private static String extractTableNameFromAttributes(PhpClass phpClass) {
         for (PhpAttribute attribute : phpClass.getAttributes()) {
             String fqn = attribute.getFQN();
             if (fqn != null && PhpElementsUtil.isEqualClassName(fqn, "\\Doctrine\\ORM\\Mapping\\Table")) {
@@ -180,7 +193,7 @@ public class DoctrineUtil {
         return null;
     }
 
-    public static Collection<DoctrineClassMetadata> extractAnnotations(@NotNull PhpClass phpClass, @NotNull PhpDocComment docComment) {
+    public static Collection<DoctrineClassMetadata> extractAnnotations(PhpClass phpClass, PhpDocComment docComment) {
         Collection<DoctrineClassMetadata> result = new ArrayList<>();
         PhpDocUtil.processTagElementsByPredicate(
             docComment,
@@ -207,7 +220,7 @@ public class DoctrineUtil {
     }
 
     @Nullable
-    private static String extractTableNameFromAnnotations(@NotNull PhpDocComment docComment) {
+    private static String extractTableNameFromAnnotations(PhpDocComment docComment) {
         Map<String, String> fileImports = AnnotationBackportUtil.getUseImportMap(docComment);
         for (PhpDocTag phpDocTag : PsiTreeUtil.findChildrenOfAnyType(docComment, PhpDocTag.class)) {
             if (AnnotationBackportUtil.NON_ANNOTATION_TAGS.contains(phpDocTag.getName())) {
@@ -225,7 +238,7 @@ public class DoctrineUtil {
      * Extract text: @Entity(repositoryClass="foo")
      */
     @Nullable
-    public static String getAnnotationRepositoryClass(@NotNull PhpDocTag phpDocTag, @NotNull PhpClass phpClass) {
+    public static String getAnnotationRepositoryClass(PhpDocTag phpDocTag, PhpClass phpClass) {
         PsiElement phpDocAttributeList = PsiElementUtils.getChildrenOfType(phpDocTag, PlatformPatterns.psiElement(PhpDocElementTypes.phpDocAttributeList));
         if(phpDocAttributeList == null) {
             return null;
@@ -258,14 +271,14 @@ public class DoctrineUtil {
      *    'substring' => Functions\SubstringFunction::class,
      * ]
      */
-    public static Map<String, String> getDoctrineOrmFunctions(@NotNull Project project)
+    public static Map<String, String> getDoctrineOrmFunctions(Project project)
     {
         return CachedValuesManager.getManager(project).getCachedValue(
             project,
             DOCTRINE_QUERY_BUILDER_NODE_FUNCTIONS,
             new CachedValueProvider<>() {
                 @Override
-                public @NotNull Result<Map<String, String>> compute() {
+                public Result<Map<String, String>> compute() {
                     Map<String, String> items = new HashMap<>();
 
                     Collection<PhpClass> phpClasses = PhpIndex.getInstance(project).getClassesByFQN("\\Doctrine\\ORM\\Query\\Parser");
@@ -281,7 +294,7 @@ public class DoctrineUtil {
 
                     // Parse each file (cached per file)
                     for (PsiFile file : files) {
-                        Map<String, String> fileItems = CachedValuesManager.getCachedValue(file, FILE_DOCTRINE_FUNCTIONS, () -> {
+                        Map<String, String> fileItems = LanguageCachedValueUtil.getCachedValue(file, FILE_DOCTRINE_FUNCTIONS, () -> {
                             Map<String, String> result = new HashMap<>();
                             // Resolve classes fresh from file inside cache provider
                             for (PhpClass phpClass : PhpPsiUtil.findAllClasses((PhpFile) file)) {
@@ -293,7 +306,7 @@ public class DoctrineUtil {
                                 for (Field ownField : phpClass.getOwnFields()) {
                                     ownField.acceptChildren(new PsiRecursiveElementWalkingVisitor() {
                                         @Override
-                                        public void visitElement(@NotNull PsiElement element) {
+                                        public void visitElement(PsiElement element) {
                                             if (element instanceof ArrayHashElement arrayHashElement) {
                                                 if (arrayHashElement.getKey() instanceof StringLiteralExpression stringLiteralExpression && arrayHashElement.getValue() instanceof ClassConstantReference classConstantReference) {
                                                     String contents = stringLiteralExpression.getContents();
@@ -332,7 +345,7 @@ public class DoctrineUtil {
      * Note: index context method, so file validity in each statement
      */
     @Nullable
-    private static Collection<DoctrineClassMetadata> getClassRepositoryPair(@NotNull YAMLFile yamlFile) {
+    private static Collection<DoctrineClassMetadata> getClassRepositoryPair(YAMLFile yamlFile) {
 
         // we are indexing all yaml files for prefilter on path,
         // if false if check on parse

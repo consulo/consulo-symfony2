@@ -1,10 +1,11 @@
 package fr.adrienbrault.idea.symfony2plugin.intentions.yaml.dict;
 
-import com.intellij.openapi.editor.Document;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.text.StringUtil;
-import com.intellij.psi.PsiDocumentManager;
-import com.intellij.psi.PsiElement;
+import org.jetbrains.yaml.YAMLElementTypes;
+import consulo.document.Document;
+import consulo.project.Project;
+import consulo.util.lang.StringUtil;
+import consulo.language.psi.PsiDocumentManager;
+import consulo.language.psi.PsiElement;
 import fr.adrienbrault.idea.symfony2plugin.action.ServiceActionUtil;
 import fr.adrienbrault.idea.symfony2plugin.translation.util.TranslationInsertUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
@@ -14,7 +15,6 @@ import org.jetbrains.yaml.psi.YAMLCompoundValue;
 import org.jetbrains.yaml.psi.YAMLKeyValue;
 import org.jetbrains.yaml.psi.YAMLSequence;
 import org.jetbrains.yaml.psi.YAMLValue;
-import org.jetbrains.yaml.psi.impl.YAMLArrayImpl;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -45,7 +45,7 @@ public class YamlUpdateArgumentServicesCallback implements ServiceActionUtil.Ins
         int appendEndOffset = -1;
         String insertString = null;
 
-        if(yamlCompoundValue instanceof YAMLArrayImpl) {
+        if(yamlCompoundValue instanceof YAMLSequence && yamlCompoundValue.getNode().getElementType() == YAMLElementTypes.ARRAY) {
             // [ @foo ]
 
             // we wound array

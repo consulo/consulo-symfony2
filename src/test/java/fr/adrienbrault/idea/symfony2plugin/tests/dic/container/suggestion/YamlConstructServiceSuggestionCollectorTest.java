@@ -1,5 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.dic.container.suggestion;
 
+import org.junit.jupiter.api.Test;
+
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
 import org.jetbrains.yaml.YAMLFileType;
 
@@ -18,6 +20,8 @@ public class YamlConstructServiceSuggestionCollectorTest extends SymfonyLightCod
     public String getTestDataPath() {
         return "src/test/java/fr/adrienbrault/idea/symfony2plugin/tests/dic/container/suggestion/fixtures";
     }
+
+    @Test
 
     public void testConstructorArguments() {
         assertCompletionLookupContainsPresentableItem(YAMLFileType.YML, "" +

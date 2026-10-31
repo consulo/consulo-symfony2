@@ -1,12 +1,17 @@
 package fr.adrienbrault.idea.symfony2plugin.translation;
 
-import com.intellij.codeInsight.completion.CompletionResultSet;
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.codeInsight.lookup.LookupElementBuilder;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.psi.PsiElement;
-import com.jetbrains.php.lang.psi.elements.*;
+import com.jetbrains.php.lang.psi.elements.ArrayCreationExpression;
+import com.jetbrains.php.lang.psi.elements.FunctionReference;
+import com.jetbrains.php.lang.psi.elements.NewExpression;
+import com.jetbrains.php.lang.psi.elements.ParameterList;
+import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
 import com.jetbrains.twig.elements.TwigElementTypes;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.editor.completion.CompletionResultSet;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.editor.completion.lookup.LookupElementBuilder;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiElement;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
 import fr.adrienbrault.idea.symfony2plugin.templating.TwigPattern;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionContributor;
@@ -21,8 +26,7 @@ import fr.adrienbrault.idea.symfony2plugin.util.ParameterBag;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -32,9 +36,10 @@ import java.util.stream.Collectors;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class TranslationPlaceholderGotoCompletionRegistrar implements GotoCompletionRegistrar {
     @Override
-    public void register(@NotNull GotoCompletionRegistrarParameter registrar) {
+    public void register(GotoCompletionRegistrarParameter registrar) {
         // {{ 'symfony.great'|trans({'fo<caret>f'}, 'symfony')) }}
         registrar.register(
             TwigPattern.getFunctionWithFirstParameterAsKeyLiteralPattern("trans"),
@@ -73,20 +78,18 @@ public class TranslationPlaceholderGotoCompletionRegistrar implements GotoComple
     }
 
     private static class MyTranslationPlaceholderGotoCompletionProvider extends GotoCompletionProvider {
-        @NotNull
         private final String key;
 
-        @NotNull
         private final String domain;
 
-        MyTranslationPlaceholderGotoCompletionProvider(@NotNull PsiElement psiElement, @NotNull String key, @NotNull String domain) {
+        MyTranslationPlaceholderGotoCompletionProvider(PsiElement psiElement, String key, String domain) {
             super(psiElement);
             this.key = key;
             this.domain = domain;
         }
 
         @Override
-        public void getLookupElements(@NotNull GotoCompletionProviderLookupArguments arguments) {
+        public void getLookupElements(GotoCompletionProviderLookupArguments arguments) {
             Collection<LookupElement> lookupElements = TranslationUtil.getPlaceholderFromTranslation(getProject(), key, domain).stream()
                 .map(s -> LookupElementBuilder.create(s).withIcon(Symfony2Icons.TRANSLATION))
                 .collect(Collectors.toList());
@@ -95,7 +98,6 @@ public class TranslationPlaceholderGotoCompletionRegistrar implements GotoComple
             completionResultSet.addAllElements(lookupElements);
         }
 
-        @NotNull
         @Override
         public Collection<PsiElement> getPsiTargets(PsiElement element) {
             return Arrays.asList(TranslationUtil.getTranslationPsiElements(getProject(), key, domain));
@@ -103,12 +105,11 @@ public class TranslationPlaceholderGotoCompletionRegistrar implements GotoComple
     }
 
     private static class MyPhpTranslationCompletionContributor implements GotoCompletionContributor {
-        @NotNull
         private final String method;
         private final int placeHolderParameter;
         private final int domainParameter;
 
-        private MyPhpTranslationCompletionContributor(@NotNull String method, int placeHolderParameter, int domainParameter) {
+        private MyPhpTranslationCompletionContributor(String method, int placeHolderParameter, int domainParameter) {
             this.method = method;
             this.placeHolderParameter = placeHolderParameter;
             this.domainParameter = domainParameter;
@@ -116,7 +117,7 @@ public class TranslationPlaceholderGotoCompletionRegistrar implements GotoComple
 
         @Nullable
         @Override
-        public GotoCompletionProvider getProvider(@NotNull PsiElement psiElement) {
+        public GotoCompletionProvider getProvider(PsiElement psiElement) {
             PsiElement context = psiElement.getContext();
             if (!(context instanceof StringLiteralExpression)) {
                 return null;
@@ -156,7 +157,7 @@ public class TranslationPlaceholderGotoCompletionRegistrar implements GotoComple
     private static class MyPhpTranslatableMessageCompletionContributor implements GotoCompletionContributor {
         @Nullable
         @Override
-        public GotoCompletionProvider getProvider(@NotNull PsiElement psiElement) {
+        public GotoCompletionProvider getProvider(PsiElement psiElement) {
             return getTranslatableMessageProvider(psiElement, newEx ->
                 newEx instanceof NewExpression newExpression
                     && PhpElementsUtil.isNewExpressionPhpClassWithInstance(newExpression, TranslationUtil.PHP_TRANSLATION_TRANSLATABLE_MESSAGE)
@@ -171,7 +172,7 @@ public class TranslationPlaceholderGotoCompletionRegistrar implements GotoComple
     private static class MyPhpTranslatableMessageCompletionViaTFunctionContributor implements GotoCompletionContributor {
         @Nullable
         @Override
-        public GotoCompletionProvider getProvider(@NotNull PsiElement psiElement) {
+        public GotoCompletionProvider getProvider(PsiElement psiElement) {
             return getTranslatableMessageProvider(psiElement, newEx ->
                 newEx instanceof FunctionReference functionReference
                     && TranslationUtil.isFunctionReferenceTranslationTFunction(functionReference)
@@ -181,8 +182,8 @@ public class TranslationPlaceholderGotoCompletionRegistrar implements GotoComple
 
     @Nullable
     private static GotoCompletionProvider getTranslatableMessageProvider(
-        @NotNull PsiElement psiElement,
-        @NotNull Predicate<PsiElement> newExValidator
+        PsiElement psiElement,
+        Predicate<PsiElement> newExValidator
     ) {
         PsiElement context = psiElement.getContext();
         if (!(context instanceof StringLiteralExpression)) {
@@ -235,10 +236,10 @@ public class TranslationPlaceholderGotoCompletionRegistrar implements GotoComple
     /**
      * {{ 'symfony.great'|trans({'fo<caret>f'}, 'symfony')) }}
      */
-    private record MyTwigTransFilterCompletionContributor(@NotNull String filter) implements GotoCompletionContributor {
+    private record MyTwigTransFilterCompletionContributor(String filter) implements GotoCompletionContributor {
         @Nullable
         @Override
-        public GotoCompletionProvider getProvider(@NotNull PsiElement psiElement) {
+        public GotoCompletionProvider getProvider(PsiElement psiElement) {
             PsiElement parent = psiElement.getParent();
             if (parent.getNode().getElementType() != TwigElementTypes.LITERAL) {
                 return null;

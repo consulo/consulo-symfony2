@@ -1,11 +1,10 @@
 package fr.adrienbrault.idea.symfony2plugin.profiler;
 
-import com.intellij.openapi.project.Project;
+import consulo.project.Project;
 import fr.adrienbrault.idea.symfony2plugin.profiler.dict.ProfilerRequestInterface;
 import fr.adrienbrault.idea.symfony2plugin.profiler.utils.ProfilerUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -20,18 +19,15 @@ public class HttpProfilerIndex implements ProfilerIndexInterface {
      */
     private static final String PROFILER_PATH = "_profiler";
 
-    @NotNull
     private final Project project;
 
-    @NotNull
     private final String url;
 
-    public HttpProfilerIndex(@NotNull Project project, @NotNull String url) {
+    public HttpProfilerIndex(Project project, String url) {
         this.project = project;
         this.url = StringUtils.stripEnd(url, "/");
     }
 
-    @NotNull
     @Override
     public List<ProfilerRequestInterface> getRequests() {
         String content = ProfilerUtil.getProfilerUrlContent(String.format("%s/%s/empty/search/results?ip=&limit=25", this.url, PROFILER_PATH));
@@ -46,7 +42,7 @@ public class HttpProfilerIndex implements ProfilerIndexInterface {
 
     @Nullable
     @Override
-    public String getUrlForRequest(@NotNull ProfilerRequestInterface request) {
+    public String getUrlForRequest(ProfilerRequestInterface request) {
         String profilerUrl = request.getProfilerUrl();
 
         // already absolute url given

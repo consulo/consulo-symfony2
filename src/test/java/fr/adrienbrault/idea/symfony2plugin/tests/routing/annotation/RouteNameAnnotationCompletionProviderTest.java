@@ -1,5 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.routing.annotation;
 
+import org.junit.jupiter.api.Test;
+
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
 
 /**
@@ -17,6 +19,8 @@ public class RouteNameAnnotationCompletionProviderTest extends SymfonyLightCodeI
         return "src/test/java/fr/adrienbrault/idea/symfony2plugin/tests/routing/annotation/fixtures";
     }
 
+    @Test
+
     public void testRouteUrlCompletionForAnnotations() {
         assertCompletionContains("test.php", "<?php\n" +
                 "namespace App\\Controller;" +
@@ -33,6 +37,8 @@ public class RouteNameAnnotationCompletionProviderTest extends SymfonyLightCodeI
             "app_foo_foo1"
         );
     }
+
+    @Test
 
     public void testRouteUrlCompletionForAttributes() {
         assertCompletionContains("test.php", "<?php\n" +

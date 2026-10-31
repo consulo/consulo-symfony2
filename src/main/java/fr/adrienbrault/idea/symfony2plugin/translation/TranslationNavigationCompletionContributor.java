@@ -1,26 +1,38 @@
 package fr.adrienbrault.idea.symfony2plugin.translation;
 
-import com.intellij.codeInsight.completion.*;
-import com.intellij.codeInsight.navigation.actions.GotoDeclarationHandler;
-import com.intellij.openapi.editor.Editor;
-import com.intellij.openapi.project.Project;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.psi.PsiElement;
-import com.intellij.util.ProcessingContext;
-import com.jetbrains.php.lang.psi.elements.*;
+import com.jetbrains.php.lang.PhpLanguage;
+import com.jetbrains.php.lang.psi.elements.ParameterList;
+import com.jetbrains.php.lang.psi.elements.ParameterListOwner;
+import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
+import consulo.codeEditor.Editor;
+import consulo.language.Language;
+import consulo.language.editor.completion.CompletionContributor;
+import consulo.language.editor.completion.CompletionParameters;
+import consulo.language.editor.completion.CompletionProvider;
+import consulo.language.editor.completion.CompletionResultSet;
+import consulo.language.editor.completion.CompletionType;
+import consulo.language.editor.navigation.GotoDeclarationHandler;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiElement;
+import consulo.language.util.ProcessingContext;
+import consulo.project.Project;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.translation.dict.TranslationUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class TranslationNavigationCompletionContributor {
+    /**
+     * Registered via {@link TranslationNavigationCompletionContributorCompletion}; Consulo cannot register nested classes via @ExtensionImpl.
+     */
     public static class Completion extends CompletionContributor {
         public Completion() {
             // $this->translator->trans('<caret>', [], '<caret>');
@@ -30,9 +42,9 @@ public class TranslationNavigationCompletionContributor {
                 PhpElementsUtil.getParameterInsideMethodReferencePattern(),
                 PhpElementsUtil.getParameterInsideNewExpressionPattern(),
                 PhpElementsUtil.getParameterInsideFunctionReferencePattern()
-            ), new CompletionProvider<>() {
+            ), new CompletionProvider() {
                 @Override
-                protected void addCompletions(@NotNull CompletionParameters parameters, @NotNull ProcessingContext context, @NotNull CompletionResultSet result) {
+                public void addCompletions(CompletionParameters parameters, ProcessingContext context, CompletionResultSet result) {
                     PsiElement psiElement = parameters.getOriginalPosition();
                     if (psiElement == null || !(psiElement.getParent() instanceof StringLiteralExpression stringLiteralExpression)) {
                         return;
@@ -48,8 +60,16 @@ public class TranslationNavigationCompletionContributor {
                 }
             });
         }
+
+        @Override
+        public Language getLanguage() {
+            return PhpLanguage.INSTANCE;
+        }
     }
 
+    /**
+     * Registered via {@link TranslationNavigationCompletionContributorGotoDeclaration}; Consulo cannot register nested classes via @ExtensionImpl.
+     */
     public static class GotoDeclaration implements GotoDeclarationHandler {
         @Override
         public PsiElement @Nullable [] getGotoDeclarationTargets(@Nullable PsiElement sourceElement, int offset, Editor editor) {
@@ -75,7 +95,7 @@ public class TranslationNavigationCompletionContributor {
         }
     }
 
-    public static void visit(@NotNull StringLiteralExpression psiElement, @NotNull TranslationNavigationCompletionContributor.Domain domain, @NotNull TranslationNavigationCompletionContributor.Key key) {
+    public static void visit(StringLiteralExpression psiElement, TranslationNavigationCompletionContributor.Domain domain, TranslationNavigationCompletionContributor.Key key) {
         if (!Symfony2ProjectComponent.isEnabled(psiElement) || !(psiElement.getContext() instanceof ParameterList parameterList)) {
             return;
         }
@@ -111,10 +131,10 @@ public class TranslationNavigationCompletionContributor {
     }
 
     private interface Domain {
-        void accept(@NotNull StringLiteralExpression stringLiteralExpression);
+        void accept(StringLiteralExpression stringLiteralExpression);
     }
 
     private interface Key {
-        void accept(@NotNull String domain, @NotNull StringLiteralExpression stringLiteralExpression);
+        void accept(String domain, StringLiteralExpression stringLiteralExpression);
     }
 }

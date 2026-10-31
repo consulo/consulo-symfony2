@@ -1,30 +1,28 @@
 package fr.adrienbrault.idea.symfony2plugin.dic.command;
 
-import com.intellij.execution.Location;
-import com.intellij.execution.PsiLocation;
-import com.intellij.execution.actions.ConfigurationContext;
-import com.intellij.execution.actions.LazyRunConfigurationProducer;
-import com.intellij.execution.configurations.ConfigurationFactory;
-import com.intellij.openapi.util.Ref;
-import com.intellij.psi.PsiElement;
 import com.jetbrains.php.lang.psi.elements.PhpNamedElement;
-import org.jetbrains.annotations.NotNull;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.execution.action.ConfigurationContext;
+import consulo.execution.action.Location;
+import consulo.execution.action.PsiLocation;
+import consulo.execution.action.RunConfigurationProducer;
+import consulo.language.psi.PsiElement;
+import consulo.util.lang.ref.SimpleReference;
 
 import java.util.List;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
-public class SymfonyCommandRunConfigurationProducer extends LazyRunConfigurationProducer<SymfonyCommandRunConfiguration> {
+@ExtensionImpl
+public class SymfonyCommandRunConfigurationProducer extends RunConfigurationProducer<SymfonyCommandRunConfiguration> {
 
-    @NotNull
-    @Override
-    public ConfigurationFactory getConfigurationFactory() {
-        return SymfonyCommandRunConfigurationType.getInstance().getFactory();
+    public SymfonyCommandRunConfigurationProducer() {
+        super(SymfonyCommandRunConfigurationType.getInstance().getFactory());
     }
 
     @Override
-    protected boolean setupConfigurationFromContext(@NotNull SymfonyCommandRunConfiguration configuration, @NotNull ConfigurationContext context, @NotNull Ref<PsiElement> sourceElement) {
+    protected boolean setupConfigurationFromContext(SymfonyCommandRunConfiguration configuration, ConfigurationContext context, SimpleReference<PsiElement> sourceElement) {
         List<String> commandNames = getCommandNames(context);
         if (commandNames.isEmpty()) {
             return false;
@@ -44,7 +42,7 @@ public class SymfonyCommandRunConfigurationProducer extends LazyRunConfiguration
     }
 
     @Override
-    public boolean isConfigurationFromContext(@NotNull SymfonyCommandRunConfiguration configuration, @NotNull ConfigurationContext context) {
+    public boolean isConfigurationFromContext(SymfonyCommandRunConfiguration configuration, ConfigurationContext context) {
         List<String> commandNames = getCommandNames(context);
         if (commandNames.isEmpty()) {
             return false;
@@ -53,8 +51,7 @@ public class SymfonyCommandRunConfigurationProducer extends LazyRunConfiguration
         return commandNames.contains(configuration.getCommandName());
     }
 
-    @NotNull
-    private static List<String> getCommandNames(@NotNull ConfigurationContext context) {
+    private static List<String> getCommandNames(ConfigurationContext context) {
         Location<?> location = context.getLocation();
         if (!(location instanceof PsiLocation)) {
             return List.of();

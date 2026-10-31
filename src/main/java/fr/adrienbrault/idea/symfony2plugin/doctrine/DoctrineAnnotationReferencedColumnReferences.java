@@ -1,13 +1,20 @@
 package fr.adrienbrault.idea.symfony2plugin.doctrine;
 
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.psi.*;
-import com.intellij.psi.util.PsiTreeUtil;
+import fr.adrienbrault.idea.symfony2plugin.codeInsight.completion.SymfonyCompletionReference;
+
 import com.jetbrains.php.lang.documentation.phpdoc.parser.PhpDocElementTypes;
 import com.jetbrains.php.lang.documentation.phpdoc.psi.PhpDocComment;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
 import com.jetbrains.php.lang.psi.elements.PhpPsiElement;
 import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiElementResolveResult;
+import consulo.language.psi.PsiPolyVariantReferenceBase;
+import consulo.language.psi.PsiReference;
+import consulo.language.psi.ResolveResult;
+import consulo.language.psi.util.PsiTreeUtil;
 import de.espend.idea.php.annotation.dict.PhpDocCommentAnnotation;
 import de.espend.idea.php.annotation.dict.PhpDocTagAnnotation;
 import de.espend.idea.php.annotation.extension.PhpAnnotationReferenceProvider;
@@ -18,8 +25,7 @@ import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.dict.DoctrineModelField;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.dict.DoctrineModelFieldLookupElement;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -28,11 +34,11 @@ import java.util.List;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class DoctrineAnnotationReferencedColumnReferences implements PhpAnnotationReferenceProvider {
 
-    @Nullable
     @Override
-    public PsiReference[] getPropertyReferences(AnnotationPropertyParameter annotationPropertyParameter, PhpAnnotationReferenceProviderParameter phpAnnotationReferenceProviderParameter) {
+    public PsiReference @Nullable [] getPropertyReferences(AnnotationPropertyParameter annotationPropertyParameter, PhpAnnotationReferenceProviderParameter phpAnnotationReferenceProviderParameter) {
 
         PsiElement element = annotationPropertyParameter.getElement();
 
@@ -85,7 +91,7 @@ public class DoctrineAnnotationReferencedColumnReferences implements PhpAnnotati
         return new PsiReference[0];
     }
 
-    public static class EntityReference extends PsiPolyVariantReferenceBase<PsiElement> {
+    public static class EntityReference extends PsiPolyVariantReferenceBase<PsiElement> implements SymfonyCompletionReference {
 
         final private Collection<DoctrineModelField> doctrineModelField;
         final private String content;
@@ -96,7 +102,6 @@ public class DoctrineAnnotationReferencedColumnReferences implements PhpAnnotati
             this.content = psiElement.getContents();
         }
 
-        @NotNull
         @Override
         public ResolveResult[] multiResolve(boolean b) {
 
@@ -110,9 +115,8 @@ public class DoctrineAnnotationReferencedColumnReferences implements PhpAnnotati
             return PsiElementResolveResult.createResults(targets);
         }
 
-        @NotNull
         @Override
-        public Object[] getVariants() {
+        public Object[] getCompletionVariants() {
 
             List<LookupElement> lookupElements = new ArrayList<>();
             for(DoctrineModelField field: doctrineModelField) {

@@ -1,18 +1,20 @@
 package fr.adrienbrault.idea.symfony2plugin.config;
 
-import com.intellij.psi.PsiReference;
 import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.psi.PsiReference;
 import de.espend.idea.php.annotation.extension.PhpAnnotationReferenceProvider;
 import de.espend.idea.php.annotation.extension.parameter.AnnotationPropertyParameter;
 import de.espend.idea.php.annotation.extension.parameter.PhpAnnotationReferenceProviderParameter;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.dic.ServiceReference;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class SymfonyAnnotationReferences implements PhpAnnotationReferenceProvider {
     @Nullable
     @Override

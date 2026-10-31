@@ -1,11 +1,10 @@
 package fr.adrienbrault.idea.symfony2plugin.stubs.indexes;
 
-import com.intellij.openapi.vfs.VfsUtil;
-import com.intellij.psi.PsiFile;
-import com.intellij.util.indexing.FileContent;
+import consulo.virtualFileSystem.util.VirtualFileUtil;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.stub.FileContent;
 import fr.adrienbrault.idea.symfony2plugin.util.ProjectUtil;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Set;
 
@@ -23,8 +22,8 @@ final class StubIndexValidationUtil {
      * used by multiple stub indexes.
      */
     public static boolean isValidForIndex(
-        @NotNull FileContent inputData,
-        @NotNull PsiFile psiFile,
+        FileContent inputData,
+        PsiFile psiFile,
         int maxFileByteSize,
         boolean excludeTestPaths,
         @Nullable Set<String> allowedExtensions
@@ -42,7 +41,7 @@ final class StubIndexValidationUtil {
         }
 
         if (excludeTestPaths) {
-            String relativePath = VfsUtil.getRelativePath(inputData.getFile(), ProjectUtil.getProjectDir(inputData.getProject()), '/');
+            String relativePath = VirtualFileUtil.getRelativePath(inputData.getFile(), ProjectUtil.getProjectDir(psiFile.getProject()), '/');
             if (relativePath != null && EXCLUDED_PATH_PARTS.stream().anyMatch(relativePath::contains)) {
                 return false;
             }

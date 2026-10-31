@@ -1,9 +1,8 @@
 package fr.adrienbrault.idea.symfony2plugin.dic;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.vfs.VirtualFile;
+import consulo.project.Project;
+import consulo.virtualFileSystem.VirtualFile;
 import fr.adrienbrault.idea.symfony2plugin.util.service.AbstractServiceParser;
-import org.jetbrains.annotations.NotNull;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
@@ -34,7 +33,7 @@ public class ConsoleCommandServiceParser extends AbstractServiceParser {
     }
 
     @Override
-    public void parser(@NotNull InputStream inputStream, @NotNull VirtualFile sourceFile, @NotNull Project project) {
+    public void parser(InputStream inputStream, VirtualFile sourceFile, Project project) {
         NodeList nodeList = this.parserer(inputStream);
         if (nodeList == null) {
             return;

@@ -1,25 +1,30 @@
 package fr.adrienbrault.idea.symfony2plugin.config;
 
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.codeInsight.lookup.LookupElementBuilder;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.Key;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.search.GlobalSearchScope;
-import com.intellij.psi.util.*;
-import com.intellij.psi.xml.XmlAttribute;
-import com.intellij.psi.xml.XmlFile;
-import com.intellij.psi.xml.XmlTag;
-import com.intellij.util.containers.ContainerUtil;
-import com.intellij.util.indexing.FileBasedIndex;
 import com.jetbrains.php.lang.PhpLanguage;
 import com.jetbrains.php.lang.parser.PhpElementTypes;
 import com.jetbrains.php.lang.psi.PhpFile;
 import com.jetbrains.php.lang.psi.PhpPsiUtil;
 import com.jetbrains.php.lang.psi.elements.*;
+import consulo.application.util.CachedValue;
+import consulo.application.util.CachedValueProvider;
+import consulo.application.util.CachedValuesManager;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.editor.completion.lookup.LookupElementBuilder;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.PsiModificationTracker;
+import consulo.language.psi.scope.GlobalSearchScope;
+import consulo.language.psi.stub.FileBasedIndex;
+import consulo.language.psi.util.LanguageCachedValueUtil;
+import consulo.language.psi.util.PsiTreeUtil;
+import consulo.project.Project;
+import consulo.util.collection.ContainerUtil;
+import consulo.util.dataholder.Key;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.xml.language.psi.XmlAttribute;
+import consulo.xml.language.psi.XmlFile;
+import consulo.xml.language.psi.XmlTag;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
 import fr.adrienbrault.idea.symfony2plugin.config.dic.EventDispatcherSubscribedEvent;
 import fr.adrienbrault.idea.symfony2plugin.dic.XmlEventParser;
@@ -34,8 +39,7 @@ import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
 import fr.adrienbrault.idea.symfony2plugin.util.service.ServiceXmlParserFactory;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.jetbrains.yaml.psi.YAMLFile;
 import org.jetbrains.yaml.psi.YAMLKeyValue;
 import org.jetbrains.yaml.psi.YAMLMapping;
@@ -53,8 +57,7 @@ public class EventDispatcherSubscriberUtil {
     // Per-file cache for event subscriber extraction
     private static final Key<CachedValue<Collection<EventDispatcherSubscribedEvent>>> FILE_EVENT_SUBSCRIBERS = new Key<>("FILE_EVENT_SUBSCRIBERS");
 
-    @NotNull
-    public static Collection<EventDispatcherSubscribedEvent> getSubscribedEvents(final @NotNull Project project) {
+    public static Collection<EventDispatcherSubscribedEvent> getSubscribedEvents(final Project project) {
         return CachedValuesManager.getManager(project).getCachedValue(
             project,
             EVENT_SUBSCRIBERS,
@@ -63,8 +66,7 @@ public class EventDispatcherSubscriberUtil {
         );
     }
 
-    @NotNull
-    private static Collection<EventDispatcherSubscribedEvent> getSubscribedEventsProxy(@NotNull Project project) {
+    private static Collection<EventDispatcherSubscribedEvent> getSubscribedEventsProxy(Project project) {
         Collection<EventDispatcherSubscribedEvent> events = new ArrayList<>();
 
         // http://symfony.com/doc/current/components/event_dispatcher/introduction.html
@@ -84,7 +86,7 @@ public class EventDispatcherSubscriberUtil {
 
         // Parse each file (cached per file)
         for (PsiFile file : files) {
-            Collection<EventDispatcherSubscribedEvent> fileEvents = CachedValuesManager.getCachedValue(file, FILE_EVENT_SUBSCRIBERS, () -> {
+            Collection<EventDispatcherSubscribedEvent> fileEvents = LanguageCachedValueUtil.getCachedValue(file, FILE_EVENT_SUBSCRIBERS, () -> {
                 Collection<EventDispatcherSubscribedEvent> result = new ArrayList<>();
                 // Resolve classes fresh from file inside cache provider
                 for (PhpClass phpClass : PhpPsiUtil.findAllClasses((PhpFile) file)) {
@@ -114,7 +116,7 @@ public class EventDispatcherSubscriberUtil {
        return events;
     }
 
-    private static void attachSubscriberEventNames(@NotNull Collection<EventDispatcherSubscribedEvent> events, @NotNull PhpClass phpClass, @NotNull PhpReturn phpReturn) {
+    private static void attachSubscriberEventNames(Collection<EventDispatcherSubscribedEvent> events, PhpClass phpClass, PhpReturn phpReturn) {
 
         PhpPsiElement array = phpReturn.getFirstPsiChild();
         if(!(array instanceof ArrayCreationExpression)) {
@@ -170,8 +172,7 @@ public class EventDispatcherSubscriberUtil {
      * 'pre.foo1' => ['onStoreOrder', 0]
      * 'pre.foo2' => [['onStoreOrder', 0]]
      */
-    @NotNull
-    private static Collection<PsiElement> getSubscriberMethods(@NotNull ArrayHashElement arrayHashElement) {
+    private static Collection<PsiElement> getSubscriberMethods(ArrayHashElement arrayHashElement) {
 
         // support string, constants and array values
         PhpPsiElement value = arrayHashElement.getValue();
@@ -212,8 +213,7 @@ public class EventDispatcherSubscriberUtil {
         return psiElements;
     }
 
-    @NotNull
-    public static Collection<EventDispatcherSubscribedEvent> getSubscribedEvent(@NotNull Project project, @NotNull String eventName) {
+    public static Collection<EventDispatcherSubscribedEvent> getSubscribedEvent(Project project, String eventName) {
 
         List<EventDispatcherSubscribedEvent> events = new ArrayList<>();
 
@@ -226,8 +226,7 @@ public class EventDispatcherSubscriberUtil {
         return events;
     }
 
-    @NotNull
-    public static Collection<PsiElement> getEventPsiElements(@NotNull final Project project, final @NotNull String eventName) {
+    public static Collection<PsiElement> getEventPsiElements(final Project project, final String eventName) {
 
         final Collection<PsiElement> psiElements = new HashSet<>();
 
@@ -281,8 +280,7 @@ public class EventDispatcherSubscriberUtil {
         return psiElements;
     }
 
-    @NotNull
-    public static Collection<LookupElement> getEventNameLookupElements(@NotNull Project project) {
+    public static Collection<LookupElement> getEventNameLookupElements(Project project) {
 
         Map<String, LookupElement> results = new HashMap<>();
 
@@ -329,7 +327,7 @@ public class EventDispatcherSubscriberUtil {
      * PHP: ['foo' => 'method']
      */
     @Nullable
-    public static String getEventNameFromScope(@NotNull PsiElement psiElement) {
+    public static String getEventNameFromScope(PsiElement psiElement) {
         // xml service
         if(psiElement.getContainingFile() instanceof XmlFile) {
             XmlTag xmlTag = PsiTreeUtil.getParentOfType(psiElement, XmlTag.class);

@@ -1,21 +1,24 @@
 package fr.adrienbrault.idea.symfony2plugin.templating;
 
-import com.intellij.codeInsight.navigation.actions.GotoDeclarationHandler;
-import com.intellij.openapi.actionSystem.DataContext;
-import com.intellij.openapi.editor.Editor;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.psi.PsiElement;
+import consulo.language.editor.navigation.GotoDeclarationHandler;
+import consulo.dataContext.DataContext;
+import consulo.codeEditor.Editor;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiElement;
 import com.jetbrains.php.lang.PhpLanguage;
 import com.jetbrains.php.lang.psi.PhpFile;
 import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.localize.LocalizeValue;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class PhpTemplateGlobalStringGoToDeclarationHandler implements GotoDeclarationHandler {
 
     @Nullable
@@ -60,10 +63,9 @@ public class PhpTemplateGlobalStringGoToDeclarationHandler implements GotoDeclar
         return TwigUtil.getTemplateNavigationOnOffset(psiElement.getProject(), templateName, i - psiElement.getTextRange().getStartOffset()).toArray(new PsiElement[0]);
     }
 
-    @Nullable
     @Override
-    public String getActionText(DataContext dataContext) {
-        return null;
+    public LocalizeValue getActionText(DataContext dataContext) {
+        return LocalizeValue.empty();
     }
 
 }

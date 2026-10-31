@@ -1,14 +1,22 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.templating.inlay;
 
+import consulo.it.AllowWriteLockUnderUIThread;
+
+import org.junit.jupiter.api.Test;
+
 import fr.adrienbrault.idea.symfony2plugin.templating.inlay.TwigVariableInsertHandler;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
 
 /**
  * @see TwigVariableInsertHandler
  */
+// the document is changed on the UI thread like in the IDE
+@AllowWriteLockUnderUIThread
 public class TwigVariableInsertHandlerTest extends SymfonyLightCodeInsightFixtureTestCase {
 
     // --- insertPrintBlock ---
+
+    @Test
 
     public void testInsertPrintBlockInsertsPrintExpression() {
         myFixture.configureByText("test.html.twig", "<caret>");
@@ -16,11 +24,15 @@ public class TwigVariableInsertHandlerTest extends SymfonyLightCodeInsightFixtur
         assertContent("\n{{ product }}");
     }
 
+    @Test
+
     public void testInsertPrintBlockWithPropertyPath() {
         myFixture.configureByText("test.html.twig", "<caret>");
         invoke(h -> h.insertPrintBlock("user.email"));
         assertContent("\n{{ user.email }}");
     }
+
+    @Test
 
     public void testInsertPrintBlockAppendsAfterExistingContent() {
         myFixture.configureByText("test.html.twig", "{{ title }}<caret>");
@@ -30,6 +42,8 @@ public class TwigVariableInsertHandlerTest extends SymfonyLightCodeInsightFixtur
 
     // --- insertIfStatement ---
 
+    @Test
+
     public void testInsertIfStatementForBoolVariable() {
         myFixture.configureByText("test.html.twig", "<caret>");
         invoke(h -> h.insertIfStatement("isActive"));
@@ -38,11 +52,15 @@ public class TwigVariableInsertHandlerTest extends SymfonyLightCodeInsightFixtur
 
     // --- insertEmptyForeach ---
 
+    @Test
+
     public void testInsertEmptyForeachPluralS() {
         myFixture.configureByText("test.html.twig", "<caret>");
         invoke(h -> h.insertEmptyForeach("products"));
         assertContent("\n{% for product in products %}\n    \n{% endfor %}");
     }
+
+    @Test
 
     public void testInsertEmptyForeachPluralIes() {
         myFixture.configureByText("test.html.twig", "<caret>");
@@ -50,11 +68,15 @@ public class TwigVariableInsertHandlerTest extends SymfonyLightCodeInsightFixtur
         assertContent("\n{% for category in categories %}\n    \n{% endfor %}");
     }
 
+    @Test
+
     public void testInsertEmptyForeachPluralEs() {
         myFixture.configureByText("test.html.twig", "<caret>");
         invoke(h -> h.insertEmptyForeach("churches"));
         assertContent("\n{% for church in churches %}\n    \n{% endfor %}");
     }
+
+    @Test
 
     public void testInsertEmptyForeachNoPlural() {
         myFixture.configureByText("test.html.twig", "<caret>");
@@ -64,11 +86,15 @@ public class TwigVariableInsertHandlerTest extends SymfonyLightCodeInsightFixtur
 
     // --- insertFilledForeach ---
 
+    @Test
+
     public void testInsertFilledForeachWithArrayProperty() {
         myFixture.configureByText("test.html.twig", "<caret>");
         invoke(h -> h.insertFilledForeach("user", "tags"));
         assertContent("\n{% for tag in user.tags %}\n    {{ tag }}\n{% endfor %}");
     }
+
+    @Test
 
     public void testInsertFilledForeachSingularizeEndsWithEs() {
         // "roles" singularizes to "role"
@@ -76,6 +102,8 @@ public class TwigVariableInsertHandlerTest extends SymfonyLightCodeInsightFixtur
         invoke(h -> h.insertFilledForeach("user", "roles"));
         assertContent("\n{% for role in user.roles %}\n    {{ role }}\n{% endfor %}");
     }
+
+    @Test
 
     public void testInsertFilledForeachWithIesProperty() {
         myFixture.configureByText("test.html.twig", "<caret>");
@@ -85,11 +113,15 @@ public class TwigVariableInsertHandlerTest extends SymfonyLightCodeInsightFixtur
 
     // --- insertForeachPropertyAccess ---
 
+    @Test
+
     public void testInsertForeachPropertyAccessUsesParentCollection() {
         myFixture.configureByText("test.html.twig", "<caret>");
         invoke(h -> h.insertForeachPropertyAccess("dates", "foo"));
         assertContent("\n{% for date in dates %}\n    {{ date.foo }}\n{% endfor %}");
     }
+
+    @Test
 
     public void testInsertForeachPropertyAccessWithNonPluralParent() {
         myFixture.configureByText("test.html.twig", "<caret>");
@@ -100,7 +132,8 @@ public class TwigVariableInsertHandlerTest extends SymfonyLightCodeInsightFixtur
     // --- helpers ---
 
     private void invoke(java.util.function.Consumer<TwigVariableInsertHandler> action) {
-        action.accept(new TwigVariableInsertHandler(myFixture.getEditor(), myFixture.getFile()));
+        TwigVariableInsertHandler handler = new TwigVariableInsertHandler(myFixture.getEditor(), myFixture.getFile());
+        withoutReadLock(() -> action.accept(handler));
     }
 
     private void assertContent(String expected) {

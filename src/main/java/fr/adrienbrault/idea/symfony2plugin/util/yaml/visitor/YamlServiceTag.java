@@ -3,8 +3,7 @@ package fr.adrienbrault.idea.symfony2plugin.util.yaml.visitor;
 import fr.adrienbrault.idea.symfony2plugin.dic.tags.yaml.AttributeResolverInterface;
 import fr.adrienbrault.idea.symfony2plugin.dic.tags.ServiceTagInterface;
 import fr.adrienbrault.idea.symfony2plugin.dic.tags.yaml.YamlMappingAttributeResolver;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.jetbrains.yaml.psi.YAMLMapping;
 
 /**
@@ -14,32 +13,27 @@ import org.jetbrains.yaml.psi.YAMLMapping;
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class YamlServiceTag implements ServiceTagInterface {
-    @NotNull
     private final String serviceId;
 
-    @NotNull
     private final String tagName;
 
-    @NotNull
     private final AttributeResolverInterface attributeResolver;
 
-    public YamlServiceTag(@NotNull String serviceId, @NotNull String tagName, @NotNull AttributeResolverInterface attributeResolver) {
+    public YamlServiceTag(String serviceId, String tagName, AttributeResolverInterface attributeResolver) {
         this.serviceId = serviceId;
         this.tagName = tagName;
         this.attributeResolver = attributeResolver;
     }
 
-    public YamlServiceTag(@NotNull String serviceId, @NotNull String tagName, @NotNull YAMLMapping yamlMapping) {
+    public YamlServiceTag(String serviceId, String tagName, YAMLMapping yamlMapping) {
         this(serviceId, tagName, new YamlMappingAttributeResolver(yamlMapping));
     }
 
-    @NotNull
     @Override
     public String getServiceId() {
         return this.serviceId;
     }
 
-    @NotNull
     public String getName() {
         return tagName;
     }
@@ -50,8 +44,7 @@ public class YamlServiceTag implements ServiceTagInterface {
      * @param attr yaml hash attribute to get value of
      * @return value
      */
-    @Nullable
-    public String getAttribute(@NotNull String attr) {
+    public @Nullable String getAttribute(String attr) {
         return attributeResolver.getAttribute(attr);
     }
 }

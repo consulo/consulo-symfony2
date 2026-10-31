@@ -1,5 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.templating;
 
+import org.junit.jupiter.api.Test;
+
 import com.jetbrains.twig.TwigFileType;
 import fr.adrienbrault.idea.symfony2plugin.templating.FilterGotoCompletionRegistrar;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
@@ -18,9 +20,13 @@ public class FilterGotoCompletionRegistrarTest extends SymfonyLightCodeInsightFi
         return "src/test/java/fr/adrienbrault/idea/symfony2plugin/tests/templating/fixtures";
     }
 
+    @Test
+
     public void testCompletionForTwigFilterTagIdentifier() {
         assertCompletionContains(TwigFileType.INSTANCE, "{% filter <caret> %}", "foobar");
     }
+
+    @Test
 
     public void testNavigationForTwigFilterTagIdentifier() {
         assertCompletionContains(TwigFileType.INSTANCE, "{% filter foo<caret>bar %}", "foobar");

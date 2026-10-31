@@ -1,6 +1,8 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.dic.container.util;
 
-import com.intellij.psi.PsiFile;
+import org.junit.jupiter.api.Test;
+
+import consulo.language.psi.PsiFile;
 import fr.adrienbrault.idea.symfony2plugin.dic.container.util.DotEnvUtil;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
 
@@ -23,9 +25,13 @@ public class DotEnvUtilTest extends SymfonyLightCodeInsightFixtureTestCase {
         return "src/test/java/fr/adrienbrault/idea/symfony2plugin/tests/dic/container/util/fixtures";
     }
 
+    @Test
+
     public void testGetEnvironmentVariables() {
         assertContainsElements(DotEnvUtil.getEnvironmentVariables(getProject()), "foobar", "DEBUG_WEB", "DEBUG_SERVICES", "DOCKERFILE_FOO", "DEBUG_WEB_2", "DEBUG_SERVICES_2", "ADMIN_USER_DOCKERFILE");
     }
+
+    @Test
 
     public void testGetEnvironmentVariableTargets() {
         assertEquals(1, DotEnvUtil.getEnvironmentVariableTargets(getProject(), "foobar")
@@ -35,30 +41,42 @@ public class DotEnvUtilTest extends SymfonyLightCodeInsightFixtureTestCase {
         );
     }
 
+    @Test
+
     public void testGetEnvironmentVariablesWithValuesDoubleQuoted() {
         Map<String, String> vars = DotEnvUtil.getEnvironmentVariablesWithValues(getProject());
         assertEquals("postgresql://app:secret@127.0.0.1:5432/mydb?serverVersion=16", vars.get("DATABASE_URL"));
     }
+
+    @Test
 
     public void testGetEnvironmentVariablesWithValuesPlain() {
         Map<String, String> vars = DotEnvUtil.getEnvironmentVariablesWithValues(getProject());
         assertEquals("plain_value", vars.get("PLAIN_VAR"));
     }
 
+    @Test
+
     public void testGetEnvironmentVariablesWithValuesSingleQuoted() {
         Map<String, String> vars = DotEnvUtil.getEnvironmentVariablesWithValues(getProject());
         assertEquals("single", vars.get("SINGLE_QUOTED"));
     }
+
+    @Test
 
     public void testGetEnvironmentVariablesWithValuesInlineCommentStripped() {
         Map<String, String> vars = DotEnvUtil.getEnvironmentVariablesWithValues(getProject());
         assertEquals("value", vars.get("COMMENTED"));
     }
 
+    @Test
+
     public void testGetEnvironmentVariablesWithValuesWhitespaceAroundEquals() {
         Map<String, String> vars = DotEnvUtil.getEnvironmentVariablesWithValues(getProject());
         assertEquals("whitespace_value", vars.get("WHITESPACE_KEY"));
     }
+
+    @Test
 
     public void testGetEnvironmentVariableTargetsForParameter() {
         assertEquals(1, DotEnvUtil.getEnvironmentVariableTargetsForParameter(getProject(), "%env(int:foobar)%")

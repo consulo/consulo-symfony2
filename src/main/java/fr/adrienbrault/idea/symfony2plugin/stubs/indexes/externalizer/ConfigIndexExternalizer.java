@@ -1,8 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.stubs.indexes.externalizer;
 
-import com.intellij.util.io.DataExternalizer;
+import consulo.index.io.data.DataExternalizer;
 import fr.adrienbrault.idea.symfony2plugin.stubs.dict.ConfigIndex;
-import org.jetbrains.annotations.NotNull;
 
 import java.io.DataInput;
 import java.io.DataOutput;
@@ -20,7 +19,7 @@ public class ConfigIndexExternalizer implements DataExternalizer<ConfigIndex> {
     public static final ConfigIndexExternalizer INSTANCE = new ConfigIndexExternalizer();
 
     @Override
-    public void save(@NotNull DataOutput out, ConfigIndex value) throws IOException {
+    public void save(DataOutput out, ConfigIndex value) throws IOException {
         out.writeUTF(value.getName());
         Map<String, LinkedHashMap<String, String>> configs = value.getConfigs();
         out.writeInt(configs.size());
@@ -41,7 +40,7 @@ public class ConfigIndexExternalizer implements DataExternalizer<ConfigIndex> {
     }
 
     @Override
-    public ConfigIndex read(@NotNull DataInput in) throws IOException {
+    public ConfigIndex read(DataInput in) throws IOException {
         String name = in.readUTF();
         int configsSize = in.readInt();
         LinkedHashMap<String, LinkedHashMap<String, String>> configs = new LinkedHashMap<>();

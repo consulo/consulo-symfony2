@@ -1,12 +1,11 @@
 package fr.adrienbrault.idea.symfony2plugin.form.visitor;
 
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.codeInsight.lookup.LookupElementBuilder;
-import com.intellij.psi.PsiElement;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.editor.completion.lookup.LookupElementBuilder;
+import consulo.language.psi.PsiElement;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
 import fr.adrienbrault.idea.symfony2plugin.form.dict.FormClass;
 import fr.adrienbrault.idea.symfony2plugin.form.dict.FormOptionEnum;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.Collection;
 
@@ -22,7 +21,7 @@ public class FormOptionLookupVisitor implements FormOptionVisitor {
     }
 
     @Override
-    public void visit(@NotNull PsiElement psiElement, @NotNull String option, @NotNull FormClass formClass, @NotNull FormOptionEnum optionEnum) {
+    public void visit(PsiElement psiElement, String option, FormClass formClass, FormOptionEnum optionEnum) {
 
         String typeText = formClass.getPhpClass().getPresentableFQN();
         if(typeText.lastIndexOf("\\") != -1) {

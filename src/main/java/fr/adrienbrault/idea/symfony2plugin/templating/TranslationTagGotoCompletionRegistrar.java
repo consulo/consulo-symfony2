@@ -1,13 +1,14 @@
 package fr.adrienbrault.idea.symfony2plugin.templating;
 
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.lang.xml.XMLLanguage;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.patterns.PsiElementPattern;
-import com.intellij.patterns.VirtualFilePattern;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.xml.XmlToken;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.xml.language.XMLLanguage;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.pattern.PsiElementPattern;
+import consulo.language.pattern.VirtualFilePattern;
+import consulo.language.psi.PsiElement;
+import consulo.xml.language.psi.XmlToken;
 import com.jetbrains.twig.elements.TwigCompositeElement;
+import consulo.annotation.component.ExtensionImpl;
 import com.jetbrains.twig.elements.TwigElementTypes;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionProvider;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionRegistrar;
@@ -15,7 +16,6 @@ import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionRegistrarPa
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
 import fr.adrienbrault.idea.symfony2plugin.translation.dict.TranslationUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -27,9 +27,10 @@ import java.util.Collections;
  *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class TranslationTagGotoCompletionRegistrar implements GotoCompletionRegistrar {
     @Override
-    public void register(@NotNull GotoCompletionRegistrarParameter registrar) {
+    public void register(GotoCompletionRegistrarParameter registrar) {
         // {% trans from "app" %}<caret>{% endtrans %}
         registrar.register(
             getTranslationTagValuePattern(), psiElement -> {
@@ -53,7 +54,6 @@ public class TranslationTagGotoCompletionRegistrar implements GotoCompletionRegi
         );
     }
 
-    @NotNull
     private PsiElementPattern.Capture<XmlToken> getTranslationTagValuePattern() {
         return PlatformPatterns.psiElement(XmlToken.class)
             .inVirtualFile(new VirtualFilePattern().withExtension("twig"))
@@ -64,7 +64,7 @@ public class TranslationTagGotoCompletionRegistrar implements GotoCompletionRegi
      * Find trans tag as this is
      * <caret>{% endtrans %}
      */
-    private static TwigCompositeElement getTagOnTwigViewProvider(@NotNull PsiElement element) {
+    private static TwigCompositeElement getTagOnTwigViewProvider(PsiElement element) {
         PsiElement psiElement = TwigUtil.getElementOnTwigViewProvider(element);
         if(psiElement == null) {
             return null;
@@ -82,18 +82,16 @@ public class TranslationTagGotoCompletionRegistrar implements GotoCompletionRegi
     private static class MyTranslationGotoCompletionProvider extends GotoCompletionProvider {
         private final String domain;
 
-        MyTranslationGotoCompletionProvider(@NotNull PsiElement element, @NotNull String domain) {
+        MyTranslationGotoCompletionProvider(PsiElement element, String domain) {
             super(element);
             this.domain = domain;
         }
 
-        @NotNull
         @Override
         public Collection<LookupElement> getLookupElements() {
             return TranslationUtil.getTranslationLookupElementsOnDomain(getProject(), domain);
         }
 
-        @NotNull
         @Override
         public Collection<PsiElement> getPsiTargets(PsiElement element) {
             String text = element.getText();

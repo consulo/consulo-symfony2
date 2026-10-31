@@ -1,7 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.stubs.indexes.externalizer;
 
-import com.intellij.util.io.DataExternalizer;
-import org.jetbrains.annotations.NotNull;
+import consulo.index.io.data.DataExternalizer;
 
 import java.io.*;
 
@@ -11,7 +10,7 @@ import java.io.*;
 public class ObjectStreamDataExternalizer<T extends Serializable> implements DataExternalizer<T> {
 
     @Override
-    public void save(@NotNull DataOutput out, T value) throws IOException {
+    public void save(DataOutput out, T value) throws IOException {
         ByteArrayOutputStream stream = new ByteArrayOutputStream();
         ObjectOutput output = new ObjectOutputStream(stream);
 
@@ -22,7 +21,7 @@ public class ObjectStreamDataExternalizer<T extends Serializable> implements Dat
     }
 
     @Override
-    public T read(@NotNull DataInput in) throws IOException {
+    public T read(DataInput in) throws IOException {
         int bufferSize = in.readInt();
         byte[] buffer = new byte[bufferSize];
         in.readFully(buffer, 0, bufferSize);

@@ -1,18 +1,17 @@
 package fr.adrienbrault.idea.symfony2plugin.util;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.search.GlobalSearchScope;
-import com.intellij.util.indexing.FileBasedIndex;
 import com.jetbrains.php.lang.psi.PhpFile;
 import com.jetbrains.php.lang.psi.elements.*;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.scope.GlobalSearchScope;
+import consulo.language.psi.stub.FileBasedIndex;
+import consulo.project.Project;
+import consulo.virtualFileSystem.VirtualFile;
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.SerializerClassUsageStubIndex;
 import fr.adrienbrault.idea.symfony2plugin.stubs.util.IndexUtil;
-import kotlin.Pair;
+import consulo.util.lang.Pair;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -24,7 +23,7 @@ import java.util.function.Consumer;
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class SerializerUtil {
-    public static void visitSerializerMethodReference(@NotNull PsiFile psiFile, @NotNull Consumer<Pair<String, PsiElement>> consumer) {
+    public static void visitSerializerMethodReference(PsiFile psiFile, Consumer<Pair<String, PsiElement>> consumer) {
         Collection<MethodReference> methodReferences = new ArrayList<>();
 
         for (PhpNamedElement topLevelElement : ((PhpFile) psiFile).getTopLevelDefs().values()) {
@@ -72,7 +71,7 @@ public class SerializerUtil {
         }
     }
 
-    public static Collection<PsiElement> getClassTargetForSerializer(@NotNull Project project, @NotNull String className) {
+    public static Collection<PsiElement> getClassTargetForSerializer(Project project, String className) {
         final Collection<VirtualFile> virtualFiles = new ArrayList<>();
 
         FileBasedIndex.getInstance().getFilesWithKey(SerializerClassUsageStubIndex.KEY, new HashSet<>(Collections.singletonList(className.toLowerCase())), virtualFile -> {
@@ -93,7 +92,7 @@ public class SerializerUtil {
         return psiElements;
     }
 
-    public static boolean hasClassTargetForSerializer(@NotNull Project project, @NotNull String className) {
+    public static boolean hasClassTargetForSerializer(Project project, String className) {
         return IndexUtil.getAllKeysForProject(SerializerClassUsageStubIndex.KEY, project).contains(className.toLowerCase());
     }
 }

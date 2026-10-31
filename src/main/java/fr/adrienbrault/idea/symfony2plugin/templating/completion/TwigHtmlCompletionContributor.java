@@ -1,22 +1,29 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.completion;
 
-import com.intellij.codeInsight.completion.*;
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.codeInsight.lookup.LookupElementBuilder;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.patterns.ElementPattern;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.util.PsiTreeUtil;
-import com.intellij.psi.xml.XmlAttribute;
-import com.intellij.psi.xml.XmlTag;
-import com.intellij.psi.xml.XmlTokenType;
-import com.intellij.util.Consumer;
-import com.intellij.util.ProcessingContext;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
 import com.jetbrains.php.lang.psi.elements.PhpNamedElement;
 import com.jetbrains.twig.TwigFile;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.html.language.HTMLLanguage;
+import consulo.language.Language;
+import consulo.language.editor.completion.CompletionContributor;
+import consulo.language.editor.completion.CompletionParameters;
+import consulo.language.editor.completion.CompletionProvider;
+import consulo.language.editor.completion.CompletionResultSet;
+import consulo.language.editor.completion.CompletionType;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.editor.completion.lookup.LookupElementBuilder;
+import consulo.language.pattern.ElementPattern;
+import consulo.language.pattern.PatternCondition;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.util.PsiTreeUtil;
+import consulo.language.util.ProcessingContext;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.xml.language.psi.XmlAttribute;
+import consulo.xml.language.psi.XmlTag;
+import consulo.xml.language.psi.XmlTokenType;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.asset.AssetDirectoryReader;
@@ -29,16 +36,17 @@ import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
 import fr.adrienbrault.idea.symfony2plugin.translation.TranslatorLookupElement;
 import fr.adrienbrault.idea.symfony2plugin.translation.dict.TranslationUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.UxUtil;
-import kotlin.Pair;
-import org.jetbrains.annotations.NotNull;
+import consulo.util.lang.Pair;
 
 import java.util.*;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class TwigHtmlCompletionContributor extends CompletionContributor {
     // <a><caret></a>
     // <li><caret></li>
@@ -64,9 +72,9 @@ public class TwigHtmlCompletionContributor extends CompletionContributor {
                 TwigHtmlCompletionUtil.getHrefAttributePattern(),
                 TwigHtmlCompletionUtil.getFormActionAttributePattern()
             ),
-            new CompletionProvider<>() {
+            new CompletionProvider() {
                 @Override
-                protected void addCompletions(@NotNull CompletionParameters parameters, ProcessingContext processingContext, @NotNull CompletionResultSet resultSet) {
+                public void addCompletions(CompletionParameters parameters, ProcessingContext processingContext, CompletionResultSet resultSet) {
                     if (!Symfony2ProjectComponent.isEnabled(parameters.getPosition())) {
                         return;
                     }
@@ -83,9 +91,9 @@ public class TwigHtmlCompletionContributor extends CompletionContributor {
             });
 
         // <link href="<caret>" rel="stylesheet" />
-        extend(CompletionType.BASIC, TwigHtmlCompletionUtil.getAssetCssAttributePattern(), new CompletionProvider<>() {
+        extend(CompletionType.BASIC, TwigHtmlCompletionUtil.getAssetCssAttributePattern(), new CompletionProvider() {
             @Override
-            protected void addCompletions(@NotNull CompletionParameters parameters, ProcessingContext processingContext, @NotNull CompletionResultSet resultSet) {
+            public void addCompletions(CompletionParameters parameters, ProcessingContext processingContext, CompletionResultSet resultSet) {
                 if (!Symfony2ProjectComponent.isEnabled(parameters.getPosition())) {
                     return;
                 }
@@ -97,9 +105,9 @@ public class TwigHtmlCompletionContributor extends CompletionContributor {
         });
 
         // <script src="<caret>"></script>
-        extend(CompletionType.BASIC, TwigHtmlCompletionUtil.getAssetJsAttributePattern(), new CompletionProvider<>() {
+        extend(CompletionType.BASIC, TwigHtmlCompletionUtil.getAssetJsAttributePattern(), new CompletionProvider() {
             @Override
-            protected void addCompletions(@NotNull CompletionParameters parameters, ProcessingContext processingContext, @NotNull CompletionResultSet resultSet) {
+            public void addCompletions(CompletionParameters parameters, ProcessingContext processingContext, CompletionResultSet resultSet) {
                 if (!Symfony2ProjectComponent.isEnabled(parameters.getPosition())) {
                     return;
                 }
@@ -111,9 +119,9 @@ public class TwigHtmlCompletionContributor extends CompletionContributor {
         });
 
         // <img src="<caret>">
-        extend(CompletionType.BASIC, TwigHtmlCompletionUtil.getAssetImageAttributePattern(), new CompletionProvider<>() {
+        extend(CompletionType.BASIC, TwigHtmlCompletionUtil.getAssetImageAttributePattern(), new CompletionProvider() {
             @Override
-            protected void addCompletions(@NotNull CompletionParameters parameters, ProcessingContext processingContext, @NotNull CompletionResultSet resultSet) {
+            public void addCompletions(CompletionParameters parameters, ProcessingContext processingContext, CompletionResultSet resultSet) {
                 if (!Symfony2ProjectComponent.isEnabled(parameters.getPosition())) {
                     return;
                 }
@@ -127,9 +135,9 @@ public class TwigHtmlCompletionContributor extends CompletionContributor {
         // <a><caret></a>
         // <input value"<caret>"></input>
         // <h1...h6> value"<caret>"></h1...h6>
-        extend(CompletionType.BASIC, TWIG_TRANSLATIONS, new CompletionProvider<>() {
+        extend(CompletionType.BASIC, TWIG_TRANSLATIONS, new CompletionProvider() {
             @Override
-            protected void addCompletions(@NotNull CompletionParameters parameters, ProcessingContext processingContext, @NotNull CompletionResultSet resultSet) {
+            public void addCompletions(CompletionParameters parameters, ProcessingContext processingContext, CompletionResultSet resultSet) {
                 PsiElement position = parameters.getOriginalPosition();
                 if (position == null || !Symfony2ProjectComponent.isEnabled(position)) {
                     return;
@@ -153,9 +161,9 @@ public class TwigHtmlCompletionContributor extends CompletionContributor {
         extend(
             CompletionType.BASIC,
             TwigHtmlCompletionUtil.getTwigNamespacePattern(),
-            new CompletionProvider<>() {
+            new CompletionProvider() {
                 @Override
-                protected void addCompletions(@NotNull CompletionParameters parameters, @NotNull ProcessingContext processingContext, @NotNull CompletionResultSet resultSet) {
+                public void addCompletions(CompletionParameters parameters, ProcessingContext processingContext, CompletionResultSet resultSet) {
                     PsiElement position = parameters.getOriginalPosition();
                     if (!Symfony2ProjectComponent.isEnabled(position)) {
                         return;
@@ -170,9 +178,9 @@ public class TwigHtmlCompletionContributor extends CompletionContributor {
         extend(
             CompletionType.BASIC,
             TwigHtmlCompletionUtil.getTwigBlockNameAttributePattern(),
-            new CompletionProvider<>() {
+            new CompletionProvider() {
                 @Override
-                protected void addCompletions(@NotNull CompletionParameters parameters, @NotNull ProcessingContext processingContext, @NotNull CompletionResultSet resultSet) {
+                public void addCompletions(CompletionParameters parameters, ProcessingContext processingContext, CompletionResultSet resultSet) {
                     PsiElement position = parameters.getOriginalPosition();
                     if (position == null) {
                         position = parameters.getPosition();
@@ -252,9 +260,9 @@ public class TwigHtmlCompletionContributor extends CompletionContributor {
         extend(
             CompletionType.BASIC,
             TwigHtmlCompletionUtil.getTwigComponentBodyPattern(),
-            new CompletionProvider<>() {
+            new CompletionProvider() {
                 @Override
-                protected void addCompletions(@NotNull CompletionParameters parameters, @NotNull ProcessingContext processingContext, @NotNull CompletionResultSet resultSet) {
+                public void addCompletions(CompletionParameters parameters, ProcessingContext processingContext, CompletionResultSet resultSet) {
                     // Try original position first, fallback to position
                     PsiElement position = parameters.getOriginalPosition();
                     if (position == null) {
@@ -355,15 +363,15 @@ public class TwigHtmlCompletionContributor extends CompletionContributor {
         // "<twig:Alert m<caret> :<caret>"
         extend(
             CompletionType.BASIC,
-            PlatformPatterns.psiElement().withParent(PlatformPatterns.psiElement(com.intellij.psi.xml.XmlAttribute.class).withParent(PlatformPatterns.psiElement(XmlTag.class).with(new com.intellij.patterns.PatternCondition<>("starting with 'twig:'") {
+            PlatformPatterns.psiElement().withParent(PlatformPatterns.psiElement(XmlAttribute.class).withParent(PlatformPatterns.psiElement(XmlTag.class).with(new PatternCondition<>("starting with 'twig:'") {
                 @Override
-                public boolean accepts(@NotNull XmlTag xmlTag, ProcessingContext context) {
+                public boolean accepts(XmlTag xmlTag, ProcessingContext context) {
                     return xmlTag.getName().startsWith("twig:");
                 }
             }))),
-            new CompletionProvider<>() {
+            new CompletionProvider() {
                 @Override
-                protected void addCompletions(@NotNull CompletionParameters parameters, @NotNull ProcessingContext processingContext, @NotNull CompletionResultSet resultSet) {
+                public void addCompletions(CompletionParameters parameters, ProcessingContext processingContext, CompletionResultSet resultSet) {
                     // use getPosition() (never null) so completion also fires right after "<twig:Alert <caret>",
                     // where getOriginalPosition() is null (caret on whitespace / not yet on an attribute).
                     PsiElement position = parameters.getPosition();
@@ -438,5 +446,10 @@ public class TwigHtmlCompletionContributor extends CompletionContributor {
                 }
             }
         );
+    }
+
+    @Override
+    public Language getLanguage() {
+        return HTMLLanguage.INSTANCE;
     }
 }

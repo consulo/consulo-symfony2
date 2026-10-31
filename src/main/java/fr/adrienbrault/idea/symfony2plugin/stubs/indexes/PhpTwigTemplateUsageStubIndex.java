@@ -1,10 +1,15 @@
 package fr.adrienbrault.idea.symfony2plugin.stubs.indexes;
 
-import com.intellij.psi.PsiFile;
-import com.intellij.util.indexing.*;
-import com.intellij.util.io.DataExternalizer;
-import com.intellij.util.io.EnumeratorStringDescriptor;
-import com.intellij.util.io.KeyDescriptor;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.psi.PsiFile;
+import consulo.index.io.DataIndexer;
+import consulo.index.io.ID;
+import consulo.language.psi.stub.FileBasedIndex;
+import consulo.language.psi.stub.FileBasedIndexExtension;
+import consulo.language.psi.stub.FileContent;
+import consulo.index.io.data.DataExternalizer;
+import consulo.index.io.EnumeratorStringDescriptor;
+import consulo.index.io.KeyDescriptor;
 import com.jetbrains.php.codeInsight.controlFlow.PhpControlFlowUtil;
 import com.jetbrains.php.codeInsight.controlFlow.PhpInstructionProcessor;
 import com.jetbrains.php.codeInsight.controlFlow.instructions.PhpCallInstruction;
@@ -18,9 +23,8 @@ import fr.adrienbrault.idea.symfony2plugin.stubs.dict.TemplateUsage;
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.externalizer.TemplateUsageExternalizer;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.PhpMethodVariableResolveUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.AnnotationBackportUtil;
-import kotlin.Triple;
+import consulo.util.lang.Trinity; // TODO consulo-port: Trinity comes from the Kotlin stdlib (shared with PhpMethodVariableResolveUtil); replace together once a Java tuple type is chosen
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 import java.util.function.Consumer;
@@ -28,6 +32,7 @@ import java.util.function.Consumer;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class PhpTwigTemplateUsageStubIndex extends FileBasedIndexExtension<String, TemplateUsage> {
 
     public static final ID<String, TemplateUsage> KEY = ID.create("fr.adrienbrault.idea.symfony2plugin.twig_php_usage");
@@ -35,13 +40,11 @@ public class PhpTwigTemplateUsageStubIndex extends FileBasedIndexExtension<Strin
     private static final int MAX_FILE_BYTE_SIZE = 2097152;
     private static final TemplateUsageExternalizer EXTERNALIZER = TemplateUsageExternalizer.INSTANCE;
 
-    @NotNull
     @Override
     public ID<String, TemplateUsage> getName() {
         return KEY;
     }
 
-    @NotNull
     @Override
     // Index-safe only: no PhpIndex/type resolution here.
     public DataIndexer<String, TemplateUsage, FileContent> getIndexer() {
@@ -56,7 +59,7 @@ public class PhpTwigTemplateUsageStubIndex extends FileBasedIndexExtension<Strin
             }
 
             Map<String, Set<String>> items = new HashMap<>();
-            Consumer<Triple<String, PhpNamedElement, FunctionReference>> consumer = triple -> {
+            Consumer<Trinity<String, PhpNamedElement, FunctionReference>> consumer = triple -> {
                 String templateName = triple.getFirst();
 
                 if (templateName.length() > 255) {
@@ -101,7 +104,7 @@ public class PhpTwigTemplateUsageStubIndex extends FileBasedIndexExtension<Strin
         };
     }
 
-    private static void processMethodReferences(@NotNull Consumer<Triple<String, PhpNamedElement, FunctionReference>> consumer, @NotNull Function function) {
+    private static void processMethodReferences(Consumer<Trinity<String, PhpNamedElement, FunctionReference>> consumer, Function function) {
         PhpControlFlowUtil.processFlow(function.getControlFlow(), new PhpInstructionProcessor() {
             @Override
             public boolean processPhpCallInstruction(PhpCallInstruction instruction) {
@@ -113,19 +116,16 @@ public class PhpTwigTemplateUsageStubIndex extends FileBasedIndexExtension<Strin
         });
     }
 
-    @NotNull
     @Override
     public KeyDescriptor<String> getKeyDescriptor() {
         return this.myKeyDescriptor;
     }
 
-    @NotNull
     @Override
     public DataExternalizer<TemplateUsage> getValueExternalizer() {
         return EXTERNALIZER;
     }
 
-    @NotNull
     @Override
     public FileBasedIndex.InputFilter getInputFilter() {
         return PhpConstantNameIndex.PHP_INPUT_FILTER;

@@ -1,12 +1,14 @@
 package fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.type;
 
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.codeInsight.lookup.LookupElementBuilder;
-import com.intellij.patterns.XmlPatterns;
-import com.intellij.psi.PsiElement;
-import com.intellij.util.containers.ContainerUtil;
 import com.jetbrains.php.lang.psi.elements.Field;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.editor.completion.lookup.LookupElementBuilder;
+import consulo.language.icon.IconDescriptorUpdaters;
+import consulo.language.psi.PsiElement;
+import consulo.util.collection.ContainerUtil;
+import consulo.xml.language.psi.pattern.XmlPatterns;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionProvider;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionRegistrar;
@@ -20,26 +22,30 @@ import fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.util.DoctrineMetada
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.jetbrains.yaml.psi.YAMLKeyValue;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class DoctrineTypeGotoCompletionRegistrar implements GotoCompletionRegistrar {
 
     @Override
-    public void register(@NotNull GotoCompletionRegistrarParameter registrar) {
+    public void register(GotoCompletionRegistrarParameter registrar) {
 
         // <field type="string" />
         registrar.register(
             XmlPatterns.psiElement().withParent(DoctrineMetadataPattern.getFieldType()), psiElement -> new MyTypeGotoCompletionProvider(psiElement) {
                 @Nullable
                 @Override
-                protected String getElementText(@NotNull PsiElement element) {
+                protected String getElementText(PsiElement element) {
                     return GotoCompletionUtil.getXmlAttributeValue(element);
                 }
             });
@@ -49,7 +55,7 @@ public class DoctrineTypeGotoCompletionRegistrar implements GotoCompletionRegist
             YamlElementPatternHelper.getOrmSingleLineScalarKey("type"), psiElement -> new MyTypeGotoCompletionProvider(psiElement) {
                 @Nullable
                 @Override
-                protected String getElementText(@NotNull PsiElement element) {
+                protected String getElementText(PsiElement element) {
                     String text = PsiElementUtils.trimQuote(element.getText());
                     if(StringUtils.isBlank(text)) {
                         return null;
@@ -68,7 +74,7 @@ public class DoctrineTypeGotoCompletionRegistrar implements GotoCompletionRegist
             )), psiElement -> new MyFieldNameGotoCompletionProvider(psiElement) {
                 @Nullable
                 @Override
-                protected String getElementText(@NotNull PsiElement element) {
+                protected String getElementText(PsiElement element) {
                     return GotoCompletionUtil.getXmlAttributeValue(element);
                 }
             }
@@ -87,7 +93,6 @@ public class DoctrineTypeGotoCompletionRegistrar implements GotoCompletionRegist
             super(element);
         }
 
-        @NotNull
         @Override
         public Collection<LookupElement> getLookupElements() {
             final Collection<LookupElement> lookupElements = new ArrayList<>();
@@ -109,7 +114,6 @@ public class DoctrineTypeGotoCompletionRegistrar implements GotoCompletionRegist
             return lookupElements;
         }
 
-        @NotNull
         @Override
         public Collection<PsiElement> getPsiTargets(PsiElement element) {
             final String value = getElementText(element);
@@ -130,7 +134,7 @@ public class DoctrineTypeGotoCompletionRegistrar implements GotoCompletionRegist
         }
 
         @Nullable
-        abstract protected String getElementText(@NotNull PsiElement element);
+        abstract protected String getElementText(PsiElement element);
     }
 
     private abstract static class MyFieldNameGotoCompletionProvider extends GotoCompletionProvider {
@@ -139,7 +143,6 @@ public class DoctrineTypeGotoCompletionRegistrar implements GotoCompletionRegist
             super(element);
         }
 
-        @NotNull
         @Override
         public Collection<LookupElement> getLookupElements() {
             String modelNameInScope = DoctrineMetadataUtil.findModelNameInScope(getElement());
@@ -158,14 +161,13 @@ public class DoctrineTypeGotoCompletionRegistrar implements GotoCompletionRegist
 
                     String name = field.getName();
                     unique.add(name);
-                    lookupElements.add(LookupElementBuilder.create(name).withIcon(field.getIcon()).withTypeText(phpClass.getPresentableFQN(), true));
+                    lookupElements.add(LookupElementBuilder.create(name).withIcon(IconDescriptorUpdaters.getIcon(field, 0)).withTypeText(phpClass.getPresentableFQN(), true));
                 }
             }
 
             return lookupElements;
         }
 
-        @NotNull
         @Override
         public Collection<PsiElement> getPsiTargets(PsiElement element) {
 
@@ -191,7 +193,7 @@ public class DoctrineTypeGotoCompletionRegistrar implements GotoCompletionRegist
         }
 
         @Nullable
-        abstract protected String getElementText(@NotNull PsiElement element);
+        abstract protected String getElementText(PsiElement element);
     }
 
     private static class MyYamlFieldNameGotoCompletionProvider extends MyFieldNameGotoCompletionProvider {
@@ -200,14 +202,13 @@ public class DoctrineTypeGotoCompletionRegistrar implements GotoCompletionRegist
             super(psiElement);
         }
 
-        @NotNull
         public Collection<LookupElement> getLookupElements() {
             return Collections.emptyList();
         }
 
         @Nullable
         @Override
-        protected String getElementText(@NotNull PsiElement element) {
+        protected String getElementText(PsiElement element) {
             PsiElement parent = element.getParent();
             if(!(parent instanceof YAMLKeyValue)) {
                 return null;

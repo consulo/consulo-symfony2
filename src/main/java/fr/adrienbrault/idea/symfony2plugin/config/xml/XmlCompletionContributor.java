@@ -1,15 +1,22 @@
 package fr.adrienbrault.idea.symfony2plugin.config.xml;
 
-import com.intellij.codeInsight.completion.*;
-import com.intellij.openapi.project.Project;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.patterns.XmlPatterns;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.util.PsiTreeUtil;
-import com.intellij.psi.xml.XmlAttribute;
-import com.intellij.psi.xml.XmlTag;
-import com.intellij.util.ProcessingContext;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.Language;
+import consulo.language.editor.completion.CompletionContributor;
+import consulo.language.editor.completion.CompletionParameters;
+import consulo.language.editor.completion.CompletionProvider;
+import consulo.language.editor.completion.CompletionResultSet;
+import consulo.language.editor.completion.CompletionType;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.util.PsiTreeUtil;
+import consulo.language.util.ProcessingContext;
+import consulo.project.Project;
+import consulo.xml.language.XMLLanguage;
+import consulo.xml.language.psi.XmlAttribute;
+import consulo.xml.language.psi.XmlTag;
+import consulo.xml.language.psi.pattern.XmlPatterns;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.config.component.parser.ParameterLookupPercentElement;
 import fr.adrienbrault.idea.symfony2plugin.config.yaml.YamlCompletionContributor;
@@ -22,13 +29,13 @@ import fr.adrienbrault.idea.symfony2plugin.util.SymfonyBundleFileCompletionProvi
 import fr.adrienbrault.idea.symfony2plugin.util.completion.PhpClassAndParameterCompletionProvider;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.ServiceUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.Map;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class XmlCompletionContributor extends CompletionContributor {
 
     public XmlCompletionContributor() {
@@ -62,9 +69,14 @@ public class XmlCompletionContributor extends CompletionContributor {
         );
     }
 
-    private static class FormAliasParametersCompletionProvider extends CompletionProvider<CompletionParameters> {
+    @Override
+    public Language getLanguage() {
+        return XMLLanguage.INSTANCE;
+    }
+
+    private static class FormAliasParametersCompletionProvider implements CompletionProvider {
         @Override
-        protected void addCompletions(@NotNull CompletionParameters completionParameters, @NotNull ProcessingContext processingContext, final @NotNull CompletionResultSet completionResultSet) {
+        public void addCompletions(CompletionParameters completionParameters, ProcessingContext processingContext, final CompletionResultSet completionResultSet) {
             PsiElement psiElement = completionParameters.getOriginalPosition();
             if(!Symfony2ProjectComponent.isEnabled(psiElement)) {
                 return;
@@ -96,10 +108,10 @@ public class XmlCompletionContributor extends CompletionContributor {
      * <argument>%</argument>
      * <argument></argument>
      */
-    private static class ArgumentParameterCompletionProvider extends CompletionProvider<CompletionParameters> {
+    private static class ArgumentParameterCompletionProvider implements CompletionProvider {
 
         @Override
-        protected void addCompletions(@NotNull CompletionParameters completionParameters, @NotNull ProcessingContext processingContext, @NotNull CompletionResultSet completionResultSet) {
+        public void addCompletions(CompletionParameters completionParameters, ProcessingContext processingContext, CompletionResultSet completionResultSet) {
             PsiElement psiElement = completionParameters.getOriginalPosition();
             if(!Symfony2ProjectComponent.isEnabled(psiElement)) {
                 return;

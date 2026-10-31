@@ -1,25 +1,28 @@
 package fr.adrienbrault.idea.symfony2plugin.dic.linemarker;
 
-import com.intellij.codeInsight.daemon.LineMarkerInfo;
-import com.intellij.codeInsight.daemon.LineMarkerProvider;
-import com.intellij.codeInsight.navigation.NavigationGutterIconBuilder;
-import com.intellij.icons.AllIcons;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.NotNullLazyValue;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.patterns.XmlPatterns;
-import com.intellij.patterns.XmlTagPattern;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.xml.XmlTag;
+import consulo.annotation.access.RequiredReadAction;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.Language;
+import consulo.language.editor.gutter.LineMarkerInfo;
+import consulo.language.editor.gutter.LineMarkerProvider;
+import consulo.language.editor.ui.navigation.NavigationGutterIconBuilder;
+import consulo.platform.base.icon.PlatformIconGroup;
+import consulo.project.Project;
+import consulo.application.util.NotNullLazyValue;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.xml.language.psi.pattern.XmlPatterns;
+import consulo.xml.language.psi.pattern.XmlTagPattern;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.xml.language.XMLLanguage;
+import consulo.xml.language.psi.XmlTag;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.config.xml.XmlHelper;
 import fr.adrienbrault.idea.symfony2plugin.dic.container.ServiceSerializable;
 import fr.adrienbrault.idea.symfony2plugin.stubs.ServiceIndexUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.ServiceUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Collection;
 import java.util.List;
@@ -27,15 +30,18 @@ import java.util.List;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class XmlLineMarkerProvider implements LineMarkerProvider {
     @Nullable
     @Override
-    public LineMarkerInfo<?> getLineMarkerInfo(@NotNull PsiElement psiElement) {
+    @RequiredReadAction
+    public LineMarkerInfo<?> getLineMarkerInfo(PsiElement psiElement) {
         return null;
     }
 
     @Override
-    public void collectSlowLineMarkers(@NotNull List<? extends PsiElement> psiElements, @NotNull Collection<? super LineMarkerInfo<?>> result) {
+    @RequiredReadAction
+    public void collectSlowLineMarkers(List<PsiElement> psiElements, Collection<LineMarkerInfo> result) {
         if (psiElements.isEmpty()) {
             return;
         }
@@ -92,8 +98,8 @@ public class XmlLineMarkerProvider implements LineMarkerProvider {
                     continue;
                 }
 
-                result.add(NavigationGutterIconBuilder.create(AllIcons.Modules.SourceRoot)
-                    .setTargets(NotNullLazyValue.lazy(() -> ServiceIndexUtil.getClassesForServiceDefinition(project, containerFile, service)))
+                result.add(NavigationGutterIconBuilder.create(PlatformIconGroup.modulesSourceroot())
+                    .setTargets(NotNullLazyValue.createValue(() -> ServiceIndexUtil.getClassesForServiceDefinition(project, containerFile, service)))
                     .setTooltipText("Navigate to class")
                     .createLineMarkerInfo(psiElement));
             }
@@ -103,7 +109,7 @@ public class XmlLineMarkerProvider implements LineMarkerProvider {
     /**
      * <service id="foo"/>
      */
-    private void visitServiceId(@NotNull Project project, @NotNull PsiElement leafTarget, @NotNull XmlTag xmlTag, @NotNull Collection<? super LineMarkerInfo<?>> result, @NotNull LazyDecoratedParentServiceValues lazyDecoratedParentServiceValues) {
+    private void visitServiceId(Project project, PsiElement leafTarget, XmlTag xmlTag, Collection<? super LineMarkerInfo<?>> result, LazyDecoratedParentServiceValues lazyDecoratedParentServiceValues) {
         String id = xmlTag.getAttributeValue("id");
         if(StringUtils.isBlank(id)) {
             return;
@@ -143,5 +149,10 @@ public class XmlLineMarkerProvider implements LineMarkerProvider {
             .withChild(XmlPatterns.xmlAttribute().withName("namespace")).inside(
                 XmlHelper.getInsideTagPattern("services")
             ).inFile(XmlHelper.getXmlFilePattern());
+    }
+
+    @Override
+    public Language getLanguage() {
+        return XMLLanguage.INSTANCE;
     }
 }

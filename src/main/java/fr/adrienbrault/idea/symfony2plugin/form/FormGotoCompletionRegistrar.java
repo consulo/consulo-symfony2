@@ -1,19 +1,29 @@
 package fr.adrienbrault.idea.symfony2plugin.form;
 
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.util.PsiTreeUtil;
-import com.intellij.util.Processor;
 import com.jetbrains.php.lang.PhpLanguage;
 import com.jetbrains.php.lang.parser.PhpElementTypes;
-import com.jetbrains.php.lang.psi.elements.*;
+import com.jetbrains.php.lang.psi.elements.ArrayCreationExpression;
+import com.jetbrains.php.lang.psi.elements.ArrayHashElement;
+import com.jetbrains.php.lang.psi.elements.ConstantReference;
+import com.jetbrains.php.lang.psi.elements.Method;
+import com.jetbrains.php.lang.psi.elements.MethodReference;
+import com.jetbrains.php.lang.psi.elements.ParameterList;
+import com.jetbrains.php.lang.psi.elements.PhpClass;
+import com.jetbrains.php.lang.psi.elements.PhpPsiElement;
+import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.util.PsiTreeUtil;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionProvider;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionRegistrar;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionRegistrarParameter;
+import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.form.gotoCompletion.TranslationDomainGotoCompletionProvider;
 import fr.adrienbrault.idea.symfony2plugin.form.gotoCompletion.TranslationGotoCompletionProvider;
 import fr.adrienbrault.idea.symfony2plugin.form.util.FormOptionsUtil;
+import fr.adrienbrault.idea.symfony2plugin.form.util.FormAttributeUtil;
 import fr.adrienbrault.idea.symfony2plugin.form.util.FormUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.MethodMatcher;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
@@ -21,17 +31,18 @@ import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
 import fr.adrienbrault.idea.symfony2plugin.util.SymfonyUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.PhpMethodReferenceCall;
 import fr.adrienbrault.idea.symfony2plugin.util.psi.PhpPsiMatcher;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.function.Predicate;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
   */
+@ExtensionImpl
 public class FormGotoCompletionRegistrar implements GotoCompletionRegistrar {
     private static final String[] TRANSLATION_TEXT_OPTIONS = {
         "label",
@@ -47,7 +58,48 @@ public class FormGotoCompletionRegistrar implements GotoCompletionRegistrar {
         new PhpMethodReferenceCall("Symfony\\Component\\Form\\FormInterface", 2, "add", "create")
     );
 
-    public void register(@NotNull GotoCompletionRegistrarParameter registrar) {
+    public void register(GotoCompletionRegistrarParameter registrar) {
+
+        /*
+         * #[AsFormType(options: ['label' => '<caret>', 'translation_domain' => 'forms'])]
+         * #[FormField(options: ['help' => '<caret>', 'choice_translation_domain' => 'forms'])]
+         */
+        registrar.register(PlatformPatterns.psiElement().withParent(StringLiteralExpression.class).withLanguage(PhpLanguage.INSTANCE), element -> {
+            if (!Symfony2ProjectComponent.isEnabled(element)) {
+                return null;
+            }
+
+            StringLiteralExpression literal = (StringLiteralExpression) element.getParent();
+            ArrayHashElement entry = PsiTreeUtil.getParentOfType(literal, ArrayHashElement.class);
+            if (entry == null || !(entry.getParent() instanceof ArrayCreationExpression options)) {
+                return null;
+            }
+
+            String option = PhpElementsUtil.getStringValue(entry.getKey());
+            if (FormAttributeUtil.getOptionsAttribute(options) != null && entry.getValue() == literal) {
+                if ("translation_domain".equals(option) || "choice_translation_domain".equals(option)) {
+                    return new TranslationDomainGotoCompletionProvider(element);
+                }
+                if (Arrays.asList(TRANSLATION_TEXT_OPTIONS).contains(option)) {
+                    String domain = FormOptionsUtil.getTranslationFromScope(options);
+                    return new TranslationGotoCompletionProvider(element, domain == null ? "messages" : domain);
+                }
+            }
+
+            // Choice labels use the field's choice_translation_domain, falling back to translation_domain.
+            if (entry.getKey() == literal && options.getParent().getParent() instanceof ArrayHashElement choices
+                && "choices".equals(PhpElementsUtil.getStringValue(choices.getKey()))
+                && choices.getParent() instanceof ArrayCreationExpression fieldOptions
+                && FormAttributeUtil.getOptionsAttribute(fieldOptions) != null) {
+                String domain = PhpElementsUtil.getArrayHashValue(fieldOptions, "choice_translation_domain");
+                if (domain == null) {
+                    domain = FormOptionsUtil.getTranslationFromScope(fieldOptions);
+                }
+                return new TranslationGotoCompletionProvider(element, domain == null ? "messages" : domain);
+            }
+
+            return null;
+        });
 
         // FormBuilderInterface:add("", "type")
         registrar.register(PlatformPatterns.psiElement().withParent(StringLiteralExpression.class).withLanguage(PhpLanguage.INSTANCE), psiElement -> {
@@ -257,19 +309,16 @@ public class FormGotoCompletionRegistrar implements GotoCompletionRegistrar {
      * Form options on extension or form type default options
      */
     private static class FormOptionsGotoCompletionProvider extends GotoCompletionProvider {
-        @NotNull
         private final String formType;
 
-        @NotNull
         private final Collection<FormOption> options;
 
-        FormOptionsGotoCompletionProvider(@NotNull PsiElement element, @NotNull String formType, FormOption... options) {
+        FormOptionsGotoCompletionProvider(PsiElement element, String formType, FormOption... options) {
             super(element);
             this.formType = formType;
             this.options = Arrays.asList(options);
         }
 
-        @NotNull
         @Override
         public Collection<LookupElement> getLookupElements() {
             Collection<LookupElement> lookupElements = new ArrayList<>();
@@ -285,7 +334,6 @@ public class FormGotoCompletionRegistrar implements GotoCompletionRegistrar {
             return lookupElements;
         }
 
-        @NotNull
         @Override
         public Collection<PsiElement> getPsiTargets(PsiElement psiElement) {
             PsiElement element = psiElement.getParent();
@@ -315,13 +363,11 @@ public class FormGotoCompletionRegistrar implements GotoCompletionRegistrar {
             super(element);
         }
 
-        @NotNull
         @Override
         public Collection<LookupElement> getLookupElements() {
             return FormUtil.getFormTypeLookupElements(getElement().getProject());
         }
 
-        @NotNull
         @Override
         public Collection<PsiElement> getPsiTargets(PsiElement psiElement) {
             PsiElement element = psiElement.getParent();
@@ -354,7 +400,7 @@ public class FormGotoCompletionRegistrar implements GotoCompletionRegistrar {
     }
 
     @Nullable
-    private GotoCompletionProvider createTranslationGotoCompletionWithLabelSwitch(@NotNull PsiElement origin, @NotNull ArrayCreationExpression choices, Processor<ArrayCreationExpression> processor) {
+    private GotoCompletionProvider createTranslationGotoCompletionWithLabelSwitch(PsiElement origin, ArrayCreationExpression choices, Predicate<ArrayCreationExpression> processor) {
         PsiElement choicesArrayValue = choices.getParent();
         if(choicesArrayValue.getNode().getElementType() == PhpElementTypes.ARRAY_VALUE) {
             PsiElement choicesValueHash = choicesArrayValue.getParent();
@@ -369,7 +415,7 @@ public class FormGotoCompletionRegistrar implements GotoCompletionRegistrar {
                         if(formOptionsHash instanceof ArrayHashElement) {
                             PsiElement arrayCreation = formOptionsHash.getParent();
                             if(arrayCreation instanceof ArrayCreationExpression) {
-                                if(processor.process((ArrayCreationExpression) arrayCreation)) {
+                                if(processor.test((ArrayCreationExpression) arrayCreation)) {
                                     return createTranslationGotoCompletion(origin, arrayCreation);
                                 }
                             }
@@ -383,7 +429,7 @@ public class FormGotoCompletionRegistrar implements GotoCompletionRegistrar {
     }
 
     @Nullable
-    private GotoCompletionProvider createTranslationGotoCompletion(@NotNull PsiElement psiElement, @NotNull PsiElement arrayCreation) {
+    private GotoCompletionProvider createTranslationGotoCompletion(PsiElement psiElement, PsiElement arrayCreation) {
         int parameterIndexValue = PsiElementUtils.getParameterIndexValue(arrayCreation);
         if(parameterIndexValue != 2) {
             return null;
@@ -407,8 +453,7 @@ public class FormGotoCompletionRegistrar implements GotoCompletionRegistrar {
     /**
      * Returns the form translation domain, falling back to Symfony's default domain.
      */
-    @NotNull
-    private String getTranslationDomainFromScope(@NotNull ArrayCreationExpression arrayCreation) {
+    private String getTranslationDomainFromScope(ArrayCreationExpression arrayCreation) {
         PhpPsiElement value = PhpElementsUtil.getArrayValue(arrayCreation, "choice_translation_domain");
 
         if(value instanceof StringLiteralExpression) {

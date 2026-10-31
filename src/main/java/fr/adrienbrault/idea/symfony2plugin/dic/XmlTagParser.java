@@ -1,12 +1,12 @@
 package fr.adrienbrault.idea.symfony2plugin.dic;
 
 import fr.adrienbrault.idea.symfony2plugin.util.service.AbstractServiceParser;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.vfs.VirtualFile;
+import consulo.project.Project;
+import consulo.virtualFileSystem.VirtualFile;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashSet;

@@ -1,16 +1,17 @@
 package fr.adrienbrault.idea.symfony2plugin.stubs.cache;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.Key;
-import com.intellij.openapi.util.ModificationTracker;
-import com.intellij.psi.search.GlobalSearchScope;
-import com.intellij.psi.util.CachedValue;
-import com.intellij.psi.util.CachedValueProvider;
-import com.intellij.psi.util.CachedValuesManager;
-import com.intellij.util.indexing.FileBasedIndex;
-import com.intellij.util.indexing.ID;
+import consulo.language.psi.PsiModificationTracker;
+import consulo.language.psi.stub.StubIndexKey;
+import consulo.project.Project;
+import consulo.util.dataholder.Key;
+import consulo.component.util.ModificationTracker;
+import consulo.language.psi.scope.GlobalSearchScope;
+import consulo.application.util.CachedValue;
+import consulo.application.util.CachedValueProvider;
+import consulo.application.util.CachedValuesManager;
+import consulo.language.psi.stub.FileBasedIndex;
+import consulo.index.io.ID;
 import fr.adrienbrault.idea.symfony2plugin.stubs.SymfonyProcessors;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.HashMap;
 import java.util.List;
@@ -29,7 +30,7 @@ public class FileIndexCaches {
      * @param dataHolderKey Main data to cache
      * @param dataHolderNames Cache extracted name Set
      */
-    static public synchronized <T> Map<String, List<T>> getSetDataCache(@NotNull final Project project, @NotNull Key<CachedValue<Map<String, List<T>>>> dataHolderKey, final @NotNull Key<CachedValue<Set<String>>> dataHolderNames, @NotNull final ID<String, T> ID, @NotNull final GlobalSearchScope scope) {
+    static public synchronized <T> Map<String, List<T>> getSetDataCache(final Project project, Key<CachedValue<Map<String, List<T>>>> dataHolderKey, final Key<CachedValue<Set<String>>> dataHolderNames, final ID<String, T> ID, final GlobalSearchScope scope) {
         return CachedValuesManager.getManager(project).getCachedValue(
             project,
             dataHolderKey,
@@ -52,7 +53,7 @@ public class FileIndexCaches {
      * @param dataHolderKey Main data to cache
      * @param dataHolderNames Cache extracted name Set
      */
-    static public synchronized Map<String, List<String>> getStringDataCache(@NotNull final Project project, @NotNull Key<CachedValue<Map<String, List<String>>>> dataHolderKey, final @NotNull Key<CachedValue<Set<String>>> dataHolderNames, @NotNull final ID<String, String> ID, @NotNull final GlobalSearchScope scope) {
+    static public synchronized Map<String, List<String>> getStringDataCache(final Project project, Key<CachedValue<Map<String, List<String>>>> dataHolderKey, final Key<CachedValue<Set<String>>> dataHolderNames, final ID<String, String> ID, final GlobalSearchScope scope) {
         return CachedValuesManager.getManager(project).getCachedValue(
             project,
             dataHolderKey,
@@ -78,7 +79,7 @@ public class FileIndexCaches {
     /**
      * There several methods that just need to check for names, as they also needed for value extraction, so cache them also
      */
-    static public synchronized Set<String> getIndexKeysCache(@NotNull final Project project, @NotNull Key<CachedValue<Set<String>>> dataHolderKey, @NotNull final ID<String, ?> id) {
+    static public synchronized Set<String> getIndexKeysCache(final Project project, Key<CachedValue<Set<String>>> dataHolderKey, final ID<String, ?> id) {
         return CachedValuesManager.getManager(project).getCachedValue(
             project,
             dataHolderKey,
@@ -87,8 +88,11 @@ public class FileIndexCaches {
         );
     }
 
-    @NotNull
-    public static ModificationTracker getModificationTrackerForIndexId(@NotNull Project project, @NotNull final ID<?, ?> id) {
+    public static ModificationTracker getModificationTrackerForIndexId(Project project, final ID<?, ?> id) {
+        if (id instanceof StubIndexKey) {
+            // stub indexes have no stamp in FileBasedIndex
+            return PsiModificationTracker.getInstance(project);
+        }
         return () -> FileBasedIndex.getInstance().getIndexModificationStamp(id, project);
     }
 }

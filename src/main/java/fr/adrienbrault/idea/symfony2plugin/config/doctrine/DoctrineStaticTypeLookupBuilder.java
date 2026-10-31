@@ -1,12 +1,11 @@
 package fr.adrienbrault.idea.symfony2plugin.config.doctrine;
 
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.codeInsight.lookup.LookupElementBuilder;
-import com.intellij.util.containers.ContainerUtil;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.editor.completion.lookup.LookupElementBuilder;
+import consulo.util.collection.ContainerUtil;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
 import fr.adrienbrault.idea.symfony2plugin.util.completion.annotations.AnnotationMethodInsertHandler;
 import fr.adrienbrault.idea.symfony2plugin.util.completion.annotations.AnnotationTagInsertHandler;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -20,7 +19,7 @@ public class DoctrineStaticTypeLookupBuilder {
 
     private final InsertHandler insertHandler = InsertHandler.Yaml;
 
-    public static void fillOrmLookupElementsWithStatic(@NotNull Collection<LookupElement> lookupElements) {
+    public static void fillOrmLookupElementsWithStatic(Collection<LookupElement> lookupElements) {
 
         List<String> strings = Arrays.asList("id", "string", "integer", "smallint", "bigint", "boolean", "decimal", "date", "time", "datetime", "text", "array", "float");
 

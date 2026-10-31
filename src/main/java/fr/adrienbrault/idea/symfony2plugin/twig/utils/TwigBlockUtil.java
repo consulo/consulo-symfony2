@@ -1,17 +1,17 @@
 package fr.adrienbrault.idea.symfony2plugin.twig.utils;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.Pair;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiManager;
-import com.intellij.psi.search.GlobalSearchScope;
-import com.intellij.util.indexing.FileBasedIndex;
 import com.jetbrains.twig.TwigFile;
 import com.jetbrains.twig.TwigTokenTypes;
 import com.jetbrains.twig.elements.TwigBlockStatement;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.PsiManager;
+import consulo.language.psi.scope.GlobalSearchScope;
+import consulo.language.psi.stub.FileBasedIndex;
+import consulo.project.Project;
+import consulo.util.lang.Pair;
+import consulo.virtualFileSystem.VirtualFile;
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.TwigBlockEmbedIndex;
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.TwigBlockIndexExtension;
 import fr.adrienbrault.idea.symfony2plugin.templating.TwigBlockFakePsiNavigationItem;
@@ -24,9 +24,12 @@ import fr.adrienbrault.idea.symfony2plugin.util.ProjectUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
 import fr.adrienbrault.idea.symfony2plugin.util.UxUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -36,8 +39,7 @@ public class TwigBlockUtil {
     /**
      * Resolves literal template targets for: {{ block('name', 'template.html.twig') }}
      */
-    @NotNull
-    public static Collection<PsiFile> getBlockFunctionTemplateTargets(@NotNull PsiElement blockNameElement) {
+    public static Collection<PsiFile> getBlockFunctionTemplateTargets(PsiElement blockNameElement) {
         if (!TwigPattern.getPrintBlockOrTagFunctionPattern("block").accepts(blockNameElement)) {
             return Collections.emptyList();
         }
@@ -69,8 +71,7 @@ public class TwigBlockUtil {
      * Use this when block completion should behave like normal Twig block lookup, but the
      * starting point is an explicit template reference rather than the current file.
      */
-    @NotNull
-    public static Collection<VirtualFile> getBlockLookupScopeFiles(@NotNull Collection<PsiFile> psiFiles) {
+    public static Collection<VirtualFile> getBlockLookupScopeFiles(Collection<PsiFile> psiFiles) {
         return psiFiles.stream()
             .map(psiFile -> TwigFileUtil.collectParentFiles(true, psiFile))
             .flatMap(Collection::stream)
@@ -81,11 +82,10 @@ public class TwigBlockUtil {
      * Returns the subset of {@code virtualFiles} that contain {@code blockName} according to the Twig block index.
      * Use this to pre-filter before loading PSI, avoiding traversal of files that do not define the block.
      */
-    @NotNull
     public static Collection<VirtualFile> filterFilesWithBlock(
-        @NotNull Project project,
-        @NotNull String blockName,
-        @NotNull Collection<VirtualFile> virtualFiles
+        Project project,
+        String blockName,
+        Collection<VirtualFile> virtualFiles
     ) {
         if (virtualFiles.isEmpty()) {
             return Collections.emptyList();
@@ -111,8 +111,7 @@ public class TwigBlockUtil {
     /**
      * Resolves PSI targets of {@code blockName} across all templates of the given Twig component.
      */
-    @NotNull
-    public static Collection<PsiElement> getComponentBlockTargets(@NotNull Project project, @NotNull String componentName, @NotNull String blockName) {
+    public static Collection<PsiElement> getComponentBlockTargets(Project project, String componentName, String blockName) {
         Collection<VirtualFile> templateVirtualFiles = new ArrayList<>();
         for (PsiFile f : UxUtil.getComponentTemplates(project, componentName)) {
             VirtualFile vf = f.getVirtualFile();
@@ -125,8 +124,7 @@ public class TwigBlockUtil {
     /**
      * Pre-filters {@code candidateFiles} via index, then traverses PSI only for files that define {@code blockName}.
      */
-    @NotNull
-    private static Collection<PsiElement> resolveBlockTargets(@NotNull Project project, @NotNull String blockName, @NotNull Collection<VirtualFile> candidateFiles) {
+    private static Collection<PsiElement> resolveBlockTargets(Project project, String blockName, Collection<VirtualFile> candidateFiles) {
         Collection<PsiElement> targets = new ArrayList<>();
         for (VirtualFile vf : filterFilesWithBlock(project, blockName, candidateFiles)) {
             if (!(PsiManager.getInstance(project).findFile(vf) instanceof TwigFile twigFile)) continue;
@@ -140,7 +138,7 @@ public class TwigBlockUtil {
     /**
      * Withs a file that extends given file scope and search for block names; based in indexed so its fast
      */
-    public static boolean hasBlockImplementations(@NotNull PsiElement blockPsiName, @NotNull FileImplementsLazyLoader implementsLazyLoader) {
+    public static boolean hasBlockImplementations(PsiElement blockPsiName, FileImplementsLazyLoader implementsLazyLoader) {
         String blockName = blockPsiName.getText();
         if (StringUtils.isBlank(blockName)) {
             return false;
@@ -182,8 +180,7 @@ public class TwigBlockUtil {
      *  {% block 'foo<caret>bar' %}
      *  {% block foo<caret>bar %}
      */
-    @NotNull
-    public static Collection<PsiElement> getBlockImplementationTargets(@NotNull PsiElement blockPsiName) {
+    public static Collection<PsiElement> getBlockImplementationTargets(PsiElement blockPsiName) {
         String blockName = blockPsiName.getText();
         if (StringUtils.isBlank(blockName)) {
             return Collections.emptyList();
@@ -232,7 +229,7 @@ public class TwigBlockUtil {
     /**
      * Extracted named block element for ui presentable
      */
-    private static PsiElement getBlockNamePsiElementTarget(@NotNull TwigBlockStatement twigBlockStatement) {
+    private static PsiElement getBlockNamePsiElementTarget(TwigBlockStatement twigBlockStatement) {
         PsiElement blockTag = twigBlockStatement.getFirstChild();
 
         if (blockTag != null) {
@@ -248,8 +245,7 @@ public class TwigBlockUtil {
     /**
      * Collect every block name by given file name; resolve the "extends" or "embed" scope
      */
-    @NotNull
-    public static Collection<PsiElement> getBlockOverwriteTargets(@NotNull PsiElement psiElement) {
+    public static Collection<PsiElement> getBlockOverwriteTargets(PsiElement psiElement) {
         String blockName = psiElement.getText();
 
         if(StringUtils.isBlank(blockName)) {
@@ -276,7 +272,7 @@ public class TwigBlockUtil {
     /**
      * Visits block upwards eg "extends" and "use" statements
      */
-    public static boolean hasBlockOverwrites(@NotNull PsiElement psiElement, @NotNull FileOverwritesLazyLoader fileOverwritesLazyLoader) {
+    public static boolean hasBlockOverwrites(PsiElement psiElement, FileOverwritesLazyLoader fileOverwritesLazyLoader) {
         String blockName = psiElement.getText();
 
         if (StringUtils.isBlank(blockName)) {
@@ -293,7 +289,7 @@ public class TwigBlockUtil {
         return hasBlockNamesForFiles(psiElement.getProject(), blockName, virtualFiles);
     }
 
-    private static boolean hasBlockImplementationsForEmbed(@NotNull Project project, @NotNull VirtualFile virtualFile, @NotNull String blockName) {
+    private static boolean hasBlockImplementationsForEmbed(Project project, VirtualFile virtualFile, String blockName) {
         for (String templateName : TwigUtil.getTemplateNamesForFile(project, virtualFile)) {
             Set<String> blockNames = FileBasedIndex.getInstance().getValues(TwigBlockEmbedIndex.KEY, templateName, GlobalSearchScope.allScope(project))
                 .stream()
@@ -311,8 +307,7 @@ public class TwigBlockUtil {
     /**
      * Collect every block name by given file name; resolve the "extends"
      */
-    @NotNull
-    public static Collection<PsiElement> getBlockOverwriteTargets(@NotNull PsiFile psiFile, @NotNull String blockName, boolean withSelfBlocks) {
+    public static Collection<PsiElement> getBlockOverwriteTargets(PsiFile psiFile, String blockName, boolean withSelfBlocks) {
         Collection<VirtualFile> parentVirtualFiles = TwigFileUtil.collectParentFiles(withSelfBlocks, psiFile);
         if (parentVirtualFiles.isEmpty()) {
             return Collections.emptyList();
@@ -326,7 +321,7 @@ public class TwigBlockUtil {
     /**
      * Check is every given file provides a block by name
      */
-    private static boolean hasBlockNamesForFiles(@NotNull Project project, @NotNull String blockName, @NotNull Collection<VirtualFile> virtualFiles) {
+    private static boolean hasBlockNamesForFiles(Project project, String blockName, Collection<VirtualFile> virtualFiles) {
         return FileBasedIndex.getInstance()
             .getValues(TwigBlockIndexExtension.KEY, "block", GlobalSearchScope.filesScope(project, virtualFiles))
             .stream()

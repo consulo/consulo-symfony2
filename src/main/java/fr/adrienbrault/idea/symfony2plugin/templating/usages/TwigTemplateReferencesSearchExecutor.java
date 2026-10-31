@@ -1,20 +1,20 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.usages;
 
-import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.TextRange;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiManager;
-import com.intellij.psi.PsiReference;
-import com.intellij.psi.xml.XmlTag;
-import com.intellij.psi.search.GlobalSearchScope;
-import com.intellij.psi.search.SearchScope;
-import com.intellij.psi.search.searches.ReferencesSearch;
-import com.intellij.util.Processor;
-import com.intellij.util.QueryExecutor;
-import com.intellij.util.indexing.FileBasedIndex;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.application.ApplicationManager;
+import consulo.project.Project;
+import consulo.document.util.TextRange;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.PsiManager;
+import consulo.language.psi.PsiReference;
+import consulo.xml.language.psi.XmlTag;
+import consulo.language.psi.scope.GlobalSearchScope;
+import consulo.content.scope.SearchScope;
+import consulo.language.psi.search.ReferencesSearch;
+import consulo.language.psi.search.ReferencesSearchQueryExecutor;
+import consulo.language.psi.stub.FileBasedIndex;
 import com.jetbrains.php.lang.psi.elements.Function;
 import com.jetbrains.php.lang.psi.elements.FunctionReference;
 import com.jetbrains.php.lang.psi.elements.PhpNamedElement;
@@ -27,11 +27,11 @@ import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.TwigIncludeStubIndex;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.PhpMethodVariableResolveUtil;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.UxUtil;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.Predicate;
 
 /**
  * ReferencesSearch executor that finds Twig template usages using indexes.
@@ -44,10 +44,11 @@ import java.util.Set;
  *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
-public class TwigTemplateReferencesSearchExecutor implements QueryExecutor<PsiReference, ReferencesSearch.SearchParameters> {
+@ExtensionImpl
+public class TwigTemplateReferencesSearchExecutor implements ReferencesSearchQueryExecutor {
 
     @Override
-    public boolean execute(@NotNull ReferencesSearch.SearchParameters queryParameters, @NotNull Processor<? super PsiReference> consumer) {
+    public boolean execute(ReferencesSearch.SearchParameters queryParameters, Predicate<? super PsiReference> consumer) {
         PsiElement target = queryParameters.getElementToSearch();
 
         if (!(target instanceof TwigFile targetFile)) {
@@ -63,7 +64,7 @@ public class TwigTemplateReferencesSearchExecutor implements QueryExecutor<PsiRe
         return true;
     }
 
-    private void doSearch(@NotNull TwigFile targetFile, @NotNull Project project, @NotNull ReferencesSearch.SearchParameters queryParameters, @NotNull Processor<? super PsiReference> consumer) {
+    private void doSearch(TwigFile targetFile, Project project, ReferencesSearch.SearchParameters queryParameters, Predicate<? super PsiReference> consumer) {
         VirtualFile virtualFile = targetFile.getVirtualFile();
         if (virtualFile == null) {
             return;
@@ -127,7 +128,7 @@ public class TwigTemplateReferencesSearchExecutor implements QueryExecutor<PsiRe
                             ? ((StringLiteralExpression) sourceElement).getValueRange()
                             : new TextRange(0, sourceElement.getTextLength());
 
-                        consumer.process(new TwigTemplateUsageReference(
+                        consumer.test(new TwigTemplateUsageReference(
                             sourceElement,
                             targetFile,
                             range,
@@ -172,7 +173,7 @@ public class TwigTemplateReferencesSearchExecutor implements QueryExecutor<PsiRe
 
                         for (PsiElement element : TwigComponentUsageStubIndex.getComponentUsages(usageTwigFile, componentNames)) {
                             if (processedComponentElements.add(element)) {
-                                consumer.process(createComponentUsageReference(element, targetFile));
+                                consumer.test(createComponentUsageReference(element, targetFile));
                             }
                         }
 
@@ -191,7 +192,8 @@ public class TwigTemplateReferencesSearchExecutor implements QueryExecutor<PsiRe
      * For complex parameter expressions: the {@code FunctionReference} (the call itself).
      * For {@code @Template} / {@code #[Template]} annotations without a call: the method identifier.
      */
-    private static PsiElement resolveControllerSourceElement(@NotNull kotlin.Triple<String, PhpNamedElement, FunctionReference> triple, @NotNull Function function) {
+    // TODO consulo-port: consulo.util.lang.Trinity comes from the Kotlin stdlib (shared with PhpMethodVariableResolveUtil); replace together once a Java tuple type is chosen
+    private static PsiElement resolveControllerSourceElement(consulo.util.lang.Trinity<String, PhpNamedElement, FunctionReference> triple, Function function) {
         FunctionReference functionReference = triple.getThird();
         if (functionReference != null) {
             PsiElement[] params = functionReference.getParameters();
@@ -207,20 +209,20 @@ public class TwigTemplateReferencesSearchExecutor implements QueryExecutor<PsiRe
         return nameIdentifier != null ? nameIdentifier : function.getNameIdentifier();
     }
 
-    private void findIncludeReferences(@NotNull TwigFile sourceFile, @NotNull String templateName, @NotNull TwigFile targetFile, @NotNull Processor<? super PsiReference> consumer) {
+    private void findIncludeReferences(TwigFile sourceFile, String templateName, TwigFile targetFile, Predicate<? super PsiReference> consumer) {
         TwigUtil.visitTemplateIncludes(sourceFile, templateInclude -> {
             String includeTemplateName = TwigUtil.normalizeTemplateName(templateInclude.getTemplateName());
             if (includeTemplateName.equals(templateName)) {
                 PsiElement sourceElement = templateInclude.getPsiElement();
                 PsiReference reference = createStringReference(sourceElement, targetFile, templateInclude.getTemplateName());
                 if (reference != null) {
-                    consumer.process(reference);
+                    consumer.test(reference);
                 }
             }
         });
     }
 
-    private void findExtendsReferences(@NotNull TwigFile sourceFile, @NotNull String templateName, @NotNull TwigFile targetFile, @NotNull Processor<? super PsiReference> consumer) {
+    private void findExtendsReferences(TwigFile sourceFile, String templateName, TwigFile targetFile, Predicate<? super PsiReference> consumer) {
         TwigUtil.visitTemplateExtends(sourceFile, pair -> {
             String extendsTemplateName = TwigUtil.normalizeTemplateName(pair.getFirst());
             if (extendsTemplateName.equals(templateName)) {
@@ -228,14 +230,14 @@ public class TwigTemplateReferencesSearchExecutor implements QueryExecutor<PsiRe
                 if (sourceElement != null) {
                     PsiReference ref = createStringReference(sourceElement, targetFile, pair.getFirst());
                     if (ref != null) {
-                        consumer.process(ref);
+                        consumer.test(ref);
                     }
                 }
             }
         });
     }
 
-    private @Nullable PsiReference createStringReference(@NotNull PsiElement sourceElement, @NotNull TwigFile targetFile, @NotNull String templateNameText) {
+    private @Nullable PsiReference createStringReference(PsiElement sourceElement, TwigFile targetFile, String templateNameText) {
         String elementText = sourceElement.getText();
         int startIndex = elementText.indexOf(templateNameText);
 
@@ -248,7 +250,7 @@ public class TwigTemplateReferencesSearchExecutor implements QueryExecutor<PsiRe
         return new TwigTemplateUsageReference(sourceElement, targetFile, range);
     }
 
-    private @NotNull PsiReference createComponentUsageReference(@NotNull PsiElement sourceElement, @NotNull TwigFile targetFile) {
+    private PsiReference createComponentUsageReference(PsiElement sourceElement, TwigFile targetFile) {
         TextRange range = new TextRange(0, sourceElement.getTextLength());
 
         if (sourceElement instanceof XmlTag xmlTag) {

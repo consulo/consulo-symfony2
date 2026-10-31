@@ -1,199 +1,132 @@
 package fr.adrienbrault.idea.symfony2plugin.ui;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.ui.ColoredListCellRenderer;
-import com.intellij.ui.table.TableView;
+import consulo.disposer.Disposable;
+import consulo.localize.LocalizeValue;
+import consulo.project.Project;
+import consulo.ui.ComboBox;
+import consulo.ui.Component;
+import consulo.ui.TextBox;
+import consulo.ui.UIAccess;
+import consulo.ui.annotation.RequiredUIAccess;
+import consulo.ui.ex.dialog.DialogDescriptor;
+import consulo.ui.ex.dialog.DialogService;
+import consulo.ui.util.FormBuilder;
 import fr.adrienbrault.idea.symfony2plugin.assistant.signature.MethodSignatureSetting;
 import fr.adrienbrault.idea.symfony2plugin.assistant.signature.PhpTypeSignatureInterface;
 import fr.adrienbrault.idea.symfony2plugin.assistant.signature.PhpTypeSignatureTypes;
+import org.apache.commons.lang3.StringUtils;
+import org.jspecify.annotations.Nullable;
 
-import javax.swing.*;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
-import javax.swing.text.JTextComponent;
-import java.awt.*;
-import java.awt.event.KeyAdapter;
-import java.awt.event.KeyEvent;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
-public class MethodSignatureTypeDialog extends JDialog {
-    private JPanel contentPane;
-    private JButton buttonOK;
-    private JButton buttonCancel;
-    private JComboBox<String> comboProvider;
-    private JTextField textCallTo;
-    private JTextField textMethodName;
-    private JTextField textIndex;
-    private MethodSignatureSetting methodParameterSetting;
-    private final TableView<MethodSignatureSetting> tableView;
+public class MethodSignatureTypeDialog extends DialogDescriptor {
+    private final @Nullable MethodSignatureSetting myMethodSignatureSetting;
 
-    private final Project project;
+    private final TextBox myTextCallTo = TextBox.create();
+    private final TextBox myTextMethodName = TextBox.create();
+    private final TextBox myTextIndex = TextBox.create();
+    private final ComboBox<String> myComboProvider;
 
-    static class ComboBoxRenderer extends ColoredListCellRenderer {
-        @Override
-        protected void customizeCellRenderer(JList list, Object value, int index, boolean selected, boolean hasFocus) {
-            append((String) value);
+    @RequiredUIAccess
+    private MethodSignatureTypeDialog(@Nullable MethodSignatureSetting methodSignatureSetting) {
+        super(LocalizeValue.localizeTODO("MethodSignatureSetting"));
+        myMethodSignatureSetting = methodSignatureSetting;
+
+        List<String> providers = new ArrayList<>();
+        for (PhpTypeSignatureInterface provider : PhpTypeSignatureTypes.DEFAULT_PROVIDER) {
+            providers.add(provider.getName());
         }
+        myComboProvider = ComboBox.create(providers);
     }
 
-    public MethodSignatureTypeDialog(Project project, TableView<MethodSignatureSetting> tableView) {
-        this.tableView = tableView;
-        this.project = project;
+    @RequiredUIAccess
+    @Override
+    public Component createCenterComponent(Disposable uiDisposable) {
+        myComboProvider.selectFirst();
 
-        createUIComponents();
-        setContentPane(contentPane);
-        setModal(true);
-        getRootPane().setDefaultButton(buttonOK);
+        if (myMethodSignatureSetting != null) {
+            myTextCallTo.setValue(StringUtils.defaultString(myMethodSignatureSetting.getCallTo()));
+            myTextMethodName.setValue(StringUtils.defaultString(myMethodSignatureSetting.getMethodName()));
+            myTextIndex.setValue(String.valueOf(myMethodSignatureSetting.getIndexParameter()));
 
-        buttonOK.addActionListener(e -> onOK());
-
-        buttonCancel.addActionListener(e -> onCancel());
-
-        this.textCallTo.getDocument().addDocumentListener(new ChangeDocumentListener());
-        this.textMethodName.getDocument().addDocumentListener(new ChangeDocumentListener());
-        this.textIndex.getDocument().addDocumentListener(new ChangeDocumentListener());
-
-
-        setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
-        addWindowListener(new WindowAdapter() {
-            public void windowClosing(WindowEvent e) {
-                onCancel();
+            if (myMethodSignatureSetting.getReferenceProviderName() != null) {
+                myComboProvider.setValue(myMethodSignatureSetting.getReferenceProviderName());
             }
-        });
+        }
 
-        contentPane.registerKeyboardAction(e -> onCancel(), KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
-
+        myTextCallTo.addValueListener(event -> updateOkButtonState());
+        myTextMethodName.addValueListener(event -> updateOkButtonState());
 
         // allow only number values to indexes
-        // simple?
-        this.textIndex.addKeyListener(new KeyAdapter() {
-            private final String allowedRegex = "[^0-9]";
-
-            @Override
-            public void keyReleased(KeyEvent e) {
-                String curText = ((JTextComponent) e.getSource()).getText();
-                curText = curText.replaceAll(allowedRegex, "");
-
-                ((JTextComponent) e.getSource()).setText(curText);
+        myTextIndex.addValueListener(event -> {
+            String text = StringUtils.defaultString(myTextIndex.getValue());
+            String digits = text.replaceAll("[^0-9]", "");
+            if (!digits.equals(text)) {
+                myTextIndex.setValue(digits);
             }
+            updateOkButtonState();
         });
 
-        this.attachComboBoxValues(project);
+        FormBuilder builder = FormBuilder.create();
+        builder.addLabeled(LocalizeValue.localizeTODO("CallTo"), myTextCallTo);
+        builder.addLabeled(LocalizeValue.localizeTODO("Method"), myTextMethodName);
+        builder.addLabeled(LocalizeValue.localizeTODO("Index"), myTextIndex);
+        builder.addLabeled(LocalizeValue.localizeTODO("Provider"), myComboProvider);
+        return builder.build();
     }
 
-    private void attachComboBoxValues(Project project) {
-        for (PhpTypeSignatureInterface provider : PhpTypeSignatureTypes.DEFAULT_PROVIDER) {
-            comboProvider.addItem(provider.getName());
-        }
+    @RequiredUIAccess
+    @Override
+    public Component getPreferredFocusedComponent() {
+        return myTextCallTo;
     }
 
-    public MethodSignatureTypeDialog(Project project, TableView<MethodSignatureSetting> tableView, MethodSignatureSetting methodParameterSetting) {
-        this(project, tableView);
-
-        this.textCallTo.setText(methodParameterSetting.getCallTo());
-        this.textMethodName.setText(methodParameterSetting.getMethodName());
-        this.textIndex.setText(String.valueOf(methodParameterSetting.getIndexParameter()));
-        this.methodParameterSetting = methodParameterSetting;
-
-        if (methodParameterSetting.getReferenceProviderName() != null) {
-            this.comboProvider.setSelectedItem(methodParameterSetting.getReferenceProviderName());
-        }
-
+    @Override
+    public boolean doUpdateOkButtonState() {
+        return StringUtils.isNotEmpty(myTextCallTo.getValue())
+            && StringUtils.isNotEmpty(myTextMethodName.getValue())
+            && StringUtils.isNotEmpty(myTextIndex.getValue());
     }
 
-    private void createUIComponents() {
-        contentPane = new JPanel(new BorderLayout(0, 5));
-        contentPane.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-
-        textCallTo = new JTextField(20);
-        textMethodName = new JTextField(20);
-        textIndex = new JTextField(20);
-        comboProvider = new JComboBox<>();
-
-        JPanel fieldsPanel = new JPanel(new GridBagLayout());
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(2, 2, 2, 2);
-        gbc.anchor = GridBagConstraints.WEST;
-
-        String[] labels = {"CallTo", "Method", "Index", "Provider"};
-        JComponent[] fields = {textCallTo, textMethodName, textIndex, comboProvider};
-
-        for (int i = 0; i < labels.length; i++) {
-            gbc.gridx = 0; gbc.gridy = i; gbc.fill = GridBagConstraints.NONE; gbc.weightx = 0;
-            fieldsPanel.add(new JLabel(labels[i]), gbc);
-            gbc.gridx = 1; gbc.fill = GridBagConstraints.HORIZONTAL; gbc.weightx = 1.0;
-            fieldsPanel.add(fields[i], gbc);
-        }
-
-        buttonOK = new JButton("OK");
-        buttonCancel = new JButton("Cancel");
-
-        JPanel buttonsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
-        buttonsPanel.add(buttonOK);
-        buttonsPanel.add(buttonCancel);
-
-        contentPane.add(fieldsPanel, BorderLayout.CENTER);
-        contentPane.add(buttonsPanel, BorderLayout.SOUTH);
-    }
-
-    private void onOK() {
-
+    @RequiredUIAccess
+    private MethodSignatureSetting createSetting() {
         int index;
         try {
-            index = Integer.parseInt(this.textIndex.getText());
-        } catch (NumberFormatException e) {
+            index = Integer.parseInt(StringUtils.defaultString(myTextIndex.getValue()));
+        }
+        catch (NumberFormatException e) {
             index = 0;
         }
 
-        MethodSignatureSetting twigPath = new MethodSignatureSetting(this.textCallTo.getText(), this.textMethodName.getText(), index, (String) this.comboProvider.getSelectedItem());
-
-        // re-add old item to not use public setter wor twigpaths
-        // update ?
-        if (this.methodParameterSetting != null) {
-            int row = this.tableView.getSelectedRows()[0];
-            this.tableView.getListTableModel().removeRow(row);
-            this.tableView.getListTableModel().insertRow(row, twigPath);
-            this.tableView.setRowSelectionInterval(row, row);
-        } else {
-            int row = this.tableView.getRowCount();
-            this.tableView.getListTableModel().addRow(twigPath);
-            this.tableView.setRowSelectionInterval(row, row);
-        }
-
-        dispose();
-    }
-
-    private void setOkState() {
-        this.buttonOK.setEnabled(
-            !this.textCallTo.getText().isEmpty() &&
-                !this.textMethodName.getText().isEmpty() &&
-                !this.textIndex.getText().isEmpty()
+        return new MethodSignatureSetting(
+            StringUtils.defaultString(myTextCallTo.getValue()),
+            StringUtils.defaultString(myTextMethodName.getValue()),
+            index,
+            myComboProvider.getValue()
         );
     }
 
-    private class ChangeDocumentListener implements DocumentListener {
-        @Override
-        public void insertUpdate(DocumentEvent e) {
-            setOkState();
-        }
+    /**
+     * @param methodSignatureSetting {@code null} to create a new setting
+     * @param onOk receives a new setting instance with the dialog values
+     */
+    @RequiredUIAccess
+    public static void show(Project project, @Nullable MethodSignatureSetting methodSignatureSetting, Consumer<MethodSignatureSetting> onOk) {
+        MethodSignatureTypeDialog descriptor = new MethodSignatureTypeDialog(methodSignatureSetting);
 
-        @Override
-        public void removeUpdate(DocumentEvent e) {
-            setOkState();
-        }
-
-        @Override
-        public void changedUpdate(DocumentEvent e) {
-            setOkState();
-        }
+        UIAccess uiAccess = UIAccess.current();
+        project.getApplication().getInstance(DialogService.class)
+            .build(project, descriptor)
+            .showAsync()
+            .whenCompleteAsync((value, error) -> {
+                if (error == null && value != null) {
+                    onOk.accept(descriptor.createSetting());
+                }
+            }, uiAccess);
     }
-
-    private void onCancel() {
-        dispose();
-    }
-
 }

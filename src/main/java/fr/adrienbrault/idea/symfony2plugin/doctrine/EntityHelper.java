@@ -1,21 +1,28 @@
 package fr.adrienbrault.idea.symfony2plugin.doctrine;
 
-import com.intellij.openapi.extensions.ExtensionPointName;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.Key;
-import com.intellij.openapi.util.Pair;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiManager;
-import com.intellij.psi.util.*;
-import com.intellij.psi.xml.XmlFile;
-import com.intellij.psi.xml.XmlTag;
-import com.intellij.util.Function;
 import com.jetbrains.php.PhpIndex;
 import com.jetbrains.php.lang.documentation.phpdoc.psi.PhpDocComment;
 import com.jetbrains.php.lang.documentation.phpdoc.psi.tags.PhpDocParamTag;
-import com.jetbrains.php.lang.psi.elements.*;
+import com.jetbrains.php.lang.psi.elements.Field;
+import com.jetbrains.php.lang.psi.elements.Method;
+import com.jetbrains.php.lang.psi.elements.MethodReference;
+import com.jetbrains.php.lang.psi.elements.PhpClass;
+import com.jetbrains.php.lang.psi.elements.PhpPsiElement;
+import com.jetbrains.php.lang.psi.elements.PhpTypedElement;
+import consulo.application.util.CachedValue;
+import consulo.application.util.CachedValueProvider;
+import consulo.application.util.CachedValuesManager;
+import consulo.component.extension.ExtensionPointName;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.PsiManager;
+import consulo.language.psi.PsiModificationTracker;
+import consulo.language.psi.util.PsiTreeUtil;
+import consulo.project.Project;
+import consulo.util.dataholder.Key;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.xml.language.psi.XmlFile;
+import consulo.xml.language.psi.XmlTag;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.component.DocumentNamespacesParser;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.component.EntityNamesServiceParser;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.dict.DoctrineClassMetadata;
@@ -30,11 +37,13 @@ import fr.adrienbrault.idea.symfony2plugin.util.dict.DoctrineModel;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.SymfonyBundle;
 import fr.adrienbrault.idea.symfony2plugin.util.service.ServiceXmlParserFactory;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.jetbrains.yaml.psi.*;
+import org.jetbrains.yaml.psi.YAMLDocument;
+import org.jetbrains.yaml.psi.YAMLFile;
+import org.jetbrains.yaml.psi.YAMLKeyValue;
+import org.jspecify.annotations.Nullable;
 
 import java.util.*;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -43,7 +52,7 @@ import java.util.regex.Pattern;
  */
 public class EntityHelper {
 
-    public static final ExtensionPointName<DoctrineModelProvider> MODEL_POINT_NAME = new ExtensionPointName<>("fr.adrienbrault.idea.symfony2plugin.extension.DoctrineModelProvider");
+    public static final ExtensionPointName<DoctrineModelProvider> MODEL_POINT_NAME = ExtensionPointName.create(DoctrineModelProvider.class);
 
     private static final Key<CachedValue<Collection<DoctrineModelCached>>> SYMFONY_DOCTRINE_MODEL_CACHE = new Key<>("SYMFONY_DOCTRINE_MODEL_CACHE");
 
@@ -61,7 +70,7 @@ public class EntityHelper {
      * Resolve shortcut and namespaces classes for current phpclass and attached modelname
      */
     @Nullable
-    public static String getAnnotationRepositoryClass(@NotNull PhpClass phpClass, @NotNull String modelName) {
+    public static String getAnnotationRepositoryClass(PhpClass phpClass, String modelName) {
         // \ns\Class fine we dont need to resolve classname we are in global context
         if(modelName.startsWith("\\")) {
             return modelName;
@@ -77,7 +86,7 @@ public class EntityHelper {
      * @param shortcutName "\Class\Name" or "FooBundle:Name"
      */
     @Nullable
-    public static PhpClass getEntityRepositoryClass(@NotNull Project project, @NotNull String shortcutName) {
+    public static PhpClass getEntityRepositoryClass(Project project, String shortcutName) {
         PhpClass phpClass = resolveShortcutName(project, shortcutName);
         if(phpClass == null) {
             return null;
@@ -193,8 +202,7 @@ public class EntityHelper {
 
     }
 
-    @NotNull
-    public static String getOrmClass(@NotNull PsiFile psiFile, @NotNull String className) {
+    public static String getOrmClass(PsiFile psiFile, String className) {
 
         // force global namespace not need to search for class
         if(className.startsWith("\\")) {
@@ -244,7 +252,6 @@ public class EntityHelper {
         return className;
     }
 
-    @NotNull
     public static Map<String, YAMLKeyValue> getYamlModelFieldKeyValues(YAMLKeyValue yamlKeyValue) {
         Map<String, YAMLKeyValue> keyValueCollection = new HashMap<>();
 
@@ -258,8 +265,7 @@ public class EntityHelper {
         return keyValueCollection;
     }
 
-    @NotNull
-    public static PsiElement[] getModelFieldTargets(@NotNull PhpClass phpClass, @NotNull String fieldName) {
+    public static PsiElement[] getModelFieldTargets(PhpClass phpClass, String fieldName) {
         DoctrineMetadataModel modelFields = DoctrineMetadataUtil.getModelFields(phpClass.getProject(), phpClass.getPresentableFQN());
         if(modelFields != null) {
             for (DoctrineModelField field : modelFields.getFields()) {
@@ -279,8 +285,7 @@ public class EntityHelper {
         return PsiElement.EMPTY_ARRAY;
     }
 
-    @NotNull
-    public static Collection<DoctrineModelField> getModelFields(@NotNull PhpClass phpClass) {
+    public static Collection<DoctrineModelField> getModelFields(PhpClass phpClass) {
         String presentableFQN = phpClass.getPresentableFQN();
         DoctrineMetadataModel fields = DoctrineMetadataUtil.getModelFields(phpClass.getProject(), presentableFQN);
         if(fields != null) {
@@ -289,8 +294,7 @@ public class EntityHelper {
         return Collections.emptyList();
     }
 
-    @NotNull
-    public static List<DoctrineModelField> getXmlModelFields(@NotNull XmlTag modelTag) {
+    public static List<DoctrineModelField> getXmlModelFields(XmlTag modelTag) {
 
         List<DoctrineModelField> modelFields = new ArrayList<>();
 
@@ -394,7 +398,7 @@ public class EntityHelper {
     }
 
     @Nullable
-    public static PhpClass resolveShortcutName(@NotNull Project project, @NotNull String shortcutName) {
+    public static PhpClass resolveShortcutName(Project project, String shortcutName) {
         return resolveShortcutName(project, shortcutName, DoctrineTypes.Manager.ORM, DoctrineTypes.Manager.MONGO_DB, DoctrineTypes.Manager.COUCH_DB);
     }
 
@@ -405,7 +409,7 @@ public class EntityHelper {
      * @return null|PhpClass
      */
     @Nullable
-    public static PhpClass resolveShortcutName(@NotNull Project project, @Nullable String shortcutName, DoctrineTypes.Manager... managers) {
+    public static PhpClass resolveShortcutName(Project project, @Nullable String shortcutName, DoctrineTypes.Manager... managers) {
         if(shortcutName == null) {
             return null;
         }
@@ -457,8 +461,7 @@ public class EntityHelper {
         return null;
     }
 
-    @Nullable
-    public static DoctrineTypes.Manager getManager(MethodReference methodReference) {
+    public static DoctrineTypes.@Nullable Manager getManager(MethodReference methodReference) {
 
         PhpPsiElement phpTypedElement = methodReference.getFirstPsiChild();
         if(!(phpTypedElement instanceof PhpTypedElement)) {
@@ -481,7 +484,7 @@ public class EntityHelper {
      *
      * @param entityName fully qualified class name or bundle shortcut (e.g. "App\Entity\Foo" or "AppBundle:Foo")
      */
-    public static PsiElement[] getModelPsiTargets(Project project, @NotNull String entityName) {
+    public static PsiElement[] getModelPsiTargets(Project project, String entityName) {
         List<PsiElement> results = new ArrayList<>();
 
         PhpClass phpClass = EntityHelper.getEntityRepositoryClass(project, entityName);
@@ -508,7 +511,7 @@ public class EntityHelper {
         return results.toArray(new PsiElement[0]);
     }
 
-    public static void attachAnnotationInformation(@NotNull PhpClass phpClass, @NotNull Field field, @NotNull DoctrineModelField doctrineModelField, @NotNull Map<String, String> useImportMap) {
+    public static void attachAnnotationInformation(PhpClass phpClass, Field field, DoctrineModelField doctrineModelField, Map<String, String> useImportMap) {
         // we already have that without regular expression
         // @TODO: de.espend.idea.php.annotation.util.AnnotationUtil.getPhpDocCommentAnnotationContainer()
         // fully require plugin now?
@@ -562,7 +565,7 @@ public class EntityHelper {
 
     }
 
-    private record DoctrineModelCached(@NotNull String phpClass, @Nullable String doctrineShortcut, @Nullable String doctrineNamespace) {
+    private record DoctrineModelCached(String phpClass, @Nullable String doctrineShortcut, @Nullable String doctrineNamespace) {
     }
 
     private static Collection<DoctrineModelCached> getModelClassesInner(final Project project) {
@@ -605,7 +608,7 @@ public class EntityHelper {
     /**
      * One PhpClass can have multiple targets and names @TODO: refactor
      */
-    public static Collection<DoctrineModel> getModelClasses(@NotNull final Project project) {
+    public static Collection<DoctrineModel> getModelClasses(final Project project) {
         Collection<DoctrineModelCached> modelClasses = CachedValuesManager.getManager(project).getCachedValue(
             project,
             SYMFONY_DOCTRINE_MODEL_CACHE,
@@ -634,7 +637,7 @@ public class EntityHelper {
         return doctrineModels;
     }
 
-    private static boolean containsDoctrineModelClass(@NotNull Collection<DoctrineModel> models, @NotNull PhpClass phpClass) {
+    private static boolean containsDoctrineModelClass(Collection<DoctrineModel> models, PhpClass phpClass) {
         for (DoctrineModel doctrineModel : models) {
             if(PhpElementsUtil.isEqualClassName(doctrineModel.getPhpClass(), phpClass)) {
                 return true;
@@ -644,7 +647,7 @@ public class EntityHelper {
         return false;
     }
 
-    public static Collection<DoctrineModel> getModelClasses(@NotNull Project project, @NotNull Map<String, String> shortcutNames) {
+    public static Collection<DoctrineModel> getModelClasses(Project project, Map<String, String> shortcutNames) {
         PhpClass repositoryInterface = PhpElementsUtil.getInterface(PhpIndex.getInstance(project), DoctrineTypes.REPOSITORY_INTERFACE);
 
         if (repositoryInterface == null) {
@@ -707,7 +710,7 @@ public class EntityHelper {
      * - "Foo\Bar" is resolved as a "\Foo\Bar" on Doctrine
      * - "Bar" append to the namespace name
      */
-    public static String resolveDoctrineLikePropertyClass(@NotNull PhpClass phpClass, @NotNull String text, @NotNull String propertyName, @NotNull Function<Void, Map<String, String>> useImportMap) {
+    public static String resolveDoctrineLikePropertyClass(PhpClass phpClass, String text, String propertyName, Function<Void, Map<String, String>> useImportMap) {
         Map<String, Matcher> matches = new HashMap<>() {{
             put("string", Pattern.compile(propertyName + "\\s*=\\s*\"([^\"]*)\"").matcher(text)); // targetEntity="Foobar"
             put("class", Pattern.compile(propertyName + "\\s*=\\s*([^\\s:]*)::class").matcher(text));  // targetEntity=Foobar::class
@@ -725,7 +728,7 @@ public class EntityHelper {
             }
 
             if ("class".equals(pair.getKey())) {
-                return AnnotationBackportUtil.getFqnClassNameFromScope(phpClass, targetEntity, useImportMap.fun(null));
+                return AnnotationBackportUtil.getFqnClassNameFromScope(phpClass, targetEntity, useImportMap.apply(null));
             }
 
             return targetEntity.contains("\\")

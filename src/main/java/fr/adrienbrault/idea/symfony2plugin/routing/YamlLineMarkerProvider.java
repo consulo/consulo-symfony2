@@ -1,13 +1,16 @@
 package fr.adrienbrault.idea.symfony2plugin.routing;
 
-import com.intellij.codeInsight.daemon.LineMarkerInfo;
-import com.intellij.codeInsight.daemon.LineMarkerProvider;
-import com.intellij.codeInsight.daemon.RelatedItemLineMarkerInfo;
-import com.intellij.codeInsight.navigation.NavigationGutterIconBuilder;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiInvalidElementAccessException;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
+import consulo.annotation.access.RequiredReadAction;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.Language;
+import consulo.language.editor.gutter.LineMarkerInfo;
+import consulo.language.editor.gutter.LineMarkerProvider;
+import consulo.language.editor.gutter.RelatedItemLineMarkerInfo;
+import consulo.language.editor.ui.navigation.NavigationGutterIconBuilder;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.PsiInvalidElementAccessException;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.util.DoctrineMetadataUtil;
@@ -15,10 +18,13 @@ import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.resource.FileResourceUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.jetbrains.yaml.YAMLTokenTypes;
-import org.jetbrains.yaml.psi.*;
+import org.jetbrains.yaml.YAMLLanguage;
+import org.jetbrains.yaml.psi.YAMLDocument;
+import org.jetbrains.yaml.psi.YAMLFile;
+import org.jetbrains.yaml.psi.YAMLKeyValue;
+import org.jetbrains.yaml.psi.YAMLMapping;
 
 import java.util.Collection;
 import java.util.List;
@@ -26,10 +32,12 @@ import java.util.List;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class YamlLineMarkerProvider implements LineMarkerProvider {
 
     @Override
-    public void collectSlowLineMarkers(@NotNull List<? extends PsiElement> psiElements, @NotNull Collection<? super LineMarkerInfo<?>> lineMarkerInfos) {
+    @RequiredReadAction
+    public void collectSlowLineMarkers(List<PsiElement> psiElements, Collection<LineMarkerInfo> lineMarkerInfos) {
         if(psiElements.isEmpty() || !Symfony2ProjectComponent.isEnabled(psiElements.get(0))) {
             return;
         }
@@ -59,7 +67,7 @@ public class YamlLineMarkerProvider implements LineMarkerProvider {
      *         path: ../src/Controller/
      *         namespace: App\Controller
      */
-    private void attachRoutingForResources(@NotNull Collection<? super LineMarkerInfo<?>> result, @NotNull PsiElement leafTarget) {
+    private void attachRoutingForResources(Collection<LineMarkerInfo> result, PsiElement leafTarget) {
         if (leafTarget.getNode().getElementType() != YAMLTokenTypes.SCALAR_KEY) {
             return;
         }
@@ -88,7 +96,7 @@ public class YamlLineMarkerProvider implements LineMarkerProvider {
         );
     }
 
-    private void attachEntityClass(@NotNull Collection<? super LineMarkerInfo<?>> lineMarkerInfos, @NotNull PsiElement psiElement) {
+    private void attachEntityClass(Collection<LineMarkerInfo> lineMarkerInfos, PsiElement psiElement) {
         if(psiElement.getNode().getElementType() != YAMLTokenTypes.SCALAR_KEY) {
             return;
         }
@@ -130,7 +138,7 @@ public class YamlLineMarkerProvider implements LineMarkerProvider {
      *   defaults: { _controller: "Bundle:Foo:Bar" }
      *   controller: "Bundle:Foo:Bar"
      */
-    private void attachRouteActions(@NotNull Collection<? super LineMarkerInfo<?>> lineMarkerInfos, @NotNull PsiElement psiElement) {
+    private void attachRouteActions(Collection<LineMarkerInfo> lineMarkerInfos, PsiElement psiElement) {
         if(psiElement.getNode().getElementType() != YAMLTokenTypes.SCALAR_KEY) {
             return;
         }
@@ -151,7 +159,8 @@ public class YamlLineMarkerProvider implements LineMarkerProvider {
 
     @Nullable
     @Override
-    public LineMarkerInfo<?> getLineMarkerInfo(@NotNull PsiElement psiElement) {
+    @RequiredReadAction
+    public LineMarkerInfo<?> getLineMarkerInfo(PsiElement psiElement) {
         return null;
     }
 
@@ -161,7 +170,7 @@ public class YamlLineMarkerProvider implements LineMarkerProvider {
      * foo:
      *   targetEntity: Class
      */
-    private void attachRelationClass(@NotNull Collection<? super LineMarkerInfo<?>> lineMarkerInfos, @NotNull PsiElement psiElement) {
+    private void attachRelationClass(Collection<LineMarkerInfo> lineMarkerInfos, PsiElement psiElement) {
         if(psiElement.getNode().getElementType() != YAMLTokenTypes.SCALAR_KEY) {
             return;
         }
@@ -207,5 +216,10 @@ public class YamlLineMarkerProvider implements LineMarkerProvider {
         fileName = fileName.toLowerCase();
         return fileName.endsWith("orm.yml") || fileName.endsWith("odm.yml") || fileName.endsWith("mongodb.yml") || fileName.endsWith("couchdb.yml") || fileName.endsWith("document.yml")
             || fileName.endsWith("orm.yaml") || fileName.endsWith("odm.yaml") || fileName.endsWith("mongodb.yaml") || fileName.endsWith("couchdb.yaml") || fileName.endsWith("document.yaml");
+    }
+
+    @Override
+    public Language getLanguage() {
+        return YAMLLanguage.INSTANCE;
     }
 }

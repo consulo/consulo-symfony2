@@ -1,10 +1,11 @@
 package fr.adrienbrault.idea.symfony2plugin.completion.command;
 
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.codeInsight.lookup.LookupElementBuilder;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.util.PsiTreeUtil;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.editor.completion.lookup.LookupElementBuilder;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.util.PsiTreeUtil;
 import com.jetbrains.php.lang.PhpLanguage;
 import com.jetbrains.php.lang.psi.elements.Method;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
@@ -17,7 +18,6 @@ import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionRegistrarPa
 import fr.adrienbrault.idea.symfony2plugin.util.MethodMatcher;
 import fr.adrienbrault.idea.symfony2plugin.util.SymfonyCommandUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 
@@ -29,10 +29,11 @@ import java.util.*;
  *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class PhpCommandGotoCompletionRegistrar implements GotoCompletionRegistrar {
 
     @Override
-    public void register(@NotNull GotoCompletionRegistrarParameter registrar) {
+    public void register(GotoCompletionRegistrarParameter registrar) {
 
         registrar.register(PlatformPatterns.psiElement().withParent(StringLiteralExpression.class).withLanguage(PhpLanguage.INSTANCE), psiElement -> {
             PsiElement context = psiElement.getContext();
@@ -79,7 +80,6 @@ public class PhpCommandGotoCompletionRegistrar implements GotoCompletionRegistra
             this.addMethod = "add" + addMethod;
         }
 
-        @NotNull
         @Override
         public Collection<LookupElement> getLookupElements() {
 
@@ -136,7 +136,6 @@ public class PhpCommandGotoCompletionRegistrar implements GotoCompletionRegistra
             return elements;
         }
 
-        @NotNull
         @Override
         public Collection<PsiElement> getPsiTargets(PsiElement element) {
 
@@ -165,7 +164,6 @@ public class PhpCommandGotoCompletionRegistrar implements GotoCompletionRegistra
             }
         }
 
-        @NotNull
         private Map<String, SymfonyCommandUtil.CommandOption> getOptions() {
             if (commandTarget instanceof Method method) {
                 return SymfonyCommandUtil.getCommandOptions(method);
@@ -178,7 +176,6 @@ public class PhpCommandGotoCompletionRegistrar implements GotoCompletionRegistra
             return Collections.emptyMap();
         }
 
-        @NotNull
         private Map<String, SymfonyCommandUtil.CommandArgument> getArguments() {
             if (commandTarget instanceof Method method) {
                 return SymfonyCommandUtil.getCommandArguments(method);

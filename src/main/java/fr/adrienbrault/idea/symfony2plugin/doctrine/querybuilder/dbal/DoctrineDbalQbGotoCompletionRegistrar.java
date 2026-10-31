@@ -1,13 +1,14 @@
 package fr.adrienbrault.idea.symfony2plugin.doctrine.querybuilder.dbal;
 
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.codeInsight.lookup.LookupElementBuilder;
-import com.intellij.openapi.util.Pair;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.psi.PsiElement;
 import com.jetbrains.php.lang.PhpLanguage;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
 import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.editor.completion.lookup.LookupElementBuilder;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiElement;
+import consulo.util.lang.Pair;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionProvider;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionRegistrar;
@@ -19,17 +20,17 @@ import fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.util.DoctrineMetada
 import fr.adrienbrault.idea.symfony2plugin.util.MethodMatcher;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.*;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class DoctrineDbalQbGotoCompletionRegistrar implements GotoCompletionRegistrar {
     @Override
-    public void register(@NotNull GotoCompletionRegistrarParameter registrar) {
+    public void register(GotoCompletionRegistrarParameter registrar) {
 
         // table name completion on method eg:
         // Doctrine\DBAL\Connection::insert
@@ -113,19 +114,17 @@ public class DoctrineDbalQbGotoCompletionRegistrar implements GotoCompletionRegi
 
     private static class MyDbalAliasGotoCompletionProvider extends GotoCompletionProvider {
 
-        @NotNull
         private final String value;
 
         @Nullable
         private final String fromAlias;
 
-        public MyDbalAliasGotoCompletionProvider(PsiElement psiElement, @NotNull String value, @Nullable String fromAlias) {
+        public MyDbalAliasGotoCompletionProvider(PsiElement psiElement, String value, @Nullable String fromAlias) {
             super(psiElement);
             this.value = value;
             this.fromAlias = fromAlias;
         }
 
-        @NotNull
         @Override
         public Collection<LookupElement> getLookupElements() {
 
@@ -199,19 +198,17 @@ public class DoctrineDbalQbGotoCompletionRegistrar implements GotoCompletionRegi
             super(element);
         }
 
-        @NotNull
         @Override
         public Collection<LookupElement> getLookupElements() {
             Collection<LookupElement> elements = new ArrayList<>();
 
-            for (com.intellij.openapi.util.Pair<String, String> pair : DoctrineMetadataUtil.getTables(getProject())) {
+            for (Pair<String, String> pair : DoctrineMetadataUtil.getTables(getProject())) {
                 elements.add(LookupElementBuilder.create(pair.getFirst()).withIcon(Symfony2Icons.DOCTRINE));
             }
 
             return elements;
         }
 
-        @NotNull
         @Override
         public Collection<PsiElement> getPsiTargets(PsiElement element) {
             String contents = GotoCompletionUtil.getStringLiteralValue(element);
@@ -245,7 +242,6 @@ public class DoctrineDbalQbGotoCompletionRegistrar implements GotoCompletionRegi
             this.stringValue = stringValue;
         }
 
-        @NotNull
         @Override
         public Collection<LookupElement> getLookupElements() {
 
@@ -272,7 +268,6 @@ public class DoctrineDbalQbGotoCompletionRegistrar implements GotoCompletionRegi
             return elements;
         }
 
-        @NotNull
         @Override
         public Collection<PsiElement> getPsiTargets(PsiElement element) {
             String contents = GotoCompletionUtil.getStringLiteralValue(element);

@@ -1,8 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.action.generator.naming;
 
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -14,9 +13,8 @@ import java.util.stream.Collectors;
  */
 public class DefaultServiceNameStrategy implements ServiceNameStrategyInterface {
 
-    @Nullable
     @Override
-    public String getServiceName(@NotNull ServiceNameStrategyParameter parameter) {
+    public @Nullable String getServiceName(ServiceNameStrategyParameter parameter) {
 
         String className = parameter.getClassName();
         if(className.startsWith("\\")) {
@@ -63,7 +61,7 @@ public class DefaultServiceNameStrategy implements ServiceNameStrategyInterface 
         return formatParts(Arrays.asList(split));
     }
 
-    private String formatParts(@NotNull Collection<String> parts) {
+    private String formatParts(Collection<String> parts) {
         Collection<String> partString = parts.stream()
             .map(fr.adrienbrault.idea.symfony2plugin.util.StringUtils::underscore)
             .collect(Collectors.toCollection(ArrayList::new));

@@ -1,12 +1,14 @@
 package fr.adrienbrault.idea.symfony2plugin.doctrine;
 
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.openapi.project.Project;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiElementResolveResult;
-import com.intellij.psi.PsiPolyVariantReferenceBase;
-import com.intellij.psi.ResolveResult;
+import fr.adrienbrault.idea.symfony2plugin.codeInsight.completion.SymfonyCompletionReference;
+
 import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiElementResolveResult;
+import consulo.language.psi.PsiPolyVariantReferenceBase;
+import consulo.language.psi.ResolveResult;
+import consulo.project.Project;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.component.DocumentNamespacesParser;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.component.EntityNamesServiceParser;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.dict.DoctrineEntityLookupElement;
@@ -15,24 +17,23 @@ import fr.adrienbrault.idea.symfony2plugin.extension.DoctrineModelProvider;
 import fr.adrienbrault.idea.symfony2plugin.extension.DoctrineModelProviderParameter;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.DoctrineModel;
 import fr.adrienbrault.idea.symfony2plugin.util.service.ServiceXmlParserFactory;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
-public class EntityReference extends PsiPolyVariantReferenceBase<PsiElement> {
+public class EntityReference extends PsiPolyVariantReferenceBase<PsiElement> implements SymfonyCompletionReference {
     private final String entityName;
     private boolean useClassNameAsLookupString = false;
     private final List<DoctrineTypes.Manager> doctrineManagers;
 
-    public EntityReference(@NotNull StringLiteralExpression element, boolean useClassNameAsLookupString) {
+    public EntityReference(StringLiteralExpression element, boolean useClassNameAsLookupString) {
         this(element);
         this.useClassNameAsLookupString = useClassNameAsLookupString;
     }
 
-    public EntityReference(@NotNull StringLiteralExpression element) {
+    public EntityReference(StringLiteralExpression element) {
         super(element);
         entityName = element.getContents();
 
@@ -42,21 +43,19 @@ public class EntityReference extends PsiPolyVariantReferenceBase<PsiElement> {
         this.doctrineManagers.add(DoctrineTypes.Manager.COUCH_DB);
     }
 
-    public EntityReference(@NotNull StringLiteralExpression element, DoctrineTypes.Manager... managers) {
+    public EntityReference(StringLiteralExpression element, DoctrineTypes.Manager... managers) {
         super(element);
         entityName = element.getContents();
         this.doctrineManagers = Arrays.asList(managers);
     }
 
-    @NotNull
     @Override
     public ResolveResult[] multiResolve(boolean incompleteCode) {
         return PsiElementResolveResult.createResults(EntityHelper.getModelPsiTargets(getElement().getProject(), this.entityName));
     }
 
-    @NotNull
     @Override
-    public Object[] getVariants() {
+    public Object[] getCompletionVariants() {
         List<LookupElement> results = new ArrayList<>(getModelLookupElements(getElement().getProject(), this.useClassNameAsLookupString, this.doctrineManagers.toArray(new DoctrineTypes.Manager[0])));
         return results.toArray();
     }
@@ -70,7 +69,7 @@ public class EntityReference extends PsiPolyVariantReferenceBase<PsiElement> {
         }
     }
 
-    public static List<LookupElement> getModelLookupElements(@NotNull Project project) {
+    public static List<LookupElement> getModelLookupElements(Project project) {
         return getModelLookupElements(project, false, DoctrineTypes.Manager.ORM, DoctrineTypes.Manager.MONGO_DB, DoctrineTypes.Manager.COUCH_DB);
     }
 

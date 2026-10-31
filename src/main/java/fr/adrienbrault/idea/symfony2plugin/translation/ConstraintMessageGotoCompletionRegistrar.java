@@ -1,10 +1,5 @@
 package fr.adrienbrault.idea.symfony2plugin.translation;
 
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.patterns.PsiElementPattern;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.util.PsiTreeUtil;
 import com.jetbrains.php.lang.documentation.phpdoc.lexer.PhpDocTokenTypes;
 import com.jetbrains.php.lang.documentation.phpdoc.parser.PhpDocElementTypes;
 import com.jetbrains.php.lang.documentation.phpdoc.psi.tags.PhpDocTag;
@@ -17,20 +12,25 @@ import com.jetbrains.php.lang.psi.elements.ParameterList;
 import com.jetbrains.php.lang.psi.elements.PhpAttribute;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
 import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.pattern.PsiElementPattern;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.util.PsiTreeUtil;
 import de.espend.idea.php.annotation.extension.PhpAnnotationCompletionProvider;
 import de.espend.idea.php.annotation.extension.parameter.AnnotationCompletionProviderParameter;
 import de.espend.idea.php.annotation.extension.parameter.AnnotationPropertyParameter;
 import de.espend.idea.php.annotation.util.AnnotationUtil;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
+import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionProviderLookupArguments;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionRegistrar;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionRegistrarParameter;
-import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionProviderLookupArguments;
 import fr.adrienbrault.idea.symfony2plugin.form.gotoCompletion.TranslationGotoCompletionProvider;
 import fr.adrienbrault.idea.symfony2plugin.translation.dict.TranslationUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -51,11 +51,12 @@ import java.util.Collections;
  *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class ConstraintMessageGotoCompletionRegistrar implements GotoCompletionRegistrar {
     private static final String CONSTRAINT_CLASS = "\\Symfony\\Component\\Validator\\Constraint";
 
     @Override
-    public void register(@NotNull GotoCompletionRegistrarParameter registrar) {
+    public void register(GotoCompletionRegistrarParameter registrar) {
         /*
          * class FooConstraint extends \Symfony\Component\Validator\Constraint
          * {
@@ -104,14 +105,13 @@ public class ConstraintMessageGotoCompletionRegistrar implements GotoCompletionR
 
                 if (parent instanceof StringLiteralExpression && isConstraintAttributeOptionsMessage((StringLiteralExpression) parent)) {
                     return new TranslationGotoCompletionProvider(psiElement, "validators") {
-                        @NotNull
                         @Override
                         public Collection<LookupElement> getLookupElements() {
                             return Collections.emptyList();
                         }
 
                         @Override
-                        public void getLookupElements(@NotNull GotoCompletionProviderLookupArguments arguments) {
+                        public void getLookupElements(GotoCompletionProviderLookupArguments arguments) {
                             String prefix = PsiElementUtils.removeIdeaRuleHack(((StringLiteralExpression) parent).getContents());
                             arguments.getResultSet()
                                 .withPrefixMatcher(prefix)
@@ -136,7 +136,6 @@ public class ConstraintMessageGotoCompletionRegistrar implements GotoCompletionR
      * }
      * </pre>
      */
-    @NotNull
     public static PsiElementPattern.Capture<PsiElement> getConstraintPropertyMessagePattern() {
         return PlatformPatterns.psiElement().withElementType(PlatformPatterns.elementType().or(
             PhpTokenTypes.STRING_LITERAL_SINGLE_QUOTE,
@@ -150,7 +149,6 @@ public class ConstraintMessageGotoCompletionRegistrar implements GotoCompletionR
             ));
     }
 
-    @NotNull
     private static PsiElementPattern.Capture<PsiElement> getConstraintAnnotationMessagePattern() {
         return PlatformPatterns.psiElement(PhpDocTokenTypes.DOC_STRING)
             .withParent(PlatformPatterns.psiElement(StringLiteralExpression.class)
@@ -168,7 +166,6 @@ public class ConstraintMessageGotoCompletionRegistrar implements GotoCompletionR
      * #[Length(['minMessage' => '<caret>', 'maxMessage' => '<caret>'])]
      * </pre>
      */
-    @NotNull
     private static PsiElementPattern.Capture<PsiElement> getConstraintAttributeOptionsMessagePattern() {
         return PlatformPatterns.psiElement().withElementType(PlatformPatterns.elementType().or(
             PhpTokenTypes.STRING_LITERAL_SINGLE_QUOTE,
@@ -185,13 +182,13 @@ public class ConstraintMessageGotoCompletionRegistrar implements GotoCompletionR
             ));
     }
 
-    private static boolean isConstraintMessageProperty(@NotNull AnnotationPropertyParameter parameter) {
+    private static boolean isConstraintMessageProperty(AnnotationPropertyParameter parameter) {
         PhpClass phpClass = parameter.getPhpClass();
 
         return Symfony2ProjectComponent.isEnabled(parameter.getProject()) && PhpElementsUtil.isInstanceOf(phpClass, CONSTRAINT_CLASS) && isMessagePropertyName(parameter.getPropertyName());
     }
 
-    private static boolean isConstraintMessageStringLiteral(@NotNull StringLiteralExpression stringLiteral) {
+    private static boolean isConstraintMessageStringLiteral(StringLiteralExpression stringLiteral) {
         if (!Symfony2ProjectComponent.isEnabled(stringLiteral)) {
             return false;
         }
@@ -207,7 +204,7 @@ public class ConstraintMessageGotoCompletionRegistrar implements GotoCompletionR
             && isMessagePropertyName(getPropertyName(stringLiteral));
     }
 
-    private static boolean isConstraintAttributeOptionsMessage(@NotNull StringLiteralExpression stringLiteral) {
+    private static boolean isConstraintAttributeOptionsMessage(StringLiteralExpression stringLiteral) {
         if (!Symfony2ProjectComponent.isEnabled(stringLiteral)) {
             return false;
         }
@@ -256,8 +253,7 @@ public class ConstraintMessageGotoCompletionRegistrar implements GotoCompletionR
         return propertyName != null && (propertyName.startsWith("message") || propertyName.endsWith("Message"));
     }
 
-    @Nullable
-    private static String getPropertyName(@NotNull StringLiteralExpression stringLiteral) {
+    private static @Nullable String getPropertyName(StringLiteralExpression stringLiteral) {
         PsiElement equalsElement = PsiTreeUtil.prevVisibleLeaf(stringLiteral);
         if (equalsElement == null || !"=".equals(equalsElement.getText())) {
             return null;

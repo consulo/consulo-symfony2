@@ -1,27 +1,26 @@
 package fr.adrienbrault.idea.symfony2plugin.util;
 
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.xml.XmlFile;
-import com.intellij.psi.xml.XmlTag;
-import com.intellij.util.Consumer;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.xml.language.psi.XmlFile;
+import consulo.xml.language.psi.XmlTag;
 import fr.adrienbrault.idea.symfony2plugin.stubs.dict.FileResource;
 import fr.adrienbrault.idea.symfony2plugin.stubs.dict.FileResourceContextTypeEnum;
 import fr.adrienbrault.idea.symfony2plugin.util.resource.FileResourceUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.yaml.psi.*;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.function.Consumer;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class FileResourceVisitorUtil {
-    public static void visitFile(@NotNull PsiFile psiFile, @NotNull Consumer<FileResourceConsumer> consumer) {
+    public static void visitFile(PsiFile psiFile, Consumer<FileResourceConsumer> consumer) {
         if(psiFile instanceof XmlFile) {
             visitXmlFile((XmlFile) psiFile, consumer);
         } else if(psiFile instanceof YAMLFile) {
@@ -33,7 +32,7 @@ public class FileResourceVisitorUtil {
      * foo:
      *   resources: 'FOO'
      */
-    private static void visitYamlFile(@NotNull YAMLFile yamlFile, @NotNull Consumer<FileResourceConsumer> consumer) {
+    private static void visitYamlFile(YAMLFile yamlFile, Consumer<FileResourceConsumer> consumer) {
         for (YAMLKeyValue yamlKeyValue : YamlHelper.getTopLevelKeyValues(yamlFile)) {
             // imports:
             //   - { resource: ../src/import/services.yml, ignore_errors: true }
@@ -46,7 +45,7 @@ public class FileResourceVisitorUtil {
                         if (value1 instanceof YAMLMapping) {
                             String resource = YamlHelper.getYamlKeyValueAsString((YAMLMapping) value1, "resource");
                             if (resource != null  && resource.length() < 128) {
-                                consumer.consume(new FileResourceConsumer(value1, normalize(resource), FileResourceContextTypeEnum.UNKNOWN, new HashMap<>()));
+                                consumer.accept(new FileResourceConsumer(value1, normalize(resource), FileResourceContextTypeEnum.UNKNOWN, new HashMap<>()));
                             }
                         }
                     }
@@ -66,7 +65,7 @@ public class FileResourceVisitorUtil {
         }
     }
 
-    private static void visitKeyValue(@NotNull YAMLKeyValue yamlKeyValue, @NotNull Consumer<FileResourceConsumer> consumer) {
+    private static void visitKeyValue(YAMLKeyValue yamlKeyValue, Consumer<FileResourceConsumer> consumer) {
         // app1:
         //   resource: "@AcmeOtherBundle/Resources/config/routing1.yml"
         //   resource:
@@ -102,13 +101,13 @@ public class FileResourceVisitorUtil {
             fileResourceContextType = FileResourceContextTypeEnum.ROUTE;
         }
 
-        consumer.consume(new FileResourceConsumer(resourceYamlKeyValue, normalize(resource), fileResourceContextType, map));
+        consumer.accept(new FileResourceConsumer(resourceYamlKeyValue, normalize(resource), fileResourceContextType, map));
     }
 
     /**
      * <routes><import resource="FOO" /></routes>
      */
-    private static void visitXmlFile(@NotNull XmlFile psiFile, @NotNull Consumer<FileResourceConsumer> consumer) {
+    private static void visitXmlFile(XmlFile psiFile, Consumer<FileResourceConsumer> consumer) {
         XmlTag rootTag = psiFile.getRootTag();
         if (rootTag == null) {
             return;
@@ -130,61 +129,52 @@ public class FileResourceVisitorUtil {
                     }
                 }
 
-                consumer.consume(new FileResourceConsumer(xmlTag, normalize(resource), FileResourceContextTypeEnum.ROUTE, map));
+                consumer.accept(new FileResourceConsumer(xmlTag, normalize(resource), FileResourceContextTypeEnum.ROUTE, map));
             }
         } else if("container".equals(rootTagName)) {
             for (XmlTag xmlTag : rootTag.findSubTags("imports")) {
                 for (XmlTag anImport : xmlTag.findSubTags("import")) {
                     String attributeValue = anImport.getAttributeValue("resource");
                     if (StringUtils.isNotBlank(attributeValue) && attributeValue.length() < 128) {
-                        consumer.consume(new FileResourceConsumer(xmlTag, normalize(attributeValue), FileResourceContextTypeEnum.CONTAINER, new HashMap<>()));
+                        consumer.accept(new FileResourceConsumer(xmlTag, normalize(attributeValue), FileResourceContextTypeEnum.CONTAINER, new HashMap<>()));
                     }
                 }
             }
         }
     }
 
-    @NotNull
-    public static String normalize(@NotNull String resource) {
+    public static String normalize(String resource) {
         return StringUtils.stripEnd(resource.replace("\\", "/").replaceAll("/+", "/"), "/");
     }
 
      public static class FileResourceConsumer {
-         @NotNull
          private final PsiElement psiElement;
 
-         @NotNull
          private final String resource;
 
-         @NotNull
          private final FileResourceContextTypeEnum contextType;
 
-         @NotNull
          private final Map<String, String> contextValues;
 
-         public FileResourceConsumer(@NotNull PsiElement target, @NotNull String resource, @NotNull FileResourceContextTypeEnum fileResourceContextTypeEnum, @NotNull Map<String, String> contextValues) {
+         public FileResourceConsumer(PsiElement target, String resource, FileResourceContextTypeEnum fileResourceContextTypeEnum, Map<String, String> contextValues) {
              this.psiElement = target;
              this.resource = resource;
              this.contextType = fileResourceContextTypeEnum;
              this.contextValues = contextValues;
          }
 
-         @NotNull
          public String getResource() {
              return resource;
          }
 
-         @NotNull
          public PsiElement getPsiElement() {
              return psiElement;
          }
 
-         @NotNull
          public FileResourceContextTypeEnum getContextType() {
              return contextType;
          }
 
-         @NotNull
          public FileResource createFileResource() {
              return new FileResource(this.getResource(), this.getContextType(), new TreeMap<>(this.contextValues));
          }

@@ -2,8 +2,7 @@ package fr.adrienbrault.idea.symfony2plugin.doctrine.dict;
 
 import com.google.gson.annotations.SerializedName;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Objects;
 
@@ -12,7 +11,6 @@ import java.util.Objects;
  */
 public class DoctrineModel implements DoctrineModelSerializable {
 
-    @NotNull
     private final String clazz;
 
     @Nullable
@@ -23,22 +21,21 @@ public class DoctrineModel implements DoctrineModelSerializable {
     @SerializedName("table_name")
     private String tableName;
 
-    public DoctrineModel(@NotNull String clazz) {
+    public DoctrineModel(String clazz) {
         this.clazz = clazz;
     }
 
-    public DoctrineModel(@NotNull String clazz, @Nullable String repositoryClass) {
+    public DoctrineModel(String clazz, @Nullable String repositoryClass) {
         this.clazz = clazz;
         this.repositoryClass = repositoryClass;
     }
 
-    public DoctrineModel(@NotNull String clazz, @Nullable String repositoryClass, @Nullable String tableName) {
+    public DoctrineModel(String clazz, @Nullable String repositoryClass, @Nullable String tableName) {
         this.clazz = clazz;
         this.repositoryClass = repositoryClass;
         this.tableName = tableName;
     }
 
-    @NotNull
     public String getClassName() {
         return this.clazz;
     }

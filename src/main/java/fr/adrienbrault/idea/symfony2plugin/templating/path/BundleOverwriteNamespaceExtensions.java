@@ -1,12 +1,12 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.path;
 
-import com.intellij.openapi.vfs.VirtualFile;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.virtualFileSystem.VirtualFile;
 import fr.adrienbrault.idea.symfony2plugin.extension.TwigNamespaceExtension;
 import fr.adrienbrault.idea.symfony2plugin.extension.TwigNamespaceExtensionParameter;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.SymfonyBundleUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.VfsExUtil;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -17,10 +17,10 @@ import java.util.Collections;
  *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl(order = "after BundleTwigNamespaceExtension")
 public class BundleOverwriteNamespaceExtensions implements TwigNamespaceExtension {
-    @NotNull
     @Override
-    public Collection<TwigPath> getNamespaces(@NotNull TwigNamespaceExtensionParameter parameter) {
+    public Collection<TwigPath> getNamespaces(TwigNamespaceExtensionParameter parameter) {
         if (!TwigUtil.hasBundleNamespaceSupport(parameter.getProject())) {
             return Collections.emptyList();
         }

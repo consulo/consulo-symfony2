@@ -1,13 +1,12 @@
 package fr.adrienbrault.idea.symfony2plugin.translation.parser;
 
-import com.intellij.openapi.progress.ProgressManager;
-import com.intellij.openapi.vfs.VfsUtil;
-import com.intellij.openapi.vfs.VirtualFile;
+import consulo.application.progress.ProgressManager;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.virtualFileSystem.util.VirtualFileUtil;
 import fr.adrienbrault.idea.symfony2plugin.translation.parser.PhpCatalogueParser.ArrayEntry;
 import fr.adrienbrault.idea.symfony2plugin.translation.parser.PhpCatalogueParser.ArrayNode;
 import fr.adrienbrault.idea.symfony2plugin.translation.parser.PhpCatalogueParser.NewNode;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.io.IOException;
 import java.util.*;
@@ -16,34 +15,30 @@ import java.util.*;
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class TranslationStringMap {
-    @NotNull
     private final Map<String, Set<String>> domainMap;
 
-    private TranslationStringMap(@NotNull Map<String, Set<String>> domainMap) {
+    private TranslationStringMap(Map<String, Set<String>> domainMap) {
         this.domainMap = domainMap;
     }
 
     @Nullable
-    public Set<String> getDomainMap(@NotNull String domainKey) {
+    public Set<String> getDomainMap(String domainKey) {
         return domainMap.get(domainKey);
     }
 
-    @NotNull
     public Set<String> getDomainList() {
         return domainMap.keySet();
     }
 
-    public static boolean isCatalogueFile(@NotNull String filename) {
+    public static boolean isCatalogueFile(String filename) {
         return filename.startsWith("catalogue") && filename.endsWith(".php");
     }
 
-    @NotNull
     public static TranslationStringMap createEmpty() {
         return new TranslationStringMap(Map.of());
     }
 
-    @NotNull
-    public static TranslationStringMap create(@NotNull Collection<VirtualFile> translationDirectories) {
+    public static TranslationStringMap create(Collection<VirtualFile> translationDirectories) {
         List<FileData> perFileData = new ArrayList<>();
 
         for (VirtualFile dir : translationDirectories) {
@@ -66,8 +61,7 @@ public class TranslationStringMap {
         return merge(perFileData);
     }
 
-    @NotNull
-    private static TranslationStringMap merge(@NotNull Collection<FileData> perFileData) {
+    private static TranslationStringMap merge(Collection<FileData> perFileData) {
         Map<String, Set<String>> merged = new HashMap<>();
 
         for (FileData fileData : perFileData) {
@@ -87,14 +81,13 @@ public class TranslationStringMap {
      * No PHP PSI or IntelliJ read action needed — the files are machine-generated with a consistent
      * structure: new MessageCatalogue('locale', ['domain' => ['key' => 'value', ...], ...])
      */
-    private record FileData(@NotNull Map<String, Set<String>> domainMap) {
-        @NotNull
-        static FileData parse(@NotNull VirtualFile file) {
+    private record FileData(Map<String, Set<String>> domainMap) {
+        static FileData parse(VirtualFile file) {
             ProgressManager.checkCanceled();
 
             String content;
             try {
-                content = VfsUtil.loadText(file);
+                content = VirtualFileUtil.loadText(file);
             } catch (IOException e) {
                 return empty();
             }
@@ -153,7 +146,6 @@ public class TranslationStringMap {
             return new FileData(Map.copyOf(result));
         }
 
-        @NotNull
         static FileData empty() {
             return new FileData(Map.of());
         }

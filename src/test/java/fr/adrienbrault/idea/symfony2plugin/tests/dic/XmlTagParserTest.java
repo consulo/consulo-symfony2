@@ -1,6 +1,8 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.dic;
 
-import com.intellij.openapi.vfs.VirtualFile;
+import org.junit.jupiter.api.Test;
+
+import consulo.virtualFileSystem.VirtualFile;
 import fr.adrienbrault.idea.symfony2plugin.dic.XmlTagParser;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
 
@@ -13,6 +15,8 @@ public class XmlTagParserTest extends SymfonyLightCodeInsightFixtureTestCase {
     protected String getTestDataPath() {
         return "src/test/java/fr/adrienbrault/idea/symfony2plugin/tests/dic";
     }
+
+    @Test
 
     public void testParse() throws Exception {
         VirtualFile testFile = myFixture.copyFileToProject("appDevDebugProjectContainer.xml");

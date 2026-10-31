@@ -1,7 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.inlay.ui;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -16,7 +15,7 @@ import java.util.stream.Collectors;
  */
 public record TwigVariableTreeNode(String name, Set<String> types, @Nullable String parentVariable) {
 
-    public TwigVariableTreeNode(@NotNull String name, @NotNull Set<String> types, @Nullable String parentVariable) {
+    public TwigVariableTreeNode(String name, Set<String> types, @Nullable String parentVariable) {
         this.name = name;
         this.types = types;
         this.parentVariable = parentVariable;

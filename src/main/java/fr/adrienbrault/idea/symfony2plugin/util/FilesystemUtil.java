@@ -1,13 +1,12 @@
 package fr.adrienbrault.idea.symfony2plugin.util;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.io.FileUtil;
-import com.intellij.openapi.vfs.VfsUtil;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiDirectory;
+import consulo.language.psi.PsiDirectory;
+import consulo.project.Project;
+import consulo.util.io.FileUtil;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.virtualFileSystem.util.VirtualFileUtil;
 import fr.adrienbrault.idea.symfony2plugin.Settings;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.io.File;
 import java.util.Collection;
@@ -19,7 +18,7 @@ import java.util.HashSet;
 public class FilesystemUtil {
 
     @Nullable
-    public static PsiDirectory findParentBundleFolder(@NotNull PsiDirectory directory) {
+    public static PsiDirectory findParentBundleFolder(PsiDirectory directory) {
 
         // self click
         if(directory.isDirectory() && directory.getName().endsWith("Bundle")) {
@@ -39,8 +38,7 @@ public class FilesystemUtil {
      * Try to find an "app" directory on configuration or on project directory in root
      * We also support absolute path in configuration
      */
-    @NotNull
-    public static Collection<VirtualFile> getAppDirectories(@NotNull Project project) {
+    public static Collection<VirtualFile> getAppDirectories(Project project) {
         Collection<VirtualFile> virtualFiles = new HashSet<>();
 
         // find "app" folder on user settings
@@ -48,13 +46,13 @@ public class FilesystemUtil {
 
         if(FileUtil.isAbsolute(directoryToApp)) {
             // absolute dir given
-            VirtualFile fileByIoFile = VfsUtil.findFileByIoFile(new File(directoryToApp), false);
+            VirtualFile fileByIoFile = VirtualFileUtil.findFileByIoFile(new File(directoryToApp), false);
             if(fileByIoFile != null) {
                 virtualFiles.add(fileByIoFile);
             }
         } else {
             // relative path resolve
-            VirtualFile globalDirectory = VfsUtil.findRelativeFile(
+            VirtualFile globalDirectory = VirtualFileUtil.findRelativeFile(
                 ProjectUtil.getProjectDir(project),
                 directoryToApp.replace("\\", "/").split("/")
             );
@@ -65,7 +63,7 @@ public class FilesystemUtil {
         }
 
         // global "app" in root
-        VirtualFile templates = VfsUtil.findRelativeFile(ProjectUtil.getProjectDir(project), "app");
+        VirtualFile templates = VirtualFileUtil.findRelativeFile(ProjectUtil.getProjectDir(project), "app");
         if(templates != null) {
             virtualFiles.add(templates);
         }

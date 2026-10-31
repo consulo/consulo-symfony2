@@ -1,9 +1,11 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.templating;
 
-import com.intellij.patterns.ElementPattern;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
+import org.junit.jupiter.api.Test;
+
+import consulo.language.pattern.ElementPattern;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
 import com.jetbrains.php.lang.PhpFileType;
 import com.jetbrains.php.lang.psi.elements.Method;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
@@ -11,7 +13,6 @@ import com.jetbrains.twig.TwigFileType;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigTypeResolveUtil;
 import fr.adrienbrault.idea.symfony2plugin.templating.variable.dict.PsiVariable;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 import java.util.Map;
@@ -39,6 +40,7 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
     /**
      * Test that variables are NOT inherited when include uses 'only' keyword.
      */
+    @Test
     public void testIncludeWithOnlyBlocksParentContext() {
         myFixture.addFileToProject(
             "templates/parent_with_only.html.twig",
@@ -55,6 +57,8 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
             "title"
         );
     }
+
+    @Test
 
     public void testTagIncludeDynamicTargetsInheritParentVariablesForEveryResolvedTemplate() {
         myFixture.addFileToProject(
@@ -83,6 +87,8 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
         assertPathScopeNotContains("templates/not_ajax_ignore_missing_only.html.twig", "{{ <caret> }}", "user");
     }
 
+    @Test
+
     public void testTagIncludeArrayTargetsInheritParentVariablesForEveryResolvedTemplate() {
         myFixture.addFileToProject(
             "templates/parent_array_include.html.twig",
@@ -109,6 +115,8 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
         assertPathScopeNotContains("templates/page_detailed_ignore_missing_only.html.twig", "{{ <caret> }}", "page");
         assertPathScopeNotContains("templates/page_ignore_missing_only.html.twig", "{{ <caret> }}", "page");
     }
+
+    @Test
 
     public void testTagIncludeIgnoreMissingAndOnlyContextVariants() {
         myFixture.addFileToProject(
@@ -146,6 +154,7 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
     /**
      * Test function-style include with with_context = false.
      */
+    @Test
     public void testIncludeFunctionWithContextFalse() {
         myFixture.addFileToProject(
             "templates/parent_func.html.twig",
@@ -164,6 +173,7 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
     /**
      * Test that embed with 'only' blocks parent context.
      */
+    @Test
     public void testEmbedWithOnlyBlocksParentContext() {
         myFixture.addFileToProject(
             "templates/parent_embed_only.html.twig",
@@ -181,6 +191,8 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
         );
     }
 
+    @Test
+
     public void testTagIncludeWithLiteralParameterProvidesChildVariable() {
         myFixture.addFileToProject(
             "templates/parent_literal.html.twig",
@@ -193,6 +205,8 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
             "title"
         );
     }
+
+    @Test
 
     public void testTagIncludeOnlyKeepsExplicitLiteralParameter() {
         addProductFixture();
@@ -210,6 +224,8 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
         );
     }
 
+    @Test
+
     public void testTagIncludeOnlyKeepsAliasWithoutParentContext() {
         addProductFixture();
         myFixture.addFileToProject(
@@ -226,6 +242,8 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
         );
     }
 
+    @Test
+
     public void testFunctionIncludeWithLiteralParameterProvidesChildVariable() {
         myFixture.addFileToProject(
             "templates/parent_function_literal.html.twig",
@@ -238,6 +256,8 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
             "title"
         );
     }
+
+    @Test
 
     public void testFunctionIncludeWithContextFalseKeepsExplicitLiteralParameter() {
         addProductFixture();
@@ -255,6 +275,8 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
         );
     }
 
+    @Test
+
     public void testFunctionIncludeWithContextFalseWithoutParametersBlocksParentContext() {
         addProductFixture();
         myFixture.addFileToProject(
@@ -269,6 +291,8 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
             "item"
         );
     }
+
+    @Test
 
     public void testFunctionIncludeSupportsMixedParameters() {
         addProductFixture();
@@ -297,6 +321,7 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
     /**
      * Function include keeps complex explicit values visible as untyped child variables.
      */
+    @Test
     public void testFunctionIncludeSupportsComplexParameterValues() {
         addProductFixture();
         myFixture.addFileToProject(
@@ -317,6 +342,8 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
         );
     }
 
+    @Test
+
     public void testTagIncludeAliasKeepsParentVariableType() {
         addProductFixture();
         myFixture.addFileToProject(
@@ -332,6 +359,8 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
             "sku"
         );
     }
+
+    @Test
 
     public void testFunctionIncludeAliasKeepsParentVariableType() {
         addProductFixture();
@@ -349,6 +378,8 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
         );
     }
 
+    @Test
+
     public void testFunctionIncludePropertyPathKeepsResolvedType() {
         addProductFixture();
         myFixture.addFileToProject(
@@ -364,6 +395,8 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
             "sku"
         );
     }
+
+    @Test
 
     public void testTagIncludePropertyPathKeepsResolvedType() {
         addProductFixture();
@@ -381,6 +414,8 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
         );
     }
 
+    @Test
+
     public void testTagIncludeAliasTypeNavigatesToPhpMethod() {
         addProductFixture();
         myFixture.addFileToProject(
@@ -396,6 +431,8 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
         );
     }
 
+    @Test
+
     public void testFunctionIncludeAliasTypeNavigatesToPhpMethod() {
         addProductFixture();
         myFixture.addFileToProject(
@@ -410,6 +447,8 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
             PlatformPatterns.psiElement(Method.class).withName("getSku")
         );
     }
+
+    @Test
 
     public void testFunctionIncludePropertyPathTypeNavigatesToPhpMethod() {
         addProductFixture();
@@ -429,6 +468,7 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
     /**
      * Test that block-scoped variables are collected correctly.
      */
+    @Test
     public void testBlockScopeVariableCollection() {
         myFixture.configureByText(TwigFileType.INSTANCE,
             "{# @var global_var \\App\\Entity\\Global #}\n" +
@@ -449,6 +489,7 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
     /**
      * Test that file-level docblock variables are collected.
      */
+    @Test
     public void testFileDocBlockVariableCollection() {
         myFixture.configureByText(TwigFileType.INSTANCE,
             "{# @var user \\App\\Entity\\User #}\n" +
@@ -465,6 +506,7 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
     /**
      * Test that deprecated inline variable syntax is still supported.
      */
+    @Test
     public void testDeprecatedInlineVariableSyntax() {
         myFixture.configureByText(TwigFileType.INSTANCE,
             "{# user \\App\\Entity\\User #}\n" +
@@ -481,6 +523,7 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
     /**
      * Test variable completion in same file with docblock.
      */
+    @Test
     public void testVariableCompletionWithDocBlock() {
         assertCompletionContains(
             TwigFileType.INSTANCE,
@@ -495,6 +538,7 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
     /**
      * Test method completion on typed variable.
      */
+    @Test
     public void testMethodCompletionOnTypedVariable() {
         myFixture.addFileToProject("src/Entity/Order.php", "<?php\n" +
             "namespace App\\Entity;\n" +
@@ -520,6 +564,7 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
     /**
      * Test navigation from variable to class.
      */
+    @Test
     public void testVariableTypeNavigation() {
         myFixture.addFileToProject("src/Service/Calculator.php", "<?php\n" +
             "namespace App\\Service;\n" +
@@ -541,6 +586,7 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
     /**
      * Test navigation from method call to PHP method.
      */
+    @Test
     public void testMethodNavigationOnVariable() {
         myFixture.addFileToProject("src/Entity/Customer.php", "<?php\n" +
             "namespace App\\Entity;\n" +
@@ -563,6 +609,7 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
     /**
      * Test array type variable completion in for loop.
      */
+    @Test
     public void testArrayTypeVariableCompletion() {
         myFixture.addFileToProject("src/Entity/Item.php", "<?php\n" +
             "namespace App\\Entity;\n" +
@@ -586,6 +633,7 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
     /**
      * Test that multiple docblocks for same variable merge types.
      */
+    @Test
     public void testMultipleDocBlockMerging() {
         myFixture.configureByText(TwigFileType.INSTANCE,
             "{# @var data \\App\\Entity\\Base #}\n" +
@@ -605,6 +653,7 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
     /**
      * Test for loop with key variable.
      */
+    @Test
     public void testForLoopWithKeyVariable() {
         myFixture.addFileToProject("src/Entity/Category.php", "<?php\n" +
             "namespace App\\Entity;\n" +
@@ -628,6 +677,7 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
     /**
      * Test nested for loops with typed arrays.
      */
+    @Test
     public void testNestedForLoopVariableCompletion() {
         myFixture.addFileToProject("src/Entity/OrderItem.php", "<?php\n" +
             "namespace App\\Entity;\n" +
@@ -655,6 +705,7 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
     /**
      * Test for loop method navigation.
      */
+    @Test
     public void testForLoopMethodNavigation() {
         myFixture.addFileToProject("src/Entity/Report.php", "<?php\n" +
             "namespace App\\Entity;\n" +
@@ -679,6 +730,7 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
     /**
      * Test embed with variable context - parent variables available inside embed override blocks.
      */
+    @Test
     public void testEmbedVariableContextInOverrideBlock() {
         myFixture.addFileToProject("src/Entity/News.php", "<?php\n" +
             "namespace App\\Entity;\n" +
@@ -706,6 +758,7 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
     /**
      * Test for else block variable scope.
      */
+    @Test
     public void testForElseBlockVariableScope() {
         myFixture.addFileToProject("src/Entity/Message.php", "<?php\n" +
             "namespace App\\Entity;\n" +
@@ -731,6 +784,7 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
     /**
      * Test that embed inherits parent variables in override blocks within same file.
      */
+    @Test
     public void testEmbedInheritsParentVariables() {
         myFixture.addFileToProject("src/Entity/Widget.php", "<?php\n" +
             "namespace App\\Entity;\n" +
@@ -808,7 +862,6 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
     /**
      * Creates a Twig file at a template path and returns variables collected for its current scope.
      */
-    @NotNull
     private Map<String, PsiVariable> collectPathScopeVariables(String path, String content) {
         PsiFile file = myFixture.addFileToProject(path, content);
         myFixture.configureFromExistingVirtualFile(file.getVirtualFile());
@@ -864,6 +917,7 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
      * Test that included template inherits parent template variables via TwigIncludeStubIndex.
      * Uses VFS fallback pattern from commit fadd9bf2 - files at proper paths enable template name resolution.
      */
+    @Test
     public void testIncludeInheritsParentVariablesViaIndex() {
         myFixture.copyFileToProject("ide-twig.json");
         myFixture.copyFileToProject("classes.php");
@@ -886,6 +940,7 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
      * Test that template rendered by controller inherits controller variables.
      * Uses VFS fallback - template at templates/invoice/view.html.twig matches render() call.
      */
+    @Test
     public void testControllerRenderVariableInheritanceViaIndex() {
         myFixture.copyFileToProject("ide-twig.json");
         myFixture.copyFileToProject("classes.php");
@@ -915,6 +970,7 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
     /**
      * Test that template rendered by controller inherits variables from spread context arrays.
      */
+    @Test
     public void testControllerRenderVariableInheritanceWithArraySpreadViaIndex() {
         myFixture.copyFileToProject("ide-twig.json");
 
@@ -951,6 +1007,8 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
             "item"
         );
     }
+
+    @Test
 
     public void testControllerRenderVariableInheritanceDoesNotLeakBetweenTemplatesInSameMethod() {
         myFixture.copyFileToProject("ide-twig.json");
@@ -996,6 +1054,7 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
     /**
      * Test that @Template annotation provides variable context.
      */
+    @Test
     public void testTemplateAnnotationVariableInheritanceViaIndex() {
         myFixture.copyFileToProject("ide-twig.json");
         myFixture.copyFileToProject("classes.php");
@@ -1030,6 +1089,7 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
     /**
      * Test controller variable type resolution for method completion.
      */
+    @Test
     public void testControllerVariableMethodCompletionInTemplateViaIndex() {
         myFixture.copyFileToProject("ide-twig.json");
         myFixture.copyFileToProject("classes.php");
@@ -1055,6 +1115,8 @@ public class TwigVariableContextTest extends SymfonyLightCodeInsightFixtureTestC
             "ready", "readyStatus"
         );
     }
+
+    @Test
 
     public void testControllerVariableForLoopCompletionUsesPromotedConstructorParamArrayType() {
         myFixture.copyFileToProject("ide-twig.json");

@@ -1,27 +1,5 @@
 package fr.adrienbrault.idea.symfony2plugin.routing;
 
-import com.intellij.codeInsight.daemon.LineMarkerInfo;
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.codeInsight.lookup.LookupElementBuilder;
-import com.intellij.codeInsight.navigation.NavigationGutterIconBuilder;
-import com.intellij.openapi.extensions.ExtensionPointName;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.Key;
-import com.intellij.openapi.util.SimpleModificationTracker;
-import com.intellij.openapi.util.io.FileUtil;
-import com.intellij.openapi.vfs.VfsUtil;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiManager;
-import com.intellij.psi.impl.source.xml.XmlDocumentImpl;
-import com.intellij.psi.search.GlobalSearchScope;
-import com.intellij.psi.util.*;
-import com.intellij.psi.xml.XmlAttribute;
-import com.intellij.psi.xml.XmlFile;
-import com.intellij.psi.xml.XmlTag;
-import com.intellij.util.containers.ContainerUtil;
-import com.intellij.util.indexing.FileBasedIndex;
 import com.jetbrains.php.config.PhpLanguageLevel;
 import com.jetbrains.php.lang.PhpLanguage;
 import com.jetbrains.php.lang.parser.PhpElementTypes;
@@ -29,6 +7,32 @@ import com.jetbrains.php.lang.psi.PhpFile;
 import com.jetbrains.php.lang.psi.PhpPsiUtil;
 import com.jetbrains.php.lang.psi.elements.*;
 import com.jetbrains.php.refactoring.PhpNameUtil;
+import consulo.application.util.CachedValue;
+import consulo.application.util.CachedValueProvider;
+import consulo.application.util.CachedValuesManager;
+import consulo.component.extension.ExtensionPointName;
+import consulo.component.util.SimpleModificationTracker;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.editor.completion.lookup.LookupElementBuilder;
+import consulo.language.editor.gutter.LineMarkerInfo;
+import consulo.language.editor.ui.navigation.NavigationGutterIconBuilder;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.PsiManager;
+import consulo.language.psi.PsiModificationTracker;
+import consulo.language.psi.scope.GlobalSearchScope;
+import consulo.language.psi.stub.FileBasedIndex;
+import consulo.language.psi.util.PsiTreeUtil;
+import consulo.project.Project;
+import consulo.util.collection.ContainerUtil;
+import consulo.util.dataholder.Key;
+import consulo.util.io.FileUtil;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.virtualFileSystem.util.VirtualFileUtil;
+import consulo.xml.language.psi.XmlAttribute;
+import consulo.xml.language.psi.XmlFile;
+import consulo.xml.language.psi.XmlTag;
+import consulo.xml.psi.impl.source.xml.XmlDocumentImpl;
 import de.espend.idea.php.annotation.dict.PhpDocCommentAnnotation;
 import de.espend.idea.php.annotation.dict.PhpDocTagAnnotation;
 import de.espend.idea.php.annotation.util.AnnotationUtil;
@@ -50,12 +54,15 @@ import fr.adrienbrault.idea.symfony2plugin.util.controller.ControllerIndex;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.ServiceUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.SymfonyBundle;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
-import kotlin.Pair;
+import consulo.util.lang.Pair;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.jetbrains.yaml.YAMLUtil;
-import org.jetbrains.yaml.psi.*;
+import org.jetbrains.yaml.psi.YAMLDocument;
+import org.jetbrains.yaml.psi.YAMLFile;
+import org.jetbrains.yaml.psi.YAMLKeyValue;
+import org.jetbrains.yaml.psi.YAMLMapping;
+import org.jetbrains.yaml.psi.YAMLValue;
 
 import java.io.File;
 import java.net.URI;
@@ -84,11 +91,9 @@ public class RouteHelper {
 
     private static final Key<CachedValue<Map<String, Route>>> SYMFONY_COMPILED_CACHE_ROUTES = new Key<>("SYMFONY_COMPILED_CACHE_ROUTES");
 
-    private static final ExtensionPointName<RoutingLoader> ROUTING_LOADER = new ExtensionPointName<>(
-        "fr.adrienbrault.idea.symfony2plugin.extension.RoutingLoader"
-    );
+    private static final ExtensionPointName<RoutingLoader> ROUTING_LOADER = ExtensionPointName.create(RoutingLoader.class);
 
-    public static LookupElement[] getRouteParameterLookupElements(@NotNull Project project, @NotNull String routeName) {
+    public static LookupElement[] getRouteParameterLookupElements(Project project, String routeName) {
         List<LookupElement> lookupElements = new ArrayList<>();
 
         for (Route route : RouteHelper.getRoute(project, routeName)) {
@@ -104,8 +109,7 @@ public class RouteHelper {
         return lookupElements.toArray(new LookupElement[0]);
     }
 
-    @NotNull
-    public static Collection<Route> getRoute(@NotNull Project project, @NotNull String routeName) {
+    public static Collection<Route> getRoute(Project project, String routeName) {
         Map<String, Route> compiledRoutes = RouteHelper.getCompiledRoutes(project);
         if(compiledRoutes.containsKey(routeName)) {
             return Collections.singletonList(compiledRoutes.get(routeName));
@@ -121,7 +125,7 @@ public class RouteHelper {
         return routes;
     }
 
-    public static boolean isExistingRouteName(@NotNull Project project, @NotNull String routeName) {
+    public static boolean isExistingRouteName(Project project, String routeName) {
         return getFQCNRoute(project, routeName) != null
             || !getRoute(project, routeName).isEmpty();
     }
@@ -129,7 +133,7 @@ public class RouteHelper {
     /**
      * "App\\Controller\\Car\\ZipController::index" => "App\Controller\Car\ZipController::index"
      */
-    public static String unescapeRouteName(@NotNull String routeName) {
+    public static String unescapeRouteName(String routeName) {
         if (routeName.contains("\\")) {
            return routeName.replace("\\\\", "\\");
         }
@@ -137,7 +141,7 @@ public class RouteHelper {
         return routeName;
     }
 
-    public static PsiElement[] getRouteParameterPsiElements(@NotNull Project project, @NotNull String routeName, @NotNull String parameterName) {
+    public static PsiElement[] getRouteParameterPsiElements(Project project, String routeName, String parameterName) {
         Collection<PsiElement> results = new ArrayList<>();
 
         for (PsiElement psiElement : RouteHelper.getMethods(project, routeName)) {
@@ -152,8 +156,7 @@ public class RouteHelper {
         return results.toArray(new PsiElement[0]);
     }
 
-    @NotNull
-    public static PsiElement[] getMethods(@NotNull Project project, @NotNull String routeName) {
+    public static PsiElement[] getMethods(Project project, String routeName) {
         Set<PsiElement> targets = new HashSet<>();
 
         Method fqcnRoute = getFQCNRoute(project, routeName);
@@ -168,7 +171,7 @@ public class RouteHelper {
         return targets.toArray(new PsiElement[0]);
     }
 
-    public static boolean isRouteControllerDeprecated(@NotNull Project project, @NotNull String routeName) {
+    public static boolean isRouteControllerDeprecated(Project project, String routeName) {
         for (PsiElement psiElement : RouteHelper.getMethods(project, routeName)) {
             if (RouteHelper.isControllerMethodOrClassDeprecated(psiElement)) {
                 return true;
@@ -178,7 +181,7 @@ public class RouteHelper {
         return false;
     }
 
-    public static boolean isControllerActionDeprecated(@NotNull Project project, @Nullable String controllerName) {
+    public static boolean isControllerActionDeprecated(Project project, @Nullable String controllerName) {
         for (PsiElement psiElement : RouteHelper.getMethodsOnControllerShortcut(project, controllerName)) {
             if (RouteHelper.isControllerMethodOrClassDeprecated(psiElement)) {
                 return true;
@@ -188,7 +191,7 @@ public class RouteHelper {
         return false;
     }
 
-    private static boolean isControllerMethodOrClassDeprecated(@NotNull PsiElement psiElement) {
+    private static boolean isControllerMethodOrClassDeprecated(PsiElement psiElement) {
         if (psiElement instanceof Method method && method.isDeprecated()) {
             return true;
         }
@@ -205,7 +208,7 @@ public class RouteHelper {
      * "App\Controller\Foo"
      * "App\Controller\Foo::method"
      */
-    public static Method getFQCNRoute(@NotNull Project project, @NotNull String routeName) {
+    public static Method getFQCNRoute(Project project, String routeName) {
         if (!routeName.contains("\\")) {
             return null;
         }
@@ -229,7 +232,7 @@ public class RouteHelper {
             : null;
     }
 
-    public static Collection<Route> findRoutesByPath(@NotNull Project project, @NotNull String path) {
+    public static Collection<Route> findRoutesByPath(Project project, String path) {
         return RouteHelper.getAllRoutes(project)
             .values()
             .stream()
@@ -245,8 +248,7 @@ public class RouteHelper {
      * - "ar/12/foo" => "/car/{edit}/foobar"
      * - "https://www.de.test:8664/foo/12?utm=1" => "/foo/{id}"
      */
-    @NotNull
-    public static Collection<Pair<Route, PsiElement>> getMethodsForPathWithPlaceholderMatchRoutes(@NotNull Project project, @NotNull String searchPath) {
+    public static Collection<Pair<Route, PsiElement>> getMethodsForPathWithPlaceholderMatchRoutes(Project project, String searchPath) {
         Collection<Pair<Route, PsiElement>> targets = new ArrayList<>();
 
         for (Route route : getRoutesForPathWithPlaceholderMatch(project, searchPath)) {
@@ -268,8 +270,7 @@ public class RouteHelper {
      * - "ar/12/foo" => "/car/{edit}/foobar"
      * - "https://www.de.test:8664/foo/12?utm=1" => "/foo/{id}"
      */
-    @NotNull
-    public static PsiElement[] getMethodsForPathWithPlaceholderMatch(@NotNull Project project, @NotNull String searchPath) {
+    public static PsiElement[] getMethodsForPathWithPlaceholderMatch(Project project, String searchPath) {
         Collection<PsiElement> psiElements = new HashSet<>();
         for (Pair<Route, PsiElement> entry : RouteHelper.getMethodsForPathWithPlaceholderMatchRoutes(project, searchPath)) {
             psiElements.add(entry.getSecond());
@@ -286,8 +287,7 @@ public class RouteHelper {
      * - "/foo?utm=1" => "/foo"
      * - "foo/bar" => "foo/bar"
      */
-    @NotNull
-    public static String normalizeRouteSearchPath(@NotNull String searchPath) {
+    public static String normalizeRouteSearchPath(String searchPath) {
         String normalized = searchPath.trim();
         boolean hasAuthorityPrefix = normalized.contains("://") || normalized.startsWith("//");
 
@@ -321,8 +321,7 @@ public class RouteHelper {
      * - "https://www.de.test:8664/edit/{id}?utm=1" => "/edit/{id}"
      * - "/edit/{id}?utm=1" => "/edit/{id}"
      */
-    @NotNull
-    private static String normalizeRouteSearchPathFallback(@NotNull String searchPath) {
+    private static String normalizeRouteSearchPathFallback(String searchPath) {
         String normalized = searchPath;
 
         int pathStart = -1;
@@ -354,8 +353,7 @@ public class RouteHelper {
      * - "ar/12/foo" => "/car/{edit}/foobar"
      * - "https://www.de.test:8664/foo/12?utm=1" => "/foo/{id}"
      */
-    @NotNull
-    public static Collection<Route> getRoutesForPathWithPlaceholderMatch(@NotNull Project project, @NotNull String searchPath) {
+    public static Collection<Route> getRoutesForPathWithPlaceholderMatch(Project project, String searchPath) {
         return getRoutesForNormalizedPathWithPlaceholderMatch(project, normalizeRouteSearchPath(searchPath));
     }
 
@@ -365,8 +363,7 @@ public class RouteHelper {
      * - "foo/12" => "/foo/{id}"
      * - "/foo/{id}" => "/foo/{id}"
      */
-    @NotNull
-    public static Collection<Route> getRoutesForNormalizedPathWithPlaceholderMatch(@NotNull Project project, @NotNull String normalizedSearchPath) {
+    public static Collection<Route> getRoutesForNormalizedPathWithPlaceholderMatch(Project project, String normalizedSearchPath) {
         ReverseRoutePathMatcher matcher = new ReverseRoutePathMatcher(normalizedSearchPath);
         return new ArrayList<>(RouteHelper.getAllRoutes(project).values())
             .parallelStream()
@@ -389,7 +386,7 @@ public class RouteHelper {
      * - "ar/12/foo" => "/car/{edit}/foobar"
      * - "https://www.de.test:8664/foo/12?utm=1" => "/foo/{id}"
      */
-    public static boolean hasRoutesForPathWithPlaceholderMatch(@NotNull Project project, @NotNull String searchPath) {
+    public static boolean hasRoutesForPathWithPlaceholderMatch(Project project, String searchPath) {
         ReverseRoutePathMatcher matcher = new ReverseRoutePathMatcher(normalizeRouteSearchPath(searchPath));
         return RouteHelper.getAllRoutes(project).values()
             .parallelStream()
@@ -403,19 +400,18 @@ public class RouteHelper {
      * - "ar/12/foo" matches "/car/{edit}/foobar"
      */
     private static final class ReverseRoutePathMatcher {
-        @NotNull
         private final String searchPath;
         private final int maxPrefixLength;
         private final int[] prefixTable;
 
-        private ReverseRoutePathMatcher(@NotNull String searchPath) {
+        private ReverseRoutePathMatcher(String searchPath) {
             this.searchPath = searchPath;
             // Leave at least two lookup characters after the anchor for placeholder or literal continuation.
             this.maxPrefixLength = Math.max(0, searchPath.length() - 2);
             this.prefixTable = buildPrefixTable(searchPath, this.maxPrefixLength);
         }
 
-        private boolean matches(@NotNull Route route) {
+        private boolean matches(Route route) {
             String routePath = route.getPath();
             if (routePath == null) {
                 return false;
@@ -445,7 +441,7 @@ public class RouteHelper {
         }
 
         @Nullable
-        private PrefixMatch findLongestSearchPrefixMatch(@NotNull String routePath) {
+        private PrefixMatch findLongestSearchPrefixMatch(String routePath) {
             int matched = 0;
             int bestRouteIndex = -1;
             int bestLength = 0;
@@ -472,7 +468,7 @@ public class RouteHelper {
             return bestLength > 0 ? new PrefixMatch(bestRouteIndex, bestLength) : null;
         }
 
-        private boolean matchesRoutePrefix(@NotNull String routePath, int routeIndex, int searchIndex, byte[][] memo) {
+        private boolean matchesRoutePrefix(String routePath, int routeIndex, int searchIndex, byte[][] memo) {
             if (searchIndex == this.searchPath.length()) {
                 return true;
             }
@@ -498,7 +494,7 @@ public class RouteHelper {
             return matches;
         }
 
-        private boolean matchesPlaceholder(@NotNull String routePath, int routeIndex, int searchIndex, byte[][] memo) {
+        private boolean matchesPlaceholder(String routePath, int routeIndex, int searchIndex, byte[][] memo) {
             for (int i = searchIndex; i < this.searchPath.length(); i++) {
                 if (!isPlaceholderPathChar(this.searchPath.charAt(i))) {
                     return false;
@@ -512,7 +508,7 @@ public class RouteHelper {
             return false;
         }
 
-        private static int[] buildPrefixTable(@NotNull String searchPath, int maxPrefixLength) {
+        private static int[] buildPrefixTable(String searchPath, int maxPrefixLength) {
             int[] prefixTable = new int[maxPrefixLength];
             int matched = 0;
 
@@ -532,8 +528,7 @@ public class RouteHelper {
             return prefixTable;
         }
 
-        @NotNull
-        private static String neutralizeRoutePlaceholders(@NotNull String routePath) {
+        private static String neutralizeRoutePlaceholders(String routePath) {
             StringBuilder builder = new StringBuilder(routePath.length());
 
             for (int i = 0; i < routePath.length(); i++) {
@@ -577,8 +572,7 @@ public class RouteHelper {
      * @param controllerName controller service, raw or compiled
      * @return targets
      */
-    @NotNull
-    public static PsiElement[] getMethodsOnControllerShortcut(@NotNull Project project, @Nullable String controllerName) {
+    public static PsiElement[] getMethodsOnControllerShortcut(Project project, @Nullable String controllerName) {
         if(controllerName == null)  {
             return new PsiElement[0];
         }
@@ -662,7 +656,7 @@ public class RouteHelper {
      * @return targets
      */
     @Nullable
-    public static ControllerClassOnShortcutReturn getControllerClassOnShortcut(@NotNull Project project, @NotNull String controllerName) {
+    public static ControllerClassOnShortcutReturn getControllerClassOnShortcut(Project project, String controllerName) {
         if(controllerName.contains("::")) {
             // FooBundle\Controller\BarController::fooBarAction
 
@@ -697,8 +691,7 @@ public class RouteHelper {
         return null;
     }
 
-    @NotNull
-    private static Collection<VirtualFile> findCompiledRouteFiles(@NotNull Project project) {
+    private static Collection<VirtualFile> findCompiledRouteFiles(Project project) {
         Collection<VirtualFile> files = new HashSet<>();
 
         VirtualFile projectDir = ProjectUtil.getProjectDir(project);
@@ -708,7 +701,7 @@ public class RouteHelper {
 
         // Search var/cache/dev* and app/cache/dev* directories for URL generator files
         for (String[] root : new String[][]{{"var", "cache"}, {"app", "cache"}}) {
-            VirtualFile cache = VfsUtil.findRelativeFile(projectDir, root);
+            VirtualFile cache = VirtualFileUtil.findRelativeFile(projectDir, root);
             if (cache == null) {
                 continue;
             }
@@ -747,9 +740,9 @@ public class RouteHelper {
 
                 VirtualFile vf;
                 if (FileUtil.isAbsolute(path)) {
-                    vf = VfsUtil.findFileByIoFile(new File(path), false);
+                    vf = VirtualFileUtil.findFileByIoFile(new File(path), false);
                 } else {
-                    vf = VfsUtil.findRelativeFile(projectDir, path.replace('\\', '/').split("/"));
+                    vf = VirtualFileUtil.findRelativeFile(projectDir, path.replace('\\', '/').split("/"));
                 }
 
                 if (vf != null && vf.exists()) {
@@ -761,14 +754,12 @@ public class RouteHelper {
         return files;
     }
 
-    @NotNull
-    private static SimpleModificationTracker getCompiledRoutesTracker(@NotNull Project project) {
+    private static SimpleModificationTracker getCompiledRoutesTracker(Project project) {
         return SymfonyVarDirectoryWatcherKt.getSymfonyVarDirectoryWatcher(project)
             .getModificationTracker(SymfonyVarDirectoryWatcher.Scope.ROUTES);
     }
 
-    @NotNull
-    private static Map<String, Route> getCompiledRoutes(@NotNull Project project) {
+    private static Map<String, Route> getCompiledRoutes(Project project) {
         Map<String, Route> routesCache = CachedValuesManager.getManager(project).getCachedValue(
             project,
             SYMFONY_COMPILED_CACHE_ROUTES,
@@ -800,8 +791,7 @@ public class RouteHelper {
         return routes;
     }
 
-    @NotNull
-    public static Map<String, Route> getRoutesInsideUrlGeneratorFile(@NotNull Project project, @NotNull VirtualFile virtualFile) {
+    public static Map<String, Route> getRoutesInsideUrlGeneratorFile(Project project, VirtualFile virtualFile) {
         PsiFile psiFile = PsiElementUtils.virtualFileToPsiFile(project, virtualFile);
         if(!(psiFile instanceof PhpFile)) {
             return Collections.emptyMap();
@@ -813,7 +803,7 @@ public class RouteHelper {
     /**
      * Temporary or remote files dont support "isInstanceOf", check for string implementation first
      */
-    private static boolean isRouteClass(@NotNull PhpClass phpClass) {
+    private static boolean isRouteClass(PhpClass phpClass) {
         for (ClassReference classReference : phpClass.getExtendsList().getReferenceElements()) {
             String fqn = classReference.getFQN();
             if(fqn != null && StringUtils.stripStart(fqn, "\\").equalsIgnoreCase("Symfony\\Component\\Routing\\Generator\\UrlGenerator")) {
@@ -831,8 +821,7 @@ public class RouteHelper {
         return PhpElementsUtil.isInstanceOf(phpClass, "\\Symfony\\Component\\Routing\\Generator\\UrlGeneratorInterface");
     }
 
-    @NotNull
-    public static Map<String, Route> getRoutesInsideUrlGeneratorFile(@NotNull PsiFile psiFile) {
+    public static Map<String, Route> getRoutesInsideUrlGeneratorFile(PsiFile psiFile) {
         Map<String, Route> routes = new HashMap<>();
 
         // Symfony >= 4
@@ -936,7 +925,7 @@ public class RouteHelper {
      * }
      *
      */
-    private static void collectRoutesOnArrayCreation(@NotNull Map<String, Route> routes, @NotNull ArrayCreationExpression defaultValue) {
+    private static void collectRoutesOnArrayCreation(Map<String, Route> routes, ArrayCreationExpression defaultValue) {
         for(ArrayHashElement arrayHashElement: defaultValue.getHashElements()) {
             PsiElement hashKey = arrayHashElement.getKey();
             if(!(hashKey instanceof StringLiteralExpression)) {
@@ -959,8 +948,7 @@ public class RouteHelper {
     /**
      * Used in Symfony > 4 where routes are wrapped into a return array
      */
-    @NotNull
-    private static Route convertRouteConfigForReturnArray(@NotNull String routeName, @NotNull List<ArrayCreationExpression> hashElementCollection) {
+    private static Route convertRouteConfigForReturnArray(String routeName, List<ArrayCreationExpression> hashElementCollection) {
         Set<String> variables = new HashSet<>();
         if(!hashElementCollection.isEmpty() && hashElementCollection.get(0) != null) {
             ArrayCreationExpression value = hashElementCollection.get(0);
@@ -1030,8 +1018,7 @@ public class RouteHelper {
     /**
      * Used in Symfony < 4 where routes are wrapped into a class
      */
-    @NotNull
-    private static Route convertRouteConfig(@NotNull String routeName, @NotNull ArrayCreationExpression hashValue) {
+    private static Route convertRouteConfig(String routeName, ArrayCreationExpression hashValue) {
         List<ArrayHashElement> hashElementCollection = new ArrayList<>();
         hashValue.getHashElements().forEach(hashElementCollection::add);
 
@@ -1097,7 +1084,7 @@ public class RouteHelper {
      * Foo\Bar::methodAction
      */
     @Nullable
-    private static String convertMethodToRouteControllerName(@NotNull Method method) {
+    private static String convertMethodToRouteControllerName(Method method) {
         PhpClass phpClass = method.getContainingClass();
         if(phpClass == null) {
             return null;
@@ -1111,7 +1098,7 @@ public class RouteHelper {
      * FooBundle:Bar\\Foo::method
      */
     @Nullable
-    public static String convertMethodToRouteShortcutControllerName(@NotNull Method method) {
+    public static String convertMethodToRouteShortcutControllerName(Method method) {
         PhpClass phpClass = method.getContainingClass();
         if(phpClass == null) {
             return null;
@@ -1158,8 +1145,7 @@ public class RouteHelper {
         return String.format("%s:%s:%s", symfonyBundle.getName(), relative.replace("/", "\\"), methodName);
     }
 
-    @NotNull
-    private static Collection<VirtualFile> getRouteDefinitionInsideFile(@NotNull Project project, @NotNull String... routeNames) {
+    private static Collection<VirtualFile> getRouteDefinitionInsideFile(Project project, String... routeNames) {
 
         Collection<VirtualFile> virtualFiles = new ArrayList<>();
 
@@ -1172,8 +1158,7 @@ public class RouteHelper {
 
     }
 
-    @NotNull
-    public static Collection<StubIndexedRoute> getYamlRouteDefinitions(@NotNull YAMLDocument yamlDocument) {
+    public static Collection<StubIndexedRoute> getYamlRouteDefinitions(YAMLDocument yamlDocument) {
         Collection<StubIndexedRoute> indexedRoutes = new ArrayList<>();
 
         for(YAMLKeyValue yamlKeyValue : YamlHelper.getTopLevelKeyValues((YAMLFile) yamlDocument.getContainingFile())) {
@@ -1295,7 +1280,7 @@ public class RouteHelper {
      * </route>
      */
     @Nullable
-    public static String getXmlController(@NotNull XmlTag serviceTag) {
+    public static String getXmlController(XmlTag serviceTag) {
         for(XmlTag subTag :serviceTag.getSubTags()) {
             if ("default".equalsIgnoreCase(subTag.getName())) {
                 String keyValue = subTag.getAttributeValue("key");
@@ -1326,7 +1311,7 @@ public class RouteHelper {
      *   controller: "Bundle:Foo:Bar"
      */
     @Nullable
-    public static String getYamlController(@NotNull YAMLKeyValue psiElement) {
+    public static String getYamlController(YAMLKeyValue psiElement) {
         YAMLKeyValue yamlKeyValue = YamlHelper.getYamlKeyValue(psiElement, "defaults");
         if(yamlKeyValue != null) {
             final YAMLValue container = yamlKeyValue.getValue();
@@ -1355,8 +1340,7 @@ public class RouteHelper {
      * $routes->controller([FooController::class, 'method']);
      * $routes->controller(FooController::class);
      */
-    @NotNull
-    public static PsiElement[] getPhpController(@NotNull MethodReference methodCall) {
+    public static PsiElement[] getPhpController(MethodReference methodCall) {
         String controller = getPhpControllerShortcut(methodCall);
         if (StringUtils.isBlank(controller)) {
             return new PsiElement[0];
@@ -1366,7 +1350,7 @@ public class RouteHelper {
     }
 
     @Nullable
-    public static String getPhpControllerShortcut(@NotNull MethodReference methodCall) {
+    public static String getPhpControllerShortcut(MethodReference methodCall) {
         PsiElement[] parameters = methodCall.getParameters();
         if (parameters.length != 1) {
             return null;
@@ -1413,8 +1397,7 @@ public class RouteHelper {
      *
      * Matching is anchored on a declared RoutingConfigurator parameter and local fluent PSI chain walking.
      */
-    @NotNull
-    public static Collection<StubIndexedRoute> getPhpRouteDefinitions(@NotNull PhpFile psiFile) {
+    public static Collection<StubIndexedRoute> getPhpRouteDefinitions(PhpFile psiFile) {
         Collection<StubIndexedRoute> routes = new ArrayList<>();
 
         for (PhpFluentRouteDefinition definition : getPhpFluentRouteDefinitions(psiFile)) {
@@ -1425,7 +1408,7 @@ public class RouteHelper {
     }
 
     @Nullable
-    public static PsiElement getPhpRouteNameTarget(@NotNull PhpFile psiFile, @NotNull String routeName) {
+    public static PsiElement getPhpRouteNameTarget(PhpFile psiFile, String routeName) {
         for (PhpFluentRouteDefinition definition : getPhpFluentRouteDefinitions(psiFile)) {
             if (routeName.equalsIgnoreCase(definition.route.getName())) {
                 return definition.nameTarget;
@@ -1435,8 +1418,7 @@ public class RouteHelper {
         return null;
     }
 
-    @NotNull
-    private static Collection<PhpFluentRouteDefinition> getPhpFluentRouteDefinitions(@NotNull PhpFile psiFile) {
+    private static Collection<PhpFluentRouteDefinition> getPhpFluentRouteDefinitions(PhpFile psiFile) {
         Collection<PhpFluentRouteDefinition> routes = new ArrayList<>();
 
         for (Function function : PsiTreeUtil.findChildrenOfType(psiFile, Function.class)) {
@@ -1507,10 +1489,10 @@ public class RouteHelper {
      */
     @Nullable
     private static PhpFluentRouteDefinition getOrCreatePhpFluentRouteDefinition(
-        @NotNull MethodReference methodReference,
-        @NotNull Function function,
-        @NotNull Set<String> routingParameters,
-        @NotNull Map<MethodReference, PhpFluentRouteDefinition> definitions
+        MethodReference methodReference,
+        Function function,
+        Set<String> routingParameters,
+        Map<MethodReference, PhpFluentRouteDefinition> definitions
     ) {
         MethodReference addMethodReference = getRoutingAddMethodReference(methodReference.getClassReference(), function, routingParameters, new HashSet<>());
         if (addMethodReference == null) {
@@ -1540,9 +1522,9 @@ public class RouteHelper {
      */
     @Nullable
     private static PhpFluentRouteDefinition createPhpFluentRouteDefinition(
-        @NotNull MethodReference methodReference,
-        @NotNull Function function,
-        @NotNull Set<String> routingParameters
+        MethodReference methodReference,
+        Function function,
+        Set<String> routingParameters
     ) {
         if (!"add".equals(methodReference.getName()) || !isRoutingConfiguratorReference(methodReference.getClassReference(), function, routingParameters, new HashSet<>())) {
             return null;
@@ -1577,9 +1559,9 @@ public class RouteHelper {
     @Nullable
     private static MethodReference getRoutingAddMethodReference(
         @Nullable PsiElement psiElement,
-        @NotNull Function function,
-        @NotNull Set<String> routingParameters,
-        @NotNull Set<PsiElement> visited
+        Function function,
+        Set<String> routingParameters,
+        Set<PsiElement> visited
     ) {
         if (psiElement == null || !visited.add(psiElement)) {
             return null;
@@ -1605,9 +1587,9 @@ public class RouteHelper {
 
     private static boolean isRoutingConfiguratorReference(
         @Nullable PsiElement psiElement,
-        @NotNull Function function,
-        @NotNull Set<String> routingParameters,
-        @NotNull Set<PsiElement> visited
+        Function function,
+        Set<String> routingParameters,
+        Set<PsiElement> visited
     ) {
         if (psiElement == null || !visited.add(psiElement)) {
             return false;
@@ -1629,8 +1611,7 @@ public class RouteHelper {
         return false;
     }
 
-    @NotNull
-    private static Set<String> getRoutingConfiguratorParameterNames(@NotNull Function function) {
+    private static Set<String> getRoutingConfiguratorParameterNames(Function function) {
         Set<String> parameterNames = new HashSet<>();
         Map<String, String> useImports = AnnotationBackportUtil.getUseImportMap(function);
 
@@ -1649,7 +1630,7 @@ public class RouteHelper {
         return parameterNames;
     }
 
-    private static boolean isRoutingConfiguratorType(@Nullable String type, @NotNull Map<String, String> useImports) {
+    private static boolean isRoutingConfiguratorType(@Nullable String type, Map<String, String> useImports) {
         if (StringUtils.isBlank(type)) {
             return false;
         }
@@ -1664,7 +1645,7 @@ public class RouteHelper {
     }
 
     @Nullable
-    private static PsiElement getPreviousVariableAssignmentValue(@NotNull Variable variable, @NotNull Function scope) {
+    private static PsiElement getPreviousVariableAssignmentValue(Variable variable, Function scope) {
         String variableName = variable.getName();
         if (StringUtils.isBlank(variableName)) {
             return null;
@@ -1706,7 +1687,7 @@ public class RouteHelper {
      *     ->defaults(['_controller' => [BlogController::class, 'show']]);
      */
     @Nullable
-    private static String getPhpRouteDefaultControllerShortcut(@NotNull MethodReference methodReference) {
+    private static String getPhpRouteDefaultControllerShortcut(MethodReference methodReference) {
         PsiElement[] parameters = methodReference.getParameters();
         if (parameters.length != 1 || !(parameters[0] instanceof ArrayCreationExpression arrayCreationExpression)) {
             return null;
@@ -1716,7 +1697,7 @@ public class RouteHelper {
     }
 
     @Nullable
-    private static String getPhpControllerShortcutIndexSafe(@NotNull MethodReference methodCall) {
+    private static String getPhpControllerShortcutIndexSafe(MethodReference methodCall) {
         PsiElement[] parameters = methodCall.getParameters();
         if (parameters.length != 1) {
             return null;
@@ -1756,8 +1737,7 @@ public class RouteHelper {
      *
      * ->methods(['GET', 'HEAD'])
      */
-    @NotNull
-    private static Collection<String> getPhpRouteMethods(@NotNull MethodReference methodReference) {
+    private static Collection<String> getPhpRouteMethods(MethodReference methodReference) {
         PsiElement[] parameters = methodReference.getParameters();
         if (parameters.length != 1 || !(parameters[0] instanceof ArrayCreationExpression arrayCreationExpression)) {
             return Collections.emptyList();
@@ -1785,13 +1765,12 @@ public class RouteHelper {
      * $group = $routes->namePrefix('admin_')->prefix('/admin');
      * $group->namePrefix('api_')->add('dashboard', '/dashboard');
      */
-    @NotNull
     private static List<String> getRoutingConfiguratorChainLiteralValues(
         @Nullable PsiElement psiElement,
-        @NotNull Function function,
-        @NotNull Set<String> routingParameters,
-        @NotNull String methodName,
-        @NotNull Set<PsiElement> visited
+        Function function,
+        Set<String> routingParameters,
+        String methodName,
+        Set<PsiElement> visited
     ) {
         if (psiElement == null || !visited.add(psiElement)) {
             return Collections.emptyList();
@@ -1828,7 +1807,7 @@ public class RouteHelper {
      * becomes '/admin/api/posts'.
      */
     @Nullable
-    private static String mergeRoutePaths(@Nullable String routePath, @NotNull String pathPrefix) {
+    private static String mergeRoutePaths(@Nullable String routePath, String pathPrefix) {
         if (StringUtils.isBlank(pathPrefix)) {
             return routePath;
         }
@@ -1849,19 +1828,17 @@ public class RouteHelper {
     }
 
     private static class PhpFluentRouteDefinition {
-        @NotNull
         private final StubIndexedRoute route;
-        @NotNull
         private final PsiElement nameTarget;
 
-        private PhpFluentRouteDefinition(@NotNull StubIndexedRoute route, @NotNull PsiElement nameTarget) {
+        private PhpFluentRouteDefinition(StubIndexedRoute route, PsiElement nameTarget) {
             this.route = route;
             this.nameTarget = nameTarget;
         }
     }
 
     @Nullable
-    public static PsiElement getXmlRouteNameTarget(@NotNull XmlFile psiFile,@NotNull String routeName) {
+    public static PsiElement getXmlRouteNameTarget(XmlFile psiFile,String routeName) {
 
         XmlDocumentImpl document = PsiTreeUtil.getChildOfType(psiFile, XmlDocumentImpl.class);
         if(document == null) {
@@ -1894,7 +1871,7 @@ public class RouteHelper {
      *
      * Performance hot path
      */
-    public static boolean isServiceController(@NotNull String shortcutName) {
+    public static boolean isServiceController(String shortcutName) {
         // After normalizing "::" to ":", must have exactly 2 parts
         // Valid: "service:method", "service::method"
         // Invalid: "service", "a:b:c"
@@ -1917,12 +1894,11 @@ public class RouteHelper {
         return firstColon + 1 < len && shortcutName.indexOf(':', firstColon + 1) < 0;
     }
 
-    public static boolean isServiceControllerInvoke(@NotNull String shortcutName) {
+    public static boolean isServiceControllerInvoke(String shortcutName) {
         return !shortcutName.contains(":");
     }
 
-    @NotNull
-    public static List<Route> getRoutesOnControllerAction(@NotNull Method method) {
+    public static List<Route> getRoutesOnControllerAction(Method method) {
         Set<String> routeNames = new HashSet<>();
 
         ContainerUtil.addIfNotNull(routeNames, RouteHelper.convertMethodToRouteControllerName(method));
@@ -1949,8 +1925,7 @@ public class RouteHelper {
     /**
      * Find every possible route name declaration inside yaml, xml or @Route annotation
      */
-    @NotNull
-    public static Collection<PsiElement> getRouteNameTarget(@NotNull Project project, @NotNull String routeName) {
+    public static Collection<PsiElement> getRouteNameTarget(Project project, String routeName) {
         Collection<PsiElement> routeTargets = new ArrayList<>();
 
         for(VirtualFile virtualFile: RouteHelper.getRouteDefinitionInsideFile(project, routeName)) {
@@ -2001,8 +1976,7 @@ public class RouteHelper {
      * Extract route name of @Route(name="foobar_")
      * Must return empty string for easier accessibility
      */
-    @NotNull
-    private static String getRouteNamePrefix(@NotNull  PhpClass phpClass) {
+    private static String getRouteNamePrefix(PhpClass phpClass) {
         PhpDocCommentAnnotation phpClassContainer = AnnotationUtil.getPhpDocCommentAnnotationContainer(phpClass.getDocComment());
         if(phpClassContainer != null) {
             PhpDocTagAnnotation firstPhpDocBlock = phpClassContainer.getFirstPhpDocBlock(ROUTE_ANNOTATIONS);
@@ -2048,7 +2022,7 @@ public class RouteHelper {
         return url.isEmpty() ? null : url;
     }
 
-    public static List<LookupElement> getRoutesLookupElements(final @NotNull Project project, boolean escapeRouteName) {
+    public static List<LookupElement> getRoutesLookupElements(final Project project, boolean escapeRouteName) {
         Map<String, Route> routes = RouteHelper.getCompiledRoutes(project);
 
         final List<LookupElement> lookupElements = new ArrayList<>();
@@ -2083,11 +2057,10 @@ public class RouteHelper {
         return lookupElements;
     }
 
-    public static List<LookupElement> getRoutesLookupElements(final @NotNull Project project) {
+    public static List<LookupElement> getRoutesLookupElements(final Project project) {
         return getRoutesLookupElements(project, false);
     }
 
-    @NotNull
     public static List<PsiElement> getRouteDefinitionTargets(Project project, String routeName) {
 
         List<PsiElement> targets = new ArrayList<>();
@@ -2096,7 +2069,7 @@ public class RouteHelper {
         return targets;
     }
 
-    public static boolean isRouteExistingForMethod(final @NotNull Method method) {
+    public static boolean isRouteExistingForMethod(final Method method) {
         Project project = method.getProject();
 
         Set<String> cachedValue = CachedValuesManager.getManager(project).getCachedValue(
@@ -2136,8 +2109,7 @@ public class RouteHelper {
         return cachedValue.contains(fqn);
     }
 
-    @NotNull
-    public static Map<String, Route> getAllRoutes(final @NotNull Project project) {
+    public static Map<String, Route> getAllRoutes(final Project project) {
         return CachedValuesManager.getManager(project).getCachedValue(
             project,
             ROUTE_CACHE,
@@ -2170,8 +2142,7 @@ public class RouteHelper {
      * Returns routes deduplicated by path + controller identity.
      * If both a named route and an FQCN-style route name point to the same endpoint, the named route wins.
      */
-    @NotNull
-    public static Map<String, Route> getAllRoutesUnique(final @NotNull Project project) {
+    public static Map<String, Route> getAllRoutesUnique(final Project project) {
         return CachedValuesManager.getManager(project).getCachedValue(
             project,
             ROUTE_UNIQUE_CACHE,
@@ -2188,8 +2159,7 @@ public class RouteHelper {
         );
     }
 
-    @NotNull
-    private static Map<String, Route> deduplicateRoutesPreferNamed(@NotNull Map<String, Route> routes) {
+    private static Map<String, Route> deduplicateRoutesPreferNamed(Map<String, Route> routes) {
         Map<String, Route> deduplicated = new LinkedHashMap<>();
         Map<String, String> identityToRouteName = new HashMap<>();
 
@@ -2215,8 +2185,7 @@ public class RouteHelper {
         return deduplicated;
     }
 
-    @NotNull
-    private static String getRouteIdentity(@NotNull String routeName, @NotNull Route route) {
+    private static String getRouteIdentity(String routeName, Route route) {
         String path = StringUtils.trimToEmpty(route.getPath());
         String controller = StringUtils.trimToEmpty(route.getController());
 
@@ -2227,12 +2196,11 @@ public class RouteHelper {
         return "path:" + path + "|controller:" + controller;
     }
 
-    private static boolean isFqcnRouteName(@NotNull String routeName) {
+    private static boolean isFqcnRouteName(String routeName) {
         return routeName.contains("\\");
     }
 
-    @NotNull
-    public static Collection<LookupElement> getRoutesPathLookupElements(final @NotNull Project project) {
+    public static Collection<LookupElement> getRoutesPathLookupElements(final Project project) {
         Collection<LookupElement> lookupElements = new ArrayList<>();
 
         for (Route route : RouteHelper.getAllRoutes(project).values()) {
@@ -2253,8 +2221,7 @@ public class RouteHelper {
      * Foobar/Bar => Foobar\Bar
      * \\Foobar\Foobar => Foobar\Bar
      */
-    @NotNull
-    private static String normalizeRouteController(@NotNull String string) {
+    private static String normalizeRouteController(String string) {
         string = string.replace("/", "\\");
         string = StringUtils.stripStart(string,"\\");
 
@@ -2264,7 +2231,7 @@ public class RouteHelper {
     /**
      * Support "use Symfony\Component\Routing\Annotation\Route as BaseRoute;"
      */
-    public static boolean isRouteClassAnnotation(@NotNull String clazz) {
+    public static boolean isRouteClassAnnotation(String clazz) {
         String myClazz = "\\" + StringUtils.stripStart(clazz, "\\");
         return Arrays.stream(ROUTE_ANNOTATIONS).anyMatch(s -> s.equalsIgnoreCase(myClazz));
     }
@@ -2273,9 +2240,9 @@ public class RouteHelper {
      * Builds a controller action gutter icon and adds it to the given line marker collection.
      */
     public static void addControllerLineMarker(
-        @NotNull Collection<? super LineMarkerInfo<?>> lineMarkerInfos,
-        @NotNull PsiElement[] methods,
-        @NotNull PsiElement anchor
+        Collection<? super LineMarkerInfo<?>> lineMarkerInfos,
+        PsiElement[] methods,
+        PsiElement anchor
     ) {
         NavigationGutterIconBuilder<PsiElement> builder = NavigationGutterIconBuilder.create(Symfony2Icons.TWIG_CONTROLLER_LINE_MARKER)
             .setTargets(methods)

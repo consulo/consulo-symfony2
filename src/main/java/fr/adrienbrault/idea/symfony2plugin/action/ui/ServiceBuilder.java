@@ -1,13 +1,13 @@
 package fr.adrienbrault.idea.symfony2plugin.action.ui;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.psi.PsiFile;
 import com.jetbrains.php.PhpIndex;
 import com.jetbrains.php.lang.psi.elements.ClassReference;
 import com.jetbrains.php.lang.psi.elements.Method;
 import com.jetbrains.php.lang.psi.elements.Parameter;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
 import com.jetbrains.php.lang.psi.resolve.types.PhpType;
+import consulo.language.psi.PsiFile;
+import consulo.project.Project;
 import fr.adrienbrault.idea.symfony2plugin.action.ServiceActionUtil;
 import fr.adrienbrault.idea.symfony2plugin.dic.ContainerService;
 import fr.adrienbrault.idea.symfony2plugin.stubs.ContainerCollectionResolver;
@@ -17,8 +17,7 @@ import fr.adrienbrault.idea.symfony2plugin.util.dict.ServiceUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.xml.SecureXmlUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 import org.jetbrains.yaml.psi.YAMLFile;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -50,17 +49,15 @@ public class ServiceBuilder {
         private final String serviceName;
         private final List<MethodParameter.MethodModelParameter> modelParameters;
 
-        public ServiceDefinitionModel(@NotNull String serviceName, @NotNull List<MethodParameter.MethodModelParameter> modelParameters) {
+        public ServiceDefinitionModel(String serviceName, List<MethodParameter.MethodModelParameter> modelParameters) {
             this.serviceName = serviceName;
             this.modelParameters = modelParameters;
         }
 
-        @NotNull
         public String getServiceName() {
             return serviceName;
         }
 
-        @NotNull
         public List<MethodParameter.MethodModelParameter> getModelParameters() {
             return modelParameters;
         }
@@ -81,13 +78,13 @@ public class ServiceBuilder {
     @Nullable
     private PsiFile psiFile;
 
-    public ServiceBuilder(@NotNull List<MethodParameter.MethodModelParameter> methodModelParameter, @NotNull Project project, boolean isClassAsIdAttribute) {
+    public ServiceBuilder(List<MethodParameter.MethodModelParameter> methodModelParameter, Project project, boolean isClassAsIdAttribute) {
         this.methodModelParameter = methodModelParameter;
         this.project = project;
         this.isClassAsIdAttribute = isClassAsIdAttribute;
     }
 
-    public ServiceBuilder(@NotNull List<MethodParameter.MethodModelParameter> methodModelParameter, @NotNull PsiFile psiFile, boolean isClassAsIdAttribute) {
+    public ServiceBuilder(List<MethodParameter.MethodModelParameter> methodModelParameter, PsiFile psiFile, boolean isClassAsIdAttribute) {
         this.methodModelParameter = methodModelParameter;
         this.project = psiFile.getProject();
         this.psiFile = psiFile;
@@ -135,7 +132,7 @@ public class ServiceBuilder {
      * Resolves the target class and pre-fills the default service id plus constructor/setter argument suggestions.
      */
     @Nullable
-    public static ServiceDefinitionModel createModel(@NotNull Project project, @NotNull String className) {
+    public static ServiceDefinitionModel createModel(Project project, String className) {
         String normalizedClassName = StringUtils.stripStart(className, "\\");
 
         PhpClass phpClass = PhpElementsUtil.getClass(project, normalizedClassName);
@@ -164,12 +161,11 @@ public class ServiceBuilder {
     /**
      * Collects public method parameters and attaches either guessed service matches or the full service list for manual selection.
      */
-    @NotNull
     private static List<MethodParameter.MethodModelParameter> collectMethodParameters(
-        @NotNull Project project,
-        @NotNull PhpClass phpClass,
-        @NotNull Map<String, ContainerService> serviceClass,
-        @NotNull Set<String> serviceSetComplete
+        Project project,
+        PhpClass phpClass,
+        Map<String, ContainerService> serviceClass,
+        Set<String> serviceSetComplete
     ) {
         List<MethodParameter.MethodModelParameter> modelParameters = new ArrayList<>();
 
@@ -196,11 +192,10 @@ public class ServiceBuilder {
     /**
      * Guesses matching container services for a parameter by first checking explicit class references and then declared PHP types.
      */
-    @NotNull
     public static Set<String> getPossibleServices(
-        @NotNull Project project,
-        @NotNull Parameter parameter,
-        @NotNull Map<String, ContainerService> serviceClass
+        Project project,
+        Parameter parameter,
+        Map<String, ContainerService> serviceClass
     ) {
         Set<String> possibleServices = new LinkedHashSet<>();
 
@@ -226,7 +221,7 @@ public class ServiceBuilder {
      * Picks the default service id from the available matches while preserving the sorted priority of the incoming set.
      */
     @Nullable
-    public static String getServiceName(@NotNull Set<String> services) {
+    public static String getServiceName(Set<String> services) {
         if (services.isEmpty()) {
             return null;
         }
@@ -239,9 +234,9 @@ public class ServiceBuilder {
      */
     @Nullable
     public static String resolveServiceName(
-        @NotNull Project project,
-        @NotNull Parameter parameter,
-        @NotNull Map<String, ContainerService> serviceClass
+        Project project,
+        Parameter parameter,
+        Map<String, ContainerService> serviceClass
     ) {
         Set<String> possibleServices = getPossibleServices(project, parameter, serviceClass);
         if (!possibleServices.isEmpty()) {
@@ -369,7 +364,7 @@ public class ServiceBuilder {
      *
      * <argument type="service" id="foobar"/>
      */
-    private void appendArgumentXmlTags(@NotNull Document doc, @NotNull Element rootElement, @NotNull List<String> parameters) {
+    private void appendArgumentXmlTags(Document doc, Element rootElement, List<String> parameters) {
         for(String parameter: parameters) {
             Element argument = doc.createElement("argument");
             argument.setAttribute("type", "service");
@@ -469,7 +464,7 @@ public class ServiceBuilder {
         callback.onTags(serviceTags);
     }
 
-    private boolean isPhpClassFqn(@NotNull String serviceId) {
+    private boolean isPhpClassFqn(String serviceId) {
         // Only query PhpIndex if the serviceId looks like a possible PHP FQN:
         // it must contain a namespace separator to be considered a class candidate
         if (!serviceId.contains("\\")) {
@@ -480,7 +475,7 @@ public class ServiceBuilder {
         return !phpIndex.getClassesByFQN(serviceId).isEmpty();
     }
 
-    private String formatPhpServiceArgument(@NotNull String serviceId) {
+    private String formatPhpServiceArgument(String serviceId) {
         if (isPhpClassFqn(serviceId)) {
             return "\\" + serviceId + "::class";
         }
@@ -606,6 +601,6 @@ public class ServiceBuilder {
     }
 
     public interface TagCallbackInterface {
-        void onTags(@NotNull List<ServiceTag> tags);
+        void onTags(List<ServiceTag> tags);
     }
 }

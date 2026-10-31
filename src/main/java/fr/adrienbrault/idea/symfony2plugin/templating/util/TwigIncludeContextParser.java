@@ -1,13 +1,12 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.util;
 
-import com.intellij.lang.ASTNode;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.PsiWhiteSpace;
-import com.intellij.psi.tree.IElementType;
-import com.intellij.psi.util.PsiTreeUtil;
-import com.intellij.util.containers.ArrayListSet;
+import consulo.language.ast.ASTNode;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.PsiWhiteSpace;
+import consulo.language.ast.IElementType;
+import consulo.language.psi.util.PsiTreeUtil;
 import com.jetbrains.php.lang.psi.PhpPsiUtil;
 import com.jetbrains.twig.TwigFile;
 import com.jetbrains.twig.TwigTokenTypes;
@@ -16,8 +15,7 @@ import com.jetbrains.twig.elements.TwigTagWithFileReference;
 import fr.adrienbrault.idea.symfony2plugin.templating.dict.TemplateInclude;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -37,16 +35,14 @@ public final class TwigIncludeContextParser {
     /**
      * Resolves tag-style include context, e.g. <code>{% include 'card.html.twig' with {product: item} only %}</code>.
      */
-    @NotNull
-    public static IncludeContext resolveTagIncludeContext(@NotNull PsiElement tag) {
+    public static IncludeContext resolveTagIncludeContext(PsiElement tag) {
         return new IncludeContext(collectTagIncludeArguments(tag), !hasOnlyKeyword(tag));
     }
 
     /**
      * Resolves function-style include context, e.g. <code>{{ include('card.html.twig', {product: item}, with_context: false) }}</code>.
      */
-    @NotNull
-    public static IncludeContext resolveFunctionIncludeContext(@NotNull PsiElement templateName) {
+    public static IncludeContext resolveFunctionIncludeContext(PsiElement templateName) {
         PsiElement functionCall = PsiElementUtils.getParentOfType(templateName, TwigElementTypes.FUNCTION_CALL);
         if (functionCall == null) {
             return new IncludeContext(Collections.emptyList(), true);
@@ -113,7 +109,6 @@ public final class TwigIncludeContextParser {
      * Example: for <code>{% include 'card.html.twig' with {'': item} %}</code> and a target
      * template containing <code>{{ title }}</code>, this returns {@code title} as completion input.
      */
-    @NotNull
     public static Collection<IncludeWithContextTemplateVariable> getIncludeWithContextKeyVariables(@Nullable PsiElement element) {
         IncludeKeyContext context = findIncludeKeyContext(element);
         if (context == null) {
@@ -148,7 +143,6 @@ public final class TwigIncludeContextParser {
      * Example: navigating from <code>{% include 'card.html.twig' with {'tit<caret>le': item.title} %}</code>
      * returns the {@code title} usage inside {@code card.html.twig}.
      */
-    @NotNull
     public static Collection<PsiElement> getIncludeWithContextKeyTargets(@Nullable PsiElement element) {
         String variableName = element == null ? null : StringUtils.trimToNull(PsiElementUtils.trimQuote(element.getText()));
         if (StringUtils.isBlank(variableName)) {
@@ -175,13 +169,13 @@ public final class TwigIncludeContextParser {
      *   <li><code>{% embed 'layout.html.twig' with {'title': item.title} %}</code> resolves {@code layout.html.twig}</li>
      * </ul>
      */
-    @NotNull
-    private static Collection<String> getIncludeWithContextTemplateNames(@NotNull IncludeKeyContext context) {
+    private static Collection<String> getIncludeWithContextTemplateNames(IncludeKeyContext context) {
         if (context.templateName() != null) {
             return Collections.singleton(context.templateName());
         }
 
-        Collection<String> templates = new ArrayListSet<>();
+        // consulo-port: ArrayListSet is impl-only in Consulo; LinkedHashSet keeps the same insertion order
+        Collection<String> templates = new LinkedHashSet<>();
         TwigUtil.visitTemplateIncludes(context.sourceElement(), include -> {
             TemplateInclude.TYPE type = include.getType();
             if (type == TemplateInclude.TYPE.INCLUDE || type == TemplateInclude.TYPE.EMBED) {
@@ -199,7 +193,7 @@ public final class TwigIncludeContextParser {
     /**
      * Detects isolated tag includes, e.g. <code>{% include 'card.html.twig' only %}</code>.
      */
-    private static boolean hasOnlyKeyword(@NotNull PsiElement tag) {
+    private static boolean hasOnlyKeyword(PsiElement tag) {
         for (PsiElement child = tag.getFirstChild(); child != null; child = child.getNextSibling()) {
             if (isTwigElementType(child, TwigTokenTypes.ONLY_KEYWORD) || "only".equals(child.getText())) {
                 return true;
@@ -212,8 +206,7 @@ public final class TwigIncludeContextParser {
     /**
      * Reads tag include arguments, e.g. <code>with {product: item}</code>.
      */
-    @NotNull
-    private static Collection<IncludeArgument> collectTagIncludeArguments(@NotNull PsiElement tag) {
+    private static Collection<IncludeArgument> collectTagIncludeArguments(PsiElement tag) {
         PsiElement withElement = null;
         for (PsiElement child = tag.getFirstChild(); child != null; child = child.getNextSibling()) {
             if (isTwigElementType(child, TwigTokenTypes.WITH_KEYWORD) || "with".equals(child.getText())) {
@@ -234,8 +227,7 @@ public final class TwigIncludeContextParser {
      * Splits only direct include() arguments; hash literals stay whole PSI nodes.
      * Example: <code>include('card.html.twig', {product: item}, with_context: false)</code>.
      */
-    @NotNull
-    private static List<List<PsiElement>> splitFunctionArguments(@NotNull PsiElement functionCall) {
+    private static List<List<PsiElement>> splitFunctionArguments(PsiElement functionCall) {
         List<List<PsiElement>> arguments = new ArrayList<>();
         List<PsiElement> current = new ArrayList<>();
         boolean insideArguments = false;
@@ -277,7 +269,7 @@ public final class TwigIncludeContextParser {
     /**
      * Matches include context isolation, e.g. {@code with_context: false}.
      */
-    private static boolean isWithContextFalseArgument(@NotNull List<PsiElement> argument) {
+    private static boolean isWithContextFalseArgument(List<PsiElement> argument) {
         if (argument.size() < 3) {
             return false;
         }
@@ -299,7 +291,7 @@ public final class TwigIncludeContextParser {
      * Finds the hash literal after {@code with}, e.g. <code>with {product: item}</code>.
      */
     @Nullable
-    private static PsiElement nextHashLiteral(@NotNull PsiElement element) {
+    private static PsiElement nextHashLiteral(PsiElement element) {
         PsiElement child = nextMeaningfulSibling(element);
         return child != null && isHashLiteral(child) ? child : null;
     }
@@ -308,7 +300,7 @@ public final class TwigIncludeContextParser {
      * Finds a hash literal inside a function argument, e.g. <code>{product: item}</code>.
      */
     @Nullable
-    private static PsiElement findHashLiteral(@NotNull List<PsiElement> argument) {
+    private static PsiElement findHashLiteral(List<PsiElement> argument) {
         for (PsiElement element : argument) {
             if (isHashLiteral(element)) {
                 return element;
@@ -321,7 +313,7 @@ public final class TwigIncludeContextParser {
     /**
      * Checks Twig hash literals, e.g. <code>{product: item}</code>.
      */
-    private static boolean isHashLiteral(@NotNull PsiElement element) {
+    private static boolean isHashLiteral(PsiElement element) {
         return isTwigElementType(element, TwigElementTypes.LITERAL) &&
             element.getFirstChild() != null &&
             isTwigElementType(element.getFirstChild(), TwigTokenTypes.LBRACE_CURL);
@@ -336,7 +328,7 @@ public final class TwigIncludeContextParser {
      *   <li><code>{'title': item}</code> does not match {@code item}</li>
      * </ul>
      */
-    private static boolean isHashKey(@NotNull PsiElement hashLiteral, @NotNull PsiElement element) {
+    private static boolean isHashKey(PsiElement hashLiteral, PsiElement element) {
         PsiElement directChild = getDirectChild(hashLiteral, element);
         if (directChild == null || !isKeyToken(element, directChild)) {
             return false;
@@ -362,7 +354,7 @@ public final class TwigIncludeContextParser {
      * top-level hash child for the key.
      */
     @Nullable
-    private static PsiElement getDirectChild(@NotNull PsiElement parent, @NotNull PsiElement element) {
+    private static PsiElement getDirectChild(PsiElement parent, PsiElement element) {
         PsiElement current = element;
         while (current != null && current.getParent() != parent) {
             current = current.getParent();
@@ -381,7 +373,7 @@ public final class TwigIncludeContextParser {
      *   <li><code>{: item}</code> allows completion before the colon</li>
      * </ul>
      */
-    private static boolean isKeyToken(@NotNull PsiElement element, @NotNull PsiElement directChild) {
+    private static boolean isKeyToken(PsiElement element, PsiElement directChild) {
         return isTwigElementType(element, TwigTokenTypes.STRING_TEXT) ||
             isTwigElementType(element, TwigTokenTypes.IDENTIFIER) ||
             isTwigElementType(directChild, TwigElementTypes.VARIABLE_REFERENCE) ||
@@ -403,7 +395,7 @@ public final class TwigIncludeContextParser {
      * </ul>
      */
     @Nullable
-    private static PsiElement findTagWithHash(@NotNull PsiElement hashLiteral) {
+    private static PsiElement findTagWithHash(PsiElement hashLiteral) {
         PsiElement tag = PsiTreeUtil.findFirstParent(hashLiteral, false, parent ->
             isTwigElementType(parent, TwigElementTypes.INCLUDE_TAG) || isTwigElementType(parent, TwigElementTypes.EMBED_TAG)
         );
@@ -417,7 +409,7 @@ public final class TwigIncludeContextParser {
      * Example: in <code>{% include 'card.html.twig' with {'title': item} %}</code>, the
      * hash after {@code with} matches.
      */
-    private static boolean isDirectWithHash(@NotNull PsiElement tag, @NotNull PsiElement hashLiteral) {
+    private static boolean isDirectWithHash(PsiElement tag, PsiElement hashLiteral) {
         for (PsiElement child = tag.getFirstChild(); child != null; child = nextMeaningfulSibling(child)) {
             if (!isWithKeyword(child)) {
                 continue;
@@ -434,7 +426,7 @@ public final class TwigIncludeContextParser {
      * <p>
      * Example: <code>{% include 'card.html.twig' with {'title': item} %}</code> matches {@code with}.
      */
-    private static boolean isWithKeyword(@NotNull PsiElement element) {
+    private static boolean isWithKeyword(PsiElement element) {
         return isTwigElementType(element, TwigTokenTypes.WITH_KEYWORD) || "with".equals(element.getText());
     }
 
@@ -448,7 +440,7 @@ public final class TwigIncludeContextParser {
      * </ul>
      */
     @Nullable
-    private static PsiElement findFunctionIncludeTemplateName(@NotNull PsiElement hashLiteral) {
+    private static PsiElement findFunctionIncludeTemplateName(PsiElement hashLiteral) {
         PsiElement functionCall = PsiElementUtils.getParentOfType(hashLiteral, TwigElementTypes.FUNCTION_CALL);
         PsiElement functionName = PsiElementUtils.getChildrenOfType(functionCall, PlatformPatterns.psiElement(TwigTokenTypes.IDENTIFIER));
         if (functionName == null || !"include".equals(functionName.getText())) {
@@ -480,8 +472,7 @@ public final class TwigIncludeContextParser {
     /**
      * Reads hash arguments, e.g. <code>{product: item, title: 'Example'}</code>.
      */
-    @NotNull
-    private static Collection<IncludeArgument> collectHashArguments(@NotNull PsiElement hashLiteral) {
+    private static Collection<IncludeArgument> collectHashArguments(PsiElement hashLiteral) {
         List<PsiElement> children = getMeaningfulChildren(hashLiteral);
         Collection<IncludeArgument> arguments = new ArrayList<>();
 
@@ -515,7 +506,7 @@ public final class TwigIncludeContextParser {
      * Reads unquoted and quoted hash keys, e.g. {@code product}, {@code 'product'}, or {@code "product"}.
      */
     @Nullable
-    private static KeyResult readHashKey(@NotNull List<PsiElement> children, int index) {
+    private static KeyResult readHashKey(List<PsiElement> children, int index) {
         PsiElement child = children.get(index);
 
         if (isTwigElementType(child, TwigTokenTypes.IDENTIFIER) || isTwigElementType(child, TwigTokenTypes.STRING_TEXT)) {
@@ -541,8 +532,7 @@ public final class TwigIncludeContextParser {
     /**
      * Returns direct non-whitespace children, e.g. for predictable hash token scanning.
      */
-    @NotNull
-    private static List<PsiElement> getMeaningfulChildren(@NotNull PsiElement element) {
+    private static List<PsiElement> getMeaningfulChildren(PsiElement element) {
         List<PsiElement> children = new ArrayList<>();
         for (PsiElement child = element.getFirstChild(); child != null; child = nextMeaningfulSibling(child)) {
             if (!isWhitespace(child)) {
@@ -557,7 +547,7 @@ public final class TwigIncludeContextParser {
      * Gets the next sibling while skipping PSI and Twig whitespace.
      */
     @Nullable
-    private static PsiElement nextMeaningfulSibling(@NotNull PsiElement element) {
+    private static PsiElement nextMeaningfulSibling(PsiElement element) {
         PsiElement next = PhpPsiUtil.getNextSiblingIgnoreWhitespace(element, true);
         while (next != null && isWhitespace(next)) {
             next = PhpPsiUtil.getNextSiblingIgnoreWhitespace(next, true);
@@ -570,7 +560,7 @@ public final class TwigIncludeContextParser {
      * Gets the previous sibling while skipping PSI and Twig whitespace.
      */
     @Nullable
-    private static PsiElement previousMeaningfulSibling(@NotNull PsiElement element) {
+    private static PsiElement previousMeaningfulSibling(PsiElement element) {
         PsiElement previous = element.getPrevSibling();
         while (previous != null && isWhitespace(previous)) {
             previous = previous.getPrevSibling();
@@ -582,14 +572,14 @@ public final class TwigIncludeContextParser {
     /**
      * Handles both IntelliJ whitespace PSI and Twig whitespace tokens.
      */
-    private static boolean isWhitespace(@NotNull PsiElement element) {
+    private static boolean isWhitespace(PsiElement element) {
         return element instanceof PsiWhiteSpace || isTwigElementType(element, TwigTokenTypes.WHITE_SPACE);
     }
 
     /**
      * Compares direct Twig element types, e.g. {@code TwigTokenTypes.COMMA}.
      */
-    private static boolean isTwigElementType(@NotNull PsiElement element, @NotNull IElementType elementType) {
+    private static boolean isTwigElementType(PsiElement element, IElementType elementType) {
         ASTNode node = element.getNode();
         return node != null && node.getElementType() == elementType;
     }
@@ -597,17 +587,16 @@ public final class TwigIncludeContextParser {
     /**
      * Include argument with its raw value PSI, e.g. {@code product: item.product}.
      */
-    public record IncludeArgument(@NotNull String name, @NotNull List<PsiElement> valueElements) {
+    public record IncludeArgument(String name, List<PsiElement> valueElements) {
     }
 
     /**
      * Parsed include context, e.g. arguments plus whether parent variables are inherited.
      */
-    public record IncludeContext(@NotNull Collection<IncludeArgument> arguments, boolean withParentContext) {
+    public record IncludeContext(Collection<IncludeArgument> arguments, boolean withParentContext) {
         /**
          * Returns explicit child variable names, e.g. {@code product} from <code>{product: item}</code>.
          */
-        @NotNull
         public Set<String> argumentNames() {
             return arguments.stream()
                 .map(IncludeArgument::name)
@@ -618,13 +607,13 @@ public final class TwigIncludeContextParser {
     /**
      * Parsed hash key and next token index, e.g. after {@code 'product'}.
      */
-    private record KeyResult(@NotNull String name, int nextIndex) {
+    private record KeyResult(String name, int nextIndex) {
     }
 
     /**
      * Matched include/embed hash-key context with an optionally resolved template name.
      */
-    public record IncludeKeyContext(@NotNull PsiElement sourceElement, @Nullable String templateName) {
+    public record IncludeKeyContext(PsiElement sourceElement, @Nullable String templateName) {
     }
 
     /**
@@ -634,6 +623,6 @@ public final class TwigIncludeContextParser {
      * @param target PSI element where the variable was found in the target template
      * @param templateName target template that contributed the variable, e.g. {@code card.html.twig}
      */
-    public record IncludeWithContextTemplateVariable(@NotNull String name, @NotNull PsiElement target, @NotNull String templateName) {
+    public record IncludeWithContextTemplateVariable(String name, PsiElement target, String templateName) {
     }
 }

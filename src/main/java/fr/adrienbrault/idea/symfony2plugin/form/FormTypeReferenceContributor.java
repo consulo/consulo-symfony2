@@ -1,25 +1,39 @@
 package fr.adrienbrault.idea.symfony2plugin.form;
 
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.psi.*;
-import com.intellij.psi.util.PsiTreeUtil;
-import com.intellij.util.ProcessingContext;
+import com.jetbrains.php.lang.PhpLanguage;
 import com.jetbrains.php.lang.parser.PhpElementTypes;
-import com.jetbrains.php.lang.psi.elements.*;
+import com.jetbrains.php.lang.psi.elements.ArrayCreationExpression;
+import com.jetbrains.php.lang.psi.elements.ArrayHashElement;
+import com.jetbrains.php.lang.psi.elements.Method;
+import com.jetbrains.php.lang.psi.elements.MethodReference;
+import com.jetbrains.php.lang.psi.elements.ParameterList;
+import com.jetbrains.php.lang.psi.elements.PhpClass;
+import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.Language;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiReference;
+import consulo.language.psi.PsiReferenceContributor;
+import consulo.language.psi.PsiReferenceProvider;
+import consulo.language.psi.PsiReferenceRegistrar;
+import consulo.language.psi.util.PsiTreeUtil;
+import consulo.language.util.ProcessingContext;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.EntityReference;
 import fr.adrienbrault.idea.symfony2plugin.form.util.FormFieldNameReference;
+import fr.adrienbrault.idea.symfony2plugin.form.util.FormAttributeUtil;
 import fr.adrienbrault.idea.symfony2plugin.form.util.FormOptionsUtil;
 import fr.adrienbrault.idea.symfony2plugin.form.util.FormUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.MethodMatcher;
 import fr.adrienbrault.idea.symfony2plugin.util.ParameterBag;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class FormTypeReferenceContributor extends PsiReferenceContributor {
     public static final MethodMatcher.CallToSignature[] BUILDER_SIGNATURES = new MethodMatcher.CallToSignature[] {
         new MethodMatcher.CallToSignature("\\Symfony\\Component\\Form\\FormTypeInterface", "buildForm"),
@@ -30,15 +44,53 @@ public class FormTypeReferenceContributor extends PsiReferenceContributor {
     @Override
     public void registerReferenceProviders(PsiReferenceRegistrar psiReferenceRegistrar) {
 
+        /*
+         * #[FormField(options: ['property_path' => 'displayName', 'entry_type' => 'App\\AddressData'])]
+         * #[AsFormType(options: ['class' => 'App\\Entity\\Account'])]
+         */
+        psiReferenceRegistrar.registerReferenceProvider(
+            PlatformPatterns.psiElement(StringLiteralExpression.class).withParent(PlatformPatterns.psiElement(PhpElementTypes.ARRAY_VALUE)),
+            new PsiReferenceProvider() {
+                @Override
+                public PsiReference[] getReferencesByElement(PsiElement element, ProcessingContext context) {
+                    if (!Symfony2ProjectComponent.isEnabled(element)) {
+                        return PsiReference.EMPTY_ARRAY;
+                    }
+
+                    ArrayHashElement entry = PsiTreeUtil.getParentOfType(element, ArrayHashElement.class);
+                    if (entry == null || !(entry.getParent() instanceof ArrayCreationExpression options)
+                        || FormAttributeUtil.getOptionsAttribute(options) == null) {
+                        return PsiReference.EMPTY_ARRAY;
+                    }
+
+                    StringLiteralExpression literal = (StringLiteralExpression) element;
+                    String option = PhpElementsUtil.getStringValue(entry.getKey());
+                    if ("class".equals(option)) {
+                        return new PsiReference[] {new EntityReference(literal, true)};
+                    }
+                    if ("entry_type".equals(option) || "type".equals(option)) {
+                        return new PsiReference[] {new FormTypeReference(literal)};
+                    }
+                    if ("property_path".equals(option)) {
+                        PhpClass dataClass = FormOptionsUtil.getFormPhpClassFromContext(element);
+                        if (dataClass != null) {
+                            return new PsiReference[] {new FormUnderscoreMethodReference(literal, dataClass)};
+                        }
+                    }
+
+                    return PsiReference.EMPTY_ARRAY;
+                }
+            }
+        );
+
         psiReferenceRegistrar.registerReferenceProvider(
             PlatformPatterns.psiElement(StringLiteralExpression.class)
                 .withParent(
                     PlatformPatterns.psiElement(PhpElementTypes.ARRAY_VALUE).inside(ParameterList.class)
                 ),
             new PsiReferenceProvider() {
-                @NotNull
                 @Override
-                public PsiReference[] getReferencesByElement(@NotNull PsiElement psiElement, @NotNull ProcessingContext processingContext) {
+                public PsiReference[] getReferencesByElement(PsiElement psiElement, ProcessingContext processingContext) {
                     if (!Symfony2ProjectComponent.isEnabled(psiElement)) {
                         return new PsiReference[0];
                     }
@@ -82,7 +134,7 @@ public class FormTypeReferenceContributor extends PsiReferenceContributor {
                 }
 
                 @Override
-                public boolean acceptsTarget(@NotNull PsiElement target) {
+                public boolean acceptsTarget(PsiElement target) {
                     return Symfony2ProjectComponent.isEnabled(target);
                 }
             }
@@ -95,9 +147,8 @@ public class FormTypeReferenceContributor extends PsiReferenceContributor {
         psiReferenceRegistrar.registerReferenceProvider(
             PlatformPatterns.psiElement(StringLiteralExpression.class),
             new PsiReferenceProvider() {
-                @NotNull
                 @Override
-                public PsiReference @NotNull [] getReferencesByElement(@NotNull PsiElement psiElement, @NotNull ProcessingContext processingContext) {
+                public PsiReference[] getReferencesByElement(PsiElement psiElement, ProcessingContext processingContext) {
                     // match add('foo', 'type name')
                     MethodMatcher.MethodMatchParameter methodMatchParameter = new MethodMatcher.StringParameterMatcher(psiElement, 1)
                         .withSignature(FormUtil.PHP_FORM_BUILDER_SIGNATURES)
@@ -117,7 +168,7 @@ public class FormTypeReferenceContributor extends PsiReferenceContributor {
                 }
 
                 @Override
-                public boolean acceptsTarget(@NotNull PsiElement target) {
+                public boolean acceptsTarget(PsiElement target) {
                     return Symfony2ProjectComponent.isEnabled(target);
                 }
             }
@@ -127,9 +178,8 @@ public class FormTypeReferenceContributor extends PsiReferenceContributor {
         psiReferenceRegistrar.registerReferenceProvider(
             PlatformPatterns.psiElement(StringLiteralExpression.class),
             new PsiReferenceProvider() {
-                @NotNull
                 @Override
-                public PsiReference @NotNull [] getReferencesByElement(@NotNull PsiElement psiElement, @NotNull ProcessingContext processingContext) {
+                public PsiReference[] getReferencesByElement(PsiElement psiElement, ProcessingContext processingContext) {
                     if (!Symfony2ProjectComponent.isEnabled(psiElement) || !(psiElement.getContext() instanceof ParameterList parameterList)) {
                         return new PsiReference[0];
                     }
@@ -158,7 +208,7 @@ public class FormTypeReferenceContributor extends PsiReferenceContributor {
                 }
 
                 @Override
-                public boolean acceptsTarget(@NotNull PsiElement target) {
+                public boolean acceptsTarget(PsiElement target) {
                     return Symfony2ProjectComponent.isEnabled(target);
                 }
             }
@@ -168,9 +218,8 @@ public class FormTypeReferenceContributor extends PsiReferenceContributor {
         psiReferenceRegistrar.registerReferenceProvider(
             PlatformPatterns.psiElement(StringLiteralExpression.class),
             new PsiReferenceProvider() {
-                @NotNull
                 @Override
-                public PsiReference @NotNull [] getReferencesByElement(@NotNull PsiElement psiElement, @NotNull ProcessingContext processingContext) {
+                public PsiReference[] getReferencesByElement(PsiElement psiElement, ProcessingContext processingContext) {
                     MethodMatcher.MethodMatchParameter methodMatchParameter = new MethodMatcher.StringParameterMatcher(psiElement, 0)
                         .withSignature("\\Symfony\\Component\\Form\\FormInterface", "get")
                         .withSignature("\\Symfony\\Component\\Form\\FormInterface", "has")
@@ -180,30 +229,34 @@ public class FormTypeReferenceContributor extends PsiReferenceContributor {
                         return new PsiReference[0];
                     }
 
-                    Method method = FormUtil.resolveFormGetterCallMethod(methodMatchParameter.getMethodReference());
-                    if(method == null) {
+                    PhpClass formType = FormUtil.resolveFormGetterCall(methodMatchParameter.getMethodReference());
+                    if(formType == null) {
                         return new PsiReference[0];
                     }
 
                     return new PsiReference[] {
-                        new FormFieldNameReference((StringLiteralExpression) psiElement, method)
+                        new FormFieldNameReference((StringLiteralExpression) psiElement, formType)
                     };
                 }
 
                 @Override
-                public boolean acceptsTarget(@NotNull PsiElement target) {
+                public boolean acceptsTarget(PsiElement target) {
                     return Symfony2ProjectComponent.isEnabled(target);
                 }
             }
         );
     }
 
+    @Override
+    public Language getLanguage() {
+        return PhpLanguage.INSTANCE;
+    }
+
     private static class FormTypeReferenceRef extends FormTypeReference {
-        public FormTypeReferenceRef(@NotNull StringLiteralExpression element) {
+        public FormTypeReferenceRef(StringLiteralExpression element) {
             super(element);
         }
 
-        @NotNull
         @Override
         public Object[] getVariants() {
             return new Object[0];

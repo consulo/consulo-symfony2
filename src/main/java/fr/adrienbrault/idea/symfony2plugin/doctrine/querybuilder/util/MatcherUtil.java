@@ -1,10 +1,9 @@
 package fr.adrienbrault.idea.symfony2plugin.doctrine.querybuilder.util;
 
-import com.intellij.psi.PsiElement;
+import consulo.language.psi.PsiElement;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.util.MethodMatcher;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -24,8 +23,7 @@ public class MatcherUtil {
         new MethodMatcher.CallToSignature("\\Doctrine\\ORM\\QueryBuilder", "addGroupBy"),
     };
 
-    @Nullable
-    public static MethodMatcher.MethodMatchParameter matchPropertyField(PsiElement psiElement) {
+    public static MethodMatcher.@Nullable MethodMatchParameter matchPropertyField(PsiElement psiElement) {
 
         if (!Symfony2ProjectComponent.isEnabled(psiElement)) {
             return null;
@@ -50,8 +48,7 @@ public class MatcherUtil {
         return methodMatchParameter;
     }
 
-    @Nullable
-    public static MethodMatcher.MethodMatchParameter matchJoin(PsiElement psiElement) {
+    public static MethodMatcher.@Nullable MethodMatchParameter matchJoin(PsiElement psiElement) {
         return new MethodMatcher.StringParameterMatcher(psiElement, 0)
             .withSignature("\\Doctrine\\ORM\\QueryBuilder", "join")
             .withSignature("\\Doctrine\\ORM\\QueryBuilder", "leftJoin")
@@ -61,8 +58,7 @@ public class MatcherUtil {
     }
 
 
-    @Nullable
-    public static MethodMatcher.MethodMatchParameter matchWhere(PsiElement psiElement) {
+    public static MethodMatcher.@Nullable MethodMatchParameter matchWhere(PsiElement psiElement) {
         return new MethodMatcher.StringParameterMatcher(psiElement)
             .withSignature("\\Doctrine\\ORM\\QueryBuilder", "andWhere")
             .withSignature("\\Doctrine\\ORM\\QueryBuilder", "where")
@@ -100,8 +96,7 @@ public class MatcherUtil {
             .match();
     }
 
-    @Nullable
-    public static MethodMatcher.MethodMatchParameter matchField(@NotNull PsiElement psiElement) {
+    public static MethodMatcher.@Nullable MethodMatchParameter matchField(PsiElement psiElement) {
         MethodMatcher.MethodMatchParameter methodMatchParameter = MatcherUtil.matchPropertyField(psiElement);
         if (methodMatchParameter == null) {
             methodMatchParameter = MatcherUtil.matchFromIndexBy(psiElement);

@@ -1,73 +1,53 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.inspection;
 
-import com.intellij.codeInsight.intention.HighPriorityAction;
-import com.intellij.codeInsight.intention.preview.IntentionPreviewInfo;
-import com.intellij.codeInspection.IntentionAndQuickFixAction;
-import com.intellij.codeInspection.ProblemDescriptor;
-import com.intellij.openapi.command.WriteCommandAction;
-import com.intellij.openapi.editor.Editor;
-import com.intellij.openapi.fileEditor.FileEditorManager;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.ui.popup.JBPopup;
-import com.intellij.openapi.ui.popup.JBPopupFactory;
-import com.intellij.openapi.vfs.VfsUtil;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiFile;
 import com.jetbrains.twig.TwigFileType;
+import consulo.codeEditor.Editor;
+import consulo.fileEditor.FileEditorManager;
+import consulo.language.editor.WriteCommandAction;
+import consulo.language.editor.inspection.IntentionAndQuickFixAction;
+import consulo.language.editor.intention.HighPriorityAction;
+import consulo.language.psi.PsiFile;
+import consulo.localize.LocalizeValue;
+import consulo.project.Project;
+import consulo.ui.ex.popup.JBPopup;
+import consulo.ui.ex.popup.JBPopupFactory;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.virtualFileSystem.util.VirtualFileUtil;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.IdeHelper;
 import fr.adrienbrault.idea.symfony2plugin.util.ProjectUtil;
-import org.jetbrains.annotations.Nls;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.LinkedHashSet;
+import java.util.List;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class TemplateCreateByNameLocalQuickFix extends IntentionAndQuickFixAction implements HighPriorityAction {
-    private final @NotNull String[] templateNames;
+    private final String[] templateNames;
 
-    public TemplateCreateByNameLocalQuickFix(@NotNull String... templateNames) {
+    public TemplateCreateByNameLocalQuickFix(String... templateNames) {
         this.templateNames = templateNames;
     }
 
     @Override
-    public @NotNull IntentionPreviewInfo generatePreview(@NotNull Project project, @NotNull Editor editor, @NotNull PsiFile file) {
-        return IntentionPreviewInfo.EMPTY;
+    public LocalizeValue getName() {
+        return LocalizeValue.localizeTODO("Twig: Create Template");
     }
 
+    // consulo-port: applyFix(Project, ProblemDescriptor) is final in Consulo IntentionAndQuickFixAction and delegates to
+    // applyFix(Project, PsiFile, Editor), which ends up in applyFix(Project) as upstream did
     @Override
-    public @NotNull IntentionPreviewInfo generatePreview(@NotNull Project project, @NotNull ProblemDescriptor previewDescriptor) {
-        return IntentionPreviewInfo.EMPTY;
-    }
-
-    @Nls
-    @NotNull
-    @Override
-    public String getName() {
-        return "Twig: Create Template";
-    }
-
-    @Nls
-    @NotNull
-    @Override
-    public String getFamilyName() {
-        return "Twig";
-    }
-
-    @Override
-    public void applyFix(@NotNull Project project, PsiFile psiFile, @Nullable Editor editor) {
+    public void applyFix(Project project, PsiFile psiFile, @Nullable Editor editor) {
         applyFix(project);
     }
 
-    @Override
-    public void applyFix(@NotNull Project project, @NotNull ProblemDescriptor problemDescriptor) {
-        applyFix(project);
-    }
-
-    private void applyFix(@NotNull Project project) {
+    private void applyFix(Project project) {
         Collection<String> templatePaths = new LinkedHashSet<>();
 
         for (String templateName : templateNames) {
@@ -99,18 +79,18 @@ public class TemplateCreateByNameLocalQuickFix extends IntentionAndQuickFixActio
         // show popup in scope
         Editor selectedTextEditor = FileEditorManager.getInstance(project).getSelectedTextEditor();
         if(selectedTextEditor != null) {
-            popup.showInBestPositionFor(selectedTextEditor);
+            selectedTextEditor.showPopupInBestPositionFor(popup);
         } else {
             popup.showCenteredInCurrentWindow(project);
         }
     }
 
-    private static void createFile(@NotNull Project project, @NotNull String relativePath) {
+    private static void createFile(Project project, String relativePath) {
         VirtualFile relativeBlockScopeFile = null;
 
         int i = relativePath.lastIndexOf("/");
         if(i > 0) {
-            relativeBlockScopeFile = VfsUtil.findRelativeFile(ProjectUtil.getProjectDir(project), relativePath.substring(0, i).split("/"));
+            relativeBlockScopeFile = VirtualFileUtil.findRelativeFile(ProjectUtil.getProjectDir(project), relativePath.substring(0, i).split("/"));
         }
 
         String content = TwigUtil.buildStringFromTwigCreateContainer(project, relativeBlockScopeFile);

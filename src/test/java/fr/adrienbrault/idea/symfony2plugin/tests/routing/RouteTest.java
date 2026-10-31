@@ -1,10 +1,12 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.routing;
 
+import org.junit.jupiter.api.Test;
+
+import fr.adrienbrault.idea.symfony2plugin.tests.JUnit3Assert;
+
 import com.google.common.collect.ImmutableMap;
 import fr.adrienbrault.idea.symfony2plugin.routing.Route;
 import fr.adrienbrault.idea.symfony2plugin.stubs.dict.StubIndexedRoute;
-import org.junit.Assert;
-import org.junit.Test;
 
 import java.util.*;
 
@@ -12,7 +14,7 @@ import java.util.*;
  * @author Daniel Espendiller <daniel@espendiller.net>
  * @see fr.adrienbrault.idea.symfony2plugin.routing.Route
  */
-public class RouteTest extends Assert {
+public class RouteTest extends JUnit3Assert {
 
     @Test
     public void testIndexInit() {

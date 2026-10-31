@@ -2,8 +2,7 @@ package fr.adrienbrault.idea.symfony2plugin.translation.parser;
 
 import com.jetbrains.php.lang.lexer.PhpLexer;
 import com.jetbrains.php.lang.lexer.PhpTokenTypes;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -23,13 +22,13 @@ class PhpCatalogueParser {
 
     sealed interface Node permits StringNode, ArrayNode, NewNode, OtherNode {}
 
-    record StringNode(@NotNull String value) implements Node {}
+    record StringNode(String value) implements Node {}
 
-    record ArrayEntry(@NotNull String key, @NotNull Node value) {}
+    record ArrayEntry(String key, Node value) {}
 
-    record ArrayNode(@NotNull List<ArrayEntry> entries) implements Node {}
+    record ArrayNode(List<ArrayEntry> entries) implements Node {}
 
-    record NewNode(@NotNull String className, @NotNull List<Node> args) implements Node {}
+    record NewNode(String className, List<Node> args) implements Node {}
 
     /** Placeholder for anything we don't care about (numbers, variables, etc.) */
     record OtherNode() implements Node {}
@@ -38,8 +37,7 @@ class PhpCatalogueParser {
 
     // --- Public API ---
 
-    @NotNull
-    static List<NewNode> findNewExpressions(@NotNull String content) {
+    static List<NewNode> findNewExpressions(String content) {
         var tokens = tokenize(content);
         return new Parser(tokens).parseAll();
     }
@@ -51,15 +49,14 @@ class PhpCatalogueParser {
         COMMA, FAT_ARROW, NEW_KW, IDENT, EOF
     }
 
-    private record Token(@NotNull T type, @NotNull String value) {}
+    private record Token(T type, String value) {}
 
     /**
      * Tokenizes PHP source using PhpLexer and maps the relevant token types to our minimal T enum.
      * PhpLexer handles comments, whitespace, escape sequences, and all PHP edge cases — everything
      * we omit here is simply skipped.
      */
-    @NotNull
-    private static List<Token> tokenize(@NotNull String src) {
+    private static List<Token> tokenize(String src) {
         PhpLexer lexer = new PhpLexer(false);
         lexer.start(src);
 
@@ -113,11 +110,10 @@ class PhpCatalogueParser {
         private final List<Token> tokens;
         private int pos;
 
-        Parser(@NotNull List<Token> tokens) {
+        Parser(List<Token> tokens) {
             this.tokens = tokens;
         }
 
-        @NotNull
         List<NewNode> parseAll() {
             List<NewNode> result = new ArrayList<>();
             while (!at(T.EOF)) {
@@ -155,8 +151,7 @@ class PhpCatalogueParser {
             return new NewNode(className.toString(), args);
         }
 
-        @NotNull
-        private List<Node> parseArgList(@NotNull T closeToken) {
+        private List<Node> parseArgList(T closeToken) {
             List<Node> args = new ArrayList<>();
             while (!at(closeToken) && !at(T.EOF)) {
                 args.add(parseValue());
@@ -167,7 +162,6 @@ class PhpCatalogueParser {
             return args;
         }
 
-        @NotNull
         private Node parseValue() {
             if (at(T.STRING)) {
                 return new StringNode(advance().value());
@@ -193,8 +187,7 @@ class PhpCatalogueParser {
             return OTHER;
         }
 
-        @NotNull
-        private ArrayNode parseArrayEntries(@NotNull T closeToken) {
+        private ArrayNode parseArrayEntries(T closeToken) {
             List<ArrayEntry> entries = new ArrayList<>();
             while (!at(closeToken) && !at(T.EOF)) {
                 Node keyNode = parseValue();
@@ -212,15 +205,14 @@ class PhpCatalogueParser {
             return new ArrayNode(entries);
         }
 
-        private boolean at(@NotNull T type) { return tokens.get(pos).type() == type; }
+        private boolean at(T type) { return tokens.get(pos).type() == type; }
 
-        @NotNull
         private Token advance() {
             Token t = tokens.get(pos);
             if (t.type() != T.EOF) pos++;
             return t;
         }
 
-        private void consume(@NotNull T type) { if (at(type)) advance(); }
+        private void consume(T type) { if (at(type)) advance(); }
     }
 }

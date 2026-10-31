@@ -1,8 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.stubs.indexes.externalizer;
 
-import com.intellij.util.io.DataExternalizer;
+import consulo.index.io.data.DataExternalizer;
 import fr.adrienbrault.idea.symfony2plugin.dic.container.dict.ContainerBuilderCall;
-import org.jetbrains.annotations.NotNull;
 
 import java.io.DataInput;
 import java.io.DataOutput;
@@ -17,7 +16,7 @@ public class ContainerBuilderCallExternalizer implements DataExternalizer<Contai
     public static final ContainerBuilderCallExternalizer INSTANCE = new ContainerBuilderCallExternalizer();
 
     @Override
-    public void save(@NotNull DataOutput out, ContainerBuilderCall value) throws IOException {
+    public void save(DataOutput out, ContainerBuilderCall value) throws IOException {
         writeNullableString(out, value.getScope());
         writeNullableString(out, value.getName());
         Collection<String> parameter = value.getParameter();
@@ -32,7 +31,7 @@ public class ContainerBuilderCallExternalizer implements DataExternalizer<Contai
     }
 
     @Override
-    public ContainerBuilderCall read(@NotNull DataInput in) throws IOException {
+    public ContainerBuilderCall read(DataInput in) throws IOException {
         ContainerBuilderCall call = new ContainerBuilderCall();
         call.setScope(readNullableString(in));
         call.setName(readNullableString(in));
@@ -43,14 +42,14 @@ public class ContainerBuilderCallExternalizer implements DataExternalizer<Contai
         return call;
     }
 
-    private static void writeNullableString(@NotNull DataOutput out, String value) throws IOException {
+    private static void writeNullableString(DataOutput out, String value) throws IOException {
         out.writeBoolean(value != null);
         if (value != null) {
             out.writeUTF(value);
         }
     }
 
-    private static String readNullableString(@NotNull DataInput in) throws IOException {
+    private static String readNullableString(DataInput in) throws IOException {
         return in.readBoolean() ? in.readUTF() : null;
     }
 }

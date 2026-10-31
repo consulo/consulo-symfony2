@@ -1,23 +1,32 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.templating.completion;
 
-import com.intellij.codeInsight.lookup.LookupElementPresentation;
+import org.junit.jupiter.api.Test;
+
+import fr.adrienbrault.idea.symfony2plugin.tests.JUnit3Assert;
+
+import consulo.language.editor.completion.lookup.LookupElementPresentation;
 import fr.adrienbrault.idea.symfony2plugin.templating.completion.TwigComponentBlockLookupElement;
-import junit.framework.TestCase;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
-public class TwigComponentBlockLookupElementTest extends TestCase {
+public class TwigComponentBlockLookupElementTest extends JUnit3Assert {
+
+    @Test
 
     public void testLookupString() {
         TwigComponentBlockLookupElement element = new TwigComponentBlockLookupElement("message", "Alert.html.twig");
         assertEquals("twig:block name=\"message\"", element.getLookupString());
     }
 
+    @Test
+
     public void testLookupStringWithoutTypeText() {
         TwigComponentBlockLookupElement element = new TwigComponentBlockLookupElement("actions", null);
         assertEquals("twig:block name=\"actions\"", element.getLookupString());
     }
+
+    @Test
 
     public void testRenderElementWithTypeText() {
         TwigComponentBlockLookupElement element = new TwigComponentBlockLookupElement("message", "Alert.html.twig");
@@ -28,6 +37,8 @@ public class TwigComponentBlockLookupElementTest extends TestCase {
         assertEquals("Alert.html.twig", presentation.getTypeText());
         assertTrue(presentation.isTypeGrayed());
     }
+
+    @Test
 
     public void testRenderElementWithoutTypeText() {
         TwigComponentBlockLookupElement element = new TwigComponentBlockLookupElement("actions", null);

@@ -1,8 +1,9 @@
 package fr.adrienbrault.idea.symfony2plugin.translation;
 
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.psi.PsiElement;
 import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiElement;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionRegistrar;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionRegistrarParameter;
 import fr.adrienbrault.idea.symfony2plugin.form.gotoCompletion.TranslationDomainGotoCompletionProvider;
@@ -10,11 +11,11 @@ import fr.adrienbrault.idea.symfony2plugin.form.gotoCompletion.TranslationGotoCo
 import fr.adrienbrault.idea.symfony2plugin.util.MethodMatcher;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.psi.PhpPsiMatcher;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class ValidatorTranslationGotoCompletionRegistrar implements GotoCompletionRegistrar {
     private static final PhpPsiMatcher.ArrayValueWithKeyAndNewExpression.Matcher CONSTRAINT_MESSAGE = new PhpPsiMatcher.ArrayValueWithKeyAndNewExpression.Matcher(
         "message",
@@ -27,7 +28,7 @@ public class ValidatorTranslationGotoCompletionRegistrar implements GotoCompleti
     );
 
     @Override
-    public void register(@NotNull GotoCompletionRegistrarParameter registrar) {
+    public void register(GotoCompletionRegistrarParameter registrar) {
         // new Constraint(['message' => '<caret>'])
         // new Constraint(message: '<caret>')
         registrar.register(

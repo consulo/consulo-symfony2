@@ -1,44 +1,39 @@
 package fr.adrienbrault.idea.symfony2plugin.util.dict;
 
-import org.jetbrains.annotations.NotNull;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class PhpMethodReferenceCall {
 
-    @NotNull
     private final String clazz;
 
-    @NotNull
     private final String[] methods;
 
     private final int index;
 
-    public PhpMethodReferenceCall(@NotNull String clazz, @NotNull String... method) {
+    public PhpMethodReferenceCall(String clazz, String... method) {
         this(clazz, method, 0);
     }
 
-    public PhpMethodReferenceCall(@NotNull String clazz, @NotNull String method, int index) {
+    public PhpMethodReferenceCall(String clazz, String method, int index) {
         this(clazz, new String[] { method }, index);
     }
 
-    public PhpMethodReferenceCall(@NotNull String clazz, int index, @NotNull String... method) {
+    public PhpMethodReferenceCall(String clazz, int index, String... method) {
         this(clazz, method, index);
     }
 
-    public PhpMethodReferenceCall(@NotNull String clazz, @NotNull String[] methods, int index) {
+    public PhpMethodReferenceCall(String clazz, String[] methods, int index) {
         this.clazz = clazz;
         this.methods = methods;
         this.index = index;
     }
 
-    @NotNull
     public String getClassName() {
         return this.clazz;
     }
 
-    @NotNull
     public String[] getMethods() {
         return this.methods;
     }

@@ -1,6 +1,5 @@
 package fr.adrienbrault.idea.symfony2plugin.util.xml;
 
-import org.jetbrains.annotations.NotNull;
 import org.xml.sax.InputSource;
 
 import javax.xml.XMLConstants;
@@ -16,7 +15,6 @@ public final class SecureXmlUtil {
     private SecureXmlUtil() {
     }
 
-    @NotNull
     private static DocumentBuilderFactory createDocumentBuilderFactory() throws ParserConfigurationException {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
 
@@ -35,14 +33,13 @@ public final class SecureXmlUtil {
     /**
      * Returns a new {@link DocumentBuilder} with DTDs and external entities disabled.
      */
-    @NotNull
     public static DocumentBuilder createDocumentBuilder() throws ParserConfigurationException {
         DocumentBuilder builder = createDocumentBuilderFactory().newDocumentBuilder();
         builder.setEntityResolver((publicId, systemId) -> new InputSource(new StringReader("")));
         return builder;
     }
 
-    private static void clearAttribute(@NotNull DocumentBuilderFactory factory, @NotNull String name) {
+    private static void clearAttribute(DocumentBuilderFactory factory, String name) {
         try {
             factory.setAttribute(name, "");
         } catch (IllegalArgumentException e) {

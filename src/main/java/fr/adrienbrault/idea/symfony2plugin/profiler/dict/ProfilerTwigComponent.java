@@ -1,7 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.profiler.dict;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Objects;
 
@@ -15,7 +14,7 @@ import java.util.Objects;
  * @param renderCount Render count from the profiler, used only for aggregation and ordering.
  */
 public record ProfilerTwigComponent(
-    @NotNull String name,
+    String name,
     @Nullable String className,
     @Nullable String template,
     int renderCount
@@ -34,8 +33,7 @@ public record ProfilerTwigComponent(
         return ANONYMOUS_COMPONENT_CLASS.equals(className);
     }
 
-    @NotNull
-    public ProfilerTwigComponent merge(@NotNull ProfilerTwigComponent component) {
+    public ProfilerTwigComponent merge(ProfilerTwigComponent component) {
         return new ProfilerTwigComponent(
             name,
             className != null ? className : component.className(),

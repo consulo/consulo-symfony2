@@ -1,14 +1,13 @@
 package fr.adrienbrault.idea.symfony2plugin.assistant.signature;
 
-import com.intellij.openapi.project.Project;
 import com.jetbrains.php.PhpIndex;
 import com.jetbrains.php.lang.psi.elements.PhpNamedElement;
+import consulo.project.Project;
 import fr.adrienbrault.idea.symfony2plugin.dic.ContainerService;
 import fr.adrienbrault.idea.symfony2plugin.form.util.FormUtil;
 import fr.adrienbrault.idea.symfony2plugin.stubs.ContainerCollectionResolver;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -42,7 +41,6 @@ public class PhpTypeSignatureTypes {
             return null;
         }
 
-        @NotNull
         public String getName() {
             return "Service";
         }
@@ -56,7 +54,6 @@ public class PhpTypeSignatureTypes {
             return PhpIndex.getInstance(project).getClassesByFQN(parameter.startsWith("\\") ? parameter : "\\" + parameter);
         }
 
-        @NotNull
         public String getName() {
             return "Class";
         }
@@ -70,7 +67,6 @@ public class PhpTypeSignatureTypes {
             return Collections.singletonList(PhpElementsUtil.getClassInterface(project, parameter));
         }
 
-        @NotNull
         public String getName() {
             return "ClassInterface";
         }
@@ -84,7 +80,6 @@ public class PhpTypeSignatureTypes {
             return PhpIndex.getInstance(project).getInterfacesByFQN(parameter.startsWith("\\") ? parameter : "\\" + parameter);
         }
 
-        @NotNull
         public String getName() {
             return "Interface";
         }
@@ -98,7 +93,6 @@ public class PhpTypeSignatureTypes {
             return Collections.singletonList(FormUtil.getFormTypeToClass(project, parameter));
         }
 
-        @NotNull
         public String getName() {
             return "FormType";
         }

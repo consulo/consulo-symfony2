@@ -1,22 +1,25 @@
 package fr.adrienbrault.idea.symfony2plugin.dic.linemarker;
 
-import com.intellij.codeInsight.daemon.LineMarkerInfo;
-import com.intellij.codeInsight.daemon.LineMarkerProvider;
-import com.intellij.codeInsight.navigation.NavigationGutterIconBuilder;
-import com.intellij.icons.AllIcons;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.NotNullLazyValue;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
+import consulo.annotation.access.RequiredReadAction;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.Language;
+import consulo.language.editor.gutter.LineMarkerInfo;
+import consulo.language.editor.gutter.LineMarkerProvider;
+import consulo.language.editor.ui.navigation.NavigationGutterIconBuilder;
+import consulo.platform.base.icon.PlatformIconGroup;
+import consulo.project.Project;
+import consulo.application.util.NotNullLazyValue;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.config.yaml.YamlElementPatternHelper;
 import fr.adrienbrault.idea.symfony2plugin.dic.container.ServiceSerializable;
 import fr.adrienbrault.idea.symfony2plugin.stubs.ServiceIndexUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
+import org.jetbrains.yaml.YAMLLanguage;
 import org.jetbrains.yaml.YAMLTokenTypes;
 import org.jetbrains.yaml.psi.YAMLKeyValue;
 
@@ -26,15 +29,18 @@ import java.util.List;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class YamlLineMarkerProvider implements LineMarkerProvider {
     @Nullable
     @Override
-    public LineMarkerInfo<?> getLineMarkerInfo(@NotNull PsiElement psiElement) {
+    @RequiredReadAction
+    public LineMarkerInfo<?> getLineMarkerInfo(PsiElement psiElement) {
         return null;
     }
 
     @Override
-    public void collectSlowLineMarkers(@NotNull List<? extends PsiElement> psiElements, @NotNull Collection<? super LineMarkerInfo<?>> result) {
+    @RequiredReadAction
+    public void collectSlowLineMarkers(List<PsiElement> psiElements, Collection<LineMarkerInfo> result) {
         if (psiElements.isEmpty()) {
             return;
         }
@@ -71,7 +77,7 @@ public class YamlLineMarkerProvider implements LineMarkerProvider {
         }
     }
 
-    private void visitServiceIdForResources(@NotNull Project project, PsiElement leafTarget, YAMLKeyValue yamlKeyValue, @NotNull Collection<? super LineMarkerInfo<?>> result) {
+    private void visitServiceIdForResources(Project project, PsiElement leafTarget, YAMLKeyValue yamlKeyValue, Collection<? super LineMarkerInfo<?>> result) {
         String id = yamlKeyValue.getKeyText();
         if (StringUtils.isBlank(id) || !id.endsWith("\\")) {
             return;
@@ -92,13 +98,13 @@ public class YamlLineMarkerProvider implements LineMarkerProvider {
             return;
         }
 
-        result.add(NavigationGutterIconBuilder.create(AllIcons.Modules.SourceRoot)
-            .setTargets(NotNullLazyValue.lazy(() -> ServiceIndexUtil.getClassesForServiceDefinition(project, containerFile, service)))
+        result.add(NavigationGutterIconBuilder.create(PlatformIconGroup.modulesSourceroot())
+            .setTargets(NotNullLazyValue.createValue(() -> ServiceIndexUtil.getClassesForServiceDefinition(project, containerFile, service)))
             .setTooltipText("Navigate to class")
             .createLineMarkerInfo(leafTarget));
     }
 
-    private void visitServiceId(@NotNull Project project, @NotNull PsiElement leafTarget, @NotNull YAMLKeyValue yamlKeyValue, @NotNull Collection<? super LineMarkerInfo<?>> result, @NotNull LazyDecoratedParentServiceValues lazyDecoratedServices) {
+    private void visitServiceId(Project project, PsiElement leafTarget, YAMLKeyValue yamlKeyValue, Collection<? super LineMarkerInfo<?>> result, LazyDecoratedParentServiceValues lazyDecoratedServices) {
         String id = yamlKeyValue.getKeyText();
         if(StringUtils.isBlank(id)) {
             return;
@@ -118,5 +124,10 @@ public class YamlLineMarkerProvider implements LineMarkerProvider {
             lazyDecoratedServices,
             id
         );
+    }
+
+    @Override
+    public Language getLanguage() {
+        return YAMLLanguage.INSTANCE;
     }
 }

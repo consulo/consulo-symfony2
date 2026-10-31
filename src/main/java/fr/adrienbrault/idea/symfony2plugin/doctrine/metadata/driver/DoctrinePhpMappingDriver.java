@@ -1,18 +1,17 @@
 package fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.driver;
 
-import com.intellij.psi.PsiFile;
 import com.jetbrains.php.lang.documentation.phpdoc.psi.PhpDocComment;
 import com.jetbrains.php.lang.documentation.phpdoc.psi.tags.PhpDocTag;
 import com.jetbrains.php.lang.psi.PhpFile;
 import com.jetbrains.php.lang.psi.elements.Field;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
+import consulo.language.psi.PsiFile;
 import de.espend.idea.php.annotation.util.AnnotationUtil;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.EntityHelper;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.dict.DoctrineModelField;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.metadata.dict.DoctrineMetadataModel;
 import fr.adrienbrault.idea.symfony2plugin.util.AnnotationBackportUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -25,7 +24,7 @@ import java.util.Map;
 public class DoctrinePhpMappingDriver implements DoctrineMappingDriverInterface {
 
     @Override
-    public DoctrineMetadataModel getMetadata(@NotNull DoctrineMappingDriverArguments args) {
+    public DoctrineMetadataModel getMetadata(DoctrineMappingDriverArguments args) {
         PsiFile psiFile = args.getPsiFile();
         if(!(psiFile instanceof PhpFile)) {
             return null;

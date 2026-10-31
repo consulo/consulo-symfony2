@@ -1,31 +1,38 @@
 package fr.adrienbrault.idea.symfony2plugin.form;
 
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiElementResolveResult;
-import com.intellij.psi.PsiPolyVariantReferenceBase;
-import com.intellij.psi.ResolveResult;
-import com.jetbrains.php.lang.psi.elements.*;
-import fr.adrienbrault.idea.symfony2plugin.util.StringUtils;
-import kotlin.Pair;
-import org.jetbrains.annotations.NotNull;
+import fr.adrienbrault.idea.symfony2plugin.codeInsight.completion.SymfonyCompletionReference;
 
-import java.util.*;
+import com.jetbrains.php.lang.psi.elements.Field;
+import com.jetbrains.php.lang.psi.elements.Method;
+import com.jetbrains.php.lang.psi.elements.PhpClass;
+import com.jetbrains.php.lang.psi.elements.PhpNamedElement;
+import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiElementResolveResult;
+import consulo.language.psi.PsiPolyVariantReferenceBase;
+import consulo.language.psi.ResolveResult;
+import fr.adrienbrault.idea.symfony2plugin.util.StringUtils;
+import consulo.util.lang.Pair;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.function.Consumer;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
-public class FormUnderscoreMethodReference extends PsiPolyVariantReferenceBase<StringLiteralExpression> {
-    @NotNull
+public class FormUnderscoreMethodReference extends PsiPolyVariantReferenceBase<StringLiteralExpression> implements SymfonyCompletionReference {
     private final PhpClass phpClass;
 
-    public FormUnderscoreMethodReference(@NotNull StringLiteralExpression element, @NotNull PhpClass phpClass) {
+    public FormUnderscoreMethodReference(StringLiteralExpression element, PhpClass phpClass) {
         super(element);
         this.phpClass = phpClass;
     }
 
-    @NotNull
     @Override
     public ResolveResult[] multiResolve(boolean incompleteCode) {
         String contents = getElement().getContents();
@@ -54,9 +61,8 @@ public class FormUnderscoreMethodReference extends PsiPolyVariantReferenceBase<S
         return PsiElementResolveResult.createResults(psiElements);
     }
 
-    @NotNull
     @Override
-    public Object[] getVariants() {
+    public Object[] getCompletionVariants() {
         Collection<LookupElement> lookupElements = new ArrayList<>();
 
         visitPropertyPath(
@@ -67,7 +73,7 @@ public class FormUnderscoreMethodReference extends PsiPolyVariantReferenceBase<S
         return lookupElements.toArray();
     }
 
-    public static void visitPropertyPath(@NotNull PhpClass phpClass, @NotNull Consumer<Pair<String, PhpNamedElement>> consumer) {
+    public static void visitPropertyPath(PhpClass phpClass, Consumer<Pair<String, PhpNamedElement>> consumer) {
         // provide setter fallback for non-model class or unknown methods
         for (Method method: phpClass.getMethods()) {
             String name = method.getName();
@@ -85,8 +91,7 @@ public class FormUnderscoreMethodReference extends PsiPolyVariantReferenceBase<S
         }
     }
 
-    @NotNull
-    private Set<String> getCamelizeAndUnderscoreString(@NotNull String string) {
+    private Set<String> getCamelizeAndUnderscoreString(String string) {
         TreeSet<String> strings = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
 
         string = StringUtils.lcfirst(string);

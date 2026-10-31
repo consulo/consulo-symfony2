@@ -1,16 +1,15 @@
 package fr.adrienbrault.idea.symfony2plugin.action.generator.naming;
 
 import com.google.gson.JsonObject;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.vfs.VfsUtil;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
+import consulo.project.Project;
+import consulo.virtualFileSystem.util.VirtualFileUtil;
 import fr.adrienbrault.idea.symfony2plugin.Settings;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.ProjectUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
@@ -21,9 +20,8 @@ import javax.script.ScriptException;
  */
 public class JavascriptServiceNameStrategy implements ServiceNameStrategyInterface {
 
-    @Nullable
     @Override
-    public String getServiceName(@NotNull ServiceNameStrategyParameter parameter) {
+    public @Nullable String getServiceName(ServiceNameStrategyParameter parameter) {
 
         String serviceJsNameStrategy = Settings.getInstance(parameter.getProject()).serviceJsNameStrategy;
         if(serviceJsNameStrategy == null || StringUtils.isBlank(serviceJsNameStrategy)) {
@@ -43,8 +41,7 @@ public class JavascriptServiceNameStrategy implements ServiceNameStrategyInterfa
         return null;
     }
 
-    @Nullable
-    public static Object run(@NotNull Project project, @NotNull String className, @NotNull String serviceJsNameStrategy) throws ScriptException {
+    public static @Nullable Object run(Project project, String className, String serviceJsNameStrategy) throws ScriptException {
 
         JsonObject jsonObject = new JsonObject();
 
@@ -55,7 +52,7 @@ public class JavascriptServiceNameStrategy implements ServiceNameStrategyInterfa
 
         PhpClass aClass = PhpElementsUtil.getClass(project, className);
         if(aClass != null) {
-            String relativePath = VfsUtil.getRelativePath(aClass.getContainingFile().getVirtualFile(), ProjectUtil.getProjectDir(aClass), '/');
+            String relativePath = VirtualFileUtil.getRelativePath(aClass.getContainingFile().getVirtualFile(), ProjectUtil.getProjectDir(aClass), '/');
             if(relativePath != null) {
                 jsonObject.addProperty("relativePath", relativePath);
             }

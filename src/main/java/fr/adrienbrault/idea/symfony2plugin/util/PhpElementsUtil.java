@@ -1,26 +1,5 @@
 package fr.adrienbrault.idea.symfony2plugin.util;
 
-import com.intellij.codeInsight.completion.CompletionResultSet;
-import com.intellij.lang.ASTNode;
-import com.intellij.openapi.editor.Document;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.Key;
-import com.intellij.openapi.util.Ref;
-import com.intellij.patterns.ElementPattern;
-import com.intellij.patterns.PatternCondition;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.patterns.PsiElementPattern;
-import com.intellij.psi.*;
-import com.intellij.psi.codeStyle.CodeStyleManager;
-import com.intellij.psi.formatter.FormatterUtil;
-import com.intellij.psi.search.GlobalSearchScope;
-import com.intellij.psi.util.CachedValue;
-import com.intellij.psi.util.CachedValueProvider;
-import com.intellij.psi.util.CachedValuesManager;
-import com.intellij.psi.util.PsiTreeUtil;
-import com.intellij.util.ProcessingContext;
-import com.intellij.util.Processor;
-import com.intellij.util.indexing.FileBasedIndex;
 import com.jetbrains.php.PhpClassHierarchyUtils;
 import com.jetbrains.php.PhpIndex;
 import com.jetbrains.php.codeInsight.PhpCodeInsightUtil;
@@ -52,20 +31,46 @@ import com.jetbrains.php.lang.psi.stubs.indexes.expectedArguments.PhpExpectedFun
 import com.jetbrains.php.lang.psi.stubs.indexes.expectedArguments.PhpExpectedFunctionScalarArgument;
 import com.jetbrains.php.phpunit.PhpUnitUtil;
 import com.jetbrains.php.refactoring.PhpAliasImporter;
+import consulo.application.util.CachedValue;
+import consulo.application.util.CachedValueProvider;
+import consulo.application.util.CachedValuesManager;
+import consulo.document.Document;
+import consulo.language.ast.ASTNode;
+import consulo.language.codeStyle.CodeStyleManager;
+import consulo.language.codeStyle.FormatterUtil;
+import consulo.language.editor.completion.CompletionResultSet;
+import consulo.language.pattern.ElementPattern;
+import consulo.language.pattern.PatternCondition;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.pattern.PsiElementPattern;
+import consulo.language.psi.PsiDocumentManager;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.PsiRecursiveElementVisitor;
+import consulo.language.psi.PsiRecursiveElementWalkingVisitor;
+import consulo.language.psi.PsiReference;
+import consulo.language.psi.PsiWhiteSpace;
+import consulo.language.psi.scope.GlobalSearchScope;
+import consulo.language.psi.stub.FileBasedIndex;
+import consulo.language.psi.util.PsiTreeUtil;
+import consulo.language.util.ProcessingContext;
+import consulo.project.Project;
+import consulo.util.dataholder.Key;
+import consulo.util.lang.ref.Ref;
 import fr.adrienbrault.idea.symfony2plugin.dic.MethodReferenceBag;
 import fr.adrienbrault.idea.symfony2plugin.stubs.cache.FileIndexCaches;
 import fr.adrienbrault.idea.symfony2plugin.util.psi.PsiElementAssertUtil;
-import kotlin.Pair;
+import consulo.util.lang.Pair;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
-import static fr.adrienbrault.idea.symfony2plugin.util.StringUtils.startWithEqualClassname;
+import org.jspecify.annotations.Nullable;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
+
+import static fr.adrienbrault.idea.symfony2plugin.util.StringUtils.startWithEqualClassname;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -82,7 +87,7 @@ public class PhpElementsUtil {
      */
     private static final PatternCondition<StringLiteralExpression> WITH_PREVIOUS_WHITESPACE_OR_COLON = new PatternCondition<>("whitespace or colon") {
         @Override
-        public boolean accepts(@NotNull StringLiteralExpression element, ProcessingContext context) {
+        public boolean accepts(StringLiteralExpression element, ProcessingContext context) {
             ASTNode previousNonWhitespaceSibling = FormatterUtil.getPreviousNonWhitespaceSibling(element.getNode());
             return previousNonWhitespaceSibling == null || previousNonWhitespaceSibling.getElementType() == PhpTokenTypes.opCOLON;
         }
@@ -93,8 +98,7 @@ public class PhpElementsUtil {
      *
      * ['foo' => $bar]
      */
-    @NotNull
-    static public Collection<String> getArrayCreationKeys(@NotNull ArrayCreationExpression arrayCreationExpression) {
+    static public Collection<String> getArrayCreationKeys(ArrayCreationExpression arrayCreationExpression) {
         return getArrayCreationKeyMap(arrayCreationExpression).keySet();
     }
 
@@ -103,8 +107,7 @@ public class PhpElementsUtil {
      *
      * ['foo' => $bar]
      */
-    @NotNull
-    static public Map<String, PsiElement> getArrayCreationKeyMap(@NotNull ArrayCreationExpression arrayCreationExpression) {
+    static public Map<String, PsiElement> getArrayCreationKeyMap(ArrayCreationExpression arrayCreationExpression) {
         Map<String, PsiElement> keys = new HashMap<>();
 
         for(ArrayHashElement arrayHashElement: arrayCreationExpression.getHashElements()) {
@@ -146,8 +149,7 @@ public class PhpElementsUtil {
      *
      * ["value", "value2"]
      */
-    @NotNull
-    static public Set<String> getArrayValuesAsString(@NotNull ArrayCreationExpression arrayCreationExpression) {
+    static public Set<String> getArrayValuesAsString(ArrayCreationExpression arrayCreationExpression) {
         return getArrayValuesAsMap(arrayCreationExpression).keySet();
     }
 
@@ -156,8 +158,7 @@ public class PhpElementsUtil {
      *
      * ["value", "value2"]
      */
-    @NotNull
-    static public Map<String, PsiElement> getArrayValuesAsMap(@NotNull ArrayCreationExpression arrayCreationExpression) {
+    static public Map<String, PsiElement> getArrayValuesAsMap(ArrayCreationExpression arrayCreationExpression) {
         Collection<PsiElement> arrayValues = PhpPsiUtil.getChildren(arrayCreationExpression, psiElement ->
             psiElement.getNode().getElementType() == PhpElementTypes.ARRAY_VALUE
         );
@@ -178,8 +179,7 @@ public class PhpElementsUtil {
      *
      * ["value", FOO::class] but not [$foo . $foo, $foo]
      */
-    @NotNull
-    static public PsiElement[] getArrayValues(@NotNull ArrayCreationExpression arrayCreationExpression) {
+    static public PsiElement[] getArrayValues(ArrayCreationExpression arrayCreationExpression) {
         Collection<PsiElement> arrayValues = PhpPsiUtil.getChildren(arrayCreationExpression, psiElement ->
             psiElement.getNode().getElementType() == PhpElementTypes.ARRAY_VALUE
         );
@@ -203,8 +203,7 @@ public class PhpElementsUtil {
     /**
      * array('foo' => FOO.class, 'foo1' => 'bar', 1 => 'foo')
      */
-    @NotNull
-    static public Map<String, PsiElement> getArrayKeyValueMapWithValueAsPsiElement(@NotNull ArrayCreationExpression arrayCreationExpression) {
+    static public Map<String, PsiElement> getArrayKeyValueMapWithValueAsPsiElement(ArrayCreationExpression arrayCreationExpression) {
         HashMap<String, PsiElement> keys = new HashMap<>();
 
         for(ArrayHashElement arrayHashElement: arrayCreationExpression.getHashElements()) {
@@ -232,8 +231,7 @@ public class PhpElementsUtil {
     /**
      * array('foo' => FOO.class, 'foo1' => 'bar', 1 => 'foo')
      */
-    @NotNull
-    static public Map<String, Pair<PsiElement, PsiElement>> getArrayKeyValueMapWithKeyAndValueElement(@NotNull ArrayCreationExpression arrayCreationExpression) {
+    static public Map<String, Pair<PsiElement, PsiElement>> getArrayKeyValueMapWithKeyAndValueElement(ArrayCreationExpression arrayCreationExpression) {
         HashMap<String, Pair<PsiElement, PsiElement>> keys = new HashMap<>();
 
         for(ArrayHashElement arrayHashElement: arrayCreationExpression.getHashElements()) {
@@ -261,8 +259,7 @@ public class PhpElementsUtil {
     /**
      * array('foo' => 'bar', 'foo1' => 'bar', 1 => 'foo')
      */
-    @NotNull
-    static public HashMap<String, String> getArrayKeyValueMap(@NotNull ArrayCreationExpression arrayCreationExpression) {
+    static public HashMap<String, String> getArrayKeyValueMap(ArrayCreationExpression arrayCreationExpression) {
         HashMap<String, String> keys = new HashMap<>();
 
         for(ArrayHashElement arrayHashElement: arrayCreationExpression.getHashElements()) {
@@ -313,7 +310,7 @@ public class PhpElementsUtil {
     }
 
     @Nullable
-    static public String getArrayValueString(@NotNull ArrayCreationExpression arrayCreationExpression, @NotNull String name) {
+    static public String getArrayValueString(ArrayCreationExpression arrayCreationExpression, String name) {
         PhpPsiElement phpPsiElement = getArrayValue(arrayCreationExpression, name);
         if(phpPsiElement == null) {
             return null;
@@ -327,7 +324,7 @@ public class PhpElementsUtil {
     }
 
     @Nullable
-    static public Boolean getArrayValueBool(@NotNull ArrayCreationExpression arrayCreationExpression, @NotNull String name) {
+    static public Boolean getArrayValueBool(ArrayCreationExpression arrayCreationExpression, String name) {
         PhpPsiElement phpPsiElement = getArrayValue(arrayCreationExpression, name);
         if(phpPsiElement == null) {
             return null;
@@ -345,7 +342,7 @@ public class PhpElementsUtil {
         return null;
     }
 
-    static public PhpNamedElement[] getPsiElementsBySignature(@NotNull Project project, @Nullable String signature) {
+    static public PhpNamedElement[] getPsiElementsBySignature(Project project, @Nullable String signature) {
 
         if(signature == null) {
             return new PhpNamedElement[0];
@@ -366,7 +363,7 @@ public class PhpElementsUtil {
     }
 
     @Nullable
-    static public Method getClassMethod(@NotNull Project project, @NotNull String phpClassName, @NotNull String methodName) {
+    static public Method getClassMethod(Project project, String phpClassName, String methodName) {
 
         // we need here an each; because eg Command is non unique because phar file
         for(PhpClass phpClass: PhpIndex.getInstance(project).getClassesByFQN(phpClassName)) {
@@ -459,7 +456,7 @@ public class PhpElementsUtil {
             .withLanguage(PhpLanguage.INSTANCE);
     }
 
-    static public PsiElementPattern.Capture<StringLiteralExpression> getFunctionWithFirstStringPattern(@NotNull String... functionName) {
+    static public PsiElementPattern.Capture<StringLiteralExpression> getFunctionWithFirstStringPattern(String... functionName) {
         return PlatformPatterns
             .psiElement(StringLiteralExpression.class)
             .withParent(
@@ -470,7 +467,7 @@ public class PhpElementsUtil {
                     .withParent(
                         PlatformPatterns.psiElement(FunctionReference.class).with(new PatternCondition<>("function match") {
                             @Override
-                            public boolean accepts(@NotNull FunctionReference functionReference, ProcessingContext processingContext) {
+                            public boolean accepts(FunctionReference functionReference, ProcessingContext processingContext) {
                                 return ArrayUtils.contains(functionName, functionReference.getName());
                             }
                         })
@@ -481,7 +478,7 @@ public class PhpElementsUtil {
 
     public static final PatternCondition<PsiElement> EMPTY_PREVIOUS_LEAF = new PatternCondition<>("previous leaf empty") {
         @Override
-        public boolean accepts(@NotNull PsiElement stringLiteralExpression, ProcessingContext context) {
+        public boolean accepts(PsiElement stringLiteralExpression, ProcessingContext context) {
             return stringLiteralExpression.getPrevSibling() == null;
         }
     };
@@ -489,8 +486,7 @@ public class PhpElementsUtil {
     /**
      * #[Security("is_granted('POST_SHOW')")]
      */
-    @NotNull
-    public static PsiElementPattern.Capture<PsiElement> getFirstAttributeStringPattern(@NotNull String clazz) {
+    public static PsiElementPattern.Capture<PsiElement> getFirstAttributeStringPattern(String clazz) {
         return PlatformPatterns.psiElement().withElementType(PlatformPatterns.elementType().or(
                 PhpTokenTypes.STRING_LITERAL_SINGLE_QUOTE,
                 PhpTokenTypes.STRING_LITERAL
@@ -508,8 +504,7 @@ public class PhpElementsUtil {
     /**
      * #[Security("is_granted(['POST_SHOW'])")]
      */
-    @NotNull
-    public static PsiElementPattern.Capture<PsiElement> getFirstAttributeArrayStringPattern(@NotNull String clazz) {
+    public static PsiElementPattern.Capture<PsiElement> getFirstAttributeArrayStringPattern(String clazz) {
         return PlatformPatterns.psiElement().withElementType(PlatformPatterns.elementType().or(
                 PhpTokenTypes.STRING_LITERAL_SINGLE_QUOTE,
                 PhpTokenTypes.STRING_LITERAL
@@ -528,8 +523,7 @@ public class PhpElementsUtil {
     /**
      * #[Security(foobar: "is_granted('POST_SHOW')")]
      */
-    @NotNull
-    public static PsiElementPattern.Capture<PsiElement> getAttributeNamedArgumentStringPattern(@NotNull String clazz, @NotNull String namedArgument) {
+    public static PsiElementPattern.Capture<PsiElement> getAttributeNamedArgumentStringPattern(String clazz, String namedArgument) {
         return PlatformPatterns.psiElement().withElementType(PlatformPatterns.elementType().or(
                 PhpTokenTypes.STRING_LITERAL_SINGLE_QUOTE,
                 PhpTokenTypes.STRING_LITERAL
@@ -540,7 +534,7 @@ public class PhpElementsUtil {
     /**
      * #[Security(foobar: "is_granted('POST_SHOW')")]
      */
-    public static PsiElementPattern.@NotNull Capture<StringLiteralExpression> getAttributeNamedArgumentStringLiteralPattern(@NotNull String clazz, @NotNull String namedArgument) {
+    public static PsiElementPattern.Capture<StringLiteralExpression> getAttributeNamedArgumentStringLiteralPattern(String clazz, String namedArgument) {
         return PlatformPatterns.psiElement(StringLiteralExpression.class)
                 .afterLeafSkipping(
                     PlatformPatterns.psiElement(PsiWhiteSpace.class),
@@ -559,7 +553,7 @@ public class PhpElementsUtil {
     /**
      * "#[FOO(namedArgument: '<caret>'])]"
      */
-    public static PsiElementPattern.@NotNull Capture<StringLiteralExpression> getAttributeNamedArgumentStringLiteralPattern(@NotNull String namedArgument) {
+    public static PsiElementPattern.Capture<StringLiteralExpression> getAttributeNamedArgumentStringLiteralPattern(String namedArgument) {
         return PlatformPatterns.psiElement(StringLiteralExpression.class)
             .afterLeafSkipping(
                 PlatformPatterns.psiElement(PsiWhiteSpace.class),
@@ -576,8 +570,7 @@ public class PhpElementsUtil {
     /**
      * #[Security(tags: ['foobar']])]
      */
-    @NotNull
-    public static PsiElementPattern.Capture<PsiElement> getAttributeNamedArgumentArrayStringPattern(@NotNull String clazz, @NotNull String namedArgument) {
+    public static PsiElementPattern.Capture<PsiElement> getAttributeNamedArgumentArrayStringPattern(String clazz, String namedArgument) {
         return PlatformPatterns.psiElement().withElementType(PlatformPatterns.elementType().or(
                 PhpTokenTypes.STRING_LITERAL_SINGLE_QUOTE,
                 PhpTokenTypes.STRING_LITERAL
@@ -607,8 +600,7 @@ public class PhpElementsUtil {
      * @param functionName   the function name(s) to search for
      * @return collection of function references found
      */
-    @NotNull
-    public static Collection<FunctionReference> collectFunctionReferencesInsideControlFlow(@NotNull PhpScopeHolder phpScopeHolder, @NotNull String... functionName) {
+    public static Collection<FunctionReference> collectFunctionReferencesInsideControlFlow(PhpScopeHolder phpScopeHolder, String... functionName) {
         Collection<FunctionReference> functionReferences = new ArrayList<>();
 
         PhpControlFlowUtil.processFlow(phpScopeHolder.getControlFlow(), new PhpInstructionProcessor() {
@@ -630,13 +622,13 @@ public class PhpElementsUtil {
     private static class AttributeInstancePatternCondition extends PatternCondition<PsiElement> {
         private final String clazz;
 
-        AttributeInstancePatternCondition(@NotNull String clazz) {
+        AttributeInstancePatternCondition(String clazz) {
             super("Attribute Instance");
             this.clazz = clazz;
         }
 
         @Override
-        public boolean accepts(@NotNull PsiElement psiElement, ProcessingContext processingContext) {
+        public boolean accepts(PsiElement psiElement, ProcessingContext processingContext) {
             return clazz.equals(((PhpAttribute) psiElement).getFQN());
         }
     }
@@ -736,7 +728,7 @@ public class PhpElementsUtil {
      * First match wins
      */
     @Nullable
-    static public String getMethodReturnAsString(@NotNull PhpClass phpClass, @NotNull String methodName) {
+    static public String getMethodReturnAsString(PhpClass phpClass, String methodName) {
         final Collection<String> values = getMethodReturnAsStrings(phpClass, methodName);
         if(values.isEmpty()) {
             return null;
@@ -749,8 +741,7 @@ public class PhpElementsUtil {
     /**
      * Find a string return value of a method context "function() { return 'foo'}"
      */
-    @NotNull
-    public static Collection<String> getMethodReturnAsStrings(@NotNull PhpClass phpClass, @NotNull String methodName) {
+    public static Collection<String> getMethodReturnAsStrings(PhpClass phpClass, String methodName) {
         Method method = phpClass.findMethodByName(methodName);
         if(method == null) {
             return Collections.emptyList();
@@ -795,12 +786,12 @@ public class PhpElementsUtil {
     }
 
     @Nullable
-    static public PhpClass getClassInterface(Project project, @NotNull String className) {
+    static public PhpClass getClassInterface(Project project, String className) {
         Collection<PhpClass> phpClasses = PhpIndex.getInstance(project).getAnyByFQN(className);
         return phpClasses.isEmpty() ? null : phpClasses.iterator().next();
     }
 
-    static public boolean hasClassOrInterface(@NotNull Project project, @NotNull String classFqnName) {
+    static public boolean hasClassOrInterface(Project project, String classFqnName) {
         // Normalize FQN to start with backslash (index convention)
         if (!classFqnName.startsWith("\\")) {
             classFqnName = "\\" + classFqnName;
@@ -843,7 +834,7 @@ public class PhpElementsUtil {
      * @param subjectClass eg DateTime
      * @param expectedClass eg DateTimeInterface
      */
-    public static boolean isInstanceOf(@NotNull PhpClass subjectClass, @NotNull PhpClass expectedClass) {
+    public static boolean isInstanceOf(PhpClass subjectClass, PhpClass expectedClass) {
         if (PhpLangUtil.equalsClassNames(subjectClass.getFQN(), expectedClass.getFQN())) {
             return true;
         }
@@ -861,7 +852,7 @@ public class PhpElementsUtil {
      * @param subjectClass eg DateTime
      * @param expectedClassAsString eg DateTimeInterface
      */
-    public static boolean isInstanceOf(@NotNull PhpClass subjectClass, @NotNull String expectedClassAsString) {
+    public static boolean isInstanceOf(PhpClass subjectClass, String expectedClassAsString) {
         if (("\\" + StringUtils.stripStart(expectedClassAsString, "\\")).equals(subjectClass.getFQN())) {
             return true;
         }
@@ -875,7 +866,7 @@ public class PhpElementsUtil {
         return false;
     }
 
-    public static boolean isInstanceOf(@NotNull PhpClass subjectClass, @NotNull String ...expectedClassAsString) {
+    public static boolean isInstanceOf(PhpClass subjectClass, String ...expectedClassAsString) {
         return Arrays.stream(expectedClassAsString).anyMatch(clazz -> isInstanceOf(subjectClass, clazz));
     }
 
@@ -883,7 +874,7 @@ public class PhpElementsUtil {
      * @param subjectClassAsString eg DateTime
      * @param expectedClass eg DateTimeInterface
      */
-    public static boolean isInstanceOf(@NotNull Project project, @NotNull String subjectClassAsString, @NotNull String expectedClass) {
+    public static boolean isInstanceOf(Project project, String subjectClassAsString, String expectedClass) {
         if (("\\" + StringUtils.stripStart(subjectClassAsString, "\\")).equals(("\\" + StringUtils.stripStart(expectedClass, "\\")))) {
             return true;
         }
@@ -897,17 +888,15 @@ public class PhpElementsUtil {
         return false;
     }
 
-    static public Collection<PhpClass> getClassesInterface(Project project, @NotNull String className) {
+    static public Collection<PhpClass> getClassesInterface(Project project, String className) {
         return PhpIndex.getInstance(project).getAnyByFQN(className);
     }
 
-    @NotNull
-    public static Collection<PhpClass> getClassesByClassFqn(@NotNull Project project, @NotNull String classFqn) {
+    public static Collection<PhpClass> getClassesByClassFqn(Project project, String classFqn) {
         return PhpIndex.getInstance(project).getClassesByFQN(classFqn);
     }
 
-    @NotNull
-    public static Collection<PhpClass> getClassesByClassFqn(@NotNull Project project, @NotNull Collection<String> classFqns) {
+    public static Collection<PhpClass> getClassesByClassFqn(Project project, Collection<String> classFqns) {
         Collection<PhpClass> phpClasses = new HashSet<>();
         PhpIndex phpIndex = PhpIndex.getInstance(project);
 
@@ -936,7 +925,7 @@ public class PhpElementsUtil {
         return methods;
     }
 
-    static public boolean hasClassConstantFields(@NotNull PhpClass phpClass) {
+    static public boolean hasClassConstantFields(PhpClass phpClass) {
         return phpClass.getFields().stream().anyMatch(Field::isConstant);
     }
 
@@ -996,12 +985,12 @@ public class PhpElementsUtil {
         return null;
     }
 
-    public static Method[] getImplementedMethods(@NotNull Method method) {
+    public static Method[] getImplementedMethods(Method method) {
         ArrayList<Method> items = getImplementedMethods(method.getContainingClass(), method, new ArrayList<>(), new HashSet<>());
         return items.toArray(new Method[0]);
     }
 
-    private static ArrayList<Method> getImplementedMethods(@Nullable PhpClass phpClass, @NotNull Method method, ArrayList<Method> implementedMethods, Set<PhpClass> visitedClasses) {
+    private static ArrayList<Method> getImplementedMethods(@Nullable PhpClass phpClass, Method method, ArrayList<Method> implementedMethods, Set<PhpClass> visitedClasses) {
         if (phpClass == null || visitedClasses.contains(phpClass)) {
             return implementedMethods;
         }
@@ -1234,7 +1223,7 @@ public class PhpElementsUtil {
         return false;
     }
 
-    public static boolean isEqualClassName(@NotNull PhpClass phpClass, @NotNull PhpClass compareClassName) {
+    public static boolean isEqualClassName(PhpClass phpClass, PhpClass compareClassName) {
         return isEqualClassName(phpClass, compareClassName.getPresentableFQN());
     }
 
@@ -1247,7 +1236,7 @@ public class PhpElementsUtil {
             .equals(StringUtils.stripStart(compareClassName, "\\"));
     }
 
-    public static boolean isEqualClassName(@NotNull String phpClass, @NotNull String ...compareClassNames) {
+    public static boolean isEqualClassName(String phpClass, String ...compareClassNames) {
         for (String compareClassName : compareClassNames) {
             if (Objects.equals(StringUtils.stripStart(phpClass, "\\"), StringUtils.stripStart(compareClassName, "\\"))) {
                 return true;
@@ -1257,8 +1246,7 @@ public class PhpElementsUtil {
         return false;
     }
 
-    @NotNull
-    public static PsiElement[] getMethodParameterReferences(@NotNull Method method, int parameterIndex) {
+    public static PsiElement[] getMethodParameterReferences(Method method, int parameterIndex) {
         // we dont have a parameter on resolved method
         Parameter[] parameters = method.getParameters();
 
@@ -1320,7 +1308,7 @@ public class PhpElementsUtil {
      * $v<caret>ar = 'foobar';
      * $v<caret>ar->foo()
      */
-    public static Collection<Variable> getVariableReferencesInScope(@NotNull Variable variable) {
+    public static Collection<Variable> getVariableReferencesInScope(Variable variable) {
         Variable variableDecl = null;
         if(!variable.isDeclaration()) {
             PsiElement psiElement = variable.resolve();
@@ -1420,7 +1408,7 @@ public class PhpElementsUtil {
      */
     @Nullable
     @Deprecated
-    public static PhpClass getNewExpressionPhpClass(@NotNull NewExpression newExpression) {
+    public static PhpClass getNewExpressionPhpClass(NewExpression newExpression) {
         Collection<PhpClass> newExpressionPhpClasses = getNewExpressionPhpClasses(newExpression);
         if (!newExpressionPhpClasses.isEmpty()) {
             return newExpressionPhpClasses.iterator().next();
@@ -1429,8 +1417,7 @@ public class PhpElementsUtil {
         return null;
     }
 
-    @NotNull
-    public static Collection<PhpClass> getNewExpressionPhpClasses(@NotNull NewExpression newExpression) {
+    public static Collection<PhpClass> getNewExpressionPhpClasses(NewExpression newExpression) {
         PhpIndex instance = PhpIndex.getInstance(newExpression.getProject());
         PhpType classType = (new PhpType()).add(newExpression.getClassReference()).global(newExpression.getProject());
 
@@ -1444,7 +1431,7 @@ public class PhpElementsUtil {
     /**
      * Get PhpClass from "new FooClass()" only if match instance condition
      */
-    public static PhpClass getNewExpressionPhpClassWithInstance(@NotNull NewExpression newExpression, @NotNull String instance) {
+    public static PhpClass getNewExpressionPhpClassWithInstance(NewExpression newExpression, String instance) {
         for (PhpClass phpClass : getNewExpressionPhpClasses(newExpression)) {
             if (PhpElementsUtil.isInstanceOf(phpClass, instance)) {
                 return phpClass;
@@ -1457,7 +1444,7 @@ public class PhpElementsUtil {
     /**
      * Check new class is instance of given type eg: "new \Twig_Test()"
      */
-    public static boolean isNewExpressionPhpClassWithInstance(@NotNull NewExpression newExpression, @NotNull String... instances) {
+    public static boolean isNewExpressionPhpClassWithInstance(NewExpression newExpression, String... instances) {
         for (String instance : instances) {
             PhpClass phpClass = getNewExpressionPhpClassWithInstance(newExpression, instance);
             if (phpClass != null) {
@@ -1468,20 +1455,19 @@ public class PhpElementsUtil {
         return false;
     }
 
-    @NotNull
-    public static Collection<PsiElement> collectMethodElementsWithParents(final @NotNull Method method, @NotNull final Processor<PsiElement> processor) {
+    public static Collection<PsiElement> collectMethodElementsWithParents(final Method method, final Predicate<PsiElement> processor) {
         Collection<PsiElement> elements = new HashSet<>();
         collectMethodElementsWithParents(method, 3, elements, processor);
         return elements;
     }
 
-    private static void collectMethodElementsWithParents(final @NotNull Method method, final int depth, @NotNull final Collection<PsiElement> elements, @NotNull final Processor<PsiElement> processor) {
+    private static void collectMethodElementsWithParents(final Method method, final int depth, final Collection<PsiElement> elements, final Predicate<PsiElement> processor) {
 
         method.acceptChildren(new PsiRecursiveElementWalkingVisitor() {
             @Override
             public void visitElement(PsiElement psiElement) {
 
-                if (processor.process(psiElement)) {
+                if (processor.test(psiElement)) {
                     elements.add(psiElement);
                 }
 
@@ -1504,8 +1490,7 @@ public class PhpElementsUtil {
      * foo($container, $bar = null, $foo = null);
      *
      */
-    @NotNull
-    public static Parameter[] getFunctionRequiredParameter(@NotNull Function function) {
+    public static Parameter[] getFunctionRequiredParameter(Function function) {
 
         // nothing we need to do
         Parameter[] parameters = function.getParameters();
@@ -1530,7 +1515,7 @@ public class PhpElementsUtil {
         return Arrays.copyOfRange(parameters, 0, last + 1);
     }
 
-    public static boolean isTestClass(@NotNull PhpClass phpClass) {
+    public static boolean isTestClass(PhpClass phpClass) {
 
         if(PhpUnitUtil.isTestClass(phpClass)) {
             return true;
@@ -1545,8 +1530,7 @@ public class PhpElementsUtil {
      *
      * function foo(\FooClass $class)
      */
-    @NotNull
-    public static Collection<String> getMethodParameterTypeHints(@NotNull Method method) {
+    public static Collection<String> getMethodParameterTypeHints(Method method) {
         ParameterList childOfType = PsiTreeUtil.getChildOfType(method, ParameterList.class);
         if(childOfType == null) {
             return Collections.emptyList();
@@ -1573,7 +1557,7 @@ public class PhpElementsUtil {
      * }
      */
     @Nullable
-    public static String getFirstVariableTypeInScope(@NotNull Variable variable) {
+    public static String getFirstVariableTypeInScope(Variable variable) {
         // parent search scope, eg Method else fallback to a grouped statement
         PhpScopeHolder searchScope = PsiTreeUtil.getParentOfType(variable, PhpScopeHolder.class);
         if(searchScope == null) {
@@ -1619,7 +1603,7 @@ public class PhpElementsUtil {
 
      * @return PhpClass matched
      */
-    public static PhpClass getClassInsideNamespaceScope(@NotNull Project project, @NotNull String classNameScope, @NotNull String className) {
+    public static PhpClass getClassInsideNamespaceScope(Project project, String classNameScope, String className) {
 
         if(className.startsWith("\\")) {
             return PhpElementsUtil.getClassInterface(project, className);
@@ -1643,7 +1627,7 @@ public class PhpElementsUtil {
     /**
      * Resolves MethodReference and compare containing class against implementations instances
      */
-    public static boolean isMethodReferenceInstanceOf(@NotNull MethodReference methodReference, @NotNull String expectedClassName) {
+    public static boolean isMethodReferenceInstanceOf(MethodReference methodReference, String expectedClassName) {
         PhpIndex instance = PhpIndex.getInstance(methodReference.getProject());
         PhpType classType = (new PhpType()).add(methodReference.getClassReference()).global(methodReference.getProject());
 
@@ -1678,7 +1662,7 @@ public class PhpElementsUtil {
     /**
      * Resolves MethodReference and compare containing class against implementations instances
      */
-    public static boolean isMethodReferenceInstanceOf(@NotNull MethodReference methodReference, @NotNull String expectedClassName, @NotNull String methodName) {
+    public static boolean isMethodReferenceInstanceOf(MethodReference methodReference, String expectedClassName, String methodName) {
         if(!methodName.equals(methodReference.getName())) {
             return false;
         }
@@ -1690,7 +1674,7 @@ public class PhpElementsUtil {
     /**
      * Try to find method matching on any "className::method" giving
      */
-    public static boolean isMethodReferenceInstanceOf(@NotNull MethodReference methodReference, @NotNull MethodMatcher.CallToSignature... signatures) {
+    public static boolean isMethodReferenceInstanceOf(MethodReference methodReference, MethodMatcher.CallToSignature... signatures) {
         for (MethodMatcher.CallToSignature method : signatures) {
             if (isMethodReferenceInstanceOf(methodReference, method.getInstance(), method.getMethod())) {
                 return true;
@@ -1700,11 +1684,11 @@ public class PhpElementsUtil {
         return false;
     }
 
-    public static boolean isMethodInstanceOf(@NotNull Method method, @NotNull String clazz, @NotNull String methodName) {
+    public static boolean isMethodInstanceOf(Method method, String clazz, String methodName) {
         return isMethodInstanceOf(method, new MethodMatcher.CallToSignature(clazz, methodName));
     }
 
-    public static boolean isMethodInstanceOf(Method method, @NotNull MethodMatcher.CallToSignature... signatures) {
+    public static boolean isMethodInstanceOf(Method method, MethodMatcher.CallToSignature... signatures) {
         PhpClass containingClass = method.getContainingClass();
         if(containingClass == null) {
             return false;
@@ -1725,7 +1709,7 @@ public class PhpElementsUtil {
         return false;
     }
 
-    public static void replaceElementWithClassConstant(@NotNull PhpClass phpClass, @NotNull PsiElement originElement) throws Exception{
+    public static void replaceElementWithClassConstant(PhpClass phpClass, PsiElement originElement) throws Exception{
         String fqn = phpClass.getFQN();
         if(!fqn.startsWith("\\")) {
             fqn = "\\" + fqn;
@@ -1771,7 +1755,7 @@ public class PhpElementsUtil {
     /**
      * Foo::class to its PhpClass
      */
-    public static PhpClass getClassConstantPhpClass(@NotNull ClassConstantReference classConstant) {
+    public static PhpClass getClassConstantPhpClass(ClassConstantReference classConstant) {
         String typeName = getClassConstantPhpFqn(classConstant);
         return typeName != null ? PhpElementsUtil.getClassInterface(classConstant.getProject(), typeName) : null;
     }
@@ -1779,7 +1763,7 @@ public class PhpElementsUtil {
     /**
      * Foo::class to its class fqn include namespace
      */
-    public static String getClassConstantPhpFqn(@NotNull ClassConstantReference classConstant) {
+    public static String getClassConstantPhpFqn(ClassConstantReference classConstant) {
         PhpExpression classReference = classConstant.getClassReference();
         if(!(classReference instanceof PhpReference)) {
             return null;
@@ -1795,7 +1779,7 @@ public class PhpElementsUtil {
      * @param parameterIndex staring 0
      */
     @Nullable
-    public static PhpClass getMethodTypeHintParameterPhpClass(@NotNull Method method, int parameterIndex) {
+    public static PhpClass getMethodTypeHintParameterPhpClass(Method method, int parameterIndex) {
         Parameter[] constructorParameter = method.getParameters();
         if(parameterIndex >= constructorParameter.length) {
             return null;
@@ -1812,7 +1796,7 @@ public class PhpElementsUtil {
     /**
      * Inserts a use statement with an alias if the alias is not already present.
      */
-    public static void insertUseIfNecessary(@NotNull PhpPsiElement scopeForUseOperator, @NotNull String nsClass, @Nullable String alias) {
+    public static void insertUseIfNecessary(PhpPsiElement scopeForUseOperator, String nsClass, @Nullable String alias) {
         if (!nsClass.startsWith("\\")) {
             nsClass = "\\" + nsClass;
         }
@@ -1828,7 +1812,7 @@ public class PhpElementsUtil {
      * @return The short class name (alias) or null if insertion failed
      */
     @Nullable
-    public static String insertUseIfNecessary(@NotNull PsiElement phpClass, @NotNull String fqnClasName) {
+    public static String insertUseIfNecessary(PsiElement phpClass, String fqnClasName) {
         if(!fqnClasName.startsWith("\\")) {
             fqnClasName = "\\" + fqnClasName;
         }
@@ -1854,7 +1838,7 @@ public class PhpElementsUtil {
     /**
      * #[AsEventListener(method:'onBarEvent')]
      */
-    public static boolean isAttributeNamedArgumentString(@NotNull StringLiteralExpression element, @NotNull String fqn, @NotNull String namedArgument) {
+    public static boolean isAttributeNamedArgumentString(StringLiteralExpression element, String fqn, String namedArgument) {
         PsiElement colon = PsiTreeUtil.prevCodeLeaf(element);
         if (colon == null || colon.getNode().getElementType() != PhpTokenTypes.opCOLON) {
             return false;
@@ -1880,12 +1864,11 @@ public class PhpElementsUtil {
      * Collects all variables in a given scope.
      * Eg find all variables usages in a given method
      */
-    @NotNull
-    public static Set<Variable> getVariablesInScope(@NotNull PsiElement psiElement, @NotNull PhpNamedElement variable) {
+    public static Set<Variable> getVariablesInScope(PsiElement psiElement, PhpNamedElement variable) {
         return MyVariableRecursiveElementVisitor.visit(psiElement, variable.getName());
     }
 
-    public static Set<Variable> getVariablesInScopeByName(@NotNull PhpScopeHolder phpScopeHolder, @NotNull String name) {
+    public static Set<Variable> getVariablesInScopeByName(PhpScopeHolder phpScopeHolder, String name) {
         Set<Variable> variables = new HashSet<>();
 
         PhpControlFlowUtil.processFlow(phpScopeHolder.getControlFlow(), new PhpInstructionProcessor() {
@@ -1908,7 +1891,6 @@ public class PhpElementsUtil {
      * foo(['<caret>'])
      * foo(['<caret>' => 'foobar'])
      */
-    @NotNull
     public static PsiElementPattern.Capture<PsiElement> getParameterListArrayValuePattern() {
         return PlatformPatterns.psiElement()
             .withParent(PlatformPatterns.psiElement(StringLiteralExpression.class).withParent(
@@ -1931,8 +1913,7 @@ public class PhpElementsUtil {
     /**
      * true ? "foo" : "Foobar::class"
      */
-    @NotNull
-    public static Collection<String> getTernaryExpressionConditionStrings(@NotNull TernaryExpression firstPsiChild) {
+    public static Collection<String> getTernaryExpressionConditionStrings(TernaryExpression firstPsiChild) {
         Collection<String> types = new ArrayList<>();
 
         PsiElement[] psiElements = {
@@ -1956,7 +1937,7 @@ public class PhpElementsUtil {
      * Find argument by name in constructor parameter: __construct($foobar)
      */
     @Nullable
-    public static Parameter getConstructorParameterArgumentByName(@NotNull PhpClass phpClass, @NotNull String argumentName) {
+    public static Parameter getConstructorParameterArgumentByName(PhpClass phpClass, String argumentName) {
         Method constructor = phpClass.getConstructor();
         if(constructor == null) {
             return null;
@@ -1970,7 +1951,7 @@ public class PhpElementsUtil {
     /**
      * Find argument by name in constructor parameter: __construct($foobar)
      */
-    public static int getConstructorArgumentByName(@NotNull PhpClass phpClass, @NotNull String argumentName) {
+    public static int getConstructorArgumentByName(PhpClass phpClass, String argumentName) {
         Method constructor = phpClass.getConstructor();
         if(constructor == null) {
             return -1;
@@ -1982,7 +1963,7 @@ public class PhpElementsUtil {
     /**
      * Find argument by name in function parameter: argumentName($foobar)
      */
-    public static int getFunctionArgumentByName(@NotNull Function function, @NotNull String argumentName) {
+    public static int getFunctionArgumentByName(Function function, String argumentName) {
         Parameter[] parameters = function.getParameters();
         for (int i = 0; i < parameters.length; i++) {
             Parameter parameter = parameters[i];
@@ -1994,8 +1975,7 @@ public class PhpElementsUtil {
         return -1;
     }
 
-    @NotNull
-    public static Collection<Method> getMultiResolvedMethod(@NotNull MethodReference methodReference) {
+    public static Collection<Method> getMultiResolvedMethod(MethodReference methodReference) {
         PhpIndex instance = PhpIndex.getInstance(methodReference.getProject());
         PhpType classType = (new PhpType()).add(methodReference.getClassReference()).global(methodReference.getProject());
 
@@ -2021,7 +2001,7 @@ public class PhpElementsUtil {
      * see getMethodReferenceStringValueParameter for resolving value in detail
      */
     @Nullable
-    public static String getFirstArgumentStringValue(@NotNull MethodReference methodReference) {
+    public static String getFirstArgumentStringValue(MethodReference methodReference) {
         String stringValue = null;
 
         PsiElement[] parameters = methodReference.getParameters();
@@ -2038,7 +2018,7 @@ public class PhpElementsUtil {
      * $f->foo('index_0', 'index_1');
      */
     @Nullable
-    public static String getMethodReferenceStringValueParameter(@NotNull MethodReference methodReference, int parameter) {
+    public static String getMethodReferenceStringValueParameter(MethodReference methodReference, int parameter) {
         PsiElement[] parameters = methodReference.getParameters();
         if (parameters.length > parameter) {
             return getStringValue(parameters[parameter]);
@@ -2047,8 +2027,7 @@ public class PhpElementsUtil {
         return null;
     }
 
-    @NotNull
-    public static Collection<NewExpression> collectNewExpressionsInsideControlFlow(@NotNull PhpScopeHolder phpScopeHolder) {
+    public static Collection<NewExpression> collectNewExpressionsInsideControlFlow(PhpScopeHolder phpScopeHolder) {
         Collection<NewExpression> newExpressions = new ArrayList<>();
 
         PhpControlFlowUtil.processFlow(phpScopeHolder.getControlFlow(), new PhpInstructionProcessor() {
@@ -2062,7 +2041,7 @@ public class PhpElementsUtil {
         return newExpressions;
     }
 
-    public static Collection<PsiElement> collectPhpReturnArgumentsInsideControlFlow(@NotNull PhpScopeHolder phpScopeHolder) {
+    public static Collection<PsiElement> collectPhpReturnArgumentsInsideControlFlow(PhpScopeHolder phpScopeHolder) {
         Collection<PsiElement> elements = new ArrayList<>();
 
         PhpControlFlowUtil.processFlow(phpScopeHolder.getControlFlow(), new PhpInstructionProcessor() {
@@ -2080,7 +2059,7 @@ public class PhpElementsUtil {
         return elements;
     }
 
-    public static Collection<MethodReference> collectMethodReferencesInsideControlFlow(@NotNull PhpScopeHolder phpScopeHolder) {
+    public static Collection<MethodReference> collectMethodReferencesInsideControlFlow(PhpScopeHolder phpScopeHolder) {
         Collection<MethodReference> methodReferences = new ArrayList<>();
 
         PhpControlFlowUtil.processFlow(phpScopeHolder.getControlFlow(), new PhpInstructionProcessor() {
@@ -2095,7 +2074,7 @@ public class PhpElementsUtil {
         return methodReferences;
     }
 
-    public static Collection<MethodReference> collectMethodReferencesInsideControlFlow(@NotNull PhpScopeHolder phpScopeHolder, @NotNull String... methodName) {
+    public static Collection<MethodReference> collectMethodReferencesInsideControlFlow(PhpScopeHolder phpScopeHolder, String... methodName) {
         Collection<MethodReference> methodReferences = new ArrayList<>();
 
         PhpControlFlowUtil.processFlow(phpScopeHolder.getControlFlow(), new PhpInstructionProcessor() {
@@ -2110,8 +2089,7 @@ public class PhpElementsUtil {
         return methodReferences;
     }
 
-    @NotNull
-    public static Collection<Function> getMethodReferenceMethods(@NotNull MethodReference methodReference) {
+    public static Collection<Function> getMethodReferenceMethods(MethodReference methodReference) {
         PhpIndex instance = PhpIndex.getInstance(methodReference.getProject());
         PhpType classType = (new PhpType()).add(methodReference.getClassReference()).global(methodReference.getProject());
 
@@ -2128,7 +2106,7 @@ public class PhpElementsUtil {
             .collect(Collectors.toSet());
     }
 
-    public static PhpExpectedFunctionArgument findAttributeArgumentByName(@NotNull String attributeName, @NotNull PhpAttribute phpAttribute) {
+    public static PhpExpectedFunctionArgument findAttributeArgumentByName(String attributeName, PhpAttribute phpAttribute) {
         for (PhpAttribute.PhpAttributeArgument argument : phpAttribute.getArguments()) {
             String name = argument.getName();
             if (!attributeName.equals(name)) {
@@ -2142,7 +2120,7 @@ public class PhpElementsUtil {
     }
 
     @Nullable
-    public static String getAttributeArgumentStringByName(@NotNull PhpAttribute phpAttribute, @NotNull String attributeName) {
+    public static String getAttributeArgumentStringByName(PhpAttribute phpAttribute, String attributeName) {
         for (PhpAttribute.PhpAttributeArgument argument : phpAttribute.getArguments()) {
             if (!attributeName.equals(argument.getName())) {
                 continue;
@@ -2161,7 +2139,7 @@ public class PhpElementsUtil {
     }
 
     @Nullable
-    public static String findAttributeArgumentByNameAsString(@NotNull String attributeName, @NotNull PhpAttribute phpAttribute) {
+    public static String findAttributeArgumentByNameAsString(String attributeName, PhpAttribute phpAttribute) {
         PhpExpectedFunctionArgument attributeArgumentByName = findAttributeArgumentByName(attributeName, phpAttribute);
         if (attributeArgumentByName instanceof PhpExpectedFunctionScalarArgument) {
             String value = PsiElementUtils.trimQuote(attributeArgumentByName.getValue());
@@ -2174,7 +2152,7 @@ public class PhpElementsUtil {
     }
 
     @Nullable
-    public static Boolean findAttributeArgumentByNameAsBoolean(@NotNull String attributeName, @NotNull PhpAttribute phpAttribute) {
+    public static Boolean findAttributeArgumentByNameAsBoolean(String attributeName, PhpAttribute phpAttribute) {
         for (PhpAttribute.PhpAttributeArgument argument : phpAttribute.getArguments()) {
             if (!attributeName.equals(argument.getName())) {
                 continue;
@@ -2197,7 +2175,7 @@ public class PhpElementsUtil {
     }
 
     @Nullable
-    public static Integer findAttributeArgumentByNameAsInt(@NotNull String attributeName, @NotNull PhpAttribute phpAttribute) {
+    public static Integer findAttributeArgumentByNameAsInt(String attributeName, PhpAttribute phpAttribute) {
         for (PhpAttribute.PhpAttributeArgument argument : phpAttribute.getArguments()) {
             if (!attributeName.equals(argument.getName())) {
                 continue;
@@ -2220,7 +2198,7 @@ public class PhpElementsUtil {
     }
 
     @Nullable
-    public static String findAttributeArgumentByNameAsClassFqn(@NotNull String attributeName, @NotNull PhpAttribute phpAttribute) {
+    public static String findAttributeArgumentByNameAsClassFqn(String attributeName, PhpAttribute phpAttribute) {
         for (PhpAttribute.PhpAttributeArgument argument : phpAttribute.getArguments()) {
             if (!attributeName.equals(argument.getName())) {
                 continue;
@@ -2237,13 +2215,11 @@ public class PhpElementsUtil {
      * Visit and collect all variables in given scope
      */
     private static class MyVariableRecursiveElementVisitor extends PsiRecursiveElementVisitor {
-        @NotNull
         private final String name;
 
-        @NotNull
         private final Set<Variable> variables = new HashSet<>();
 
-        MyVariableRecursiveElementVisitor(@NotNull String name) {
+        MyVariableRecursiveElementVisitor(String name) {
             this.name = name;
         }
 
@@ -2255,7 +2231,7 @@ public class PhpElementsUtil {
             super.visitElement(element);
         }
 
-        public static Set<Variable> visit(@NotNull PsiElement scope, @NotNull String name) {
+        public static Set<Variable> visit(PsiElement scope, String name) {
             MyVariableRecursiveElementVisitor visitor = new MyVariableRecursiveElementVisitor(name);
             scope.acceptChildren(visitor);
             return visitor.variables;
@@ -2271,7 +2247,7 @@ public class PhpElementsUtil {
      * - render($foo ?? 'foo.twig.html')
      */
     public static class StringResolver {
-        public static Collection<String> findStringValues(@NotNull PsiElement psiElement) {
+        public static Collection<String> findStringValues(PsiElement psiElement) {
             Collection<String> strings = new HashSet<>();
 
             if (psiElement instanceof StringLiteralExpression) {
@@ -2309,13 +2285,13 @@ public class PhpElementsUtil {
         }
 
         @Nullable
-        private static String resolveString(@NotNull StringLiteralExpression parameter) {
+        private static String resolveString(StringLiteralExpression parameter) {
             String contents = parameter.getContents();
             return StringUtils.isBlank(contents) ? null : contents;
         }
 
         @Nullable
-        private static String resolvePhpReference(@NotNull PhpReference parameter) {
+        private static String resolvePhpReference(PhpReference parameter) {
             for (PhpNamedElement phpNamedElement : parameter.resolveLocal()) {
                 // foo(self::foo)
                 // foo($this->foo)
@@ -2351,7 +2327,7 @@ public class PhpElementsUtil {
      * @param fqn The fully qualified class name for the parameter type (e.g., "\\Symfony\\Component\\Console\\Style\\SymfonyStyle")
      * @param variableName The variable name for the parameter (e.g., "io")
      */
-    public static void addParameterToMethod(@NotNull Method method, @NotNull String fqn, @NotNull String variableName) {
+    public static void addParameterToMethod(Method method, String fqn, String variableName) {
         PhpClass phpClass = method.getContainingClass();
         if (phpClass == null) {
             return;
@@ -2456,7 +2432,7 @@ public class PhpElementsUtil {
      * @param project The project
      * @param method The method to reformat
      */
-    public static void reformatMethodSignature(@NotNull Project project, @NotNull Method method) {
+    public static void reformatMethodSignature(Project project, Method method) {
         PsiFile containingFile = method.getContainingFile();
 
         GroupStatement body = PsiTreeUtil.findChildOfType(method, GroupStatement.class);
@@ -2470,7 +2446,7 @@ public class PhpElementsUtil {
         CodeStyleManager codeStyleManager = CodeStyleManager.getInstance(project);
         try {
             codeStyleManager.reformatRange(containingFile, startOffset, endOffset);
-        } catch (com.intellij.util.IncorrectOperationException e) {
+        } catch (consulo.language.util.IncorrectOperationException e) {
             // Ignore formatting errors
         }
     }

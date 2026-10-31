@@ -1,6 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.assistant;
 
-import com.intellij.psi.PsiElement;
+import consulo.language.psi.PsiElement;
 import fr.adrienbrault.idea.symfony2plugin.assistant.reference.MethodParameterSetting;
 
 /**

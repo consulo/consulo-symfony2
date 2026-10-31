@@ -1,12 +1,13 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.path;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.Key;
-import com.intellij.openapi.util.Pair;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.util.CachedValue;
-import com.intellij.psi.util.CachedValueProvider;
-import com.intellij.psi.util.CachedValuesManager;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.application.util.CachedValue;
+import consulo.application.util.CachedValueProvider;
+import consulo.application.util.CachedValuesManager;
+import consulo.language.psi.PsiFile;
+import consulo.project.Project;
+import consulo.util.dataholder.Key;
+import consulo.util.lang.Pair;
 import fr.adrienbrault.idea.symfony2plugin.config.utils.ConfigUtil;
 import fr.adrienbrault.idea.symfony2plugin.stubs.cache.FileIndexCaches;
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.ConfigStubIndex;
@@ -14,7 +15,6 @@ import fr.adrienbrault.idea.symfony2plugin.extension.TwigNamespaceExtension;
 import fr.adrienbrault.idea.symfony2plugin.extension.TwigNamespaceExtensionParameter;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.yaml.psi.YAMLFile;
 
 import java.util.Collection;
@@ -32,12 +32,12 @@ import java.util.stream.Collectors;
  *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl(order = "after JsonFileIndexTwigNamespaces")
 public class ConfigAddPathTwigNamespaces implements TwigNamespaceExtension {
-    private static final Key<CachedValue<Collection<Pair<String, String>>>> CACHE = new Key<>("TWIG_CONFIG_ADD_PATH_CACHE");
+    private static final Key<CachedValue<Collection<Pair<String, String>>>> CACHE = Key.create("TWIG_CONFIG_ADD_PATH_CACHE");
 
-    @NotNull
     @Override
-    public Collection<TwigPath> getNamespaces(@NotNull TwigNamespaceExtensionParameter parameter) {
+    public Collection<TwigPath> getNamespaces(TwigNamespaceExtensionParameter parameter) {
         Project project = parameter.getProject();
 
         Collection<Pair<String, String>> cachedValue = CachedValuesManager.getManager(project).getCachedValue(
@@ -53,8 +53,7 @@ public class ConfigAddPathTwigNamespaces implements TwigNamespaceExtension {
             .collect(Collectors.toList());
     }
 
-    @NotNull
-    private static Collection<Pair<String, String>> getTwigPaths(@NotNull Project project) {
+    private static Collection<Pair<String, String>> getTwigPaths(Project project) {
         Collection<Pair<String, String>> twigPathNamespace = new HashSet<>();
 
         // file config files a eg ".../app/..." or "../packages/..."

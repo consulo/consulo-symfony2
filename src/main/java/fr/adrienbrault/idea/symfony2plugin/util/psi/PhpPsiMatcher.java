@@ -1,35 +1,31 @@
 package fr.adrienbrault.idea.symfony2plugin.util.psi;
 
-import com.intellij.psi.PsiElement;
+import consulo.language.psi.PsiElement;
 import fr.adrienbrault.idea.symfony2plugin.util.psi.matcher.ArrayValueWithKeyAndMethodMatcher;
 import fr.adrienbrault.idea.symfony2plugin.util.psi.matcher.ArrayValueWithKeyAndNewExpressionMatcher;
 import fr.adrienbrault.idea.symfony2plugin.util.psi.matcher.NamedValueWithKeyAndNewExpressionMatcher;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class PhpPsiMatcher {
 
-    @Nullable
-    public static ArrayValueWithKeyAndMethod.Result match(@NotNull PsiElement psiElement, @NotNull ArrayValueWithKeyAndMethod.Matcher matcher) {
+    public static ArrayValueWithKeyAndMethod.@Nullable Result match(PsiElement psiElement, ArrayValueWithKeyAndMethod.Matcher matcher) {
         return ArrayValueWithKeyAndMethod.match(psiElement, matcher);
     }
 
     /**
      * new Foo(['message' => '<caret>'])
      */
-    @Nullable
-    public static ArrayValueWithKeyAndNewExpressionMatcher.Result match(@NotNull PsiElement psiElement, @NotNull ArrayValueWithKeyAndNewExpressionMatcher.Matcher matcher) {
+    public static ArrayValueWithKeyAndNewExpressionMatcher.@Nullable Result match(PsiElement psiElement, ArrayValueWithKeyAndNewExpressionMatcher.Matcher matcher) {
         return ArrayValueWithKeyAndNewExpression.match(psiElement, matcher);
     }
 
     /**
      * new Foo(message: '<caret>')
      */
-    @Nullable
-    public static NamedValueWithKeyAndNewExpression.Result match(@NotNull PsiElement psiElement, @NotNull NamedValueWithKeyAndNewExpression.Matcher matcher) {
+    public static NamedValueWithKeyAndNewExpression.@Nullable Result match(PsiElement psiElement, NamedValueWithKeyAndNewExpression.Matcher matcher) {
         return NamedValueWithKeyAndNewExpression.match(psiElement, matcher);
     }
 

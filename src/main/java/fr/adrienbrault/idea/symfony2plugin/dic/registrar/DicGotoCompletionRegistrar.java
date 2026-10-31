@@ -1,11 +1,17 @@
 package fr.adrienbrault.idea.symfony2plugin.dic.registrar;
 
-import com.intellij.codeInsight.lookup.LookupElement;
-import com.intellij.codeInsight.lookup.LookupElementBuilder;
-import com.intellij.patterns.PlatformPatterns;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.util.PsiTreeUtil;
-import com.jetbrains.php.lang.psi.elements.*;
+import com.jetbrains.php.lang.psi.elements.Method;
+import com.jetbrains.php.lang.psi.elements.MethodReference;
+import com.jetbrains.php.lang.psi.elements.PhpAttribute;
+import com.jetbrains.php.lang.psi.elements.PhpClass;
+import com.jetbrains.php.lang.psi.elements.StringLiteralExpression;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.language.editor.completion.lookup.LookupElement;
+import consulo.language.editor.completion.lookup.LookupElementBuilder;
+import consulo.language.icon.IconDescriptorUpdaters;
+import consulo.language.pattern.PlatformPatterns;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.util.PsiTreeUtil;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionProvider;
 import fr.adrienbrault.idea.symfony2plugin.codeInsight.GotoCompletionRegistrar;
@@ -24,9 +30,13 @@ import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
 import fr.adrienbrault.idea.symfony2plugin.util.completion.TagNameCompletionProvider;
 import fr.adrienbrault.idea.symfony2plugin.util.dict.ServiceUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -35,9 +45,10 @@ import java.util.stream.Collectors;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
+@ExtensionImpl
 public class DicGotoCompletionRegistrar implements GotoCompletionRegistrar {
     @Override
-    public void register(@NotNull GotoCompletionRegistrarParameter registrar) {
+    public void register(GotoCompletionRegistrarParameter registrar) {
         // getParameter('FOO')
         registrar.register(
             PlatformPatterns.psiElement().withParent(PhpElementsUtil.getMethodWithFirstStringOrNamedArgumentPattern()), psiElement -> {
@@ -268,7 +279,7 @@ public class DicGotoCompletionRegistrar implements GotoCompletionRegistrar {
                 PhpElementsUtil.getFirstAttributeStringPattern("\\Symfony\\Component\\DependencyInjection\\Attribute\\When")
             ), psiElement -> new GotoCompletionProvider(psiElement) {
                 @Override
-                public @NotNull Collection<LookupElement> getLookupElements() {
+                public Collection<LookupElement> getLookupElements() {
                     return Arrays.stream((new String[]{"prod", "dev", "test", "never"}))
                         .map((Function<String, LookupElement>) s -> LookupElementBuilder.create(s).withIcon(Symfony2Icons.SYMFONY))
                         .collect(Collectors.toList());
@@ -283,7 +294,6 @@ public class DicGotoCompletionRegistrar implements GotoCompletionRegistrar {
             super(element);
         }
 
-        @NotNull
         @Override
         public Collection<LookupElement> getLookupElements() {
             Collection<LookupElement> results = new ArrayList<>();
@@ -295,7 +305,6 @@ public class DicGotoCompletionRegistrar implements GotoCompletionRegistrar {
             return results;
         }
 
-        @NotNull
         @Override
         public Collection<PsiElement> getPsiTargets(PsiElement element) {
             String contents = GotoCompletionUtil.getStringLiteralValue(element);
@@ -312,13 +321,11 @@ public class DicGotoCompletionRegistrar implements GotoCompletionRegistrar {
             super(element);
         }
 
-        @NotNull
         @Override
         public Collection<LookupElement> getLookupElements() {
             return TagNameCompletionProvider.getTagLookupElements(getProject());
         }
 
-        @NotNull
         @Override
         public Collection<PsiElement> getPsiTargets(PsiElement element) {
             String contents = GotoCompletionUtil.getStringLiteralValue(element);
@@ -331,17 +338,17 @@ public class DicGotoCompletionRegistrar implements GotoCompletionRegistrar {
     }
 
     private static class ServiceContributor extends GotoCompletionProvider {
-        public ServiceContributor(@NotNull StringLiteralExpression element) {
+        public ServiceContributor(StringLiteralExpression element) {
             super(element);
         }
 
         @Override
-        public @NotNull Collection<LookupElement> getLookupElements() {
+        public Collection<LookupElement> getLookupElements() {
             return ServiceCompletionProvider.getLookupElements(this.getElement(), ContainerCollectionResolver.getServices(getProject()).values()).getLookupElements();
         }
 
         @Override
-        public @NotNull Collection<PsiElement> getPsiTargets(PsiElement element) {
+        public Collection<PsiElement> getPsiTargets(PsiElement element) {
             String contents = GotoCompletionUtil.getStringLiteralValue(element);
             if (contents == null) {
                 return Collections.emptyList();
@@ -357,12 +364,12 @@ public class DicGotoCompletionRegistrar implements GotoCompletionRegistrar {
     }
 
     private static class EnvironmentVariableContributor extends GotoCompletionProvider {
-        public EnvironmentVariableContributor(@NotNull StringLiteralExpression element) {
+        public EnvironmentVariableContributor(StringLiteralExpression element) {
             super(element);
         }
 
         @Override
-        public @NotNull Collection<LookupElement> getLookupElements() {
+        public Collection<LookupElement> getLookupElements() {
             Collection<LookupElement> results = new ArrayList<>();
 
             for (String envVar : DotEnvUtil.getEnvironmentVariables(getProject())) {
@@ -373,7 +380,7 @@ public class DicGotoCompletionRegistrar implements GotoCompletionRegistrar {
         }
 
         @Override
-        public @NotNull Collection<PsiElement> getPsiTargets(PsiElement element) {
+        public Collection<PsiElement> getPsiTargets(PsiElement element) {
             String contents = GotoCompletionUtil.getStringLiteralValue(element);
             if (contents == null) {
                 return Collections.emptyList();
@@ -391,12 +398,12 @@ public class DicGotoCompletionRegistrar implements GotoCompletionRegistrar {
     }
 
     private static class ParameterWithPercentWrapContributor extends GotoCompletionProvider {
-        public ParameterWithPercentWrapContributor(@NotNull StringLiteralExpression element) {
+        public ParameterWithPercentWrapContributor(StringLiteralExpression element) {
             super(element);
         }
 
         @Override
-        public @NotNull Collection<LookupElement> getLookupElements() {
+        public Collection<LookupElement> getLookupElements() {
             Collection<LookupElement> results = new ArrayList<>();
 
             for (Map.Entry<String, ContainerParameter> entry : ContainerCollectionResolver.getParameters(getProject()).entrySet()) {
@@ -411,7 +418,7 @@ public class DicGotoCompletionRegistrar implements GotoCompletionRegistrar {
         }
 
         @Override
-        public @NotNull Collection<PsiElement> getPsiTargets(PsiElement element) {
+        public Collection<PsiElement> getPsiTargets(PsiElement element) {
             String contents = GotoCompletionUtil.getStringLiteralValue(element);
             if (contents == null) {
                 return Collections.emptyList();
@@ -427,13 +434,13 @@ public class DicGotoCompletionRegistrar implements GotoCompletionRegistrar {
     private static class AutowireCallableMethodContributor extends GotoCompletionProvider {
         private final PhpAttribute phpAttribute;
 
-        public AutowireCallableMethodContributor(@NotNull StringLiteralExpression element, @NotNull PhpAttribute phpAttribute) {
+        public AutowireCallableMethodContributor(StringLiteralExpression element, PhpAttribute phpAttribute) {
             super(element);
             this.phpAttribute = phpAttribute;
         }
 
         @Override
-        public @NotNull Collection<LookupElement> getLookupElements() {
+        public Collection<LookupElement> getLookupElements() {
             Collection<LookupElement> results = new ArrayList<>();
 
             PhpClass phpClass = getServiceClass();
@@ -445,7 +452,7 @@ public class DicGotoCompletionRegistrar implements GotoCompletionRegistrar {
                 // Only public non-static methods
                 if (method.getAccess().isPublic() && !method.isStatic()) {
                     results.add(LookupElementBuilder.create(method.getName())
-                        .withIcon(method.getIcon())
+                        .withIcon(IconDescriptorUpdaters.getIcon(method, 0))
                         .withTypeText(phpClass.getName(), true));
                 }
             }
@@ -454,7 +461,7 @@ public class DicGotoCompletionRegistrar implements GotoCompletionRegistrar {
         }
 
         @Override
-        public @NotNull Collection<PsiElement> getPsiTargets(PsiElement element) {
+        public Collection<PsiElement> getPsiTargets(PsiElement element) {
             String methodName = GotoCompletionUtil.getStringLiteralValue(element);
             if (methodName == null) {
                 return Collections.emptyList();

@@ -1,10 +1,9 @@
 package fr.adrienbrault.idea.symfony2plugin.dic;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.psi.PsiElement;
+import consulo.project.Project;
+import consulo.language.psi.PsiElement;
 import fr.adrienbrault.idea.symfony2plugin.stubs.ContainerCollectionResolver;
 import fr.adrienbrault.idea.symfony2plugin.stubs.ServiceIndexUtil;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -17,18 +16,16 @@ import java.util.function.Supplier;
  */
 public class ClassServiceDefinitionTargetLazyValue implements Supplier<Collection<? extends PsiElement>> {
 
-    @NotNull
     private final Project project;
 
-    @NotNull
     private final Collection<String> fqnClasses;
 
-    public ClassServiceDefinitionTargetLazyValue(@NotNull Project project, @NotNull Collection<String> fqnClasses) {
+    public ClassServiceDefinitionTargetLazyValue(Project project, Collection<String> fqnClasses) {
         this.project = project;
         this.fqnClasses = fqnClasses;
     }
 
-    public ClassServiceDefinitionTargetLazyValue(@NotNull Project project, @NotNull String fqnClass) {
+    public ClassServiceDefinitionTargetLazyValue(Project project, String fqnClass) {
         this.project = project;
         this.fqnClasses = Collections.singletonList(fqnClass);
     }

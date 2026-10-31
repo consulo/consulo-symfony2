@@ -1,20 +1,23 @@
 package fr.adrienbrault.idea.symfony2plugin.templating.documentation;
 
-import com.intellij.lang.documentation.AbstractDocumentationProvider;
-import com.intellij.openapi.editor.Editor;
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.text.StringUtil;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiFile;
-import com.intellij.psi.util.PsiTreeUtil;
-import com.intellij.psi.xml.XmlAttribute;
-import com.intellij.psi.xml.XmlTag;
 import com.jetbrains.twig.TwigFile;
+import consulo.annotation.component.ExtensionImpl;
+import consulo.codeEditor.Editor;
+import consulo.html.language.HTMLLanguage;
+import consulo.language.Language;
+import consulo.language.editor.documentation.AbstractDocumentationProvider;
+import consulo.language.editor.documentation.LanguageDocumentationProvider;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiFile;
+import consulo.language.psi.util.PsiTreeUtil;
+import consulo.project.Project;
+import consulo.util.lang.StringUtil;
+import consulo.xml.language.psi.XmlAttribute;
+import consulo.xml.language.psi.XmlTag;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.util.UxUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Documentation for Symfony UX Twig component props on their usage, e.g. Ctrl-hover / Ctrl-Q on the
@@ -26,15 +29,18 @@ import org.jetbrains.annotations.Nullable;
  * view. Returns {@code null} for anything that is not a {@code twig:} component attribute, so the
  * platform's built-in HTML documentation still applies elsewhere.
  */
-public class TwigComponentAttributeDocumentationProvider extends AbstractDocumentationProvider {
+@ExtensionImpl
+public class TwigComponentAttributeDocumentationProvider extends AbstractDocumentationProvider implements LanguageDocumentationProvider {
 
     private static final String TWIG_TAG_PREFIX = "twig:";
 
     @Override
-    public @Nullable PsiElement getCustomDocumentationElement(@NotNull Editor editor, @NotNull PsiFile file, @Nullable PsiElement contextElement, int targetOffset) {
+    public @Nullable PsiElement getCustomDocumentationElement(Editor editor, PsiFile file, @Nullable PsiElement contextElement) {
         if (!Symfony2ProjectComponent.isEnabled(file.getProject())) {
             return null;
         }
+
+        int targetOffset = editor.getCaretModel().getOffset(); // TODO consulo-port: targetOffset not passed by Consulo
 
         // The context leaf is usually the HTML attribute token already; otherwise look through every
         // language root of the templated .html.twig file (the `<twig:...>` markup lives in the HTML root).
@@ -99,7 +105,7 @@ public class TwigComponentAttributeDocumentationProvider extends AbstractDocumen
         return info.toString();
     }
 
-    private static @Nullable UxUtil.TwigComponentProp resolveProp(@Nullable PsiElement element) {
+    private static UxUtil.@Nullable TwigComponentProp resolveProp(@Nullable PsiElement element) {
         XmlAttribute attribute = findTwigComponentAttribute(element);
         if (attribute == null || !(attribute.getParent() instanceof XmlTag tag)) {
             return null;
@@ -136,7 +142,12 @@ public class TwigComponentAttributeDocumentationProvider extends AbstractDocumen
         return null;
     }
 
-    private static String escape(@NotNull String text) {
+    private static String escape(String text) {
         return StringUtil.escapeXmlEntities(text);
+    }
+
+    @Override
+    public Language getLanguage() {
+        return HTMLLanguage.INSTANCE;
     }
 }

@@ -1,14 +1,13 @@
 package fr.adrienbrault.idea.symfony2plugin.doctrine.querybuilder.detector;
 
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.util.PsiTreeUtil;
 import com.jetbrains.php.lang.parser.PhpElementTypes;
 import com.jetbrains.php.lang.psi.elements.*;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.util.PsiTreeUtil;
 import fr.adrienbrault.idea.symfony2plugin.doctrine.EntityHelper;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -18,7 +17,7 @@ public class FormQueryBuilderRepositoryDetector implements QueryBuilderRepositor
 
     @Nullable
     @Override
-    public String getRepository(@NotNull QueryBuilderRepositoryDetectorParameter parameter) {
+    public String getRepository(QueryBuilderRepositoryDetectorParameter parameter) {
 
         MethodReference qbMethodRef = parameter.getMethodReferenceByName("createQueryBuilder");
         if(qbMethodRef == null) {

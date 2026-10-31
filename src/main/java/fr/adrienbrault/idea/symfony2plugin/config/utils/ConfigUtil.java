@@ -1,20 +1,22 @@
 package fr.adrienbrault.idea.symfony2plugin.config.utils;
 
-import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.Key;
-import com.intellij.openapi.vfs.VfsUtil;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.psi.PsiElement;
-import com.intellij.psi.PsiRecursiveElementWalkingVisitor;
-import com.intellij.psi.util.*;
 import com.jetbrains.php.lang.PhpLanguage;
 import com.jetbrains.php.lang.psi.elements.*;
+import consulo.application.util.CachedValue;
+import consulo.application.util.CachedValueProvider;
+import consulo.application.util.CachedValuesManager;
+import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiModificationTracker;
+import consulo.language.psi.PsiRecursiveElementWalkingVisitor;
+import consulo.project.Project;
+import consulo.util.dataholder.Key;
+import consulo.virtualFileSystem.VirtualFile;
+import consulo.virtualFileSystem.util.VirtualFileUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.FilesystemUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpIndexUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.ProjectUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.yaml.YAMLFileType;
 
 import java.util.*;
@@ -30,16 +32,14 @@ public class ConfigUtil {
     /**
      * Search for all "Symfony\Component\Config\Definition\Builder\TreeBuilder::root" elements
      */
-    @NotNull
-    public static Map<String, Collection<String>> getTreeSignatures(@NotNull Project project) {
+    public static Map<String, Collection<String>> getTreeSignatures(Project project) {
         return getTreeSignatureCache(project).treeSignatures();
     }
 
     /**
      * Resolve config root keys to their PSI targets using the shared project cache as a prefilter.
      */
-    @NotNull
-    public static Collection<PsiElement> getTreeSignatureTargets(@NotNull Project project, @NotNull String key) {
+    public static Collection<PsiElement> getTreeSignatureTargets(Project project, String key) {
         Collection<TreeTargetHint> treeTargetHints = getTreeSignatureCache(project).treeTargetHints().get(key);
         if (treeTargetHints == null || treeTargetHints.isEmpty()) {
             return Collections.emptyList();
@@ -51,8 +51,7 @@ public class ConfigUtil {
     /**
      * Resolve config root keys to PSI targets and narrow them to the given configuration classes.
      */
-    @NotNull
-    public static Collection<PsiElement> getTreeSignatureTargets(@NotNull Project project, @NotNull String key, @NotNull Collection<String> classes) {
+    public static Collection<PsiElement> getTreeSignatureTargets(Project project, String key, Collection<String> classes) {
         Collection<TreeTargetHint> treeTargetHints = getTreeSignatureCache(project).treeTargetHints().get(key);
         if (treeTargetHints == null || treeTargetHints.isEmpty()) {
             return Collections.emptyList();
@@ -70,8 +69,7 @@ public class ConfigUtil {
         return resolveTreeSignatureTargets(project, key, filteredHints);
     }
 
-    @NotNull
-    private static TreeSignatureCache getTreeSignatureCache(@NotNull Project project) {
+    private static TreeSignatureCache getTreeSignatureCache(Project project) {
         return CachedValuesManager.getManager(project).getCachedValue(
             project,
             TREE_SIGNATURE_CACHE,
@@ -80,8 +78,7 @@ public class ConfigUtil {
         );
     }
 
-    @NotNull
-    private static TreeSignatureCache buildTreeSignatureCache(@NotNull Project project) {
+    private static TreeSignatureCache buildTreeSignatureCache(Project project) {
         Map<String, Collection<String>> signatures = new HashMap<>();
         Map<String, Collection<TreeTargetHint>> targetHints = new HashMap<>();
 
@@ -94,7 +91,7 @@ public class ConfigUtil {
         return new TreeSignatureCache(signatures, targetHints);
     }
 
-    private static void visitTreeSignatures(@NotNull Collection<PhpClass> classes, @NotNull Consumer<TreeVisitor> consumer) {
+    private static void visitTreeSignatures(Collection<PhpClass> classes, Consumer<TreeVisitor> consumer) {
         for (PhpClass phpClass : classes) {
             Method method = phpClass.findOwnMethodByName("getConfigTreeBuilder");
             if(method == null) {
@@ -103,7 +100,7 @@ public class ConfigUtil {
 
             method.acceptChildren(new PsiRecursiveElementWalkingVisitor() {
                 @Override
-                public void visitElement(@NotNull PsiElement element) {
+                public void visitElement(PsiElement element) {
                     // Scan the method body once and apply cheap name checks before expensive type resolution.
                     if (element instanceof MethodReference methodReference) {
                         visitTreeBuilderRootCall(phpClass, methodReference, consumer);
@@ -120,7 +117,7 @@ public class ConfigUtil {
     /**
      * Symfony < 4.1: (new TreeBuilder())->root('foobar')
      */
-    private static void visitTreeBuilderRootCall(@NotNull PhpClass phpClass, @NotNull MethodReference methodReference, @NotNull Consumer<TreeVisitor> consumer) {
+    private static void visitTreeBuilderRootCall(PhpClass phpClass, MethodReference methodReference, Consumer<TreeVisitor> consumer) {
         if (!"root".equals(methodReference.getName())) {
             return;
         }
@@ -135,7 +132,7 @@ public class ConfigUtil {
     /**
      * Symfony >= 4.1: new TreeBuilder('foobar')
      */
-    private static void visitTreeBuilderInstantiation(@NotNull PhpClass phpClass, @NotNull NewExpression newExpression, @NotNull Consumer<TreeVisitor> consumer) {
+    private static void visitTreeBuilderInstantiation(PhpClass phpClass, NewExpression newExpression, Consumer<TreeVisitor> consumer) {
         ClassReference classReference = newExpression.getClassReference();
         if (classReference == null || !"TreeBuilder".equals(classReference.getName())) {
             return;
@@ -148,7 +145,7 @@ public class ConfigUtil {
         visitTreeSignature(phpClass, newExpression, consumer);
     }
 
-    private static void visitTreeSignature(@NotNull PhpClass phpClass, @NotNull ParameterListOwner ownerParameters, @NotNull Consumer<TreeVisitor> consumer) {
+    private static void visitTreeSignature(PhpClass phpClass, ParameterListOwner ownerParameters, Consumer<TreeVisitor> consumer) {
         PsiElement[] parameters = ownerParameters.getParameters();
         if (parameters.length == 0) {
             return;
@@ -162,8 +159,7 @@ public class ConfigUtil {
         consumer.accept(new TreeVisitor(phpClass, parameters[0], contents, ownerParameters instanceof MethodReference ? TreeBuilderKind.ROOT_METHOD : TreeBuilderKind.CONSTRUCTOR));
     }
 
-    @NotNull
-    private static Collection<PsiElement> resolveTreeSignatureTargets(@NotNull Project project, @NotNull String key, @NotNull Collection<TreeTargetHint> treeTargetHints) {
+    private static Collection<PsiElement> resolveTreeSignatureTargets(Project project, String key, Collection<TreeTargetHint> treeTargetHints) {
         Map<String, EnumSet<TreeBuilderKind>> kindsByClass = new HashMap<>();
         for (TreeTargetHint treeTargetHint : treeTargetHints) {
             kindsByClass.computeIfAbsent(treeTargetHint.fqn(), _ignored -> EnumSet.noneOf(TreeBuilderKind.class)).add(treeTargetHint.kind());
@@ -187,10 +183,10 @@ public class ConfigUtil {
         return psiElements;
     }
 
-    private static void resolveTreeSignatureTargets(@NotNull PhpClass phpClass, @NotNull Method method, @NotNull String key, @NotNull Set<TreeBuilderKind> kinds, @NotNull Collection<PsiElement> psiElements) {
+    private static void resolveTreeSignatureTargets(PhpClass phpClass, Method method, String key, Set<TreeBuilderKind> kinds, Collection<PsiElement> psiElements) {
         method.acceptChildren(new PsiRecursiveElementWalkingVisitor() {
             @Override
-            public void visitElement(@NotNull PsiElement element) {
+            public void visitElement(PsiElement element) {
                 if (kinds.contains(TreeBuilderKind.ROOT_METHOD) && element instanceof MethodReference methodReference) {
                     addMatchingTreeTarget(key, methodReference, psiElements);
                 } else if (kinds.contains(TreeBuilderKind.CONSTRUCTOR) && element instanceof NewExpression newExpression) {
@@ -202,7 +198,7 @@ public class ConfigUtil {
         });
     }
 
-    private static void addMatchingTreeTarget(@NotNull String key, @NotNull MethodReference methodReference, @NotNull Collection<PsiElement> psiElements) {
+    private static void addMatchingTreeTarget(String key, MethodReference methodReference, Collection<PsiElement> psiElements) {
         if (!"root".equals(methodReference.getName())) {
             return;
         }
@@ -214,7 +210,7 @@ public class ConfigUtil {
         addMatchingTreeTarget(key, (ParameterListOwner) methodReference, psiElements);
     }
 
-    private static void addMatchingTreeTarget(@NotNull String key, @NotNull NewExpression newExpression, @NotNull Collection<PsiElement> psiElements) {
+    private static void addMatchingTreeTarget(String key, NewExpression newExpression, Collection<PsiElement> psiElements) {
         ClassReference classReference = newExpression.getClassReference();
         if (classReference == null || !"TreeBuilder".equals(classReference.getName())) {
             return;
@@ -227,7 +223,7 @@ public class ConfigUtil {
         addMatchingTreeTarget(key, (ParameterListOwner) newExpression, psiElements);
     }
 
-    private static void addMatchingTreeTarget(@NotNull String key, @NotNull ParameterListOwner ownerParameters, @NotNull Collection<PsiElement> psiElements) {
+    private static void addMatchingTreeTarget(String key, ParameterListOwner ownerParameters, Collection<PsiElement> psiElements) {
         PsiElement[] parameters = ownerParameters.getParameters();
         if (parameters.length == 0) {
             return;
@@ -241,11 +237,11 @@ public class ConfigUtil {
         psiElements.add(parameters[0]);
     }
 
-    private record TreeVisitor(@NotNull PhpClass phpClass, @NotNull PsiElement psiElement, @NotNull String contents, @NotNull TreeBuilderKind kind) {}
+    private record TreeVisitor(PhpClass phpClass, PsiElement psiElement, String contents, TreeBuilderKind kind) {}
 
-    private record TreeTargetHint(@NotNull String fqn, @NotNull TreeBuilderKind kind) {}
+    private record TreeTargetHint(String fqn, TreeBuilderKind kind) {}
 
-    private record TreeSignatureCache(@NotNull Map<String, Collection<String>> treeSignatures, @NotNull Map<String, Collection<TreeTargetHint>> treeTargetHints) {}
+    private record TreeSignatureCache(Map<String, Collection<String>> treeSignatures, Map<String, Collection<TreeTargetHint>> treeTargetHints) {}
 
     private enum TreeBuilderKind {
         ROOT_METHOD,
@@ -258,7 +254,7 @@ public class ConfigUtil {
      * config/packages/twig.yml
      * config/packages/twig.yaml
      */
-    public static Collection<VirtualFile> getConfigurations(@NotNull Project project, @NotNull String packageName) {
+    public static Collection<VirtualFile> getConfigurations(Project project, String packageName) {
         Collection<String[]> paths = Arrays.asList(
             new String[] {"config", "packages", packageName +".yml"},
             new String[] {"config", "packages", packageName +".yaml"},
@@ -269,7 +265,7 @@ public class ConfigUtil {
         Collection<VirtualFile> virtualFiles = new HashSet<>();
 
         for (String[] path : paths) {
-            VirtualFile configFile = VfsUtil.findRelativeFile(ProjectUtil.getProjectDir(project), path);
+            VirtualFile configFile = VirtualFileUtil.findRelativeFile(ProjectUtil.getProjectDir(project), path);
             if(configFile != null) {
                 virtualFiles.add(configFile);
             }
@@ -277,7 +273,7 @@ public class ConfigUtil {
 
         // note
         for (VirtualFile virtualFile : FilesystemUtil.getAppDirectories(project)) {
-            VirtualFile configDir = VfsUtil.findRelativeFile(virtualFile, "config");
+            VirtualFile configDir = VirtualFileUtil.findRelativeFile(virtualFile, "config");
             if(configDir != null) {
                 for (VirtualFile configFile : configDir.getChildren()) {
                     // app/config/config*yml

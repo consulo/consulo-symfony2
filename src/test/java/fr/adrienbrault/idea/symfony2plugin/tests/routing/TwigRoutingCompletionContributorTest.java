@@ -1,5 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.routing;
 
+import org.junit.jupiter.api.Test;
+
 import com.jetbrains.twig.TwigFileType;
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
 
@@ -19,6 +21,8 @@ public class TwigRoutingCompletionContributorTest extends SymfonyLightCodeInsigh
         return "src/test/java/fr/adrienbrault/idea/symfony2plugin/tests/routing/fixtures";
     }
 
+    @Test
+
     public void testTwigPathCompletion() {
         assertCompletionContains(TwigFileType.INSTANCE, "{{ path('<caret>') }}", "route_foo", "route_bar", "xml_route");
         assertCompletionContains(TwigFileType.INSTANCE, "{{ path(\"<caret>\") }}", "route_foo", "route_bar", "xml_route");
@@ -33,10 +37,14 @@ public class TwigRoutingCompletionContributorTest extends SymfonyLightCodeInsigh
         assertCompletionResultEquals(TwigFileType.INSTANCE, "<form action=\"xml_route<caret>\"/>", "<form action=\"{{ path('xml_route', {'slug': 'x'}) }}\"/>");
     }
 
+    @Test
+
     public void testTwigPathParameterTailCompletion() {
         assertCompletionLookupTailEquals(TwigFileType.INSTANCE, "{{ path('<caret>') }}", "route_foo", "(var1, var2, var3)");
         assertCompletionLookupTailEquals(TwigFileType.INSTANCE, "{{ path('<caret>') }}", "xml_route", "(slug)");
     }
+
+    @Test
 
     public void testTwigPathParameterTailCompletionForPhpFluentRoutes() {
         myFixture.addFileToProject("routing/classes.php", "<?php\n" +
@@ -87,6 +95,7 @@ public class TwigRoutingCompletionContributorTest extends SymfonyLightCodeInsigh
 
     /*
     @TODO: not working: pattern changes
+    @Test
     public void testTwigPathParameterCompletion() {
         assertCompletionContains(TwigFileType.INSTANCE, "{{ path('route_foo', {'<caret>'}) }}", "var1", "var3", "var2");
     }
