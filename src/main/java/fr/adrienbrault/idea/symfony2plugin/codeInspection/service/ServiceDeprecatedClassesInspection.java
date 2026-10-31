@@ -12,9 +12,6 @@ import fr.adrienbrault.idea.symfony2plugin.util.dict.ServiceUtil;
 import java.util.function.Supplier;
 
 /**
- * consulo-port: the registered inspections were nested classes upstream; they are now top-level classes in this package:
- * {@link ServiceDeprecatedClassesInspectionYaml}, {@link ServiceDeprecatedClassesInspectionXml}, {@link ServiceDeprecatedClassesInspectionPhp}
- *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public final class ServiceDeprecatedClassesInspection {

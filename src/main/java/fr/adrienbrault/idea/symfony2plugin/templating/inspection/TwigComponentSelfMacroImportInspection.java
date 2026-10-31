@@ -163,7 +163,6 @@ public class TwigComponentSelfMacroImportInspection extends LocalInspectionTool 
                 return count;
             }
 
-            // consulo-port: same semantics as Kotlin Char.isWhitespace()
             private boolean isWhitespace(char ch) {
                 return Character.isWhitespace(ch) || Character.isSpaceChar(ch);
             }

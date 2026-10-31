@@ -15,8 +15,6 @@ import org.jetbrains.yaml.psi.YAMLScalar;
 import org.jspecify.annotations.Nullable;
 
 /**
- * consulo-port: was the nested class ContainerConstantInspection$ContainerConstantYamlInspection
- *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 @ExtensionImpl

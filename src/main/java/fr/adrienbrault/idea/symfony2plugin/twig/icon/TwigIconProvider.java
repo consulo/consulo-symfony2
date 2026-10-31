@@ -1,5 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.twig.icon;
 
+import consulo.ui.image.OverlayPosition;
 import com.jetbrains.twig.TwigFile;
 import com.jetbrains.twig.TwigFileType;
 import consulo.annotation.access.RequiredReadAction;
@@ -23,10 +24,8 @@ import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
 import com.jetbrains.twig.icons.TwigIcons;
 import org.jspecify.annotations.Nullable;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Set;
 
 /**
@@ -67,22 +66,17 @@ public class TwigIconProvider implements IconDescriptorUpdater {
     }
 
     private static Image buildTwigBadgeIcon(int key) {
-        List<Image> layers = new ArrayList<>();
-        layers.add(TwigIcons.TwigFileIcon);
-
-        // TODO consulo-port: ImageEffects.layered has no per-layer position; upstream LayeredIcon placed the badges at
-        //  SwingConstants.NORTH_WEST (controller), SOUTH_WEST (extends) and SOUTH_EAST (include)
+        Image icon = TwigIcons.TwigFileIcon;
         if ((key & FLAG_CONTROLLER) != 0) {
-            layers.add(Symfony2Icons.TWIG_CONTROLLER_FILE);
+            icon = ImageEffects.overlay(icon, Symfony2Icons.TWIG_CONTROLLER_FILE, OverlayPosition.TOP_LEFT);
         }
         if ((key & FLAG_EXTENDS) != 0) {
-            layers.add(Symfony2Icons.TWIG_EXTENDS_FILE);
+            icon = ImageEffects.overlay(icon, Symfony2Icons.TWIG_EXTENDS_FILE, OverlayPosition.BOTTOM_LEFT);
         }
         if ((key & FLAG_INCLUDE) != 0) {
-            layers.add(Symfony2Icons.TWIG_IMPLEMENTS_FILE);
+            icon = ImageEffects.overlay(icon, Symfony2Icons.TWIG_IMPLEMENTS_FILE, OverlayPosition.BOTTOM_RIGHT);
         }
-
-        return ImageEffects.layered(layers.toArray(new Image[0]));
+        return icon;
     }
 
     @RequiredReadAction

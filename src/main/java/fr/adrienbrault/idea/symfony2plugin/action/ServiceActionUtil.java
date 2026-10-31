@@ -122,7 +122,6 @@ public class ServiceActionUtil {
                 CodeStyleManager.getInstance(project).reformat(fileFromText);
             }
 
-            // consulo-port: no PsiDirectoryFactory, resolve the directory through PsiManager
             PsiDirectory directory = PsiManager.getInstance(project).findDirectory(parentDirectory.getVirtualFile());
             if (directory == null) {
                 return;

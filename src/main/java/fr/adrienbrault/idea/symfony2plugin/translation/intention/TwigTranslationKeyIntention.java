@@ -44,7 +44,6 @@ public final class TwigTranslationKeyIntention extends PsiElementBaseIntentionAc
 
     @Override
     public boolean isAvailable(Project project, @Nullable Editor editor, PsiElement psiElement) {
-        // consulo-port: plugin.xml <language>Twig</language>
         if (!psiElement.getLanguage().isKindOf(TwigLanguage.INSTANCE)) {
             return false;
         }

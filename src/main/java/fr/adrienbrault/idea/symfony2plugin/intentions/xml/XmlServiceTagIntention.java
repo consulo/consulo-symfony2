@@ -30,7 +30,6 @@ import java.util.Set;
 public class XmlServiceTagIntention extends PsiElementBaseIntentionAction {
     @Override
     public boolean isAvailable(Project project, Editor editor, PsiElement psiElement) {
-        // consulo-port: plugin.xml <language>XML</language>
         if (!psiElement.getLanguage().isKindOf(XMLLanguage.INSTANCE)) {
             return false;
         }

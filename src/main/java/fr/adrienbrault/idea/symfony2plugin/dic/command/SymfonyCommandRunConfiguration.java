@@ -7,7 +7,7 @@ import consulo.execution.configuration.LocatableConfigurationBase;
 import consulo.execution.configuration.RunConfiguration;
 import consulo.execution.configuration.RunProfileState;
 import consulo.execution.configuration.RuntimeConfigurationError;
-import consulo.execution.configuration.ui.SettingsEditor;
+import consulo.execution.configuration.fragment.RunConfigurationFragment;
 import consulo.execution.executor.Executor;
 import consulo.execution.runner.ExecutionEnvironment;
 import consulo.execution.ui.console.ConsoleView;
@@ -16,7 +16,7 @@ import consulo.process.ExecutionException;
 import consulo.process.ProcessHandler;
 import consulo.process.cmd.GeneralCommandLine;
 import consulo.process.cmd.ParametersListUtil;
-import consulo.process.local.ProcessHandlerFactory;
+import consulo.process.ProcessHandlerBuilderFactory;
 import consulo.project.Project;
 import consulo.virtualFileSystem.VirtualFile;
 import fr.adrienbrault.idea.symfony2plugin.util.ProjectUtil;
@@ -59,9 +59,9 @@ public class SymfonyCommandRunConfiguration extends LocatableConfigurationBase {
         super(project, factory, name);
     }
 
-    // TODO consulo-port: RunConfiguration#getConfigurationEditor() does not exist in Consulo; the editor must be provided via RunConfiguration#createFragments() (RunConfigurationFragment)
-    public SettingsEditor<? extends RunConfiguration> getConfigurationEditor() {
-        return new SymfonyCommandRunConfigurationEditor();
+    @Override
+    public List<RunConfigurationFragment<?>> createFragments() {
+        return List.of(new SymfonyCommandRunConfigurationFragment());
     }
 
     @Override
@@ -107,8 +107,11 @@ public class SymfonyCommandRunConfiguration extends LocatableConfigurationBase {
             commandLine.addParameters(command.subList(1, command.size()).toArray(new String[0]));
             commandLine.setWorkDirectory(workDir);
 
-            // TODO consulo-port: KillableProcessHandler#setShouldKillProcessSoftly(false) has no Consulo counterpart
-            ProcessHandler processHandler = ProcessHandlerFactory.getInstance().createKillableProcessHandler(commandLine);
+            ProcessHandler processHandler = project.getApplication().getInstance(ProcessHandlerBuilderFactory.class)
+                .newBuilder(commandLine)
+                .killable()
+                .shouldKillProcessSoftly(false)
+                .build();
 
             ConsoleView consoleView = TextConsoleBuilderFactory.getInstance().createBuilder(project).getConsole();
             consoleView.attachToProcess(processHandler);

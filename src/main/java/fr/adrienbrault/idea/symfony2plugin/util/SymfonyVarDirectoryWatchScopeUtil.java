@@ -36,7 +36,6 @@ public final class SymfonyVarDirectoryWatchScopeUtil {
         private final Set<String> myRoots;
         private final @Nullable Predicate<String> myPredicate;
 
-        // consulo-port: Kotlin function type ((String) -> Boolean)? is exposed as java.util.function.Predicate
         public ScopeEntry(SymfonyVarDirectoryWatcher.Scope scope, Set<String> roots, @Nullable Predicate<String> predicate) {
             myScope = scope;
             myRoots = roots;

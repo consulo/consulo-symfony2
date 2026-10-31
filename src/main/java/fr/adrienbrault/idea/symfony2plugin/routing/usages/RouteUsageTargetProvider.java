@@ -28,7 +28,6 @@ public class RouteUsageTargetProvider implements UsageTargetProvider {
     public UsageTarget[] getTargets(PsiElement element) {
         List<UsageTarget> targets = new ArrayList<>();
         for (PsiElement target : RouteUsageUtil.getRouteSearchTargets(element)) {
-            // consulo-port: upstream PsiElement2UsageTargetAdapter(it, true); the highlightUsages flag has no counterpart
             targets.add(PsiElementUsageTargetFactory.getInstance().create(target));
         }
 

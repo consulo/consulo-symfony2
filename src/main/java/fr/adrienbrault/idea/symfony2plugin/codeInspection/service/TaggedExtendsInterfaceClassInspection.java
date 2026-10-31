@@ -17,10 +17,6 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 /**
- * consulo-port: the registered inspections were nested classes upstream; they are now top-level classes in this package:
- * {@link TaggedExtendsInterfaceClassInspectionYaml}, {@link TaggedExtendsInterfaceClassInspectionXml}.
- * The upstream file-private helper functions live here as package-private static methods.
- *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public final class TaggedExtendsInterfaceClassInspection {

@@ -24,10 +24,7 @@ import fr.adrienbrault.idea.symfony2plugin.util.VfsExUtil;
 import org.jspecify.annotations.Nullable;
 
 /**
- * TODO consulo-port: platform.backend.documentation API missing (DocumentationTarget, DocumentationResult; could become
- *  LanguageDocumentationProvider.getCustomDocumentationElement + generateDoc). Was "implements DocumentationTarget";
- *  the former overrides are kept as plain methods, computeDocumentation() (DocumentationResult.asyncDocumentation +
- *  readAction { renderTwigTemplateDocumentation(collectTwigTemplateDocumentation(current)) }) is dropped.
+ * One template file of a Twig template name, for {@link TwigTemplateDocumentationProvider}
  */
 public class TwigTemplateDocumentationTarget {
     private final TwigTemplateDocumentationContext myContext;
@@ -100,7 +97,6 @@ public class TwigTemplateDocumentationTarget {
     public TargetPresentation computePresentation() {
         String locationText = VfsExUtil.getRelativeProjectPath(myContext.getAnchor().getProject(), myTemplateFile);
 
-        // TODO consulo-port: TargetPresentation.builder(..) -> NavigationService.presentationBuilder(..)
         return Application.get().getInstance(NavigationService.class)
             .presentationBuilder(LocalizeValue.of(myContext.getName()))
             .withIcon(TwigFileType.INSTANCE.getIcon())

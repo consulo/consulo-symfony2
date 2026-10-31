@@ -192,7 +192,6 @@ public class TwigTemplateReferencesSearchExecutor implements ReferencesSearchQue
      * For complex parameter expressions: the {@code FunctionReference} (the call itself).
      * For {@code @Template} / {@code #[Template]} annotations without a call: the method identifier.
      */
-    // TODO consulo-port: consulo.util.lang.Trinity comes from the Kotlin stdlib (shared with PhpMethodVariableResolveUtil); replace together once a Java tuple type is chosen
     private static PsiElement resolveControllerSourceElement(consulo.util.lang.Trinity<String, PhpNamedElement, FunctionReference> triple, Function function) {
         FunctionReference functionReference = triple.getThird();
         if (functionReference != null) {

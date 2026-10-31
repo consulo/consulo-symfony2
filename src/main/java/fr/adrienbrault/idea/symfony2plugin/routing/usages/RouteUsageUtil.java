@@ -158,7 +158,6 @@ public final class RouteUsageUtil {
     /**
      * Expands the caret context slightly so usage detection still works when IntelliJ gives a neighboring leaf node.
      * <p>
-     * consulo-port: was an "internal" member of the Kotlin companion object; exposed as static method and via {@link Companion}.
      */
     public static Collection<PsiElement> getCandidateElements(PsiElement element) {
         Set<PsiElement> elements = new LinkedHashSet<>();

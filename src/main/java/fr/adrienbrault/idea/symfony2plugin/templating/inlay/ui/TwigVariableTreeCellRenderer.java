@@ -16,7 +16,7 @@ public class TwigVariableTreeCellRenderer {
     public static void render(TwigVariableTreeNode node, TextItemPresentation presentation) {
         Image icon;
         if (node.isList()) {
-            icon = PlatformIconGroup.uidesignerTable(); // TODO consulo-port: no AllIcons.Nodes.DataTables icon
+            icon = PlatformIconGroup.nodesDatatables();
         }
         else if (node.isBool()) {
             icon = PlatformIconGroup.nodesVariable();

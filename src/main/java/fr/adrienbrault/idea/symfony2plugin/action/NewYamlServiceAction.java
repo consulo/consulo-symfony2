@@ -1,11 +1,11 @@
 package fr.adrienbrault.idea.symfony2plugin.action;
 
+import consulo.platform.base.icon.PlatformIconGroup;
 import consulo.annotation.component.ActionImpl;
 import consulo.project.Project;
 import consulo.ui.annotation.RequiredUIAccess;
 import consulo.ui.ex.action.AnActionEvent;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
-import org.jetbrains.yaml.YAMLFileType;
 
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
@@ -16,7 +16,7 @@ public class NewYamlServiceAction extends AbstractProjectDumbAwareAction {
         super(
             "Yaml Service",
             "Create new Yaml File",
-            YAMLFileType.YML.getIcon() // TODO consulo-port: no AllIcons.Nodes.DataTables icon
+            PlatformIconGroup.nodesDatatables()
         );
     }
 

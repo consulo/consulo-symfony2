@@ -51,7 +51,6 @@ public class PhpPropertyArgumentIntention extends IntentionAndQuickFixAction imp
             return false;
         }
 
-        // consulo-port: plugin.xml <language>PHP</language>
         PsiElement elementAt = file.findElementAt(editor.getCaretModel().getOffset());
         if (elementAt == null || !elementAt.getLanguage().isKindOf(PhpLanguage.INSTANCE)) {
             return false;
@@ -126,7 +125,6 @@ public class PhpPropertyArgumentIntention extends IntentionAndQuickFixAction imp
             }
         }
 
-        // consulo-port: upstream renders through PhpGotoTargetRendererProvider.PhpNamedElementPsiElementListCellRenderer (Swing)
         ListPopup popup = JBPopupFactory.getInstance().createListPopup(
             new BaseListPopupStep<>("Symfony: Property Service Suggestions", phpClasses) {
                 @Override

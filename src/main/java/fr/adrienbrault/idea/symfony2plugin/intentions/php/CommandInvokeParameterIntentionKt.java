@@ -10,9 +10,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * consulo-port: top-level declarations of upstream CommandInvokeParameterIntention.kt
- */
 public final class CommandInvokeParameterIntentionKt {
     static final String AS_COMMAND_ATTRIBUTE = "\\Symfony\\Component\\Console\\Attribute\\AsCommand";
 

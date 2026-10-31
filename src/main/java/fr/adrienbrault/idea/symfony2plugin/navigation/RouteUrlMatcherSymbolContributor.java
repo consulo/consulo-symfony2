@@ -24,7 +24,10 @@ import java.util.Set;
  */
 @ExtensionImpl
 public class RouteUrlMatcherSymbolContributor implements GotoSymbolContributor {
-    // TODO consulo-port: ChooseByNameContributorEx2 missing, never called
+    /**
+     * The typed pattern itself is a name when it is a URL path matching a route path, like {@code /blog/hello} for {@code /blog/{slug}}
+     */
+    @Override
     public void processNames(Processor<String> processor, FindSymbolParameters parameters) {
         Project project = parameters.getProject();
         if (!Symfony2ProjectComponent.isEnabled(project)) {

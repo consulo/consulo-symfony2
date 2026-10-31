@@ -61,7 +61,6 @@ public class ParameterLanguageInjector implements MultiHostInjector {
 
     @Override
     public Class<? extends PsiElement> getElementClass() {
-        // consulo-port: consulo-php has no StringLiteralExpressionImpl, the injector map also matches interfaces
         return StringLiteralExpression.class;
     }
 

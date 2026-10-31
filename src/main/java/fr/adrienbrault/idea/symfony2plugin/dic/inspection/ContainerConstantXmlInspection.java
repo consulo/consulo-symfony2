@@ -16,8 +16,6 @@ import fr.adrienbrault.idea.symfony2plugin.config.xml.XmlHelper;
 import org.jspecify.annotations.Nullable;
 
 /**
- * consulo-port: was the nested class ContainerConstantInspection$ContainerConstantXmlInspection
- *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 @ExtensionImpl

@@ -40,8 +40,6 @@ public class TemplateCreateByNameLocalQuickFix extends IntentionAndQuickFixActio
         return LocalizeValue.localizeTODO("Twig: Create Template");
     }
 
-    // consulo-port: applyFix(Project, ProblemDescriptor) is final in Consulo IntentionAndQuickFixAction and delegates to
-    // applyFix(Project, PsiFile, Editor), which ends up in applyFix(Project) as upstream did
     @Override
     public void applyFix(Project project, PsiFile psiFile, @Nullable Editor editor) {
         applyFix(project);

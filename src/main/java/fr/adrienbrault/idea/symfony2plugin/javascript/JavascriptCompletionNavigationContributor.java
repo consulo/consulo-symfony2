@@ -32,9 +32,6 @@ public class JavascriptCompletionNavigationContributor {
 
     static final InsertHandler<LookupElement> INSERT_HANDLER_ROUTE_PATH_REPLACE = new MyLookupElementReplaceRouteWithPath();
 
-    /**
-     * consulo-port: registered through {@link JavascriptCompletionNavigationContributorGotoDeclaration}
-     */
     public static class GotoDeclaration implements GotoDeclarationHandler {
         @Override
         public PsiElement @Nullable [] getGotoDeclarationTargets(@Nullable PsiElement psiElement, int offset, Editor editor) {

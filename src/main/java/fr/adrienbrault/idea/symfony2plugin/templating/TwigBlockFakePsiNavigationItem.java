@@ -29,7 +29,6 @@ public class TwigBlockFakePsiNavigationItem extends GoToSymbolProvider.BaseNavig
         this.myPsiElement = psiElement;
     }
 
-    // consulo-port: was getIcon(boolean) returning PsiFile#getIcon(int); Consulo has getIcon() and IconDescriptorUpdaters
     @Override
     public @Nullable Image getIcon() {
         return IconDescriptorUpdaters.getIcon(myPsiElement.getContainingFile(), Iconable.ICON_FLAG_VISIBILITY);

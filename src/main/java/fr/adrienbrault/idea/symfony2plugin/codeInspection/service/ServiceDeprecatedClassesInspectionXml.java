@@ -21,8 +21,6 @@ import org.jspecify.annotations.Nullable;
 import java.util.function.Supplier;
 
 /**
- * consulo-port: upstream nested class ServiceDeprecatedClassesInspection$ServiceDeprecatedClassesInspectionXml
- *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 @ExtensionImpl

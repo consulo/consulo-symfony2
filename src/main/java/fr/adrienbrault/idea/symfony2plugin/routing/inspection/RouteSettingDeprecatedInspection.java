@@ -16,10 +16,6 @@ import org.jetbrains.yaml.psi.YAMLKeyValue;
 import org.jspecify.annotations.Nullable;
 
 /**
- * consulo-port: the registered nested inspections RouteSettingDeprecatedInspection$RouteSettingDeprecatedInspectionYaml / $RouteSettingDeprecatedInspectionXml
- * moved to the top-level classes {@link RouteSettingDeprecatedInspectionYaml} and {@link RouteSettingDeprecatedInspectionXml}
- * (nested classes cannot carry @ExtensionImpl). The former private top-level functions of the Kotlin file live here.
- *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class RouteSettingDeprecatedInspection {

@@ -199,7 +199,7 @@ public class TwigTypeResolveUtil {
      * Example: {@code root.getChildren().fff('x').bar} is true for {@code getChildren} and {@code fff}.
      */
     public static boolean hasNextPsiTypeNameElement(PsiElement psiElement) {
-        ASTNode next = getNextNonWhitespaceLeaf(psiElement.getNode());
+        ASTNode next = FormatterUtil.getNextNonWhitespaceLeaf(psiElement.getNode());
         if (next != null && next.getElementType() == TwigTokenTypes.LBRACE) {
             next = getNextNodeAfterMethodCall(next);
         }
@@ -208,7 +208,7 @@ public class TwigTypeResolveUtil {
             return false;
         }
 
-        ASTNode afterDot = getNextNonWhitespaceLeaf(next);
+        ASTNode afterDot = FormatterUtil.getNextNonWhitespaceLeaf(next);
         return afterDot != null && isPsiTypeNameElement(afterDot);
     }
 
@@ -328,13 +328,13 @@ public class TwigTypeResolveUtil {
     @Nullable
     private static ASTNode getNextNodeAfterMethodCall(ASTNode leftBrace) {
         int depth = 0;
-        for (ASTNode current = leftBrace; current != null; current = getNextNonWhitespaceLeaf(current)) {
+        for (ASTNode current = leftBrace; current != null; current = FormatterUtil.getNextNonWhitespaceLeaf(current)) {
             if (current.getElementType() == TwigTokenTypes.LBRACE) {
                 depth++;
             } else if (current.getElementType() == TwigTokenTypes.RBRACE) {
                 depth--;
                 if (depth == 0) {
-                    return getNextNonWhitespaceLeaf(current);
+                    return FormatterUtil.getNextNonWhitespaceLeaf(current);
                 }
             }
         }
@@ -501,7 +501,7 @@ public class TwigTypeResolveUtil {
             return false;
         }
 
-        ASTNode next = getNextNonWhitespaceLeaf(rootElement.getNode());
+        ASTNode next = FormatterUtil.getNextNonWhitespaceLeaf(rootElement.getNode());
         if (next == null || next.getElementType() != TwigTokenTypes.LBRACE) {
             return false;
         }
@@ -628,12 +628,12 @@ public class TwigTypeResolveUtil {
                 continue;
             }
 
-            ASTNode lbraceCurlPsi = getNextNonWhitespaceLeaf(tagName.getNode());
+            ASTNode lbraceCurlPsi = FormatterUtil.getNextNonWhitespaceLeaf(tagName.getNode());
             if (lbraceCurlPsi == null || lbraceCurlPsi.getElementType() != TwigTokenTypes.LBRACE_CURL) {
                 continue;
             }
 
-            ASTNode variableNamePsi = getNextNonWhitespaceLeaf(lbraceCurlPsi);
+            ASTNode variableNamePsi = FormatterUtil.getNextNonWhitespaceLeaf(lbraceCurlPsi);
             if (variableNamePsi == null) {
                 continue;
             }
@@ -646,7 +646,7 @@ public class TwigTypeResolveUtil {
             }
 
             for (PsiElement commaPsi : PsiElementUtils.getNextSiblingOfTypes(variableNamePsi.getPsi(), PlatformPatterns.psiElement().withElementType(TwigTokenTypes.COMMA))) {
-                ASTNode commaPsiNext = getNextNonWhitespaceLeaf(commaPsi.getNode());
+                ASTNode commaPsiNext = FormatterUtil.getNextNonWhitespaceLeaf(commaPsi.getNode());
                 if (commaPsiNext != null && commaPsiNext.getElementType() == TwigTokenTypes.IDENTIFIER) {
                     String variableName = commaPsiNext.getText();
                     if (!variableName.isBlank()) {
@@ -1264,37 +1264,4 @@ public class TwigTypeResolveUtil {
         }
     }
 
-    /**
-     * The leaf after the node, whitespace skipped: a plain walk of the tree, the counterpart of
-     * {@link #getPreviousNonWhitespaceLeaf(ASTNode)}
-     */
-    // TODO consulo-port: consulo.language.codeStyle.FormatterUtil has no getNextNonWhitespaceLeaf(ASTNode); replace this helper once the platform provides it
-    private static @Nullable ASTNode getNextNonWhitespaceLeaf(@Nullable ASTNode node) {
-        if (node == null) {
-            return null;
-        }
-
-        ASTNode treeNext = node.getTreeNext();
-        if (treeNext != null) {
-            ASTNode candidate = treeNext;
-            while (candidate.getFirstChildNode() != null) {
-                candidate = candidate.getFirstChildNode();
-            }
-
-            if (!FormatterUtil.isWhitespaceOrEmpty(candidate)) {
-                return candidate;
-            }
-            else {
-                return getNextNonWhitespaceLeaf(candidate);
-            }
-        }
-
-        ASTNode treeParent = node.getTreeParent();
-        if (treeParent == null || treeParent.getTreeParent() == null) {
-            return null;
-        }
-        else {
-            return getNextNonWhitespaceLeaf(treeParent);
-        }
-    }
 }

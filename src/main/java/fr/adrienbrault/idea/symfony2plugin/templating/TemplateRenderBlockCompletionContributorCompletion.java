@@ -34,7 +34,6 @@ import static fr.adrienbrault.idea.symfony2plugin.templating.TemplateRenderBlock
  * Completion part of {@link TemplateRenderBlockCompletionContributor}: block names in
  * AbstractController::renderBlock() and renderBlockView() calls.
  *
- * consulo-port: was the nested class TemplateRenderBlockCompletionContributor$Completion; a nested class cannot carry @ExtensionImpl
  *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */

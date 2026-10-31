@@ -365,7 +365,6 @@ public class IdeHelper {
     }
 
     public static void showErrorHintIfAvailable(Editor editor, String text) {
-        // consulo-port: no intention preview
         if (ApplicationManager.getApplication().isHeadlessEnvironment()) {
             return;
         }

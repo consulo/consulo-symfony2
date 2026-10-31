@@ -2,11 +2,26 @@ package fr.adrienbrault.idea.symfony2plugin.templating.inlay;
 
 import com.jetbrains.twig.TwigFile;
 import com.jetbrains.twig.TwigLanguage;
+import consulo.annotation.access.RequiredReadAction;
+import consulo.annotation.component.ExtensionImpl;
 import consulo.codeEditor.Editor;
 import consulo.language.Language;
-import consulo.language.psi.PsiElement;
+import consulo.language.editor.inlay.DeclarativeInlayHintsCollector;
+import consulo.language.editor.inlay.DeclarativeInlayHintsProvider;
+import consulo.language.editor.inlay.DeclarativeInlayPosition;
+import consulo.language.editor.inlay.DeclarativeInlayTreeSink;
+import consulo.language.editor.inlay.HintColorKind;
+import consulo.language.editor.inlay.HintFontSize;
+import consulo.language.editor.inlay.HintFormat;
+import consulo.language.editor.inlay.HintMarginPadding;
+import consulo.language.editor.inlay.InlayActionData;
+import consulo.language.editor.inlay.InlayActionPayload;
+import consulo.language.editor.inlay.InlayGroup;
 import consulo.language.psi.PsiFile;
+import consulo.language.psi.SmartPointerManager;
+import consulo.localize.LocalizeValue;
 import consulo.project.DumbService;
+import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigTypeResolveUtil;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigUtil;
@@ -19,94 +34,79 @@ import java.util.Map;
  * Block-level inlay hint for Twig templates rendered by a controller.
  * Clicking opens a tree popup for code insertion and navigation.
  *
- * Upstream was registered as codeInsight.inlayProvider (language Twig); left unregistered.
- *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
-@SuppressWarnings("UnstableApiUsage")
-public class TwigVariablesInlayHintsProvider { // TODO consulo-port: InlayHintsProvider missing; rewrite as DeclarativeInlayHintsProvider
+@ExtensionImpl
+public class TwigVariablesInlayHintsProvider implements DeclarativeInlayHintsProvider {
+    public static final String PROVIDER_ID = "symfony.twig.root.variables";
 
-    // TODO consulo-port: SettingsKey / NoSettings missing; upstream:
-    // private static final SettingsKey<NoSettings> KEY = new SettingsKey<>("symfony.twig.root.variables");
+    private static final HintFormat FORMAT = new HintFormat(HintColorKind.Default, HintFontSize.ABitSmallerThanInEditor, HintMarginPadding.MarginAndSmallerPadding);
 
-    public boolean isVisibleInSettings() {
-        return true;
-    }
-
-    // TODO consulo-port: SettingsKey / NoSettings missing; upstream:
-    // public SettingsKey<NoSettings> getKey() {
-    //     return KEY;
-    // }
-
-    public String getName() {
-        return "Twig Root Variables";
-    }
-
-    public @Nullable String getPreviewText() {
-        return null;
-    }
-
-    // TODO consulo-port: ImmediateConfigurable / NoSettings missing; upstream:
-    // public ImmediateConfigurable createConfigurable(NoSettings settings) {
-    //     return changeListener -> new JPanel();
-    // }
-    //
-    // public NoSettings createSettings() {
-    //     return new NoSettings();
-    // }
-
-    // TODO consulo-port: InlayHintsCollector / NoSettings / InlayHintsSink missing; upstream signature:
-    // public InlayHintsCollector getCollectorFor(PsiFile file, Editor editor, NoSettings settings, InlayHintsSink sink)
-    public TwigVariablesInlayCollector getCollectorFor(PsiFile file, Editor editor) {
-        return new TwigVariablesInlayCollector(editor);
-    }
-
-    public boolean isLanguageSupported(Language language) {
-        return language.isKindOf(TwigLanguage.INSTANCE);
-    }
-
-    private static class TwigVariablesInlayCollector { // TODO consulo-port: was "extends FactoryInlayHintsCollector" (missing)
-        private final Editor myEditor;
-
-        TwigVariablesInlayCollector(Editor editor) {
-            myEditor = editor;
+    @Override
+    public @Nullable DeclarativeInlayHintsCollector createCollector(PsiFile file, Editor editor) {
+        if (!(file instanceof TwigFile) || DumbService.isDumb(file.getProject()) || !Symfony2ProjectComponent.isEnabled(file)) {
+            return null;
         }
+        return new TwigVariablesInlayCollector();
+    }
 
-        // TODO consulo-port: InlayHintsSink missing; upstream signature: collect(PsiElement element, Editor editor, InlayHintsSink sink)
-        public boolean collect(PsiElement element, Editor editor) {
-            if (!(element instanceof TwigFile twigFile)) {
-                return true;
-            }
+    @Override
+    public Language getLanguage() {
+        return TwigLanguage.INSTANCE;
+    }
 
-            if (DumbService.isDumb(element.getProject())) {
-                return false;
-            }
+    @Override
+    public String getId() {
+        return PROVIDER_ID;
+    }
 
-            if (!Symfony2ProjectComponent.isEnabled(element)) {
-                return false;
+    @Override
+    public LocalizeValue getName() {
+        return LocalizeValue.localizeTODO("Twig Root Variables");
+    }
+
+    @Override
+    public LocalizeValue getDescription() {
+        return LocalizeValue.localizeTODO("Shows the variables a controller passes to a Twig template, above the template");
+    }
+
+    @Override
+    public LocalizeValue getPreviewFileText() {
+        return LocalizeValue.empty();
+    }
+
+    @Override
+    public InlayGroup getGroup() {
+        return InlayGroup.OTHER_GROUP;
+    }
+
+    private static class TwigVariablesInlayCollector implements DeclarativeInlayHintsCollector.OwnBypassCollector {
+        @Override
+        @RequiredReadAction
+        public void collectHintsForFile(PsiFile file, DeclarativeInlayTreeSink sink) {
+            if (!(file instanceof TwigFile twigFile)) {
+                return;
             }
 
             if (TwigUtil.findTwigFileController(twigFile).isEmpty() && TwigUtil.getTwigFileMethodUsageOnIndex(twigFile).isEmpty()) {
-                return false;
+                return;
             }
 
-            Map<String, PsiVariable> variables = TwigTypeResolveUtil.collectScopeVariables(element);
+            Map<String, PsiVariable> variables = TwigTypeResolveUtil.collectScopeVariables(twigFile);
             if (variables.isEmpty()) {
-                return false;
+                return;
             }
 
-            // TODO consulo-port: PresentationFactory / SequencePresentation / InlayHintsSink missing; upstream:
-            // PresentationFactory factory = getFactory();
-            // InlayPresentation icon = factory.inset(factory.scaledIcon(Symfony2Icons.SYMFONY, 0.77f), 0, 0, 1, 0);
-            // InlayPresentation label = factory.smallText(" Variables (" + variables.size() + ")");
-            // InlayPresentation combined = new SequencePresentation(List.of(icon, label));
-            // InlayPresentation clickable = factory.referenceOnHover(combined, (event, translated) ->
-            //     TwigVariablesTreePopup.show(twigFile, editor, variables, event)
-            // );
-            // InlayPresentation presentation = factory.inset(factory.offsetFromTopForSmallText(clickable), 0, 4, 1, 4);
-            //
-            // sink.addBlockElement(0, false, true, 0, presentation);
-            return false;
+            InlayActionData actionData = new InlayActionData(
+                new InlayActionPayload.PsiPointerInlayActionPayload(SmartPointerManager.createPointer(twigFile)),
+                TwigVariablesInlayActionHandler.HANDLER_ID
+            );
+            sink.addPresentation(new DeclarativeInlayPosition.AboveLineIndentedPosition(0), FORMAT, builder ->
+                builder.clickHandlerScope(actionData, scope -> {
+                    scope.icon(Symfony2Icons.SYMFONY);
+                    scope.text(" Variables (" + variables.size() + ")");
+                })
+            );
         }
     }
 }

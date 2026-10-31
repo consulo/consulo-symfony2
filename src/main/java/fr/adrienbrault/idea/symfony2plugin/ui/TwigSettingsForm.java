@@ -71,7 +71,6 @@ public class TwigSettingsForm {
         boolean changed = !includeSettings;
         resetList();
 
-        // TODO consulo-port: the unified Table has no empty text; upstream shows "Loading after indexing completes..." / "Loading Twig namespaces..."
 
         int requestId = myReloadRequestId.incrementAndGet();
 

@@ -72,7 +72,6 @@ public class TwigExtractLanguageAction extends DumbAwareAction implements AnActi
             return;
         }
 
-        // consulo-port: update runs in background, read caret and selection from the editor snapshot
         Editor editor = event.getData(EditorKeys.EDITOR_SNAPSHOT);
         if (editor == null) {
             return;

@@ -1248,7 +1248,6 @@ public class YamlHelper {
 
         // key: !my_tag <caret>\n
         if (((LeafPsiElement) psiElement).getElementType() == YAMLTokenTypes.EOL) {
-            // consulo-port: PsiTreeUtil.getDeepestVisibleLast is missing in Consulo, inlined platform implementation
             PsiElement prevElement = PsiTreeUtil.getDeepestLast(psiElement);
             if (StringUtil.isEmptyOrSpaces(prevElement.getText())) {
                 prevElement = PsiTreeUtil.prevVisibleLeaf(prevElement);

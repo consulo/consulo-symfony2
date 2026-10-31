@@ -14,8 +14,6 @@ import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import org.jspecify.annotations.Nullable;
 
 /**
- * consulo-port: was the nested class ContainerSettingDeprecatedInspection$ContainerSettingDeprecatedInspectionXml
- *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 @ExtensionImpl

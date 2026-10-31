@@ -27,10 +27,7 @@ import java.util.Comparator;
 import java.util.List;
 
 /**
- * TODO consulo-port: platform.backend.documentation API missing (DocumentationTargetProvider, DocumentationTarget; could become
- *  LanguageDocumentationProvider.getCustomDocumentationElement + generateDoc). Was "implements DocumentationTargetProvider"
- *  registered as platform.backend.documentation.targetProvider; left unregistered. documentationTargets(PsiFile, int) is kept
- *  as a plain method returning the concrete target type (was List&lt;DocumentationTarget&gt;).
+ * Finds the Twig template name at an offset of a PHP or Twig file, for {@link TwigTemplateDocumentationProvider}
  */
 public class TwigTemplateDocumentationTargetProvider {
     public List<TwigTemplateDocumentationTarget> documentationTargets(PsiFile file, int offset) {

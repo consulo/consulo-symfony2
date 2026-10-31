@@ -16,9 +16,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * consulo-port: top-level declarations of upstream RouteActionParameterIntention.kt
- */
 public final class RouteActionParameterIntentionKt {
     /**
      * Map of FQN (without leading backslash) to variable name

@@ -20,9 +20,6 @@ import fr.adrienbrault.idea.symfony2plugin.routing.Route;
 import fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper;
 
 /**
- * consulo-port: moved from the nested class {@code JavascriptCompletionNavigationContributor.Completion}
- * (nested classes can not be registered as extensions)
- *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 @ExtensionImpl

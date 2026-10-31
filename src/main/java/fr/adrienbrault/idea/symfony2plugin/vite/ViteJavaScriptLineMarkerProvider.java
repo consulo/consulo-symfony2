@@ -126,7 +126,6 @@ public class ViteJavaScriptLineMarkerProvider implements LineMarkerProvider {
                 .setTargets(LazyValue.<Collection<? extends PsiElement>>notNull(() -> resolveTargets(jsFile, entryNames)))
                 .setTooltipText("Vite entry point")
                 .setPopupTitle("Vite Entry")
-                // consulo-port: PsiTargetPresentationRenderer (setTargetRenderer) -> TargetPresentationProvider (setPresentationProvider)
                 .setPresentationProvider(new ViteEntryTargetRenderer());
 
             result.add(FileLineMarkerUtil.createLineMarkerInfo(builder, jsFile));

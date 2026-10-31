@@ -5,7 +5,12 @@ import consulo.language.pattern.ElementPattern;
 import consulo.language.editor.gutter.LineMarkerProvider;
 import consulo.language.editor.gutter.RelatedItemLineMarkerInfo;
 import consulo.language.editor.ui.navigation.NavigationGutterIconBuilder;
-import consulo.language.editor.ui.PsiElementListCellRenderer;
+import consulo.language.editor.ui.navigation.PsiTargetPresentationFactory;
+import consulo.language.editor.ui.navigation.TargetPresentationProvider;
+import consulo.application.Application;
+import consulo.language.icon.IconDescriptorUpdaters;
+import consulo.localize.LocalizeValue;
+import consulo.navigation.TargetPresentation;
 import consulo.language.navigation.GotoRelatedItem;
 import consulo.project.Project;
 import consulo.component.util.Iconable;
@@ -163,9 +168,8 @@ public class TwigLineMarkerProvider implements LineMarkerProvider {
 
         NavigationGutterIconBuilder<PsiElement> builder = NavigationGutterIconBuilder.create(Symfony2Icons.SYMFONY_LINE_MARKER)
             .setTargets(LazyValue.notNull(new UxComponentTemplateTargets(twigFile)))
-            .setTooltipText("Navigate to UX Component");
-            // TODO consulo-port: NavigationGutterIconBuilder has no setCellRenderer (closest: setPresentationProvider); UxComponentTargetsPsiElementListCellRenderer is kept but unused
-            // .setCellRenderer(UxComponentTargetsPsiElementListCellRenderer::new);
+            .setTooltipText("Navigate to UX Component")
+            .setPresentationProvider(new UxComponentTargetsPsiElementListCellRenderer());
 
         result.add(FileLineMarkerUtil.createLineMarkerInfo(builder, twigFile));
     }
@@ -195,9 +199,8 @@ public class TwigLineMarkerProvider implements LineMarkerProvider {
 
         NavigationGutterIconBuilder<PsiElement> builder = NavigationGutterIconBuilder.create(PhpIcons.IMPLEMENTED)
             .setTargets(LazyValue.notNull(new MyTemplateIncludeLazyValue(twigFile, templateNames)))
-            .setTooltipText("Navigate to includes");
-            // TODO consulo-port: NavigationGutterIconBuilder has no setCellRenderer (closest: setPresentationProvider); MyFileReferencePsiElementListCellRenderer is kept but unused
-            // .setCellRenderer(MyFileReferencePsiElementListCellRenderer::new);
+            .setTooltipText("Navigate to includes")
+            .setPresentationProvider(new MyFileReferencePsiElementListCellRenderer());
 
         return FileLineMarkerUtil.createLineMarkerInfo(builder, twigFile);
     }
@@ -227,9 +230,8 @@ public class TwigLineMarkerProvider implements LineMarkerProvider {
 
         NavigationGutterIconBuilder<PsiElement> builder = NavigationGutterIconBuilder.create(PhpIcons.IMPLEMENTED)
             .setTargets(LazyValue.notNull(new TemplateExtendsLazyTargets(twigFile.getProject(), twigFile.getVirtualFile())))
-            .setTooltipText("Navigate to extends");
-            // TODO consulo-port: NavigationGutterIconBuilder has no setCellRenderer (closest: setPresentationProvider); MyFileReferencePsiElementListCellRenderer is kept but unused
-            // .setCellRenderer(MyFileReferencePsiElementListCellRenderer::new);
+            .setTooltipText("Navigate to extends")
+            .setPresentationProvider(new MyFileReferencePsiElementListCellRenderer());
 
         return FileLineMarkerUtil.createLineMarkerInfo(builder, twigFile);
     }
@@ -289,9 +291,8 @@ public class TwigLineMarkerProvider implements LineMarkerProvider {
 
         NavigationGutterIconBuilder<PsiElement> builder = NavigationGutterIconBuilder.create(PhpIcons.IMPLEMENTED)
             .setTargets(LazyValue.notNull(new BlockImplementationLazyValue(psiElement)))
-            .setTooltipText("Implementations");
-            // TODO consulo-port: NavigationGutterIconBuilder has no setCellRenderer (closest: setPresentationProvider); MyBlockListCellRenderer is kept but unused
-            // .setCellRenderer(MyBlockListCellRenderer::new);
+            .setTooltipText("Implementations")
+            .setPresentationProvider(new MyBlockListCellRenderer());
 
         return builder.createLineMarkerInfo(psiElement);
     }
@@ -321,9 +322,8 @@ public class TwigLineMarkerProvider implements LineMarkerProvider {
 
         NavigationGutterIconBuilder<PsiElement> builder = NavigationGutterIconBuilder.create(PhpIcons.OVERRIDES)
             .setTargets(LazyValue.notNull(new BlockOverwriteLazyValue(psiElement)))
-            .setTooltipText("Overwrites");
-            // TODO consulo-port: NavigationGutterIconBuilder has no setCellRenderer (closest: setPresentationProvider); MyBlockListCellRenderer is kept but unused
-            // .setCellRenderer(MyBlockListCellRenderer::new);
+            .setTooltipText("Overwrites")
+            .setPresentationProvider(new MyBlockListCellRenderer());
 
         return builder.createLineMarkerInfo(psiElement);
     }
@@ -375,9 +375,8 @@ public class TwigLineMarkerProvider implements LineMarkerProvider {
 
         NavigationGutterIconBuilder<PsiElement> builder = NavigationGutterIconBuilder.create(Symfony2Icons.FORM_TYPE_LINE_MARKER)
             .setTargets(phpClasses)
-            .setTooltipText("Navigate to Form");
-            // TODO consulo-port: NavigationGutterIconBuilder has no setCellRenderer (closest: setPresentationProvider); MyBlockListCellRenderer is kept but unused
-            // .setCellRenderer(MyBlockListCellRenderer::new);
+            .setTooltipText("Navigate to Form")
+            .setPresentationProvider(new MyBlockListCellRenderer());
 
         return builder.createLineMarkerInfo(psiElement.getFirstChild());
     }
@@ -394,29 +393,34 @@ public class TwigLineMarkerProvider implements LineMarkerProvider {
         return TwigLanguage.INSTANCE;
     }
 
-    private static class MyFileReferencePsiElementListCellRenderer extends PsiElementListCellRenderer<PsiElement> {
+    private static class MyFileReferencePsiElementListCellRenderer implements TargetPresentationProvider<PsiElement> {
+        @RequiredReadAction
         @Override
+        public TargetPresentation getPresentation(PsiElement element) {
+            String containerText = getContainerText(element);
+            return Application.get().getInstance(PsiTargetPresentationFactory.class)
+                .presentationBuilder(element)
+                .withPresentableText(LocalizeValue.of(getElementText(element)))
+                .withContainerText(containerText != null ? LocalizeValue.of(containerText) : LocalizeValue.empty())
+                .withIcon(getIcon(element))
+                .build();
+        }
+
         public String getElementText(PsiElement psiElement) {
             String symbolPresentableText = SymbolPresentationUtil.getSymbolPresentableText(psiElement);
             return StringUtils.abbreviate(symbolPresentableText, 50);
         }
 
         @Nullable
-        @Override
-        protected String getContainerText(PsiElement psiElement, String s) {
+        public String getContainerText(PsiElement psiElement) {
             // relative path else fallback to default name extraction
             PsiFile containingFile = psiElement.getContainingFile();
             String relativePath = VirtualFileUtil.getRelativePath(containingFile.getVirtualFile(), ProjectUtil.getProjectDir(psiElement), '/');
             return relativePath != null ? relativePath : SymbolPresentationUtil.getSymbolContainerText(psiElement);
         }
 
-        @Override
-        protected int getIconFlags() {
-            return Iconable.ICON_FLAG_VISIBILITY;
-        }
 
-        @Override
-        protected Image getIcon(PsiElement psiElement) {
+        private Image getIcon(PsiElement psiElement) {
             if(psiElement.getNode().getElementType() == TwigElementTypes.INCLUDE_TAG) {
                 return PhpIcons.IMPLEMENTED;
             } else if(psiElement.getNode().getElementType() == TwigElementTypes.EMBED_TAG) {
@@ -427,11 +431,22 @@ public class TwigLineMarkerProvider implements LineMarkerProvider {
         }
     }
 
-    public static class UxComponentTargetsPsiElementListCellRenderer extends PsiElementListCellRenderer<PsiElement> {
+    public static class UxComponentTargetsPsiElementListCellRenderer implements TargetPresentationProvider<PsiElement> {
+        @RequiredReadAction
+        @Override
+        public TargetPresentation getPresentation(PsiElement element) {
+            String containerText = getContainerText(element);
+            return Application.get().getInstance(PsiTargetPresentationFactory.class)
+                .presentationBuilder(element)
+                .withPresentableText(LocalizeValue.of(getElementText(element)))
+                .withContainerText(containerText != null ? LocalizeValue.of(containerText) : LocalizeValue.empty())
+                .withIcon(getIcon(element))
+                .build();
+        }
+
         private ElementPattern<PsiElement> componentPattern;
         private ElementPattern<PsiElement> argumentAfterTagPattern;
 
-        @Override
         public String getElementText(PsiElement psiElement) {
             if (psiElement instanceof PhpClass) {
                 return StringUtils.abbreviate(SymbolPresentationUtil.getSymbolPresentableText(psiElement), 50);
@@ -446,8 +461,7 @@ public class TwigLineMarkerProvider implements LineMarkerProvider {
         }
 
         @Nullable
-        @Override
-        protected String getContainerText(PsiElement psiElement, String s) {
+        public String getContainerText(PsiElement psiElement) {
             if (!(psiElement instanceof PhpClass) && getComponentName(psiElement) != null) {
                 PsiFile containingFile = psiElement.getContainingFile();
                 if (containingFile != null) {
@@ -461,9 +475,9 @@ public class TwigLineMarkerProvider implements LineMarkerProvider {
             return SymbolPresentationUtil.getSymbolContainerText(psiElement);
         }
 
-        @Override
-        protected int getIconFlags() {
-            return Iconable.ICON_FLAG_VISIBILITY;
+
+        private Image getIcon(PsiElement psiElement) {
+            return IconDescriptorUpdaters.getIcon(psiElement, Iconable.ICON_FLAG_VISIBILITY);
         }
 
         @Nullable
@@ -551,8 +565,19 @@ public class TwigLineMarkerProvider implements LineMarkerProvider {
         }
     }
 
-    private static class MyBlockListCellRenderer extends PsiElementListCellRenderer<PsiElement> {
+    private static class MyBlockListCellRenderer implements TargetPresentationProvider<PsiElement> {
+        @RequiredReadAction
         @Override
+        public TargetPresentation getPresentation(PsiElement element) {
+            String containerText = getContainerText(element);
+            return Application.get().getInstance(PsiTargetPresentationFactory.class)
+                .presentationBuilder(element)
+                .withPresentableText(LocalizeValue.of(getElementText(element)))
+                .withContainerText(containerText != null ? LocalizeValue.of(containerText) : LocalizeValue.empty())
+                .withIcon(getIcon(element))
+                .build();
+        }
+
         public String getElementText(PsiElement psiElement) {
             return StringUtils.abbreviate(
                 SymbolPresentationUtil.getSymbolPresentableText(psiElement),
@@ -560,18 +585,13 @@ public class TwigLineMarkerProvider implements LineMarkerProvider {
             );
         }
 
-        @Override
-        protected String getContainerText(PsiElement psiElement, String s) {
+        @Nullable
+        public String getContainerText(PsiElement psiElement) {
             return TwigUtil.getPresentableTemplateName(psiElement, true);
         }
 
-        @Override
-        protected int getIconFlags() {
-            return Iconable.ICON_FLAG_VISIBILITY;
-        }
 
-        @Override
-        protected Image getIcon(PsiElement psiElement) {
+        private Image getIcon(PsiElement psiElement) {
             return TwigIcons.TwigFileIcon;
         }
     }

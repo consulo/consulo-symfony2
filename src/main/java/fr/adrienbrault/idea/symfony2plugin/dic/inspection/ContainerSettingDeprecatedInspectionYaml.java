@@ -16,8 +16,6 @@ import org.jetbrains.yaml.psi.YAMLKeyValue;
 import org.jspecify.annotations.Nullable;
 
 /**
- * consulo-port: was the nested class ContainerSettingDeprecatedInspection$ContainerSettingDeprecatedInspectionYaml
- *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 @ExtensionImpl

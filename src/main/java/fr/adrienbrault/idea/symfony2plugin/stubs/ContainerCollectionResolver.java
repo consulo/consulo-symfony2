@@ -1,5 +1,8 @@
 package fr.adrienbrault.idea.symfony2plugin.stubs;
 
+import consulo.language.psi.stub.StubIndex;
+import consulo.language.parser.ParserDefinition;
+import consulo.component.util.ModificationTracker;
 import consulo.component.extension.ExtensionPointName;
 import consulo.project.Project;
 import consulo.util.dataholder.Key;
@@ -9,7 +12,6 @@ import consulo.application.util.CachedValueProvider;
 import consulo.application.util.CachedValuesManager;
 import consulo.virtualFileSystem.VirtualFileManager;
 import consulo.language.psi.stub.FileBasedIndex;
-import consulo.language.psi.PsiModificationTracker;
 import com.jetbrains.php.PhpIndex;
 import com.jetbrains.php.lang.PhpLanguage;
 import com.jetbrains.php.lang.psi.elements.PhpClass;
@@ -327,8 +329,7 @@ public class ContainerCollectionResolver {
                 return CachedValueProvider.Result.create(
                     new AutoconfigurationExcludedClasses(Set.copyOf(attributes), Set.copyOf(types)),
                     FileIndexCaches.getModificationTrackerForIndexId(project, PhpAttributeIndex.KEY),
-                    // TODO consulo-port: no StubIndex#getPerFileElementTypeModificationTracker / PhpFileElementType.FILE, using the php language PSI tracker
-                    PsiModificationTracker.getInstance(project).forLanguage(PhpLanguage.INSTANCE)
+                    getPhpStubModificationTracker()
                 );
             },
             false
@@ -655,8 +656,7 @@ public class ContainerCollectionResolver {
                     FileIndexCaches.getModificationTrackerForIndexId(project, ServicesDefinitionStubIndex.KEY),
                     FileIndexCaches.getModificationTrackerForIndexId(project, PhpAttributeIndex.KEY),
                     // PHP stubs include inheritance and Kernel::VERSION, both used by autoconfiguration exclusions.
-                    // TODO consulo-port: no StubIndex#getPerFileElementTypeModificationTracker / PhpFileElementType.FILE, using the php language PSI tracker
-                    PsiModificationTracker.getInstance(project).forLanguage(PhpLanguage.INSTANCE),
+                    getPhpStubModificationTracker(),
                     SymfonyVarDirectoryWatcherKt.getSymfonyVarDirectoryWatcher(project).getModificationTracker(SymfonyVarDirectoryWatcher.Scope.CONTAINER),
                     VirtualFileManager.VFS_STRUCTURE_MODIFICATIONS
                 ),
@@ -810,5 +810,12 @@ public class ContainerCollectionResolver {
         private Set<String> getNames() {
             return getParameters().keySet();
         }
+    }
+
+    /**
+     * Changes with the stubs of the PHP files, which hold the class inheritance and constants the caches above read
+     */
+    private static ModificationTracker getPhpStubModificationTracker() {
+        return StubIndex.getInstance().getPerFileElementTypeModificationTracker(ParserDefinition.forLanguage(PhpLanguage.INSTANCE).getFileNodeType());
     }
 }

@@ -80,7 +80,7 @@ import fr.adrienbrault.idea.symfony2plugin.util.psi.PsiElementAssertUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.service.ServiceXmlParserFactory;
 import fr.adrienbrault.idea.symfony2plugin.util.yaml.YamlHelper;
 import com.jetbrains.twig.icons.TwigIcons;
-import consulo.util.lang.Trinity; // TODO consulo-port: Trinity comes from the Kotlin stdlib (public API of visitTokenParsers, shared with PhpMethodVariableResolveUtil); replace together once a Java tuple type is chosen
+import consulo.util.lang.Trinity;
 import org.apache.commons.lang3.StringUtils;
 import org.jspecify.annotations.Nullable;
 import org.jetbrains.yaml.YAMLTokenTypes;
@@ -3221,7 +3221,6 @@ public class TwigUtil {
             .flatMap(template -> getTemplatePsiElements(project, template).stream())
             .filter(psiFile -> psiFile instanceof TwigFile)
             .map(psiFile -> (TwigFile) psiFile)
-            // consulo-port: ArrayListSet is impl-only in Consulo; LinkedHashSet keeps the same insertion order
             .collect(Collectors.toCollection(LinkedHashSet::new));
 
         for (TwigFile file : files) {

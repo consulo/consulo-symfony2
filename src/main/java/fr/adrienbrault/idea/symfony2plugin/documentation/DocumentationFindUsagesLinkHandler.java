@@ -1,57 +1,48 @@
 package fr.adrienbrault.idea.symfony2plugin.documentation;
 
+import consulo.application.ReadAction;
+import consulo.application.util.concurrent.AppExecutorUtil;
+import consulo.dataContext.DataContext;
+import consulo.find.FindManager;
+import consulo.language.psi.PsiElement;
+import consulo.ui.ModalityState;
+import consulo.usage.PsiElementUsageTarget;
+import consulo.usage.UsageTarget;
+import consulo.usage.UsageView;
+import org.jspecify.annotations.Nullable;
+
+import java.util.concurrent.Callable;
+
 /**
- * Opens Find Usages from documentation links.
+ * Opens Find Usages from the "Find usages" links of the route and Twig template documentation
  *
- * TODO consulo-port: platform.backend.documentation API missing (DocumentationLinkHandler, DocumentationTarget,
- *  LinkResolveResult; could become LanguageDocumentationProvider.getCustomDocumentationElement + generateDoc).
- *  The class is left unregistered (was <platform.backend.documentation.linkHandler>) and has no members, because
- *  every upstream member depends on the missing API. Upstream (Kotlin) implementation for reference:
- *
- * <pre>
- * class DocumentationFindUsagesLinkHandler : DocumentationLinkHandler {
- *     override fun resolveLink(target: DocumentationTarget, url: String): LinkResolveResult? {
- *         val contextProvider = when (url) {
- *             ROUTE_FIND_USAGES_LINK if target is RouteDocumentationTarget -> routeContextProvider(target)
- *             TEMPLATE_FIND_USAGES_LINK if target is TwigTemplateDocumentationTarget -> twigTemplateContextProvider(target)
- *             else -> return null
- *         }
- *
- *         invokeFindUsages(contextProvider)
- *         return LinkResolveResult.resolvedTarget(target)
- *     }
- *
- *     private fun routeContextProvider(target: RouteDocumentationTarget): () -> DataContext? {
- *         val pointer = target.createPointer()
- *         return { pointer.dereference()?.findUsagesContext() }
- *     }
- *
- *     private fun twigTemplateContextProvider(target: TwigTemplateDocumentationTarget): () -> DataContext? {
- *         val pointer = target.createPointer()
- *         return { pointer.dereference()?.findUsagesContext() }
- *     }
- *
- *     private fun invokeFindUsages(contextProvider: () -> DataContext?) {
- *         ReadAction.nonBlocking<DataContext?> { contextProvider() }
- *             .finishOnUiThread(ModalityState.nonModal()) { context ->
- *                 val project = context?.getData(CommonDataKeys.PROJECT) ?: return@finishOnUiThread
- *                 if (project.isDisposed) {
- *                     return@finishOnUiThread
- *                 }
- *
- *                 val actionContext = SimpleDataContext.builder()
- *                     .setParent(context)
- *                     .add(CommonDataKeys.EDITOR, FileEditorManager.getInstance(project).selectedTextEditor)
- *                     .add(PlatformDataKeys.CONTEXT_COMPONENT, WindowManager.getInstance().getIdeFrame(project)?.component)
- *                     .build()
- *                 val action = ActionManager.getInstance().getAction(IdeActions.ACTION_FIND_USAGES)
- *                 val event = AnActionEvent.createEvent(action, actionContext, null, "SymfonyDocumentation", ActionUiKind.POPUP, null)
- *                 ActionUtil.performAction(action, event)
- *             }
- *             .submit(AppExecutorUtil.getAppExecutorService())
- *     }
- * }
- * </pre>
+ * @author Daniel Espendiller <daniel@espendiller.net>
  */
-public class DocumentationFindUsagesLinkHandler {
+public final class DocumentationFindUsagesLinkHandler {
+    private DocumentationFindUsagesLinkHandler() {
+    }
+
+    /**
+     * @param contextProvider computes the find usages context in a read action, with the {@link UsageView#USAGE_TARGETS_KEY} targets
+     */
+    public static void findUsages(Callable<@Nullable DataContext> contextProvider) {
+        ReadAction.nonBlocking(contextProvider)
+            .finishOnUiThread(app -> ModalityState.nonModal(), context -> {
+                UsageTarget[] targets = context == null ? null : context.getData(UsageView.USAGE_TARGETS_KEY);
+                if (targets == null || targets.length == 0 || !targets[0].isValid()) {
+                    return;
+                }
+
+                // a PSI target searches with the options of the find usages handler of its element, like the Find Usages action;
+                // its own findUsages() takes default options, which leave out the references
+                if (targets[0] instanceof PsiElementUsageTarget psiTarget && psiTarget.getElement() != null) {
+                    PsiElement element = psiTarget.getElement();
+                    FindManager.getInstance(element.getProject()).findUsages(element);
+                }
+                else {
+                    targets[0].findUsages();
+                }
+            })
+            .submit(AppExecutorUtil.getAppExecutorService());
+    }
 }

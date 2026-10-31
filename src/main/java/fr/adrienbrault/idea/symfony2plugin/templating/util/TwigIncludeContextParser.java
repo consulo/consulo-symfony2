@@ -174,7 +174,6 @@ public final class TwigIncludeContextParser {
             return Collections.singleton(context.templateName());
         }
 
-        // consulo-port: ArrayListSet is impl-only in Consulo; LinkedHashSet keeps the same insertion order
         Collection<String> templates = new LinkedHashSet<>();
         TwigUtil.visitTemplateIncludes(context.sourceElement(), include -> {
             TemplateInclude.TYPE type = include.getType();

@@ -28,9 +28,7 @@ import org.jspecify.annotations.Nullable;
 import java.util.Collection;
 
 /**
- * TODO consulo-port: platform.backend.documentation API missing (DocumentationTarget, DocumentationResult; could become
- *  LanguageDocumentationProvider.getCustomDocumentationElement + generateDoc). Was "implements DocumentationTarget";
- *  the former overrides are kept as plain methods, computeDocumentation() (DocumentationResult) is dropped.
+ * The documentation of a route name, shown by {@link RouteDocumentationProvider}
  */
 public class RouteDocumentationTarget {
     private final RouteDocumentationContext context;
@@ -82,7 +80,6 @@ public class RouteDocumentationTarget {
             }
         }
 
-        // TODO consulo-port: TargetPresentation.builder(..) -> NavigationService.presentationBuilder(..); locationText null -> empty
         return Application.get().getInstance(NavigationService.class)
             .presentationBuilder(LocalizeValue.of(context.getRouteName()))
             .withIcon(Symfony2Icons.ROUTE)

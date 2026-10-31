@@ -23,7 +23,7 @@ import fr.adrienbrault.idea.symfony2plugin.stubs.dict.TemplateUsage;
 import fr.adrienbrault.idea.symfony2plugin.stubs.indexes.externalizer.TemplateUsageExternalizer;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.PhpMethodVariableResolveUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.AnnotationBackportUtil;
-import consulo.util.lang.Trinity; // TODO consulo-port: Trinity comes from the Kotlin stdlib (shared with PhpMethodVariableResolveUtil); replace together once a Java tuple type is chosen
+import consulo.util.lang.Trinity;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.*;

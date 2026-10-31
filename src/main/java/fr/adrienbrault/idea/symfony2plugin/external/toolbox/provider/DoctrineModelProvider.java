@@ -1,5 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.external.toolbox.provider;
 
+import consulo.annotation.component.ExtensionImpl;
 import consulo.ui.image.Image;
 import consulo.language.editor.completion.lookup.LookupElement;
 import consulo.language.psi.PsiElement;
@@ -20,7 +21,8 @@ import java.util.Collections;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
-public class DoctrineModelProvider implements PhpToolboxProviderInterface { // TODO consulo-port: was registered as de.espend.idea.php.toolbox PhpToolboxProviderInterface (optional toolbox.xml); no Consulo toolbox EP yet
+@ExtensionImpl
+public class DoctrineModelProvider implements PhpToolboxProviderInterface {
     @Override
     public Collection<LookupElement> getLookupElements(PhpToolboxCompletionContributorParameter parameter) {
         if(!Symfony2ProjectComponent.isEnabled(parameter.getProject())) {

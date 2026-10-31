@@ -1,5 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.translation;
 
+import consulo.ui.image.OverlayPosition;
 import com.intellij.json.JsonFileType;
 import com.intellij.json.psi.JsonFile;
 import com.jetbrains.php.PhpIcons;
@@ -38,7 +39,6 @@ public class TranslationKeyTargetFakePsiNavigationItem extends GoToSymbolProvide
         this.myPsiElement = psiElement;
     }
 
-    // consulo-port: upstream overrides ItemPresentation#getIcon(boolean); Consulo's primary method is getIcon()
     @Override
     public Image getIcon() {
         return getFileIcon();
@@ -72,7 +72,6 @@ public class TranslationKeyTargetFakePsiNavigationItem extends GoToSymbolProvide
 
             @Override
             public @Nullable Image getIcon() {
-                // consulo-port: upstream getIcon(ICON_FLAG_VISIBILITY); PsiElement has no getIcon(int) in Consulo
                 return TranslationKeyTargetFakePsiNavigationItem.this.getIcon();
             }
         };
@@ -101,8 +100,7 @@ public class TranslationKeyTargetFakePsiNavigationItem extends GoToSymbolProvide
 
         if (rootDir != null && isSymfonyTranslationDirectory()) {
             Image sizedIcon = ImageEffects.resize(Symfony2Icons.SYMFONY_LINE_MARKER, fileIcon.getWidth() / 2, fileIcon.getHeight() / 2);
-            // TODO consulo-port: LayeredIcon#setIcon(sizedIcon, 1, SwingConstants.SOUTH_EAST) has no counterpart; ImageEffects.layered draws the overlay at the top-left
-            return ImageEffects.layered(fileIcon, sizedIcon);
+            return ImageEffects.overlay(fileIcon, sizedIcon, OverlayPosition.BOTTOM_RIGHT);
         }
 
         return fileIcon;

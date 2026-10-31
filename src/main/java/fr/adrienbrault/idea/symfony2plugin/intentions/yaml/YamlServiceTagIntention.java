@@ -41,7 +41,6 @@ import java.util.Set;
 public class YamlServiceTagIntention extends PsiElementBaseIntentionAction {
     @Override
     public boolean isAvailable(Project project, Editor editor, PsiElement psiElement) {
-        // consulo-port: plugin.xml <language>yaml</language>
         if (!psiElement.getLanguage().isKindOf(YAMLLanguage.INSTANCE)) {
             return false;
         }

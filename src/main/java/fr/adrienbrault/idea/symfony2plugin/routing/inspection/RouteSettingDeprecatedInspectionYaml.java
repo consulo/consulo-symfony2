@@ -14,8 +14,6 @@ import org.jetbrains.yaml.psi.YAMLKeyValue;
 import org.jspecify.annotations.Nullable;
 
 /**
- * consulo-port: was the nested class RouteSettingDeprecatedInspection$RouteSettingDeprecatedInspectionYaml
- *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 @ExtensionImpl

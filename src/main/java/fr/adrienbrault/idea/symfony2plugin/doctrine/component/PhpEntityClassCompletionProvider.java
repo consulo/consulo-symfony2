@@ -58,7 +58,6 @@ public class PhpEntityClassCompletionProvider implements CompletionProvider {
      */
     public static Collection<PhpClass> filterByNamespace(Collection<PhpClass> classes, String namespaceFQN) {
         PhpContractUtil.assertFqn(namespaceFQN);
-        // consulo-port: StreamEx is not available, plain java streams
         return classes.stream().filter((aClass) -> PhpLangUtil.equalsClassNames(namespaceFQN, StringUtil.trimEnd(aClass.getNamespaceName(), "\\"))).collect(Collectors.toCollection(HashSet::new));
     }
 }

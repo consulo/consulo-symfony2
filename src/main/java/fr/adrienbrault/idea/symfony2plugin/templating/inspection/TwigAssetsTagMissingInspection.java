@@ -114,7 +114,6 @@ public class TwigAssetsTagMissingInspection extends LocalInspectionTool {
         }
     }
 
-    // consulo-port: was a private top-level Kotlin function of TwigAssetsTagMissingInspection.kt
     private static boolean isKnownAssetFileOrFolder(PsiElement element, String templateName, String... fileTypes) {
         // custom assets
         if (templateName.startsWith("@") && templateName.length() > 1) {

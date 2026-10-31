@@ -19,8 +19,6 @@ import org.jetbrains.yaml.YAMLLanguage;
 import org.jspecify.annotations.Nullable;
 
 /**
- * consulo-port: was the nested class MissingServiceInspection$YamlLocalInspectionTool
- *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 @ExtensionImpl

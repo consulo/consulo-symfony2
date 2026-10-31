@@ -27,8 +27,6 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 /**
- * consulo-port: upstream nested class TaggedExtendsInterfaceClassInspection$TaggedExtendsInterfaceClassInspectionYaml
- *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 @ExtensionImpl

@@ -73,7 +73,6 @@ public final class FormFieldReferencesSearchExecutorKt {
         Set<String> dataClassNames = new LinkedHashSet<>();
         dataClassNames.add(declaringClass.getFQN());
 
-        // consulo-port: upstream PhpIndex#processAllSubclasses(fqn, processor) is missing in consulo-php, getAllSubclasses(fqn) is used instead
         for (PhpClass subclass : PhpIndex.getInstance(project).getAllSubclasses(declaringClass.getFQN())) {
             ProgressManager.checkCanceled();
             dataClassNames.add(subclass.getFQN());

@@ -10,10 +10,6 @@ import org.jetbrains.yaml.psi.YAMLKeyValue;
 import org.jspecify.annotations.Nullable;
 
 /**
- * consulo-port: the registered nested inspections ControllerMethodInspection$ControllerMethodInspectionYaml / $ControllerMethodInspectionXml
- * moved to the top-level classes {@link ControllerMethodInspectionYaml} and {@link ControllerMethodInspectionXml}
- * (nested classes cannot carry @ExtensionImpl).
- *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class ControllerMethodInspection {

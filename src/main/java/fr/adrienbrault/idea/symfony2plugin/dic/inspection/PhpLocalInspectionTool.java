@@ -22,8 +22,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.jspecify.annotations.Nullable;
 
 /**
- * consulo-port: was the nested class MissingServiceInspection$PhpLocalInspectionTool
- *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 @ExtensionImpl

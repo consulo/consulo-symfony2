@@ -78,7 +78,7 @@ public class PhpClassFileIconProvider implements IconDescriptorUpdater {
         }
 
         Image icon = PhpClassFileIconProviderKt.createDecoratedFileIcon(IconDescriptorUpdaters.getIcon(phpClass, 0), badgeIcon);
-        // TODO consulo-port: IconManager.createLayeredIcon(psiFile, icon, ElementBase.transformFlags(psiFile, flags)) has no counterpart; layers come from other IconDescriptorUpdaters
+        // the visibility and lock layers of the file are added by the other icon descriptor updaters
         return icon;
     }
 

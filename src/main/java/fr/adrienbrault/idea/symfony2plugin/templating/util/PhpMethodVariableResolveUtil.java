@@ -18,7 +18,7 @@ import fr.adrienbrault.idea.symfony2plugin.util.AnnotationBackportUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpElementsUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PhpPsiAttributesUtil;
 import fr.adrienbrault.idea.symfony2plugin.util.PsiElementUtils;
-import consulo.util.lang.Trinity; // TODO consulo-port: Trinity comes from the Kotlin stdlib (public API shared with PhpTwigTemplateUsageStubIndex, TwigTemplateReferencesSearchExecutor, RenderParameterGotoCompletionRegistrar, TemplatesControllerRelatedGotoCollector); replace together once a Java tuple type is chosen
+import consulo.util.lang.Trinity;
 import org.apache.commons.lang3.StringUtils;
 import org.jspecify.annotations.Nullable;
 

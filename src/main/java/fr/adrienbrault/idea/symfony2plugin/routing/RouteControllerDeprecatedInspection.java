@@ -6,11 +6,6 @@ import consulo.language.psi.PsiElement;
 import consulo.project.Project;
 
 /**
- * consulo-port: the registered nested inspections RouteControllerDeprecatedInspection$RouteControllerDeprecatedXmlLocalInspectionTool /
- * $RouteControllerDeprecatedYamlLocalInspectionTool moved to the top-level classes {@link RouteControllerDeprecatedXmlLocalInspectionTool}
- * and {@link RouteControllerDeprecatedYamlLocalInspectionTool} (nested classes cannot carry @ExtensionImpl).
- * The former private top-level function of the Kotlin file lives here.
- *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public class RouteControllerDeprecatedInspection {

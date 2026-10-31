@@ -10,6 +10,7 @@ import consulo.application.ApplicationManager;
 import consulo.application.util.function.Computable;
 import consulo.codeEditor.Editor;
 import consulo.language.editor.DaemonCodeAnalyzer;
+import consulo.language.editor.inlay.DeclarativeInlayHintsSettings;
 import consulo.localize.LocalizeValue;
 import consulo.navigation.Navigatable;
 import consulo.platform.base.icon.PlatformIconGroup;
@@ -33,6 +34,7 @@ import consulo.ui.ex.popup.JBPopup;
 import consulo.ui.ex.popup.JBPopupFactory;
 import consulo.ui.layout.DockLayout;
 import consulo.ui.layout.ScrollableLayout;
+import fr.adrienbrault.idea.symfony2plugin.templating.inlay.TwigVariablesInlayHintsProvider;
 import fr.adrienbrault.idea.symfony2plugin.templating.inlay.TwigVariableInsertHandler;
 import fr.adrienbrault.idea.symfony2plugin.templating.util.TwigTypeResolveUtil;
 import fr.adrienbrault.idea.symfony2plugin.templating.variable.dict.PsiVariable;
@@ -167,9 +169,8 @@ public class TwigVariablesTreePopup {
             @Override
             public void actionPerformed(AnActionEvent e) {
                 Project project = file.getProject();
-                // TODO consulo-port: InlayHintsSettings.changeHintTypeStatus / SettingsKey missing; upstream:
-                // InlayHintsSettings.instance().changeHintTypeStatus(new SettingsKey<>("symfony.twig.root.variables"), TwigLanguage.INSTANCE, false);
-                DaemonCodeAnalyzer.getInstance(project).restart(file); // TODO consulo-port: restart(PsiFile, Object reason) missing, reason dropped
+                DeclarativeInlayHintsSettings.getInstance().setProviderEnabled(TwigVariablesInlayHintsProvider.PROVIDER_ID, false);
+                DaemonCodeAnalyzer.getInstance(project).restart(file);
 
                 Notification notification = NotificationService.getInstance()
                     .newInfo(SymfonyNotificationGroupContributor.GROUP)

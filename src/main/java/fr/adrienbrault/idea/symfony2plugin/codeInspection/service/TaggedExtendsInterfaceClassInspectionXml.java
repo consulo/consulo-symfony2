@@ -22,8 +22,6 @@ import org.jspecify.annotations.Nullable;
 import java.util.function.Supplier;
 
 /**
- * consulo-port: upstream nested class TaggedExtendsInterfaceClassInspection$TaggedExtendsInterfaceClassInspectionXml
- *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 @ExtensionImpl

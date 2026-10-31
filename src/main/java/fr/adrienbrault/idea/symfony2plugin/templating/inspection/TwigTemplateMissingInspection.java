@@ -91,7 +91,6 @@ public class TwigTemplateMissingInspection extends LocalInspectionTool {
         }
     }
 
-    // consulo-port: was a private top-level Kotlin function of TwigTemplateMissingInspection.kt
     private static void inspectTemplate(PsiElement element, ProblemsHolder holder) {
         String templateName = element.getText();
         if (templateName.isBlank()) {

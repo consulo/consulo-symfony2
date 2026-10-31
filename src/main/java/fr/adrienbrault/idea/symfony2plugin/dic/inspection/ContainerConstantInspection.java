@@ -11,10 +11,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.yaml.psi.YAMLScalar;
 
 /**
- * consulo-port: the registered nested inspections were moved to the top-level classes
- * {@link ContainerConstantYamlInspection} and {@link ContainerConstantXmlInspection}.
- * This class is abstract because Consulo's InspectionTool requires display name, group and level, and it is not registered.
- *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 public abstract class ContainerConstantInspection extends LocalInspectionTool {

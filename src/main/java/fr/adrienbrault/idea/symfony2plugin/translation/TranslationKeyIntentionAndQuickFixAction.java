@@ -62,7 +62,6 @@ public class TranslationKeyIntentionAndQuickFixAction extends IntentionAndQuickF
 
     @Override
     public void applyFix(Project project, PsiFile psiFile, @Nullable Editor editor) {
-        // consulo-port: no intention preview
         if(editor == null) {
             return;
         }

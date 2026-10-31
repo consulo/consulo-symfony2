@@ -18,9 +18,7 @@ import org.jspecify.annotations.Nullable;
 import java.util.Objects;
 
 /**
- * TODO consulo-port: platform.backend.documentation API missing (DocumentationTargetProvider, DocumentationTarget; could become
- *  LanguageDocumentationProvider.getCustomDocumentationElement + generateDoc). Was "implements DocumentationTargetProvider"
- *  registered as platform.backend.documentation.targetProvider; left unregistered, documentationTargets(PsiFile, int) dropped.
+ * Finds the route name at an offset of a PHP or Twig file, for {@link RouteDocumentationProvider}
  */
 public class RouteDocumentationTargetProvider {
     public @Nullable RouteDocumentationContext resolveContext(PsiFile file, int offset) {

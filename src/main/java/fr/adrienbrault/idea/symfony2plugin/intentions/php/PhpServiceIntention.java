@@ -45,7 +45,6 @@ public class PhpServiceIntention extends PsiElementBaseIntentionAction {
 
     @Override
     public boolean isAvailable(Project project, Editor editor, PsiElement psiElement) {
-        // consulo-port: plugin.xml <language>PHP</language>
         if (!psiElement.getLanguage().isKindOf(PhpLanguage.INSTANCE)) {
             return false;
         }

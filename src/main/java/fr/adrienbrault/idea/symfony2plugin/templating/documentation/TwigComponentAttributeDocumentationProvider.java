@@ -36,11 +36,14 @@ public class TwigComponentAttributeDocumentationProvider extends AbstractDocumen
 
     @Override
     public @Nullable PsiElement getCustomDocumentationElement(Editor editor, PsiFile file, @Nullable PsiElement contextElement) {
+        return getCustomDocumentationElement(editor, file, contextElement, editor.getCaretModel().getOffset());
+    }
+
+    @Override
+    public @Nullable PsiElement getCustomDocumentationElement(Editor editor, PsiFile file, @Nullable PsiElement contextElement, int targetOffset) {
         if (!Symfony2ProjectComponent.isEnabled(file.getProject())) {
             return null;
         }
-
-        int targetOffset = editor.getCaretModel().getOffset(); // TODO consulo-port: targetOffset not passed by Consulo
 
         // The context leaf is usually the HTML attribute token already; otherwise look through every
         // language root of the templated .html.twig file (the `<twig:...>` markup lives in the HTML root).

@@ -17,8 +17,6 @@ import org.jetbrains.yaml.YAMLLanguage;
 import org.jspecify.annotations.Nullable;
 
 /**
- * consulo-port: was the nested class RouteControllerDeprecatedInspection$RouteControllerDeprecatedYamlLocalInspectionTool
- *
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
 @ExtensionImpl

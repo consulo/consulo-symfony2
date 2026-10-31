@@ -48,7 +48,6 @@ public final class FileLineMarkerUtil {
         return new RelatedItemLineMarkerInfo<>(
             target,
             range,
-            // consulo-port: LineMarkerInfo has no public getIcon(); the builder always sets an icon
             markerInfo.createGutterRenderer().getIcon(),
             Pass.LINE_MARKERS,
             tooltip == null ? null : element -> tooltip,
@@ -79,7 +78,6 @@ public final class FileLineMarkerUtil {
             tooltip == null ? null : element -> tooltip,
             navigationHandler,
             GutterIconRenderer.Alignment.RIGHT
-            // consulo-port: LineMarkerInfo has no accessible name provider; accessibleNameProvider is unused
         );
     }
 

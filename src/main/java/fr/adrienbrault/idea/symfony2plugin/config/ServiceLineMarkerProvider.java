@@ -1,5 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.config;
 
+import consulo.ui.image.OverlayPosition;
 import com.jetbrains.php.lang.PhpLanguage;
 import com.jetbrains.php.lang.psi.PhpFile;
 import com.jetbrains.php.lang.psi.elements.Method;
@@ -117,14 +118,13 @@ public class ServiceLineMarkerProvider implements LineMarkerProvider {
             return;
         }
 
-        Image serviceLineMarker = PlatformIconGroup.nodesTask(); // TODO consulo-port: ExternalSystemIcons.Task missing, using PlatformIconGroup.nodesTask()
+        Image serviceLineMarker = PlatformIconGroup.nodesTask();
         Collection<ClassServiceDefinitionTargetLazyValue> targets = new ArrayList<>();
         Collection<String> tags = new HashSet<>();
         targets.add(new ClassServiceDefinitionTargetLazyValue(project, ((PhpClass) phpClassContext).getFQN()));
 
         if (hasResourcePrototypeMetadata(serviceNames, serviceCollector)) {
-            // TODO consulo-port: no SourceRootFileLayer icon; badge position (SwingConstants.CENTER) not supported
-            Image serviceLineMarkerLayer = ImageEffects.layered(serviceLineMarker, PlatformIconGroup.modulesSourceroot());
+            Image serviceLineMarkerLayer = ImageEffects.overlay(serviceLineMarker, PlatformIconGroup.modulesSourcerootfilelayer(), OverlayPosition.CENTER);
 
             serviceLineMarker = serviceLineMarkerLayer;
         }
@@ -141,8 +141,7 @@ public class ServiceLineMarkerProvider implements LineMarkerProvider {
         }
 
         if (!tags.isEmpty()) {
-            // TODO consulo-port: badge position (SwingConstants.CENTER) not supported
-            Image serviceLineMarkerLayer = ImageEffects.layered(serviceLineMarker, PlatformIconGroup.nodesTabpin());
+            Image serviceLineMarkerLayer = ImageEffects.overlay(serviceLineMarker, PlatformIconGroup.nodesTabpin(), OverlayPosition.CENTER);
 
             serviceLineMarker = serviceLineMarkerLayer;
         }
