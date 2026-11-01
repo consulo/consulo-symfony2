@@ -253,7 +253,7 @@ public class TwigTemplateGoToDeclarationHandler implements GotoDeclarationHandle
 
         // support atleat one identifier after current caret position
         // "divisi<caret>ble by"
-        PsiElement whitespace = psiElement.getNextSibling();
+        PsiElement whitespace = actualElement.getNextSibling();
         if(whitespace instanceof PsiWhiteSpace) {
             PsiElement nextSibling = whitespace.getNextSibling();
             IElementType elementType = nextSibling == null ? null : nextSibling.getNode().getElementType();
