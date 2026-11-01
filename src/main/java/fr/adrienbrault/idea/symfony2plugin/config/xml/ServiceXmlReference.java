@@ -1,6 +1,7 @@
 package fr.adrienbrault.idea.symfony2plugin.config.xml;
 
 import consulo.language.psi.PsiElement;
+import consulo.util.collection.ArrayUtil;
 import fr.adrienbrault.idea.symfony2plugin.dic.AbstractServiceReference;
 
 /**
@@ -15,7 +16,11 @@ public class ServiceXmlReference extends AbstractServiceReference {
 
 
     public Object[] getVariants() {
-        // dont support in xml
-        return new Object[0];
+        return ArrayUtil.EMPTY_OBJECT_ARRAY;
+    }
+
+    @Override
+    public Object[] getCompletionVariants() {
+        return ArrayUtil.EMPTY_OBJECT_ARRAY;
     }
 }

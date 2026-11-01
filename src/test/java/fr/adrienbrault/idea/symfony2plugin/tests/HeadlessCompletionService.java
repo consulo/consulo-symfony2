@@ -29,7 +29,13 @@ import consulo.application.util.matcher.PrefixMatcher;
 import consulo.language.editor.completion.lookup.LookupElement;
 import consulo.language.editor.completion.lookup.LookupElementWeigher;
 import consulo.language.pattern.ElementPattern;
+import consulo.document.util.TextRange;
+import consulo.language.editor.completion.CompletionUtilCore;
+import consulo.language.plain.psi.PsiPlainText;
+import consulo.language.psi.PsiComment;
 import consulo.language.psi.PsiElement;
+import consulo.language.psi.PsiReference;
+import consulo.language.psi.ReferenceRange;
 import jakarta.inject.Singleton;
 import org.jspecify.annotations.Nullable;
 
@@ -74,21 +80,39 @@ public class HeadlessCompletionService extends CompletionService {
     }
 
     /**
-     * Like the IDE's: the identifier before the caret in the element at the caret
+     * Like the IDE's: the text of the reference at the caret up to the caret, else the text of the element at the caret up to
+     * the caret without leading non-identifier characters ({@code Foo\\Name\\} in {@code class: Foo\\Name\\<caret>})
      */
     @Override
     protected String suggestPrefix(CompletionParameters parameters) {
         PsiElement position = parameters.getPosition();
-        String text = position.getText().substring(0, parameters.getOffset() - position.getTextRange().getStartOffset());
+        int offset = parameters.getOffset();
+
+        PsiReference reference = position.getContainingFile().findReferenceAt(offset);
+        if (reference != null) {
+            PsiElement element = reference.getElement();
+            int elementStart = element.getTextRange().getStartOffset();
+            for (TextRange range : ReferenceRange.getRanges(reference)) {
+                if (range.contains(offset - elementStart)) {
+                    return element.getText().substring(range.getStartOffset(), offset - elementStart);
+                }
+            }
+        }
+
+        if (position instanceof PsiPlainText || position instanceof PsiComment) {
+            return CompletionUtilCore.findJavaIdentifierPrefix(position, offset);
+        }
+
+        String text = position.getText().substring(0, offset - position.getTextRange().getStartOffset());
         if (text.isEmpty() || Character.isWhitespace(text.charAt(text.length() - 1))) {
             return "";
         }
         text = text.trim();
-        int i = text.length() - 1;
-        while (i >= 0 && Character.isJavaIdentifierPart(text.charAt(i))) {
-            i--;
+        int i = 0;
+        while (i < text.length() && !Character.isJavaIdentifierPart(text.charAt(i))) {
+            i++;
         }
-        return text.substring(i + 1);
+        return text.substring(i).trim();
     }
 
     @Override

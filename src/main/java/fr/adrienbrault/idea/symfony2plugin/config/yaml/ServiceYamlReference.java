@@ -2,6 +2,7 @@ package fr.adrienbrault.idea.symfony2plugin.config.yaml;
 
 import consulo.document.util.TextRange;
 import consulo.language.psi.PsiElement;
+import consulo.util.collection.ArrayUtil;
 import fr.adrienbrault.idea.symfony2plugin.dic.AbstractServiceReference;
 
 public class ServiceYamlReference extends AbstractServiceReference {
@@ -20,6 +21,11 @@ public class ServiceYamlReference extends AbstractServiceReference {
 
     @Override
     public Object[] getVariants() {
-        return new Object[0];
+        return ArrayUtil.EMPTY_OBJECT_ARRAY;
+    }
+
+    @Override
+    public Object[] getCompletionVariants() {
+        return ArrayUtil.EMPTY_OBJECT_ARRAY;
     }
 }
