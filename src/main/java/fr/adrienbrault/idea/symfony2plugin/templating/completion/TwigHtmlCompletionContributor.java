@@ -46,7 +46,8 @@ import java.util.stream.Collectors;
 /**
  * @author Daniel Espendiller <daniel@espendiller.net>
  */
-@ExtensionImpl
+// after the XML contributor, like upstream where it runs first: it adds word variants only when no other contributor has results
+@ExtensionImpl(order = "after xml")
 public class TwigHtmlCompletionContributor extends CompletionContributor {
     // <a><caret></a>
     // <li><caret></li>

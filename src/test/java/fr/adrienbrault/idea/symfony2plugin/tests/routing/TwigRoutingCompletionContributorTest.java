@@ -1,5 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.routing;
 
+import consulo.it.AllowWriteLockUnderUIThread;
 import org.junit.jupiter.api.Test;
 
 import com.jetbrains.twig.TwigFileType;
@@ -9,6 +10,7 @@ import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureT
  * @author Daniel Espendiller <daniel@espendiller.net>
  * @see fr.adrienbrault.idea.symfony2plugin.templating.TwigTemplateCompletionContributor
  */
+@AllowWriteLockUnderUIThread
 public class TwigRoutingCompletionContributorTest extends SymfonyLightCodeInsightFixtureTestCase {
 
     public void setUp() throws Exception {

@@ -1,5 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.templating;
 
+import consulo.it.AllowWriteLockUnderUIThread;
 import org.junit.jupiter.api.Test;
 
 import consulo.language.editor.completion.lookup.LookupElementPresentation;
@@ -18,6 +19,7 @@ import java.util.Arrays;
  * @author Daniel Espendiller <daniel@espendiller.net>
  * @see TwigTemplateCompletionContributor
  */
+@AllowWriteLockUnderUIThread
 public class TwigFilterCompletionContributorTest extends SymfonyLightCodeInsightFixtureTestCase {
 
     public void setUp() throws Exception {

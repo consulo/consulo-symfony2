@@ -31,6 +31,14 @@ import consulo.language.editor.completion.CompletionParameters;
 import consulo.language.editor.completion.CompletionService;
 import consulo.language.editor.completion.CompletionType;
 import consulo.language.editor.completion.lookup.LookupElement;
+import java.util.Map;
+import java.util.IdentityHashMap;
+import org.opentest4j.AssertionFailedError;
+import consulo.language.psi.PsiDocumentManager;
+import consulo.language.editor.WriteCommandAction;
+import consulo.language.editor.completion.lookup.Lookup;
+import consulo.language.editor.completion.lookup.InsertionContext;
+import consulo.language.editor.completion.OffsetMap;
 import consulo.language.file.LanguageFileType;
 import consulo.language.impl.psi.PsiFileImpl;
 import consulo.language.psi.PsiElement;
@@ -74,6 +82,8 @@ public final class SymfonyTestFixture {
     private int myCaretOffset;
     private @Nullable Editor myEditor;
     private @Nullable List<LookupElement> myLookupElements;
+    // the prefix each lookup element was matched with, which its insertion replaces
+    private final Map<LookupElement, String> myLookupPrefixes = new IdentityHashMap<>();
 
     SymfonyTestFixture(CodeInsightTestFixture fixture, Supplier<String> testDataPath) {
         myFixture = fixture;
@@ -156,10 +166,9 @@ public final class SymfonyTestFixture {
             configure(file, Math.max(expected.getCaretOffset(), 0));
             return file;
         }
-        int caret = text.indexOf(CARET);
-        String content = caret < 0 ? text : text.substring(0, caret) + text.substring(caret + CARET.length());
-        PsiFile file = addFileToProject(fileName, content);
-        configure(file, Math.max(caret, 0));
+        CaretText caretText = CaretText.parse(text);
+        PsiFile file = addFileToProject(fileName, caretText.text());
+        configure(file, Math.max(caretText.caret(), 0));
         return file;
     }
 
@@ -220,11 +229,11 @@ public final class SymfonyTestFixture {
     public PsiFile configureFromExistingVirtualFile(VirtualFile file) {
         PsiFile psiFile = psiFile(file);
         String text = psiFile.getText();
-        int caret = text.indexOf(CARET);
-        if (caret >= 0) {
-            psiFile = addFileToProject(relativePath(file), text.substring(0, caret) + text.substring(caret + CARET.length()));
+        CaretText caretText = CaretText.parse(text);
+        if (caretText.caret() >= 0) {
+            psiFile = addFileToProject(relativePath(file), caretText.text());
         }
-        configure(psiFile, Math.max(caret, 0));
+        configure(psiFile, Math.max(caretText.caret(), 0));
         return psiFile;
     }
 
@@ -243,6 +252,13 @@ public final class SymfonyTestFixture {
         return myCaretOffset;
     }
 
+    /**
+     * Moves the caret of the configured file, which completion and navigation work at
+     */
+    public void moveCaret(int offset) {
+        myCaretOffset = offset;
+    }
+
     public Document getDocument() {
         Document document = FileDocumentManager.getInstance().getDocument(getFile().getVirtualFile());
         if (document == null) {
@@ -257,7 +273,6 @@ public final class SymfonyTestFixture {
     public Editor getEditor() {
         if (myEditor == null) {
             Document document = getDocument();
-            // TODO the headless editor has no logical positions to move its caret to, the completion takes the offset
             myEditor = HeadlessUIThread.compute(() -> EditorFactory.getInstance().createEditor(document, getProject()));
         }
         return myEditor;
@@ -290,9 +305,93 @@ public final class SymfonyTestFixture {
 
         CompletionParameters parameters = new CompletionParameters(position, file, CompletionType.BASIC, offset, 1, getEditor(), () -> false);
         List<LookupElement> lookupElements = new ArrayList<>();
-        CompletionService.getCompletionService().performCompletion(parameters, result -> lookupElements.add(result.getLookupElement()));
+        myLookupPrefixes.clear();
+        CompletionService.getCompletionService().performCompletion(parameters, result -> {
+            lookupElements.add(result.getLookupElement());
+            myLookupPrefixes.put(result.getLookupElement(), result.getPrefixMatcher().getPrefix());
+        });
         myLookupElements = lookupElements;
         return lookupElements.toArray(LookupElement.EMPTY_ARRAY);
+    }
+
+    /**
+     * The basic completion, a single variant inserted right away like the IDE does
+     */
+    public LookupElement[] completeBasicAndInsertSingle() {
+        LookupElement[] lookupElements = completeBasic();
+        if (lookupElements.length == 1) {
+            insertLookupElement(lookupElements[0]);
+        }
+        return lookupElements;
+    }
+
+    /**
+     * Inserts a lookup element at the caret like the IDE: its lookup string replaces the prefix it was matched with, then its
+     * insert handler runs; the caret ends where the handler leaves it
+     */
+    public void insertLookupElement(LookupElement element) {
+        String prefix = myLookupPrefixes.getOrDefault(element, "");
+        Document document = getDocument();
+        Editor editor = getEditor();
+        int end = myCaretOffset;
+        int start = end - prefix.length();
+
+        runWriteCommand(() -> {
+            document.replaceString(start, end, element.getLookupString());
+            int identifierEnd = start + element.getLookupString().length();
+            editor.getCaretModel().moveToOffset(identifierEnd);
+            PsiDocumentManager.getInstance(getProject()).commitDocument(document);
+
+            OffsetMap offsetMap = new OffsetMap(document);
+            offsetMap.addOffset(CompletionInitializationContext.START_OFFSET, start);
+            offsetMap.addOffset(CompletionInitializationContext.SELECTION_END_OFFSET, identifierEnd);
+            offsetMap.addOffset(CompletionInitializationContext.IDENTIFIER_END_OFFSET, identifierEnd);
+            InsertionContext context = new InsertionContext(
+                offsetMap, Lookup.NORMAL_SELECT_CHAR, new LookupElement[]{element}, getFile(), editor, false
+            );
+            element.handleInsert(context);
+            PsiDocumentManager.getInstance(getProject()).commitDocument(document);
+        });
+        myCaretOffset = editor.getCaretModel().getOffset();
+    }
+
+    /**
+     * The text of the configured file is the expected one; a {@code <caret>} marker in it is checked against the caret
+     */
+    public void checkResult(String expected) {
+        CaretText expectedCaretText = CaretText.parse(expected);
+        int expectedCaret = expectedCaretText.caret();
+        String expectedText = expectedCaretText.text();
+        String actualText = getDocument().getText();
+        if (!expectedText.equals(actualText)) {
+            throw new AssertionFailedError(
+                "the text of " + getFile().getName() + " differs ==> expected: <" + expectedText + "> but was: <" + actualText + ">"
+                    + " (lookup elements: " + getLookupElementStrings() + ")",
+                expectedText,
+                actualText
+            );
+        }
+        if (expectedCaret >= 0 && expectedCaret != myCaretOffset) {
+            throw new AssertionFailedError("the caret of " + getFile().getName() + " differs", expectedCaret, myCaretOffset);
+        }
+    }
+
+    /**
+     * A write command on the UI thread, without the read lock of the test body
+     */
+    private void runWriteCommand(Runnable runnable) {
+        try {
+            TestReadLock.withoutRead(() -> {
+                HeadlessUIThread.run(() -> WriteCommandAction.runWriteCommandAction(getProject(), runnable));
+                return null;
+            });
+        }
+        catch (RuntimeException e) {
+            throw e;
+        }
+        catch (Exception e) {
+            throw new AssertionError(e);
+        }
     }
 
     public LookupElement @Nullable [] getLookupElements() {
@@ -340,5 +439,27 @@ public final class SymfonyTestFixture {
     private String relativePath(VirtualFile file) {
         String root = myFixture.getProjectRoot().getPath();
         return file.getPath().substring(root.length() + 1);
+    }
+
+    /**
+     * A text without its {@code <caret>} markers; with several markers the caret is the last one, the primary caret of upstream's
+     * fixture
+     *
+     * @param caret the offset of the caret in the text, {@code -1} without a marker
+     */
+    record CaretText(String text, int caret) {
+        static CaretText parse(String marked) {
+            StringBuilder text = new StringBuilder(marked.length());
+            int caret = -1;
+            int from = 0;
+            int marker;
+            while ((marker = marked.indexOf(CARET, from)) >= 0) {
+                text.append(marked, from, marker);
+                caret = text.length();
+                from = marker + CARET.length();
+            }
+            text.append(marked, from, marked.length());
+            return new CaretText(text.toString(), caret);
+        }
     }
 }

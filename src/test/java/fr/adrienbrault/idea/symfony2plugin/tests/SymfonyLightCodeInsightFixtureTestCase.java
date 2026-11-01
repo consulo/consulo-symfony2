@@ -300,11 +300,15 @@ public abstract class SymfonyLightCodeInsightFixtureTestCase extends JUnit3Asser
     }
 
     public void assertCompletionResultEquals(String filename, String complete, String result) {
-        throw new UnsupportedOperationException("completing with the insert handler of a lookup element is not ported");
+        myFixture.configureByText(filename, complete);
+        myFixture.completeBasicAndInsertSingle();
+        myFixture.checkResult(result);
     }
 
     public void assertCompletionResultEquals(FileType fileType, String complete, String result) {
-        throw new UnsupportedOperationException("completing with the insert handler of a lookup element is not ported");
+        myFixture.configureByText(fileType, complete);
+        myFixture.completeBasicAndInsertSingle();
+        myFixture.checkResult(result);
     }
 
     // ------------------------------------------------------------------------------------------------------------------------------------

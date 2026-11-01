@@ -1,5 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.dic.yaml;
 
+import consulo.it.AllowWriteLockUnderUIThread;
 import org.junit.jupiter.api.Test;
 
 import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureTestCase;
@@ -9,6 +10,7 @@ import org.jetbrains.yaml.YAMLFileType;
  * @author Daniel Espendiller <daniel@espendiller.net>
  * @see fr.adrienbrault.idea.symfony2plugin.config.yaml.YamlCompletionContributor
  */
+@AllowWriteLockUnderUIThread
 public class YamlDicCompletionContributorTest extends SymfonyLightCodeInsightFixtureTestCase {
 
     public void setUp() throws Exception {

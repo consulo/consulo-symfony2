@@ -274,7 +274,7 @@ public class TwigTemplateGoToDeclarationHandlerTest extends SymfonyLightCodeInsi
 
         PsiFile templateFile = myFixture.addFileToProject("templates/form/goto.html.twig", "{{ form.title }}");
         myFixture.configureFromExistingVirtualFile(templateFile.getVirtualFile());
-        myFixture.getEditor().getCaretModel().moveToOffset("{{ form.ti".length());
+        myFixture.moveCaret("{{ form.ti".length());
 
         assertNavigationMatch(PlatformPatterns.psiElement(PhpClass.class).withName("ProductType"));
     }

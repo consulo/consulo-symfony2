@@ -1,5 +1,6 @@
 package fr.adrienbrault.idea.symfony2plugin.tests.templating.completion;
 
+import consulo.it.AllowWriteLockUnderUIThread;
 import org.junit.jupiter.api.Test;
 
 import com.jetbrains.twig.TwigFileType;
@@ -10,6 +11,7 @@ import fr.adrienbrault.idea.symfony2plugin.util.UxUtil;
  * @author Daniel Espendiller <daniel@espendiller.net>
  * @see fr.adrienbrault.idea.symfony2plugin.templating.completion.TwigHtmlCompletionContributor
  */
+@AllowWriteLockUnderUIThread
 public class TwigHtmlCompletionContributorTest extends SymfonyLightCodeInsightFixtureTestCase {
     public void setUp() throws Exception {
         super.setUp();

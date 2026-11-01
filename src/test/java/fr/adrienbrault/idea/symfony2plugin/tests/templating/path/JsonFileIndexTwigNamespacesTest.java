@@ -11,6 +11,9 @@ import fr.adrienbrault.idea.symfony2plugin.tests.SymfonyLightCodeInsightFixtureT
 import java.util.List;
 
 public class JsonFileIndexTwigNamespacesTest extends SymfonyLightCodeInsightFixtureTestCase {
+    // the project directory of the test is its source root, upstream's light fixture has the files in its src directory
+    private static final String FOO_RES = "foo/res";
+
     @Override
     public void setUp() throws Exception {
         super.setUp();
@@ -31,7 +34,7 @@ public class JsonFileIndexTwigNamespacesTest extends SymfonyLightCodeInsightFixt
         TwigPath foo = ContainerUtil.find(twigNamespaces, new MyTwigPathNamespaceCondition("foo"));
 
         assertNotNull(foo);
-        assertEquals("src/foo/res", foo.getPath());
+        assertEquals(FOO_RES, foo.getPath());
         assertEquals("foo", foo.getNamespace());
         assertEquals(true, foo.isEnabled());
         assertEquals(TwigUtil.NamespaceType.ADD_PATH, foo.getNamespaceType());
@@ -42,8 +45,8 @@ public class JsonFileIndexTwigNamespacesTest extends SymfonyLightCodeInsightFixt
 
     public void testThatPathValueIsNormalized() {
         List<TwigPath> twigNamespaces = TwigUtil.getTwigNamespaces(getProject());
-        assertEquals("src/foo/res", ContainerUtil.find(twigNamespaces, new MyTwigPathNamespaceCondition("foo1")).getPath());
-        assertEquals("src/foo", ContainerUtil.find(twigNamespaces, new MyTwigPathNamespaceCondition("bar")).getPath());
+        assertEquals(FOO_RES, ContainerUtil.find(twigNamespaces, new MyTwigPathNamespaceCondition("foo1")).getPath());
+        assertEquals("foo", ContainerUtil.find(twigNamespaces, new MyTwigPathNamespaceCondition("bar")).getPath());
     }
 
     @Test
@@ -51,7 +54,7 @@ public class JsonFileIndexTwigNamespacesTest extends SymfonyLightCodeInsightFixt
     public void testThatBundleNamespaceIsSupported() {
         TwigPath fooBundle = ContainerUtil.find(TwigUtil.getTwigNamespaces(getProject()), new MyTwigPathNamespaceCondition("FooBundle"));
         assertNotNull(fooBundle);
-        assertEquals("src/foo/res", fooBundle.getPath());
+        assertEquals(FOO_RES, fooBundle.getPath());
         assertEquals("FooBundle", fooBundle.getNamespace());
         assertEquals(TwigUtil.NamespaceType.BUNDLE, fooBundle.getNamespaceType());
     }
