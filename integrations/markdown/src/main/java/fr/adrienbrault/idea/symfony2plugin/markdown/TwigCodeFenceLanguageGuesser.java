@@ -4,13 +4,11 @@ import com.jetbrains.twig.TwigFileType;
 import com.jetbrains.twig.TwigLanguage;
 import consulo.annotation.component.ExtensionImpl;
 import consulo.language.Language;
-import consulo.language.editor.completion.CompletionParameters;
-import consulo.language.editor.completion.lookup.LookupElement;
-import consulo.language.editor.completion.lookup.LookupElementBuilder;
 import consulo.markdown.injection.LanguageGuesser;
+import consulo.markdown.injection.LanguageVariant;
 import jakarta.annotation.Nonnull;
 import jakarta.annotation.Nullable;
-import org.intellij.plugins.markdown.lang.psi.impl.MarkdownCodeFenceImpl;
+import org.intellij.plugins.markdown.lang.psi.MarkdownCodeFence;
 
 import java.util.Collection;
 import java.util.List;
@@ -24,7 +22,7 @@ public class TwigCodeFenceLanguageGuesser implements LanguageGuesser {
 
     @Nullable
     @Override
-    public Language guessLanguage(@Nonnull MarkdownCodeFenceImpl markdownCodeFence, @Nonnull String fenceLanguage) {
+    public Language guessLanguage(@Nonnull MarkdownCodeFence markdownCodeFence, @Nonnull String fenceLanguage) {
         return guessLanguage(fenceLanguage);
     }
 
@@ -36,9 +34,7 @@ public class TwigCodeFenceLanguageGuesser implements LanguageGuesser {
 
     @Nonnull
     @Override
-    public Collection<LookupElement> getCompletionVariants(@Nonnull CompletionParameters parameters) {
-        return List.of(LookupElementBuilder.create(TWIG_INFO_STRING)
-            .withIcon(TwigFileType.INSTANCE.getIcon())
-            .withTypeText(TwigLanguage.INSTANCE.getDisplayName().get(), true));
+    public Collection<LanguageVariant> getVariants() {
+        return List.of(new LanguageVariant(TWIG_INFO_STRING, TwigFileType.INSTANCE.getIcon(), TwigLanguage.INSTANCE.getDisplayName()));
     }
 }
