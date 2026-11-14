@@ -13,10 +13,12 @@ import consulo.endpoint.FrameworkPresentation;
 import consulo.endpoint.presentation.HttpMethodPresentation;
 import consulo.language.psi.PsiElement;
 import consulo.language.psi.PsiModificationTracker;
+import consulo.module.extension.ModuleExtension;
 import consulo.navigation.ItemPresentation;
 import consulo.project.Project;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2ProjectComponent;
 import fr.adrienbrault.idea.symfony2plugin.Symfony2Icons;
+import fr.adrienbrault.idea.symfony2plugin.module.extension.SymfonyModuleExtension;
 import fr.adrienbrault.idea.symfony2plugin.routing.Route;
 import fr.adrienbrault.idea.symfony2plugin.routing.RouteHelper;
 import jakarta.inject.Inject;
@@ -66,9 +68,6 @@ public class SymfonyEndpointProvider implements EndpointProvider<SymfonyRouteGro
 
     @Override
     public Status getStatus() {
-        if (!Symfony2ProjectComponent.isEnabled(myProject)) {
-            return Status.UNAVAILABLE;
-        }
         // the routes come from indexes, which are not ready while indexing
         if (DumbService.isDumb(myProject)) {
             return Status.AVAILABLE;
@@ -76,6 +75,11 @@ public class SymfonyEndpointProvider implements EndpointProvider<SymfonyRouteGro
 
         Map<String, Route> routes = ReadAction.compute(() -> RouteHelper.getAllRoutesUnique(myProject));
         return routes.isEmpty() ? Status.AVAILABLE : Status.HAS_ENDPOINTS;
+    }
+
+    @Override
+    public Class<? extends ModuleExtension> getModuleExtensionClass() {
+        return SymfonyModuleExtension.class;
     }
 
     @RequiredReadAction
