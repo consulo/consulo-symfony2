@@ -46,7 +46,10 @@ public class SymfonyContainerServiceBuilder extends DumbAwareAction implements A
 
     @Override
     public Coroutine<?, ?> updateAsync(AnActionEvent e) {
-        return Coroutine.first(ActionSafeReadLock.run(e, presentation -> update(e)));
+        return Coroutine.first(ActionSafeReadLock.run(e, presentation -> {
+            // update(e) looks for the file only when a module of the project has symfony enabled
+            presentation.setEnabledAndVisible(Symfony2ProjectComponent.isEnabled(e.getData(Project.KEY)));
+        }, presentation -> update(e)));
     }
 
     public void update(AnActionEvent event) {
